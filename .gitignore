@@ -1,0 +1,13 @@
+demo/node_modules/
+demo/dist/
+demo/.vite/
+demo/*.tsbuildinfo
+demo/vite.config.js
+demo/vite.config.d.ts
+
+demo-backend/.venv/
+demo-backend/**/__pycache__/
+demo-backend/**/*.pyc
+demo-backend/data/*.tmp
+
+.DS_Store

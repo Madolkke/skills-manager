@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Eval-backed SkillHub Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="side-nav" aria-label="主导航">
+        <div class="brand">
+          <div class="brand-mark">SH</div>
+          <div>
+            <div class="brand-title">SkillHub Lab</div>
+            <div class="brand-subtitle">Eval-backed prototype</div>
+          </div>
+        </div>
+
+        <nav class="nav-stack">
+          <button class="nav-item is-active" data-view="hub">
+            <span class="nav-icon">⌂</span>
+            <span>Hub</span>
+          </button>
+          <button class="nav-item" data-view="skill">
+            <span class="nav-icon">◆</span>
+            <span>Skill Detail</span>
+          </button>
+          <button class="nav-item" data-view="eval">
+            <span class="nav-icon">▦</span>
+            <span>Eval Corpus</span>
+          </button>
+        </nav>
+
+        <div class="side-footer">
+          <div class="mini-label">当前样例</div>
+          <div class="mini-title">code-reviewer</div>
+          <div class="mini-copy">变体分发，测评集支撑，bad case 进入回归。</div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <div class="eyebrow" id="pageEyebrow">SkillHub</div>
+            <h1 id="pageTitle">Explore Skills</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-button" id="resetDemo" title="重置原型状态" aria-label="重置原型状态">↺</button>
+            <button class="primary-button" id="installTop">安装当前最佳变体</button>
+          </div>
+        </header>
+
+        <section class="control-strip detail-only" aria-label="筛选条件">
+          <div class="control-group">
+            <div class="control-label">请求 tags</div>
+            <div class="tag-toggle-row" id="requestedTags"></div>
+          </div>
+          <div class="control-group">
+            <div class="control-label">测评集版本</div>
+            <div class="segmented" id="evalVersionPicker"></div>
+          </div>
+          <div class="control-group">
+            <div class="control-label">RankingStrategy</div>
+            <select id="rankingStrategy" class="select-control">
+              <option value="balanced">balanced</option>
+              <option value="regression-first">regression-first</option>
+              <option value="tag-match-first">tag-match-first</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="status-rail detail-only" aria-label="闭环状态">
+          <div class="status-step" data-step="badcase">
+            <span class="status-dot"></span>
+            <span>来源反馈</span>
+          </div>
+          <div class="status-step" data-step="evalcase">
+            <span class="status-dot"></span>
+            <span>EvalCase</span>
+          </div>
+          <div class="status-step" data-step="variant">
+            <span class="status-dot"></span>
+            <span>Variant C</span>
+          </div>
+          <div class="status-step" data-step="run">
+            <span class="status-dot"></span>
+            <span>EvalRun</span>
+          </div>
+        </section>
+
+        <section class="view is-active" id="view-hub">
+          <section class="panel hub-panel">
+            <div class="panel-header">
+              <div>
+                <h2>SkillHub</h2>
+                <p>主页保持传统 SkillHub 的浏览体验，测评证据作为摘要露出。点击进入后再展开变体图和测评矩阵。</p>
+              </div>
+              <input class="search-input" value="code review" aria-label="搜索 skills" />
+            </div>
+            <div class="hub-grid" id="hubGrid"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-skill">
+          <div class="layout-grid">
+            <section class="panel map-panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Variant Map</h2>
+                  <p id="rankingHint">tag 是约束入口，variant 是可安装节点；实线表示 parent lineage。</p>
+                </div>
+                <button class="ghost-button" id="compareBest">对比当前前两名</button>
+              </div>
+              <div id="variantMap" class="variant-map"></div>
+            </section>
+
+            <section class="panel variant-drawer-panel">
+              <div class="panel-header">
+                <div>
+                  <h2>Variant Detail</h2>
+                  <p>点击图上的节点查看当前测评、历史和内容引用。</p>
+                </div>
+              </div>
+              <div id="variantDrawer" class="variant-drawer"></div>
+            </section>
+          </div>
+
+          <section class="panel compare-panel">
+            <div class="panel-header">
+              <div>
+                <h2>变体对比</h2>
+                <p>查看同一测评版本下的 case-level 差异。</p>
+              </div>
+              <div class="compare-selectors">
+                <select id="compareLeft" class="select-control"></select>
+                <span class="compare-arrow">↔</span>
+                <select id="compareRight" class="select-control"></select>
+              </div>
+            </div>
+            <div id="comparison" class="comparison"></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-eval">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Eval Corpus</h2>
+                <p>测评集是核心资产。bad case 只作为 case 来源出现，不作为独立主模块。</p>
+              </div>
+              <div class="badcase-actions">
+                <button class="primary-button" id="convertBadcase">将来源转为 EvalCase</button>
+                <button class="ghost-button" id="registerVariant">注册 Variant C</button>
+                <button class="ghost-button" id="runVariantC">运行 C on v2</button>
+              </div>
+            </div>
+            <div id="corpusSummary" class="corpus-summary"></div>
+            <div id="sourceEvent" class="source-event"></div>
+            <div id="scoreSummary" class="score-summary"></div>
+            <div id="caseMatrix" class="case-matrix"></div>
+            <div id="evalCaseTable" class="data-table"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

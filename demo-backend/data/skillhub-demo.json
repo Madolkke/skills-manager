@@ -1,0 +1,1088 @@
+{
+  "skills": [
+    {
+      "id": "skill-code-reviewer",
+      "slug": "code-reviewer",
+      "owner_ref": "skillhub-lab",
+      "default_variant_ref": "variant-a",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "skill-api-reviewer",
+      "slug": "api-reviewer",
+      "owner_ref": "skillhub-lab",
+      "default_variant_ref": "variant-05b1ec3e",
+      "created_at": "2026-04-25T12:37:32.616Z"
+    },
+    {
+      "id": "skill-security-reviewer",
+      "slug": "security-reviewer",
+      "owner_ref": "skillhub-lab",
+      "default_variant_ref": "variant-4189871b",
+      "created_at": "2026-04-25T13:30:38.436Z"
+    }
+  ],
+  "tag_sets": [
+    {
+      "id": "tagset-codex",
+      "tags_hash": "codex",
+      "tags": [
+        "codex"
+      ]
+    },
+    {
+      "id": "tagset-codex-gpt54",
+      "tags_hash": "codex|gpt5.4",
+      "tags": [
+        "codex",
+        "gpt5.4"
+      ]
+    },
+    {
+      "id": "tagset-codex-security-50bf62",
+      "tags_hash": "codex|security",
+      "tags": [
+        "codex",
+        "security"
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "id": "variant-a",
+      "skill_ref": "skill-code-reviewer",
+      "name": "Variant A",
+      "label": "Codex baseline",
+      "summary": "通用 Codex 审查，关注 bug、测试缺口和可维护性。",
+      "tag_set_ref": "tagset-codex",
+      "current_version_ref": "version-variant-a-v8",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "variant-b",
+      "skill_ref": "skill-code-reviewer",
+      "name": "Variant B",
+      "label": "Codex + GPT-5.4 tuned",
+      "summary": "针对 GPT-5.4 的长上下文审查，引用更完整，但输出更长。",
+      "tag_set_ref": "tagset-codex-gpt54",
+      "current_version_ref": "version-b-v1",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "variant-05b1ec3e",
+      "skill_ref": "skill-api-reviewer",
+      "name": "Variant A",
+      "label": "API baseline",
+      "summary": "审查 API 兼容性、鉴权边界和错误响应泄露。",
+      "tag_set_ref": "tagset-codex",
+      "current_version_ref": "version-variant-05b1ec3e-v1",
+      "created_at": "2026-04-25T12:37:32.616Z"
+    },
+    {
+      "id": "variant-4189871b",
+      "skill_ref": "skill-security-reviewer",
+      "name": "Variant A",
+      "label": "Security baseline",
+      "summary": "审查鉴权、敏感信息泄露和危险配置变更。",
+      "tag_set_ref": "tagset-codex-security-50bf62",
+      "current_version_ref": "version-variant-4189871b-v2",
+      "created_at": "2026-04-25T13:30:38.436Z"
+    }
+  ],
+  "variant_versions": [
+    {
+      "id": "version-a-v1",
+      "variant_ref": "variant-a",
+      "version": "v1",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "code-reviewer-a",
+        "digest": "sha-91aa",
+        "path": null
+      },
+      "change_note": "初始 Codex 默认版本。",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "version-a-v0",
+      "variant_ref": "variant-a",
+      "version": "v0",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "code-reviewer-a-draft",
+        "digest": "sha-00aa",
+        "path": null
+      },
+      "change_note": "早期草稿版本，输出噪声较多。",
+      "created_at": "2026-04-20T00:00:00.000Z"
+    },
+    {
+      "id": "version-b-v1",
+      "variant_ref": "variant-b",
+      "version": "v1",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "code-reviewer-b",
+        "digest": "sha-23bc",
+        "path": null
+      },
+      "change_note": "针对 GPT-5.4 的长上下文审查版本。",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "version-variant-05b1ec3e-v1",
+      "variant_ref": "variant-05b1ec3e",
+      "version": "v1",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "variant-a",
+        "digest": "sha-c318f0dd",
+        "path": null
+      },
+      "change_note": "初始 API review 版本。",
+      "created_at": "2026-04-25T12:37:32.616Z"
+    },
+    {
+      "id": "version-variant-a-v3",
+      "variant_ref": "variant-a",
+      "version": "v3",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "variant-a-v3",
+        "digest": "sha-ce92345f",
+        "path": null
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-25T12:51:18.178Z"
+    },
+    {
+      "id": "version-variant-a-v4",
+      "variant_ref": "variant-a",
+      "version": "v4",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "variant-a-v4",
+        "digest": "sha-e56f2401",
+        "path": null
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-25T13:14:31.590Z"
+    },
+    {
+      "id": "version-variant-4189871b-v1",
+      "variant_ref": "variant-4189871b",
+      "version": "v1",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "variant-a",
+        "digest": "sha-1f9e298e",
+        "path": null
+      },
+      "change_note": "初始 security review 版本。",
+      "created_at": "2026-04-25T13:30:38.436Z"
+    },
+    {
+      "id": "version-variant-4189871b-v2",
+      "variant_ref": "variant-4189871b",
+      "version": "v2",
+      "content_ref": {
+        "kind": "inline_bundle",
+        "locator": "variant-a-v2",
+        "digest": "sha-e941e71b",
+        "path": null
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-25T13:39:23.608Z"
+    },
+    {
+      "id": "version-variant-a-v5",
+      "variant_ref": "variant-a",
+      "version": "v5",
+      "content_ref": {
+        "kind": "skill_bundle",
+        "locator": "artifact-skill-bundle-code-reviewer-bundle-7766cbfa",
+        "digest": "sha-7766cbfaf990",
+        "path": "/"
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-26T08:47:33.714Z"
+    },
+    {
+      "id": "version-variant-a-v6",
+      "variant_ref": "variant-a",
+      "version": "v6",
+      "content_ref": {
+        "kind": "skill_bundle",
+        "locator": "artifact-skill-bundle-code-reviewer-bundle-7766cbfa",
+        "digest": "sha-7766cbfaf990",
+        "path": "/"
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-26T09:28:51.801Z"
+    },
+    {
+      "id": "version-variant-a-v7",
+      "variant_ref": "variant-a",
+      "version": "v7",
+      "content_ref": {
+        "kind": "skill_bundle",
+        "locator": "artifact-skill-bundle-code-reviewer-bundle-7766cbfa",
+        "digest": "sha-7766cbfaf990",
+        "path": "/"
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-26T10:17:17.797Z"
+    },
+    {
+      "id": "version-variant-a-v8",
+      "variant_ref": "variant-a",
+      "version": "v8",
+      "content_ref": {
+        "kind": "skill_bundle",
+        "locator": "artifact-skill-bundle-code-reviewer-bundle-9a1bb4d8",
+        "digest": "sha-9a1bb4d8e7c4",
+        "path": "/"
+      },
+      "change_note": "根据最新实验结果更新当前变体版本，简化输出并加强敏感信息检查。",
+      "created_at": "2026-04-26T10:18:08.580Z"
+    }
+  ],
+  "eval_corpora": [
+    {
+      "id": "corpus-code-reviewer",
+      "skill_ref": "skill-code-reviewer",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "corpus-api-reviewer",
+      "skill_ref": "skill-api-reviewer",
+      "created_at": "2026-04-25T12:37:32.616Z"
+    },
+    {
+      "id": "corpus-security-reviewer",
+      "skill_ref": "skill-security-reviewer",
+      "created_at": "2026-04-25T13:30:38.436Z"
+    }
+  ],
+  "eval_cases": [
+    {
+      "id": "case-null",
+      "corpus_ref": "corpus-code-reviewer",
+      "title": "PR: 用户资料 nickname 变成可选字段",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-input-null",
+      "expectation_artifact_ref": "artifact-exp-null",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "指出 nickname 可选时仍有直接调用 toUpperCase 的崩溃风险。",
+      "created_at": "2026-04-24T00:00:00.000Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-auth",
+      "corpus_ref": "corpus-code-reviewer",
+      "title": "PR: 订单详情查询改为按 id 读取",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-input-auth",
+      "expectation_artifact_ref": "artifact-exp-auth",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "指出 ownerId 过滤被移除，用户可能读取别人的订单。",
+      "created_at": "2026-04-24T00:00:00.000Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-noise",
+      "corpus_ref": "corpus-code-reviewer",
+      "title": "PR: 仅重命名局部变量",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-input-noise",
+      "expectation_artifact_ref": "artifact-exp-noise",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "不要把低价值命名建议当作主要 finding。",
+      "created_at": "2026-04-24T00:00:00.000Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-4",
+      "corpus_ref": "corpus-code-reviewer",
+      "title": "发现敏感 token 输出到错误响应",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-case-4-input",
+      "expectation_artifact_ref": "artifact-case-4-expected",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "created_at": "2026-04-25T12:50:57.918Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-5",
+      "corpus_ref": "corpus-code-reviewer",
+      "title": "发现敏感 token 输出到错误响应",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-case-5-input",
+      "expectation_artifact_ref": "artifact-case-5-expected",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "created_at": "2026-04-25T13:25:24.387Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-6",
+      "corpus_ref": "corpus-code-reviewer",
+      "title": "发现敏感 token 输出到错误响应",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-case-6-input",
+      "expectation_artifact_ref": "artifact-case-6-expected",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "created_at": "2026-04-25T13:25:26.035Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-7",
+      "corpus_ref": "corpus-security-reviewer",
+      "title": "发现敏感 token 输出到错误响应",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-case-7-input",
+      "expectation_artifact_ref": "artifact-case-7-expected",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "created_at": "2026-04-25T13:34:42.304Z",
+      "origin_ref": null
+    },
+    {
+      "id": "case-8",
+      "corpus_ref": "corpus-security-reviewer",
+      "title": "发现管理接口缺少 owner 校验",
+      "source_type": "manual",
+      "input_artifact_ref": "artifact-case-8-input",
+      "expectation_artifact_ref": "artifact-case-8-expected",
+      "grader_ref": "manual-pass-fail-v1",
+      "expectation": "输出：必须指出缺少 ownerId 校验会导致越权读取或修改配置。",
+      "created_at": "2026-04-25T13:38:40.104Z",
+      "origin_ref": null
+    }
+  ],
+  "eval_set_versions": [
+    {
+      "id": "evalset-v1",
+      "corpus_ref": "corpus-code-reviewer",
+      "version": "v1",
+      "case_refs": [
+        "case-null",
+        "case-auth",
+        "case-noise"
+      ],
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "evalset-api-reviewer-v1",
+      "corpus_ref": "corpus-api-reviewer",
+      "version": "v1",
+      "case_refs": [],
+      "created_at": "2026-04-25T12:37:32.616Z"
+    },
+    {
+      "id": "evalset-v2",
+      "corpus_ref": "corpus-code-reviewer",
+      "version": "v2",
+      "case_refs": [
+        "case-null",
+        "case-auth",
+        "case-noise",
+        "case-4"
+      ],
+      "created_at": "2026-04-25T12:50:57.918Z"
+    },
+    {
+      "id": "evalset-v3",
+      "corpus_ref": "corpus-code-reviewer",
+      "version": "v3",
+      "case_refs": [
+        "case-null",
+        "case-auth",
+        "case-noise",
+        "case-4",
+        "case-5"
+      ],
+      "created_at": "2026-04-25T13:25:24.387Z"
+    },
+    {
+      "id": "evalset-v4",
+      "corpus_ref": "corpus-code-reviewer",
+      "version": "v4",
+      "case_refs": [
+        "case-null",
+        "case-auth",
+        "case-noise",
+        "case-4",
+        "case-5",
+        "case-6"
+      ],
+      "created_at": "2026-04-25T13:25:26.035Z"
+    },
+    {
+      "id": "evalset-security-reviewer-v1",
+      "corpus_ref": "corpus-security-reviewer",
+      "version": "v1",
+      "case_refs": [],
+      "created_at": "2026-04-25T13:30:38.436Z"
+    },
+    {
+      "id": "evalset-v2-d36eea",
+      "corpus_ref": "corpus-security-reviewer",
+      "version": "v2",
+      "case_refs": [
+        "case-7"
+      ],
+      "created_at": "2026-04-25T13:34:42.304Z"
+    },
+    {
+      "id": "evalset-v3-1a5d96",
+      "corpus_ref": "corpus-security-reviewer",
+      "version": "v3",
+      "case_refs": [
+        "case-7",
+        "case-8"
+      ],
+      "created_at": "2026-04-25T13:38:40.104Z"
+    }
+  ],
+  "eval_runs": [
+    {
+      "id": "run-a-v1",
+      "variant_version_ref": "version-a-v1",
+      "eval_set_version_ref": "evalset-v1",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-24T00:00:00.000Z",
+      "finished_at": "2026-04-24T00:00:00.000Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-b-v1",
+      "variant_version_ref": "version-b-v1",
+      "eval_set_version_ref": "evalset-v1",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-24T00:00:00.000Z",
+      "finished_at": "2026-04-24T00:00:00.000Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-a-v1-evalset-v2-e8235f9aa598",
+      "variant_version_ref": "version-a-v1",
+      "eval_set_version_ref": "evalset-v2",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T12:51:17.897Z",
+      "finished_at": "2026-04-25T12:51:17.897Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-a-v3-evalset-v2-a5f98904ab66",
+      "variant_version_ref": "version-variant-a-v3",
+      "eval_set_version_ref": "evalset-v2",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:14:27.372Z",
+      "finished_at": "2026-04-25T13:14:27.372Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-a-v3-evalset-v2-58b95d32d03e",
+      "variant_version_ref": "version-variant-a-v3",
+      "eval_set_version_ref": "evalset-v2",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:14:28.954Z",
+      "finished_at": "2026-04-25T13:14:28.954Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "variant_version_ref": "version-variant-a-v4",
+      "eval_set_version_ref": "evalset-v4",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:26:09.653Z",
+      "finished_at": "2026-04-25T13:26:09.653Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "variant_version_ref": "version-variant-a-v4",
+      "eval_set_version_ref": "evalset-v4",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:26:11.467Z",
+      "finished_at": "2026-04-25T13:26:11.467Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "variant_version_ref": "version-variant-a-v4",
+      "eval_set_version_ref": "evalset-v4",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:26:19.436Z",
+      "finished_at": "2026-04-25T13:26:19.436Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v1-evalset-v3-1a5d96-b0587ece4029",
+      "variant_version_ref": "version-variant-4189871b-v1",
+      "eval_set_version_ref": "evalset-v3-1a5d96",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:39:08.555Z",
+      "finished_at": "2026-04-25T13:39:08.555Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-73da763d2df6",
+      "variant_version_ref": "version-variant-4189871b-v2",
+      "eval_set_version_ref": "evalset-v3-1a5d96",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-25T13:39:39.281Z",
+      "finished_at": "2026-04-25T13:39:39.281Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-bb00a8f18ae6",
+      "variant_version_ref": "version-variant-4189871b-v2",
+      "eval_set_version_ref": "evalset-v3-1a5d96",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-26T04:17:45.411Z",
+      "finished_at": "2026-04-26T04:17:45.411Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-7f27171b0ed1",
+      "variant_version_ref": "version-variant-4189871b-v2",
+      "eval_set_version_ref": "evalset-v3-1a5d96",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-26T04:21:12.108Z",
+      "finished_at": "2026-04-26T04:21:12.108Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-462d718db5ad",
+      "variant_version_ref": "version-variant-4189871b-v2",
+      "eval_set_version_ref": "evalset-v3-1a5d96",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-26T04:21:13.973Z",
+      "finished_at": "2026-04-26T04:21:13.973Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-b25cd15f1327",
+      "variant_version_ref": "version-variant-4189871b-v2",
+      "eval_set_version_ref": "evalset-v3-1a5d96",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-26T04:21:14.839Z",
+      "finished_at": "2026-04-26T04:21:14.839Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-variant-4189871b-v1-evalset-v2-d36eea-e2f6d7a2924f",
+      "variant_version_ref": "version-variant-4189871b-v1",
+      "eval_set_version_ref": "evalset-v2-d36eea",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-26T04:40:55.334Z",
+      "finished_at": "2026-04-26T04:40:55.334Z",
+      "result_artifact_ref": null
+    },
+    {
+      "id": "run-version-a-v1-evalset-v1-36074cb005bd",
+      "variant_version_ref": "version-a-v1",
+      "eval_set_version_ref": "evalset-v1",
+      "strategy_ref": "manual-eval-v1",
+      "run_config_hash": "manual-v1",
+      "status": "finished",
+      "started_at": "2026-04-26T08:30:05.123Z",
+      "finished_at": "2026-04-26T08:30:05.123Z",
+      "result_artifact_ref": null
+    }
+  ],
+  "case_results": [
+    {
+      "run_ref": "run-a-v1",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-a-v1",
+      "case_ref": "case-auth",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-a-v1",
+      "case_ref": "case-noise",
+      "passed": false,
+      "score": 0
+    },
+    {
+      "run_ref": "run-b-v1",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-b-v1",
+      "case_ref": "case-auth",
+      "passed": false,
+      "score": 0
+    },
+    {
+      "run_ref": "run-b-v1",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v2-e8235f9aa598",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v2-e8235f9aa598",
+      "case_ref": "case-auth",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v2-e8235f9aa598",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v2-e8235f9aa598",
+      "case_ref": "case-4",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-a5f98904ab66",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-a5f98904ab66",
+      "case_ref": "case-auth",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-a5f98904ab66",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-a5f98904ab66",
+      "case_ref": "case-4",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-58b95d32d03e",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-58b95d32d03e",
+      "case_ref": "case-auth",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-58b95d32d03e",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v3-evalset-v2-58b95d32d03e",
+      "case_ref": "case-4",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "case_ref": "case-auth",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "case_ref": "case-4",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "case_ref": "case-5",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-b1930f7c8428",
+      "case_ref": "case-6",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "case_ref": "case-null",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "case_ref": "case-auth",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "case_ref": "case-4",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "case_ref": "case-5",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-9201f03aa038",
+      "case_ref": "case-6",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "case_ref": "case-null",
+      "passed": false,
+      "score": 0
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "case_ref": "case-auth",
+      "passed": false,
+      "score": 0
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "case_ref": "case-4",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "case_ref": "case-5",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-a-v4-evalset-v4-57b03f212876",
+      "case_ref": "case-6",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v1-evalset-v3-1a5d96-b0587ece4029",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v1-evalset-v3-1a5d96-b0587ece4029",
+      "case_ref": "case-8",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-73da763d2df6",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-73da763d2df6",
+      "case_ref": "case-8",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-bb00a8f18ae6",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-bb00a8f18ae6",
+      "case_ref": "case-8",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-7f27171b0ed1",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-7f27171b0ed1",
+      "case_ref": "case-8",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-462d718db5ad",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-462d718db5ad",
+      "case_ref": "case-8",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-b25cd15f1327",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v2-evalset-v3-1a5d96-b25cd15f1327",
+      "case_ref": "case-8",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-variant-4189871b-v1-evalset-v2-d36eea-e2f6d7a2924f",
+      "case_ref": "case-7",
+      "passed": true,
+      "score": 1
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v1-36074cb005bd",
+      "case_ref": "case-null",
+      "passed": false,
+      "score": 0
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v1-36074cb005bd",
+      "case_ref": "case-auth",
+      "passed": false,
+      "score": 0
+    },
+    {
+      "run_ref": "run-version-a-v1-evalset-v1-36074cb005bd",
+      "case_ref": "case-noise",
+      "passed": true,
+      "score": 1
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "artifact-input-null",
+      "kind": "eval_input",
+      "content": "diff --git a/profile.ts b/profile.ts\n+ saveDisplayName(user.nickname.toUpperCase())",
+      "content_hash": "hash-input-null",
+      "media_type": "text/plain",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "artifact-exp-null",
+      "kind": "expected_output",
+      "content": "应指出 nickname 可选时，saveDisplayName 仍然可能因 toUpperCase 崩溃。",
+      "content_hash": "hash-exp-null",
+      "media_type": "text/plain",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "artifact-input-auth",
+      "kind": "eval_input",
+      "content": "diff --git a/orders.ts b/orders.ts\n- findFirst({ id, ownerId: viewer.id })\n+ findUnique({ id })",
+      "content_hash": "hash-input-auth",
+      "media_type": "text/plain",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "artifact-exp-auth",
+      "kind": "expected_output",
+      "content": "应指出 ownerId 校验被移除，存在越权读取订单风险。",
+      "content_hash": "hash-exp-auth",
+      "media_type": "text/plain",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "artifact-input-noise",
+      "kind": "eval_input",
+      "content": "diff --git a/price.ts b/price.ts\n- const value = calculateTotal(items)\n+ const total = calculateTotal(items)",
+      "content_hash": "hash-input-noise",
+      "media_type": "text/plain",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "artifact-exp-noise",
+      "kind": "expected_output",
+      "content": "没有实质风险时应保持简洁，不要输出低价值命名 finding。",
+      "content_hash": "hash-exp-noise",
+      "media_type": "text/plain",
+      "created_at": "2026-04-24T00:00:00.000Z"
+    },
+    {
+      "id": "artifact-case-4-input",
+      "kind": "eval_input",
+      "content": "输入：一段 diff 把 access_token 放进 error response body。",
+      "content_hash": "193b8a6be90d",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T12:50:57.918Z"
+    },
+    {
+      "id": "artifact-case-4-expected",
+      "kind": "expected_output",
+      "content": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "content_hash": "50edf71f32a6",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T12:50:57.918Z"
+    },
+    {
+      "id": "artifact-case-5-input",
+      "kind": "eval_input",
+      "content": "输入：一段 diff 把 access_token 放进 error response body。",
+      "content_hash": "193b8a6be90d",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:25:24.387Z"
+    },
+    {
+      "id": "artifact-case-5-expected",
+      "kind": "expected_output",
+      "content": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "content_hash": "50edf71f32a6",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:25:24.387Z"
+    },
+    {
+      "id": "artifact-case-6-input",
+      "kind": "eval_input",
+      "content": "输入：一段 diff 把 access_token 放进 error response body。",
+      "content_hash": "193b8a6be90d",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:25:26.035Z"
+    },
+    {
+      "id": "artifact-case-6-expected",
+      "kind": "expected_output",
+      "content": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "content_hash": "50edf71f32a6",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:25:26.035Z"
+    },
+    {
+      "id": "artifact-case-7-input",
+      "kind": "eval_input",
+      "content": "输入：一段 diff 把 access_token 放进 error response body。",
+      "content_hash": "193b8a6be90d",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:34:42.304Z"
+    },
+    {
+      "id": "artifact-case-7-expected",
+      "kind": "expected_output",
+      "content": "输出：必须指出 token 泄露风险，并建议只返回通用错误信息。",
+      "content_hash": "50edf71f32a6",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:34:42.304Z"
+    },
+    {
+      "id": "artifact-case-8-input",
+      "kind": "eval_input",
+      "content": "输入：一段 diff 将 admin/settings 接口从按 ownerId 查询改成只按 id 查询。",
+      "content_hash": "525c0f2d9b91",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:38:40.104Z"
+    },
+    {
+      "id": "artifact-case-8-expected",
+      "kind": "expected_output",
+      "content": "输出：必须指出缺少 ownerId 校验会导致越权读取或修改配置。",
+      "content_hash": "e69d523f08c6",
+      "media_type": "text/plain",
+      "created_at": "2026-04-25T13:38:40.104Z"
+    },
+    {
+      "id": "artifact-skill-bundle-code-reviewer-bundle-7766cbfa",
+      "kind": "skill_bundle",
+      "content": "{\"files\": {\"SKILL.md\": \"---\\nname: code-reviewer\\ndescription: Review pull requests for bugs, regressions, security issues, and missing tests.\\n---\\n\\n# Code Reviewer\\n\\nReview the proposed change and report only findings that can affect correctness, security, or maintainability.\\n\", \"references/review-checklist.md\": \"- Check authorization filters.\\n- Check nullability changes.\\n- Check leaked secrets in logs or responses.\\n\"}, \"metadata\": {\"description\": \"Review pull requests for bugs, regressions, security issues, and missing tests.\", \"name\": \"code-reviewer\"}, \"name\": \"code-reviewer-bundle\"}",
+      "content_hash": "7766cbfaf990",
+      "media_type": "application/vnd.skillhub.bundle+json",
+      "created_at": "2026-04-26T08:47:33.705Z"
+    },
+    {
+      "id": "artifact-skill-bundle-code-reviewer-bundle-9a1bb4d8",
+      "kind": "skill_bundle",
+      "content": "{\"files\": {\"SKILL.md\": \"---\\nname: code-reviewer\\ndescription: Review pull requests for bugs, regressions, security issues, and missing tests.\\n---\\n\\n# Code Reviewer\\n\\nReview the proposed change and report only findings that can affect correctness, security, or maintainability.\\nPrioritize regression risk before style nits.\\n\", \"references/review-checklist.md\": \"- Check authorization filters.\\n- Check nullability changes.\\n- Check leaked secrets in logs or responses.\\n\"}, \"metadata\": {\"description\": \"Review pull requests for bugs, regressions, security issues, and missing tests.\", \"name\": \"code-reviewer\"}, \"name\": \"code-reviewer-bundle\"}",
+      "content_hash": "9a1bb4d8e7c4",
+      "media_type": "application/vnd.skillhub.bundle+json",
+      "created_at": "2026-04-26T10:18:08.570Z"
+    }
+  ]
+}
