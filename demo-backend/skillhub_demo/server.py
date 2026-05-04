@@ -103,13 +103,17 @@ class Handler(BaseHTTPRequestHandler):
         return store().skill_detail(self._required(query, "skill_id"))
 
     def _eval_set(self, query: Dict[str, str]) -> Any:
-        return store().eval_set_detail(self._required(query, "eval_set_version_id"))
+        eval_set_version_id = self._required(query, "eval_set_version_id")
+        if REPOSITORY is not None and hasattr(REPOSITORY, "eval_set_detail"):
+            return REPOSITORY.eval_set_detail(eval_set_version_id)  # type: ignore[attr-defined]
+        return store().eval_set_detail(eval_set_version_id)
 
     def _eval_result(self, query: Dict[str, str]) -> Any:
-        return store().eval_result_detail(
-            self._required(query, "variant_version_id"),
-            self._required(query, "eval_set_version_id"),
-        )
+        variant_version_id = self._required(query, "variant_version_id")
+        eval_set_version_id = self._required(query, "eval_set_version_id")
+        if REPOSITORY is not None and hasattr(REPOSITORY, "eval_result_detail"):
+            return REPOSITORY.eval_result_detail(variant_version_id, eval_set_version_id)  # type: ignore[attr-defined]
+        return store().eval_result_detail(variant_version_id, eval_set_version_id)
 
     def _skill_bundle(self, query: Dict[str, str]) -> Any:
         return store().skill_bundle_detail(self._required(query, "artifact_id"))

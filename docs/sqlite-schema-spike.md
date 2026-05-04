@@ -13,11 +13,13 @@ Included:
 - Preserve append-only facts for `VariantVersion`, `EvalSetVersion`, `EvalRun`, and `CaseResult`.
 - Query case details for an `EvalSetVersion`.
 - Query pass/fail counts for `VariantVersion + EvalSetVersion`.
+- Serve the `EvalSet` and `EvalResult` HTTP read paths from SQL when the SQLite repository is active.
+- Track an explicit SQLite schema version in `schema_meta`.
 - Use foreign keys to reject broken references.
 
 Not included:
 
-- Migrations.
+- Multi-version migrations beyond the current initial schema.
 - Auth, tenancy, archive/deprecate workflows.
 - Automatic eval execution.
 
@@ -36,6 +38,7 @@ Not included:
 | `CaseResult` | `case_results`, keyed by `run_ref + case_ref`. |
 | `Artifact` | `artifacts`, storing eval inputs, expected outputs, reports, and skill bundle snapshots. |
 | `AppData` snapshot | `app_state`, one full JSON snapshot used by the demo repository for exact round-trip loading. |
+| Schema metadata | `schema_meta`, stores the current schema version for migration discipline. |
 
 The important point is `eval_set_cases`: a measured eval set is a snapshot of case membership and order. It should not remain an opaque JSON array once we move to a database.
 
@@ -61,6 +64,7 @@ The backend now uses a repository boundary:
 - `SqliteRepository` is the default runtime persistence.
 - `JsonFileRepository` remains available with `--store json`.
 - SQLite stores the exact runtime state in `app_state` and refreshes normalized tables after each save.
+- `GET /api/eval-set` and `GET /api/eval-result` use SQL read models when SQLite is active.
 
 This is intentionally a bridge implementation. It lets the demo run on SQLite now without prematurely rewriting every CRUD path as SQL.
 
@@ -70,6 +74,7 @@ The spike confirms:
 
 - Seed data imports into normalized tables.
 - Runtime mutations round-trip through SQLite.
+- The eval-result SQL read model uses the latest finished run for a given `VariantVersion + EvalSetVersion`.
 - `version-a-v1 + evalset-v1` produces the same result counts as the JSON store: `2 passed / 1 failed / 0 missing`.
 - Eval set pages can retrieve concrete case input and expected output from artifact joins.
 - Foreign keys reject broken `VariantVersion.variant_ref` references.
@@ -78,7 +83,7 @@ The spike confirms:
 
 SQLite is viable for the local MVP. The next storage step is migration discipline:
 
-- add explicit schema versions,
-- move high-value read paths from snapshot reads to SQL queries,
+- add real multi-step migrations when schema version 2 appears,
+- move more high-value read paths from snapshot reads to SQL queries,
 - keep append-only entities append-only at the database level,
 - decide later whether skill bundle blobs should stay in SQLite, move to filesystem object storage, or move to Git-backed storage.

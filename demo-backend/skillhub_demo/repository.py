@@ -5,7 +5,7 @@ from typing import Callable, Optional, Protocol, Union
 
 from .models import AppData
 from .persistence import load_app_data, save_app_data
-from .sqlite_store import connect, load_app_snapshot, save_app_snapshot
+from .sqlite_store import connect, eval_result_detail, eval_set_detail, load_app_snapshot, save_app_snapshot
 
 
 PathLike = Union[str, Path]
@@ -57,6 +57,20 @@ class SqliteRepository:
         connection = connect(str(self.path))
         try:
             save_app_snapshot(connection, data)
+        finally:
+            connection.close()
+
+    def eval_set_detail(self, eval_set_version_id: str) -> dict:
+        connection = connect(str(self.path))
+        try:
+            return eval_set_detail(connection, eval_set_version_id)
+        finally:
+            connection.close()
+
+    def eval_result_detail(self, variant_version_id: str, eval_set_version_id: str) -> dict:
+        connection = connect(str(self.path))
+        try:
+            return eval_result_detail(connection, variant_version_id, eval_set_version_id)
         finally:
             connection.close()
 

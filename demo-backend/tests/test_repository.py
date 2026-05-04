@@ -58,6 +58,25 @@ class RepositoryTest(unittest.TestCase):
             finally:
                 connection.close()
 
+    def test_sqlite_repository_serves_eval_result_read_model(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = SqliteRepository(Path(tmpdir) / "skillhub-demo.sqlite3")
+            store = SkillHubStore(repo.load(create_seed_data))
+            published = store.publish_variant_version("variant-a", "新版本")
+            store.record_eval_run(
+                variant_version_id=published["variant_version"]["id"],
+                eval_set_version_id="evalset-v1",
+                results={"case-null": True, "case-auth": False, "case-noise": True},
+            )
+            repo.save(store.data)
+
+            detail = repo.eval_result_detail(published["variant_version"]["id"], "evalset-v1")
+
+            self.assertEqual(detail["variant"]["id"], "variant-a")
+            self.assertEqual(detail["variant_version"]["id"], published["variant_version"]["id"])
+            self.assertEqual(detail["result_counts"], {"passed": 2, "failed": 1, "missing": 0, "total": 3})
+            self.assertEqual([item["result"]["passed"] for item in detail["cases"]], [True, False, True])
+
     def test_sqlite_repository_imports_legacy_json_once(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             json_path = Path(tmpdir) / "legacy.json"
