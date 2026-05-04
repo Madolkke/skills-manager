@@ -4,7 +4,8 @@ import json
 import sqlite3
 from typing import Any, Dict, Iterable, Tuple
 
-from .models import AppData
+from .models import AppData, to_jsonable
+from .persistence import app_data_from_dict
 
 
 SCHEMA = """
@@ -127,6 +128,12 @@ CREATE TABLE IF NOT EXISTS case_results (
   FOREIGN KEY (run_ref) REFERENCES eval_runs(id),
   FOREIGN KEY (case_ref) REFERENCES eval_cases(id)
 );
+
+CREATE TABLE IF NOT EXISTS app_state (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  state_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -156,6 +163,37 @@ def import_app_data(connection: sqlite3.Connection, data: AppData) -> None:
         _insert_eval_set_versions(connection, data)
         _insert_eval_runs(connection, data)
         _insert_case_results(connection, data)
+
+
+def replace_app_data(connection: sqlite3.Connection, data: AppData) -> None:
+    initialize(connection)
+    _drop_domain_tables(connection)
+    import_app_data(connection, data)
+
+
+def save_app_snapshot(connection: sqlite3.Connection, data: AppData) -> None:
+    replace_app_data(connection, data)
+    state_json = json.dumps(to_jsonable(data), ensure_ascii=False, sort_keys=True)
+    with connection:
+        connection.execute(
+            """
+            INSERT INTO app_state (id, state_json, updated_at)
+            VALUES (1, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET state_json = excluded.state_json, updated_at = CURRENT_TIMESTAMP
+            """,
+            (state_json,),
+        )
+
+
+def load_app_snapshot(connection: sqlite3.Connection) -> AppData | None:
+    initialize(connection)
+    row = connection.execute("SELECT state_json FROM app_state WHERE id = 1").fetchone()
+    if row is None:
+        return None
+    raw = json.loads(row["state_json"])
+    if not isinstance(raw, dict):
+        raise ValueError("SQLite app_state.state_json must be an object")
+    return app_data_from_dict(raw)
 
 
 def eval_result_counts(connection: sqlite3.Connection, variant_version_id: str, eval_set_version_id: str) -> Dict[str, int]:
@@ -200,6 +238,27 @@ def eval_set_case_details(connection: sqlite3.Connection, eval_set_version_id: s
         (eval_set_version_id,),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def _drop_domain_tables(connection: sqlite3.Connection) -> None:
+    tables: Tuple[str, ...] = (
+        "case_results",
+        "eval_runs",
+        "eval_set_cases",
+        "eval_set_versions",
+        "eval_cases",
+        "eval_corpora",
+        "variant_versions",
+        "variants",
+        "skills",
+        "tag_sets",
+        "artifacts",
+    )
+    with connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        for table in tables:
+            connection.execute("DROP TABLE IF EXISTS %s" % table)
+        connection.execute("PRAGMA foreign_keys = ON")
 
 
 def _insert_tag_sets(connection: sqlite3.Connection, data: AppData) -> None:

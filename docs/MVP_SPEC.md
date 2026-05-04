@@ -277,7 +277,7 @@ flowchart LR
 - 发布 variant version。
 - 查看当前结果和逐 case 结果。
 - 查看 variant 历史版本。
-- JSON 持久化，能刷新后保留 demo 状态。
+- Repository 持久化，默认 SQLite、可切回 JSON，能刷新后保留 demo 状态。
 
 明确暂不做：
 
@@ -353,7 +353,7 @@ MVP diff 策略：
 - 发布新版本后，旧 run 仍绑定旧 version。
 - 对当前新版本重新 EvalRun 后，Variant Page 和 Eval Result 显示当前得分。
 - URL 能表达当前页面和关键对象；刷新后仍能回到对应的 Skill / VariantVersion / EvalSetVersion / EvalRun 视图。
-- 刷新页面后，后端 JSON 中的数据能恢复。
+- 刷新页面后，后端 Repository 中的数据能恢复。
 
 已跑通的回归样例：
 

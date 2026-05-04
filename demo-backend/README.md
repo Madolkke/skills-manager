@@ -5,8 +5,8 @@ Python-only demo backend for validating the SkillHub domain model.
 It intentionally uses only the Python standard library:
 
 - no global packages
-- no database
-- JSON-file persistence for demo state
+- SQLite runtime persistence by default
+- JSON-file persistence remains available as a legacy/dev mode
 - JSON API over `http.server`
 
 ## Setup
@@ -18,8 +18,20 @@ python -m unittest
 python -m skillhub_demo.server --port 8788
 ```
 
-By default, mutations are saved to `data/skillhub-demo.json`. Use `--data-file /tmp/skillhub-demo.json`
-when you want a disposable state file.
+By default, mutations are saved to `data/skillhub-demo.sqlite3`. If `data/skillhub-demo.json`
+exists and the SQLite file has no snapshot yet, the server imports that JSON state once.
+
+Use JSON mode when you want a disposable text file:
+
+```bash
+python -m skillhub_demo.server --store json --data-file /tmp/skillhub-demo.json
+```
+
+Use a disposable SQLite file:
+
+```bash
+python -m skillhub_demo.server --sqlite-file /tmp/skillhub-demo.sqlite3
+```
 
 ## API Sketch
 

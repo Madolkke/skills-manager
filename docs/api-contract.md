@@ -189,14 +189,16 @@ MVP 约束：
 
 ## Demo 持久化
 
-当前 Python demo 使用 JSON 文件保存完整对象图，不引入数据库：
+当前 Python demo 通过 Repository 边界保存完整对象图：
 
-- 默认路径：`demo-backend/data/skillhub-demo.json`。
-- 服务启动时：如果文件存在则读取；不存在则使用 seed data。
-- 每次 `POST` / `PATCH` 成功后：写回完整 `AppData`。
-- 写入方式：先写临时文件，再替换目标文件，避免半写入。
+- 默认 Repository：SQLite，路径 `demo-backend/data/skillhub-demo.sqlite3`。
+- 兼容 Repository：JSON 文件，使用 `--store json --data-file /tmp/skillhub-demo.json`。
+- 服务启动时：SQLite 有快照则读取快照；没有快照但存在 legacy JSON 时导入 JSON；否则使用 seed data。
+- 每次 `POST` / `PATCH` 成功后：Repository 写回完整 `AppData`。
+- SQLite 写入方式：保存 `app_state` 快照，并刷新一份规范化关系表。
+- JSON 写入方式：先写临时文件，再替换目标文件，避免半写入。
 
-这只是 demo 层实现，不改变领域模型。正式版可以把同一套对象契约落到 SQLite、Postgres 或对象存储。
+这只是 demo 层实现，不改变领域模型。正式版可以继续沿用同一套 Repository 契约，逐步把高价值读写路径替换成 SQL。
 
 ## Endpoints
 
@@ -526,7 +528,7 @@ Content-Type: application/json
 行为：
 
 - 用 seed data 重建内存状态。
-- 如果配置了 data file，则覆盖写回 demo JSON。
+- 通过当前 Repository 覆盖写回 demo 状态。
 - 只用于 demo 清理，不是正式数据删除接口。
 
 ## 下一步接口缺口
@@ -534,5 +536,5 @@ Content-Type: application/json
 正式化前还需要补：
 
 - archive/deprecate 接口，而不是硬 delete。
-- 持久化层，优先 SQLite 或 JSON 文件，后续再讨论正式数据库。
+- 持久化迁移：schema version、迁移脚本、SQL 化关键查询。
 - 权限模型：谁能创建 skill、发布版本、切默认入口。

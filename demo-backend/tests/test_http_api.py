@@ -14,6 +14,7 @@ from skillhub_demo.store import SkillHubStore
 class HttpApiTest(unittest.TestCase):
     def setUp(self):
         server_module.STORE = SkillHubStore(create_seed_data())
+        server_module.REPOSITORY = None
         server_module.DATA_PATH = None
         try:
             self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server_module.Handler)

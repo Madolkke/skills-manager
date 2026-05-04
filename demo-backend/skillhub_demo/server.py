@@ -8,13 +8,15 @@ from typing import Any, Callable, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
 from .models import ContentRef
-from .persistence import load_app_data, save_app_data
+from .repository import JsonFileRepository, SqliteRepository, StateRepository
 from .seed import create_seed_data
 from .store import SkillHubStore
 
 
 DEFAULT_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "skillhub-demo.json"
+DEFAULT_SQLITE_PATH = Path(__file__).resolve().parents[1] / "data" / "skillhub-demo.sqlite3"
 STORE: Optional[SkillHubStore] = None
+REPOSITORY: Optional[StateRepository] = None
 DATA_PATH: Optional[Path] = None
 
 
@@ -276,8 +278,8 @@ class Handler(BaseHTTPRequestHandler):
         return ContentRef(kind=kind, locator=locator, digest=content_digest, path=path)  # type: ignore[arg-type]
 
     def _persist(self, payload: Any) -> Any:
-        if DATA_PATH is not None:
-            save_app_data(DATA_PATH, store().data)
+        if REPOSITORY is not None:
+            REPOSITORY.save(store().data)
         return payload
 
     def _send_json(self, status: int, payload: Any) -> None:
@@ -294,17 +296,23 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    global DATA_PATH, STORE
+    global DATA_PATH, REPOSITORY, STORE
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8788, type=int)
+    parser.add_argument("--store", choices=("sqlite", "json"), default="sqlite")
     parser.add_argument("--data-file", default=str(DEFAULT_DATA_PATH))
+    parser.add_argument("--sqlite-file", default=str(DEFAULT_SQLITE_PATH))
     args = parser.parse_args()
     DATA_PATH = Path(args.data_file)
-    STORE = SkillHubStore(load_app_data(DATA_PATH, create_seed_data))
+    if args.store == "json":
+        REPOSITORY = JsonFileRepository(DATA_PATH)
+    else:
+        REPOSITORY = SqliteRepository(args.sqlite_file, import_json_path=DATA_PATH)
+    STORE = SkillHubStore(REPOSITORY.load(create_seed_data))
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print("SkillHub demo backend: http://%s:%d" % (args.host, args.port))
-    print("SkillHub demo data: %s" % DATA_PATH)
+    print("SkillHub demo store: %s" % REPOSITORY.label)
     server.serve_forever()
 
 

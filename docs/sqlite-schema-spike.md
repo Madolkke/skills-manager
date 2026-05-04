@@ -8,6 +8,8 @@ Included:
 
 - Create SQLite tables for the current MVP objects.
 - Import an `AppData` object into SQLite.
+- Persist and reload a full `AppData` snapshot for the demo runtime.
+- Mirror the runtime snapshot into normalized tables after each save.
 - Preserve append-only facts for `VariantVersion`, `EvalSetVersion`, `EvalRun`, and `CaseResult`.
 - Query case details for an `EvalSetVersion`.
 - Query pass/fail counts for `VariantVersion + EvalSetVersion`.
@@ -15,7 +17,6 @@ Included:
 
 Not included:
 
-- Replacing the JSON persistence backend.
 - Migrations.
 - Auth, tenancy, archive/deprecate workflows.
 - Automatic eval execution.
@@ -34,6 +35,7 @@ Not included:
 | `EvalRun` | `eval_runs`, bound to one variant version and one eval set version. |
 | `CaseResult` | `case_results`, keyed by `run_ref + case_ref`. |
 | `Artifact` | `artifacts`, storing eval inputs, expected outputs, reports, and skill bundle snapshots. |
+| `AppData` snapshot | `app_state`, one full JSON snapshot used by the demo repository for exact round-trip loading. |
 
 The important point is `eval_set_cases`: a measured eval set is a snapshot of case membership and order. It should not remain an opaque JSON array once we move to a database.
 
@@ -42,7 +44,9 @@ The important point is `eval_set_cases`: a measured eval set is a snapshot of ca
 Code lives in:
 
 - `demo-backend/skillhub_demo/sqlite_store.py`
+- `demo-backend/skillhub_demo/repository.py`
 - `demo-backend/tests/test_sqlite_store.py`
+- `demo-backend/tests/test_repository.py`
 
 Run:
 
@@ -52,22 +56,29 @@ cd demo-backend
 python -m unittest discover -s tests
 ```
 
-The spike currently uses in-memory SQLite in tests. It is deliberately separate from the HTTP backend so we can validate schema shape before committing to a storage migration.
+The backend now uses a repository boundary:
+
+- `SqliteRepository` is the default runtime persistence.
+- `JsonFileRepository` remains available with `--store json`.
+- SQLite stores the exact runtime state in `app_state` and refreshes normalized tables after each save.
+
+This is intentionally a bridge implementation. It lets the demo run on SQLite now without prematurely rewriting every CRUD path as SQL.
 
 ## Result
 
 The spike confirms:
 
 - Seed data imports into normalized tables.
+- Runtime mutations round-trip through SQLite.
 - `version-a-v1 + evalset-v1` produces the same result counts as the JSON store: `2 passed / 1 failed / 0 missing`.
 - Eval set pages can retrieve concrete case input and expected output from artifact joins.
 - Foreign keys reject broken `VariantVersion.variant_ref` references.
 
 ## Next Decision
 
-SQLite is a viable next persistence layer for the local MVP. The next implementation step should be a repository interface that can be backed by either:
+SQLite is viable for the local MVP. The next storage step is migration discipline:
 
-- current JSON file persistence, or
-- SQLite tables from this spike.
-
-Do not wire SQLite directly into handlers until that boundary exists.
+- add explicit schema versions,
+- move high-value read paths from snapshot reads to SQL queries,
+- keep append-only entities append-only at the database level,
+- decide later whether skill bundle blobs should stay in SQLite, move to filesystem object storage, or move to Git-backed storage.
