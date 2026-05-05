@@ -555,6 +555,10 @@ Content-Type: application/json
 
 ### Import Eval Result
 
+标准 schema: [`schemas/eval-result-import.schema.json`](../schemas/eval-result-import.schema.json)
+
+示例 fixture: [`fixtures/eval-result-import.code-reviewer.json`](../fixtures/eval-result-import.code-reviewer.json)
+
 ```http
 POST /api/eval-result-imports
 Content-Type: application/json
@@ -577,6 +581,7 @@ Content-Type: application/json
 - 创建 `EvalRun`，`strategy_ref` 和 `run_config_hash` 来自导入 payload。
 - 为 eval set 中每个 `EvalCaseVersion` 创建 `CaseResult`。
 - `results` 的 key 必须属于该 `EvalSetVersion.case_version_refs`；未知 case version 返回 400。
+- 外部 runner 应先读取目标 `GET /api/eval-set`，再按返回的 `case_version_refs` 生成 payload；不要硬编码历史 case id。
 - `results` 的 value 必须是 JSON boolean，不做字符串 `"true"` / `"false"` 的隐式转换。
 - 未提供的 case 默认 `false`。正式版可以把缺失结果升级成 `missing` 或导入校验错误；demo 阶段先保持与手工记录一致。
 - `variant_version_id` 和 `eval_set_version_id` 必须属于同一个 skill，否则返回 400。

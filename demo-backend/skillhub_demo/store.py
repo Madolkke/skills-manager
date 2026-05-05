@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any, Dict, List, Optional
 
+from .eval_result_import import validate_eval_result_import_shape
 from .models import (
     AppData,
     Artifact,
@@ -536,15 +537,12 @@ class SkillHubStore:
         return {"eval_run": to_jsonable(run), "result_counts": self.result_counts(variant_version_id, eval_set_version_id)}
 
     def import_eval_result(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        validate_eval_result_import_shape(payload)
         variant_version_id = self._required_payload_str(payload, "variant_version_id")
         eval_set_version_id = self._required_payload_str(payload, "eval_set_version_id")
         strategy_ref = self._required_payload_str(payload, "strategy_ref")
         run_config_hash = str(payload.get("run_config_hash") or digest(json.dumps(payload.get("config", {}), sort_keys=True)))
-        results = payload.get("results")
-        if not isinstance(results, dict):
-            raise ValueError("results must be an object mapping case version id to boolean")
-        if not all(isinstance(value, bool) for value in results.values()):
-            raise ValueError("results values must be booleans")
+        results = payload["results"]
 
         eval_set = self._eval_set_version(eval_set_version_id)
         variant_version = self._variant_version(variant_version_id)

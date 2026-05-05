@@ -9,6 +9,9 @@ It intentionally uses only the Python standard library:
 - JSON-file persistence remains available as a legacy/dev mode
 - JSON API over `http.server`
 
+The external eval import contract is stored at `../schemas/eval-result-import.schema.json`,
+with a runnable fixture at `../fixtures/eval-result-import.code-reviewer.json`.
+
 ## Setup
 
 ```bash

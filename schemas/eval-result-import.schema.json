@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://skillhub.dev/schemas/eval-result-import.schema.json",
+  "title": "SkillHub Eval Result Import",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "variant_version_id",
+    "eval_set_version_id",
+    "strategy_ref",
+    "results"
+  ],
+  "properties": {
+    "variant_version_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "被测 VariantVersion.id。"
+    },
+    "eval_set_version_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本次测评绑定的 EvalSetVersion.id。"
+    },
+    "strategy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "测评策略引用，例如 manual-eval-v1、external-script-v1。"
+    },
+    "run_config_hash": {
+      "type": "string",
+      "minLength": 1,
+      "description": "测评策略配置摘要。缺省时服务端会根据 config 计算。"
+    },
+    "config": {
+      "type": "object",
+      "description": "可选策略配置，服务端只保存和计算摘要，不解释内部字段。"
+    },
+    "results": {
+      "type": "object",
+      "description": "key 必须是目标 EvalSetVersion.case_version_refs 中的 EvalCaseVersion.id。",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "minProperties": 1
+    },
+    "metadata": {
+      "type": "object",
+      "description": "外部 runner 可选附加信息，例如 runner 版本、耗时、环境。"
+    }
+  }
+}

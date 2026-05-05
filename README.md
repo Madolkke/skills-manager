@@ -9,6 +9,7 @@ Eval-backed SkillHub prototype for managing skill variants, versioned eval sets,
 - A `VariantVersion` is an immutable content snapshot.
 - An `EvalSetVersion` is a case snapshot.
 - An `EvalRun` records pass/fail results for one `VariantVersion + EvalSetVersion`.
+- External runners can import a standard eval result JSON and get the same `EvalRun + CaseResult` record.
 - Standard skill folders can be imported as `skill_bundle` artifacts and viewed or diffed by version.
 
 ## Quick Start
@@ -65,6 +66,8 @@ npm run build
 
 - [MVP spec](docs/MVP_SPEC.md)
 - [API contract](docs/api-contract.md)
+- [Eval result import schema](schemas/eval-result-import.schema.json)
+- [Eval result import fixture](fixtures/eval-result-import.code-reviewer.json)
 - [Design spec](docs/mvp-design-spec.md)
 - [SQLite schema spike](docs/sqlite-schema-spike.md)
 - [Storage adapter contract](docs/storage-adapter-contract.md)
