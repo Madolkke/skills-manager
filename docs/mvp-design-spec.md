@@ -262,19 +262,28 @@ EvalCorpus(
 - corpus 是资产池，不是一次固定运行的列表。
 - `EvalSetVersion` 是从 corpus 中选出的不可变快照。
 
-### EvalCase
+### EvalCase / EvalCaseVersion
 
-`EvalCase` 是可复用的测评资产。
+`EvalCase` 是可复用的测评场景入口。`EvalCaseVersion` 是不可变测试内容快照。
 
 ```text
 EvalCase(
   id,
   corpus_ref,
+  title,
+  source_type,
+  current_version_ref,
+  origin_ref?,
+  created_at
+)
+
+EvalCaseVersion(
+  id,
+  case_ref,
+  version,
   input_artifact_ref,
   expectation_artifact_ref,
   grader_ref,
-  source_type,
-  origin_ref?,
   created_at
 )
 ```
@@ -285,18 +294,23 @@ EvalCase(
 | --- | --- | --- |
 | `id` | 是 | 平台内部主键。 |
 | `corpus_ref` | 是 | 指向所属 `EvalCorpus.id`。 |
+| `title` | 是 | 场景标题。 |
+| `source_type` | 是 | case 来源：`manual`、`bad_case`、`imported`、`generated`。 |
+| `current_version_ref` | 是 | 指向当前维护的 `EvalCaseVersion.id`。 |
+| `origin_ref` | 否 | 指向来源对象，例如 `BadCase.id`、外部 benchmark case、导入批次或生成任务。 |
+| `created_at` | 是 | case 创建时间。 |
+| `EvalCaseVersion.id` | 是 | 平台内部主键。 |
+| `case_ref` | 是 | 指向所属 `EvalCase.id`。 |
+| `version` | 是 | case 内递增版本号。 |
 | `input_artifact_ref` | 是 | 指向输入内容 artifact，例如 prompt、文件集合、代码 diff、网页快照或多源材料。 |
 | `expectation_artifact_ref` | 是 | 指向期望行为 artifact。可以是精确答案、验收条件、rubric 描述或禁止行为列表。 |
 | `grader_ref` | 是 | 指向 `Grader.id`，定义如何判分。 |
-| `source_type` | 是 | case 来源：`manual`、`bad_case`、`imported`、`generated`。 |
-| `origin_ref` | 否 | 指向来源对象，例如 `BadCase.id`、外部 benchmark case、导入批次或生成任务。 |
-| `created_at` | 是 | case 创建时间。 |
 
 规则：
 
 - `source_type` 可取 `manual`、`bad_case`、`imported`、`generated`。
 - `origin_ref` 可以指向 bad case、外部 benchmark、导入批次或生成任务。
-- v1 中 case 内容不可变。如需修正，创建新 case，并纳入新的 eval set version。
+- case 内容不可变。如需修正，创建新 `EvalCaseVersion`，并纳入新的 eval set version。
 - MVP 中只记录 pass/fail。权重、严重度、rubric 细分都留给后续策略层。
 
 ### Grader
@@ -357,12 +371,12 @@ EvalSetVersion(
 | `id` | 是 | 平台内部主键。 |
 | `corpus_ref` | 是 | 指向所属 `EvalCorpus.id`。 |
 | `version` | 是 | corpus 内递增版本号，例如 `1`、`2`，或语义化版本。 |
-| `case_index_artifact_ref` | 是 | 指向 case index artifact。内容是确定顺序的 eval case refs 列表。 |
+| `case_index_artifact_ref` | 是 | 指向 case index artifact。内容是确定顺序的 eval case version refs 列表。 |
 | `created_at` | 是 | 该快照创建时间。 |
 
 规则：
 
-- case index 是确定顺序的 eval case ref 列表。
+- case index 是确定顺序的 eval case version ref 列表。
 - 旧版本必须保留，方便复现历史排名。
 - bad-case-derived eval case 加入后，创建新的 eval set version。
 - variant 的测评结果必须明确绑定 eval set version。
@@ -659,7 +673,7 @@ reason_artifact_ref?
 ```text
 variant_ref
 bad_case_refs?
-eval_case_refs?
+eval_case_version_refs?
 eval_run_refs?
 upgrade_config
 ```

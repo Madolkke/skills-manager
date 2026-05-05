@@ -7,8 +7,9 @@
 - `Skill` 是入口，不是最终内容。
 - `Variant` 是某组 tags 下由维护者人为认可和维护的当前解。
 - `VariantVersion` 是不可变内容快照。
-- `EvalCase` 是完整测试用例：`input + expected_output`。
-- `EvalSetVersion` 是测评集快照。
+- `EvalCase` 是稳定测试场景入口。
+- `EvalCaseVersion` 是完整测试用例快照：`input + expected_output`。
+- `EvalSetVersion` 是测评集快照，必须引用具体的 `EvalCaseVersion`。
 - `EvalRun` 必须绑定 `VariantVersion + EvalSetVersion`。
 - `CaseResult` 是某个 case 在某次 run 中的最终 `pass/fail`。
 
@@ -75,15 +76,15 @@
 
 正式 skill 内容应按标准文件夹建模，而不是只存一段 prompt。`skill_bundle` 表示平台已经接收并固化了一整个 skill 文件夹快照；MVP demo 仍可继续用 `inline_bundle` 占位。
 
-### EvalCorpus / EvalCase / EvalSetVersion
+### EvalCorpus / EvalCase / EvalCaseVersion / EvalSetVersion
 
-`EvalCorpus` 是 skill 的测评资产容器；`EvalCase` 是一个完整测试用例；`EvalSetVersion` 是 case 列表快照。
+`EvalCorpus` 是 skill 的测评资产容器；`EvalCase` 是稳定测试场景入口；`EvalCaseVersion` 是一个完整测试用例快照；`EvalSetVersion` 是 case version 列表快照。
 
 MVP 约束：
 
-- `EvalCase` 视为不可变；修正 input 或 expected output 时新建 case。
+- `EvalCaseVersion` 视为不可变；修正 input 或 expected output 时新建 case version。
 - `EvalSetVersion` 必须能解析出它包含的具体 case 内容。仅展示 case 数量不够。
-- 如果未来允许编辑 case，应该引入 `EvalCaseVersion`，并让 `EvalSetVersion` 引用 case version。
+- `EvalSetVersion` 引用 `EvalCaseVersion`，而不是只引用 `EvalCase`。
 
 | 对象 | 字段 | 类型 | 说明 |
 | --- | --- | --- | --- |
@@ -94,16 +95,22 @@ MVP 约束：
 | `EvalCase` | `corpus_ref` | string | 所属 `EvalCorpus.id`。 |
 | `EvalCase` | `title` | string | case 标题，例如一个 PR 场景。 |
 | `EvalCase` | `source_type` | enum | `manual`、`bad_case`、`imported`、`generated`。只表示来源，不影响判定层级。 |
-| `EvalCase` | `input_artifact_ref` | string | 输入内容 artifact。 |
-| `EvalCase` | `expectation_artifact_ref` | string | 期望输出 artifact。 |
-| `EvalCase` | `grader_ref` | string | 判定策略引用。MVP 固定为人工 pass/fail。 |
-| `EvalCase` | `expectation` | string | 简短期望说明，方便列表展示。 |
+| `EvalCase` | `current_version_ref` | string | 当前维护版本，指向 `EvalCaseVersion.id`。 |
 | `EvalCase` | `origin_ref` | string? | 可选来源引用，例如反馈、issue、外部导入 ID。 |
 | `EvalCase` | `created_at` | ISO datetime | 创建时间。 |
+| `EvalCaseVersion` | `id` | string | 内部唯一 ID。 |
+| `EvalCaseVersion` | `case_ref` | string | 所属 `EvalCase.id`。 |
+| `EvalCaseVersion` | `version` | string | 线性版本号，例如 `v1`、`v2`。 |
+| `EvalCaseVersion` | `input_artifact_ref` | string | 输入内容 artifact。 |
+| `EvalCaseVersion` | `expectation_artifact_ref` | string | 期望输出 artifact。 |
+| `EvalCaseVersion` | `grader_ref` | string | 判定策略引用。MVP 固定为人工 pass/fail。 |
+| `EvalCaseVersion` | `expectation` | string | 简短期望说明，方便列表展示。 |
+| `EvalCaseVersion` | `notes` | string? | 可选人工上下文。 |
+| `EvalCaseVersion` | `created_at` | ISO datetime | 创建时间。 |
 | `EvalSetVersion` | `id` | string | 内部唯一 ID。 |
 | `EvalSetVersion` | `corpus_ref` | string | 所属 `EvalCorpus.id`。 |
 | `EvalSetVersion` | `version` | string | 测评集版本，例如 `v1`、`v2`。 |
-| `EvalSetVersion` | `case_refs` | string[] | 本快照包含的 `EvalCase.id` 列表。 |
+| `EvalSetVersion` | `case_version_refs` | string[] | 本快照包含的 `EvalCaseVersion.id` 列表。 |
 | `EvalSetVersion` | `created_at` | ISO datetime | 创建时间。 |
 
 ### EvalRun / CaseResult
@@ -122,7 +129,7 @@ MVP 约束：
 | `EvalRun` | `finished_at` | ISO datetime? | 结束时间。 |
 | `EvalRun` | `result_artifact_ref` | string? | 可选，复杂测评报告 artifact。 |
 | `CaseResult` | `run_ref` | string | 所属 `EvalRun.id`。 |
-| `CaseResult` | `case_ref` | string | 对应 `EvalCase.id`。 |
+| `CaseResult` | `case_version_ref` | string | 对应 `EvalCaseVersion.id`。 |
 | `CaseResult` | `passed` | boolean | MVP 最终结论。 |
 | `CaseResult` | `score` | number | MVP 中 `pass=1`、`fail=0`，后续可扩展但不改变 pass/fail 主线。 |
 
@@ -135,7 +142,8 @@ MVP 约束：
 | `Skill` | 需要 | 需要 | 可更新元数据和默认指针 | 不硬删，后续做 archive |
 | `Variant` | 需要 | 需要 | 可更新元数据 | 不硬删，后续做 archive/deprecate |
 | `VariantVersion` | 需要 | 需要 | 不更新，append-only | 不硬删 |
-| `EvalCase` | 需要 | 需要 | 不建议原地改，修正时新建 case | 不硬删 |
+| `EvalCase` | 需要 | 需要 | 可更新标题、状态和当前版本指针 | 不硬删 |
+| `EvalCaseVersion` | 需要 | 需要 | 不更新，append-only | 不硬删 |
 | `EvalSetVersion` | 自动创建 | 需要 | 不更新，append-only | 不硬删 |
 | `EvalRun` | 需要 | 需要 | 状态可变，finished 后不改事实 | 不硬删 |
 | `CaseResult` | 随 run 创建 | 需要 | 不更新，重跑生成新 run | 不硬删 |
@@ -165,8 +173,8 @@ MVP 约束：
 
 刻意不做完整 CRUD 的对象：
 
-- `VariantVersion`、`EvalSetVersion`、`EvalRun`、`CaseResult` 都是事实记录，正式版也应默认 append-only。
-- `EvalCase` 在 MVP 中视为不可变；修正文案或输入时新建 case，并生成新的 `EvalSetVersion`。
+- `VariantVersion`、`EvalCaseVersion`、`EvalSetVersion`、`EvalRun`、`CaseResult` 都是事实记录，正式版也应默认 append-only。
+- `EvalCase` 是稳定场景入口；修正文案或输入时新建 case version，并生成新的 `EvalSetVersion`。
 - 删除会影响可追溯性；MVP 对 `Skill` / `Variant` 使用 `lifecycle_status` 做 archive/deprecate，而不是硬删。
 
 ## 最小闭环调用链
@@ -174,7 +182,7 @@ MVP 约束：
 ### 新建一个 skill 并跑通测评
 
 1. `POST /api/skills` 创建 `Skill + EvalCorpus + EvalSetVersion v1 + 默认 Variant + VariantVersion v1`。
-2. `POST /api/eval-cases` 添加测试用例，并自动生成新的 `EvalSetVersion`。
+2. `POST /api/eval-cases` 添加测试用例，创建 `EvalCase + EvalCaseVersion v1`，并自动生成新的 `EvalSetVersion`。
 3. `POST /api/eval-runs` 选择某个 `VariantVersion + EvalSetVersion`，记录每条 case 的 pass/fail。
 4. `GET /api/eval-result` 查看这次组合的详细结果。
 5. `GET /api/variant-page` 回到变体页面，查看当前版本在所有测评集版本上的验证状态。
@@ -407,6 +415,7 @@ Content-Type: application/json
 {
   "variant_id": "variant-a",
   "change_note": "发布标准 skill bundle。",
+  "make_current": false,
   "content_ref": {
     "kind": "skill_bundle",
     "locator": "artifact-skill-bundle-code-reviewer-bundle-abc123",
@@ -420,7 +429,8 @@ Content-Type: application/json
 
 - 创建新的 `VariantVersion`。
 - 如果传入 `content_ref`，新版本直接引用该不可变内容快照。
-- 更新 `Variant.current_version_ref`。
+- 如果 `make_current=true`，更新 `Variant.current_version_ref`。
+- 如果 `make_current=false` 或省略，新版本仍是可测评的不可变候选版本，但不会成为当前默认版本。
 - 旧版本和旧 run 保留。
 
 ### Skill Bundle Detail
@@ -476,6 +486,7 @@ Content-Type: application/json
 行为：
 
 - 创建 `EvalCase`。
+- 创建 `EvalCaseVersion v1`。
 - 创建 input / expected artifacts。
 - 基于当前最新测评集创建新的 `EvalSetVersion`。
 

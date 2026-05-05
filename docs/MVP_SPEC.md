@@ -130,13 +130,14 @@ flowchart LR
 - 旧 EvalRun 仍绑定旧版本，不会因为 current pointer 移动而改变含义。
 - 发布新版本后，当前版本需要重新 EvalRun，才能得到当前测评结果。
 
-### EvalCase
+### EvalCase / EvalCaseVersion
 
-`EvalCase` 是完整测试用例，不是检查项。
+`EvalCase` 是稳定测试场景入口，不是检查项。`EvalCaseVersion` 是完整测试用例快照。
 
 职责：
 
-- 保存一个输入场景和期望输出。
+- `EvalCase` 保存场景身份、标题、来源和当前版本指针。
+- `EvalCaseVersion` 保存一个输入场景和期望输出。
 - 作为测评集增长的基本资产。
 
 关键字段：
@@ -145,18 +146,23 @@ flowchart LR
 - `corpus_ref`
 - `title`
 - `source_type`
-- `input_artifact_ref`
-- `expectation_artifact_ref`
-- `grader_ref`
-- `expectation`
+- `current_version_ref`
 - `origin_ref`
 - `created_at`
+- `EvalCaseVersion.id`
+- `EvalCaseVersion.case_ref`
+- `EvalCaseVersion.version`
+- `EvalCaseVersion.input_artifact_ref`
+- `EvalCaseVersion.expectation_artifact_ref`
+- `EvalCaseVersion.grader_ref`
+- `EvalCaseVersion.expectation`
+- `EvalCaseVersion.created_at`
 
 规则：
 
 - MVP 先只看最终 pass/fail。
-- MVP 中 `EvalCase` 视为不可变对象。修正 input 或 expected output 时，新建 `EvalCase` 并生成新的 `EvalSetVersion`，不要原地修改旧 case。
-- 如果正式版需要“编辑 case 且保留历史”，模型升级为 `EvalCaseVersion`，让 `EvalSetVersion` 引用 case version，而不是引用可变 case。
+- `EvalCaseVersion` 视为不可变对象。修正 input 或 expected output 时，新建 `EvalCaseVersion` 并生成新的 `EvalSetVersion`，不要原地修改旧 case version。
+- `EvalSetVersion` 引用 case version，而不是引用可变 case。
 - “遗漏空值检查”这类内容只能是 case 标题或期望说明，不能再形成一层复杂检查条件。
 - bad case 不做独立中心模块；进入长期价值链路时必须转成 `EvalCase`。
 
@@ -174,7 +180,7 @@ flowchart LR
 - `id`
 - `corpus_ref`
 - `version`
-- `case_refs`
+- `case_version_refs`
 - `created_at`
 
 规则：
@@ -201,7 +207,7 @@ flowchart LR
 - `EvalRun.run_config_hash`
 - `EvalRun.status`
 - `CaseResult.run_ref`
-- `CaseResult.case_ref`
+- `CaseResult.case_version_ref`
 - `CaseResult.passed`
 - `CaseResult.score`
 

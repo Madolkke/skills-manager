@@ -52,6 +52,8 @@ Required semantics:
 
 Git is useful when we want native file diff, history, branch, PR, fork, and review workflows.
 
+For 1.0, skill bundle snapshots should be stored as normalized file trees. A single JSON blob is acceptable only for demo, migration, or compatibility paths. File-tree storage keeps diffs, review, import/export, and standard skill folder semantics aligned.
+
 Proposed locator:
 
 ```text
@@ -109,7 +111,6 @@ This keeps the platform model stable while allowing content storage to evolve.
 
 ## Open Decisions
 
-- Whether skill bundle snapshots should be stored as one normalized JSON object or as a real folder tree.
 - Whether Git commits are created by the platform or imported from user-owned repos.
 - Whether object storage should be local-first for single-user deployments.
 - How to authorize reads/writes once multi-user permissions exist.
