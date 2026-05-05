@@ -7,24 +7,38 @@ import { Badge, Metric, Section } from "./chrome";
 
 export function SkillHubList({ skills }: { skills: SkillSummary[] }) {
   return (
-    <div className="hubList">
+    <div className="hubList" role="list">
+      <div className="hubListHeader">
+        <span>Skill</span>
+        <span>Default variant</span>
+        <span>Verification</span>
+      </div>
       {skills.map((summary) => {
         const variant = summary.default_variant;
         const run = summary.latest_accepted_eval_run;
         const rate = run ? passRate(run) : null;
         return (
-          <Link className="hubRow" href={`/skills/${summary.skill.id}`} key={summary.skill.id}>
-            <div>
+          <Link className="hubRow" href={`/skills/${summary.skill.id}`} key={summary.skill.id} role="listitem">
+            <div className="skillCell">
               <div className="rowTitle">
                 <strong>{summary.skill.slug}</strong>
-                <Badge tone={run ? (rate === 100 ? "good" : "bad") : "neutral"}>{verificationLabel(summary)}</Badge>
+                <Badge tone={run ? (rate === 100 ? "good" : "bad") : "neutral"}>
+                  {summary.skill.lifecycle_status}
+                </Badge>
               </div>
               <p>{variant?.summary ?? "No default variant configured."}</p>
             </div>
-            <div className="rowMeta">
+            <div className="variantCell">
+              <strong>{variant?.label ?? "No variant"}</strong>
               <span>{variant?.tags.join(" + ") ?? "no tags"}</span>
-              <span>{variant?.current_version ? `v${variant.current_version.version_number}` : "no version"}</span>
-              <span>{run?.strategy ?? "no eval"}</span>
+              <small>{variant?.current_version ? `current v${variant.current_version.version_number}` : "no version"}</small>
+            </div>
+            <div className="scoreCell">
+              <span className={`scoreRing ${run ? "scoreRingOn" : ""}`}>{run ? percent(rate) : "-"}</span>
+              <div>
+                <strong>{verificationLabel(summary)}</strong>
+                <small>{run?.strategy ?? "no eval run"}</small>
+              </div>
             </div>
           </Link>
         );
@@ -57,31 +71,48 @@ export function VariantPageView({
           <p>{variant.summary}</p>
           <div className="tagLine">
             {variant.tags.map((tag) => (
-              <Badge key={tag}>{tag}</Badge>
+              <Badge key={tag} tone="blue">{tag}</Badge>
             ))}
           </div>
         </div>
         <div className="metricGrid">
-          <Metric label="Selected version" value={`v${selectedVersion?.version_number ?? "-"}`} hint={shortId(selectedVersion?.id)} />
-          <Metric label="Verification" value={percent(rate)} hint={latestRun?.strategy ?? "Unverified"} />
+          <Metric label="Selected version" value={`v${selectedVersion?.version_number ?? "-"}`} hint={shortId(selectedVersion?.id)} tone="blue" />
+          <Metric label="Verification" value={percent(rate)} hint={latestRun?.strategy ?? "Unverified"} tone={rate === 100 ? "good" : "bad"} />
           <Metric label="Eval set" value={evalSet?.current_version ? `v${evalSet.current_version.version_number}` : "N/A"} hint={evalSet?.name} />
         </div>
       </section>
 
-      <Section title="Skill Bundle" description="当前版本的不可变内容引用。正式版会接 artifact file tree 和 diff。">
-        <div className="splitPanel">
-          <div className="fileTree">
-            <strong>SKILL.md</strong>
-            <span>examples/review-input.md</span>
-            <span>tests/manual-pass-fail.json</span>
-          </div>
-          <pre className="codePane">{`content_ref.kind: ${selectedVersion?.content_ref.kind}
+      <div className="workbenchGrid">
+        <Section title="Skill Bundle" description="当前版本的不可变内容引用。正式版会接 artifact file tree 和 diff。">
+          <div className="splitPanel">
+            <div className="fileTree">
+              <strong>SKILL.md</strong>
+              <span>examples/review-input.md</span>
+              <span>tests/manual-pass-fail.json</span>
+            </div>
+            <pre className="codePane">{`content_ref.kind: ${selectedVersion?.content_ref.kind}
 locator: ${selectedVersion?.content_ref.locator}
 digest: ${selectedVersion?.content_digest}
 
 ${selectedVersion?.change_summary}`}</pre>
-        </div>
-      </Section>
+          </div>
+        </Section>
+
+        <Section title="Evidence" description="测评结果必须绑定 exact VariantVersion + EvalSetVersion。">
+          <div className="evidenceGrid">
+            <Link className="evidenceCard" href={`/eval-set-versions/${evalSet?.current_version?.id}`}>
+              <strong>Eval Set</strong>
+              <span>{evalSet?.name ?? "No eval set"}</span>
+              <small>{evalSet?.current_version ? `version ${evalSet.current_version.version_number}` : "no snapshot"}</small>
+            </Link>
+            <Link className="evidenceCard evidenceCardStrong" href={`/eval-runs/${latestRun?.id ?? "evalrun-code-v2-primary"}`}>
+              <strong>Latest Eval Run</strong>
+              <span>{latestRun ? percent(rate) : "Unverified"}</span>
+              <small>{latestRun ? `${latestRun.summary.passed}/${latestRun.summary.total} passed` : "no run"}</small>
+            </Link>
+          </div>
+        </Section>
+      </div>
 
       <Section title="Variant Space" description="这里表达 tags 约束空间，不表达 parent/child 血缘。">
         <div className="variantMap">
@@ -112,21 +143,6 @@ ${selectedVersion?.change_summary}`}</pre>
               <small>{formatDate(version.created_at)} · {version.created_by} · {shortId(version.content_digest)}</small>
             </Link>
           ))}
-        </div>
-      </Section>
-
-      <Section title="Evidence" description="测评结果必须绑定 exact VariantVersion + EvalSetVersion。">
-        <div className="evidenceGrid">
-          <Link className="evidenceCard" href={`/eval-set-versions/${evalSet?.current_version?.id}`}>
-            <strong>Eval Set</strong>
-            <span>{evalSet?.name ?? "No eval set"}</span>
-            <small>{evalSet?.current_version ? `version ${evalSet.current_version.version_number}` : "no snapshot"}</small>
-          </Link>
-          <Link className="evidenceCard" href={`/eval-runs/${latestRun?.id ?? "evalrun-code-v2-primary"}`}>
-            <strong>Latest Eval Run</strong>
-            <span>{latestRun ? percent(rate) : "Unverified"}</span>
-            <small>{latestRun ? `${latestRun.summary.passed}/${latestRun.summary.total} passed` : "no run"}</small>
-          </Link>
         </div>
       </Section>
     </div>

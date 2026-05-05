@@ -5,21 +5,45 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Link href="/skills" className="brand">
-          <span className="brandMark">S</span>
-          <span>
-            <strong>SkillHub</strong>
-            <small>verified skills</small>
-          </span>
-        </Link>
-        <nav className="nav">
-          <Link href="/skills">Hub</Link>
-          <Link href="/skills/skill-code-reviewer">Skill</Link>
-          <Link href="/eval-set-versions/evalsetver-code-v3">Eval Set</Link>
-          <Link href="/eval-runs/evalrun-code-v2-primary">Eval Run</Link>
-        </nav>
+        <div>
+          <Link href="/skills" className="brand">
+            <span className="brandMark">SH</span>
+            <span>
+              <strong>SkillHub</strong>
+              <small>Evidence-backed skills</small>
+            </span>
+          </Link>
+          <div className="workspacePill">
+            <span className="statusDot" />
+            skillhub-lab
+          </div>
+          <nav className="nav" aria-label="Main navigation">
+            <span className="navLabel">Browse</span>
+            <Link href="/skills">Skill Hub</Link>
+            <Link href="/skills/skill-code-reviewer">Default Variant</Link>
+            <span className="navLabel">Evidence</span>
+            <Link href="/eval-set-versions/evalsetver-code-v3">Eval Set Version</Link>
+            <Link href="/eval-runs/evalrun-code-v2-primary">Eval Run</Link>
+          </nav>
+        </div>
+        <div className="sidebarFooter">
+          <span>Formal UI v0.1</span>
+          <strong>Exact version evidence</strong>
+        </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <div className="topbar">
+          <div>
+            <span className="topbarLabel">Production workspace</span>
+            <strong>Verified skill operations</strong>
+          </div>
+          <div className="topbarActions">
+            <button className="iconButton" aria-label="Open command menu">Cmd K</button>
+            <button className="avatarButton" aria-label="Current user">XX</button>
+          </div>
+        </div>
+        {children}
+      </main>
     </div>
   );
 }
@@ -67,13 +91,13 @@ export function Section({
   );
 }
 
-export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "good" | "bad" }) {
+export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "good" | "bad" | "blue" }) {
   return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
-export function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
+export function Metric({ label, value, hint, tone = "neutral" }: { label: string; value: string; hint?: string; tone?: "neutral" | "good" | "bad" | "blue" }) {
   return (
-    <div className="metric">
+    <div className={`metric metric-${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
       {hint ? <small>{hint}</small> : null}
