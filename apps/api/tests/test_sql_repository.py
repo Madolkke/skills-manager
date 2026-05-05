@@ -7,8 +7,10 @@ from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub.infrastructure.db.tables import (
     artifacts,
+    case_results,
     eval_case_versions,
     eval_cases,
+    eval_runs,
     eval_set_case_versions,
     eval_set_versions,
     eval_sets,
@@ -258,6 +260,80 @@ class SqlSkillRepositoryTest(unittest.TestCase):
                 title="Missing skill",
                 input_text="input",
                 expected_output="expected",
+                actor="tester",
+            )
+
+    def test_record_eval_run_writes_pass_fail_results_for_exact_versions(self):
+        skill = self.create_skill()
+        first_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing owner check",
+            input_text="input 1",
+            expected_output="expected 1",
+            actor="tester",
+        )
+        second_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: token leak",
+            input_text="input 2",
+            expected_output="expected 2",
+            actor="tester",
+        )
+
+        run = self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={first_case.eval_case_version_id: True},
+            actor="tester",
+        )
+
+        with self.engine.connect() as connection:
+            eval_run = connection.execute(select(eval_runs).where(eval_runs.c.id == run.eval_run_id)).mappings().one()
+            results = connection.execute(
+                select(case_results).where(case_results.c.run_id == run.eval_run_id).order_by(case_results.c.case_version_id)
+            ).mappings().all()
+
+        self.assertEqual(run.passed, 1)
+        self.assertEqual(run.failed, 1)
+        self.assertEqual(run.total, 2)
+        self.assertEqual(eval_run["variant_version_id"], skill.variant_version_id)
+        self.assertEqual(eval_run["eval_set_version_id"], second_case.eval_set_version_id)
+        self.assertEqual(eval_run["summary"], {"passed": 1, "failed": 1, "total": 2})
+        self.assertEqual({item["case_version_id"]: item["passed"] for item in results}, {
+            first_case.eval_case_version_id: True,
+            second_case.eval_case_version_id: False,
+        })
+
+    def test_record_eval_run_rejects_cross_skill_variant_and_eval_set_versions(self):
+        first = self.create_skill(slug="code-reviewer", digest="digest-code")
+        second = self.create_skill(slug="security-reviewer", digest="digest-security")
+        second_case = self.repository.create_eval_case(
+            skill_id=second.skill_id,
+            title="PR: token leak",
+            input_text="input",
+            expected_output="expected",
+            actor="tester",
+        )
+
+        with self.assertRaisesRegex(InvariantError, "same skill"):
+            self.repository.record_eval_run(
+                variant_version_id=first.variant_version_id,
+                eval_set_version_id=second_case.eval_set_version_id,
+                strategy="manual_pass_fail",
+                results={},
+                actor="tester",
+            )
+
+    def test_record_eval_run_requires_existing_versions(self):
+        skill = self.create_skill()
+
+        with self.assertRaisesRegex(NotFoundError, "VariantVersion not found"):
+            self.repository.record_eval_run(
+                variant_version_id="missing",
+                eval_set_version_id=skill.eval_set_version_id,
+                strategy="manual_pass_fail",
+                results={},
                 actor="tester",
             )
 

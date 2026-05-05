@@ -39,6 +39,17 @@ class CreateEvalCaseResult:
     expected_output_artifact_id: str
 
 
+@dataclass(frozen=True)
+class RecordEvalRunResult:
+    eval_run_id: str
+    skill_id: str
+    variant_version_id: str
+    eval_set_version_id: str
+    passed: int
+    failed: int
+    total: int
+
+
 class SqlSkillRepository:
     def __init__(self, engine: Engine):
         self.engine = engine
@@ -377,6 +388,73 @@ class SqlSkillRepository:
             eval_case_version_id=eval_case_version_id,
             input_artifact_id=input_artifact_id,
             expected_output_artifact_id=expected_output_artifact_id,
+        )
+
+    def record_eval_run(
+        self,
+        *,
+        variant_version_id: str,
+        eval_set_version_id: str,
+        strategy: str,
+        results: dict[str, bool],
+        actor: str,
+    ) -> RecordEvalRunResult:
+        created_at = utc_now()
+        eval_run_id = new_id("evalrun")
+
+        with self.engine.begin() as connection:
+            variant_version = self._variant_version_row(connection, variant_version_id)
+            eval_set_version = self._eval_set_version_row(connection, eval_set_version_id)
+            if variant_version["skill_id"] != eval_set_version["skill_id"]:
+                raise InvariantError("EvalRun must bind a variant version and eval set version from the same skill.")
+            skill_id = variant_version["skill_id"]
+            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_version_id)
+            passed_count = sum(1 for case_version_id in case_version_ids if results.get(case_version_id, False))
+            failed_count = len(case_version_ids) - passed_count
+            summary = {
+                "passed": passed_count,
+                "failed": failed_count,
+                "total": len(case_version_ids),
+            }
+
+            connection.execute(
+                insert(tables.eval_runs).values(
+                    id=eval_run_id,
+                    skill_id=skill_id,
+                    variant_version_id=variant_version_id,
+                    eval_set_version_id=eval_set_version_id,
+                    strategy=strategy,
+                    status="finished",
+                    summary=summary,
+                    result_artifact_id=None,
+                    created_at=created_at,
+                    created_by=actor,
+                )
+            )
+            connection.execute(
+                insert(tables.case_results),
+                [
+                    {
+                        "run_id": eval_run_id,
+                        "skill_id": skill_id,
+                        "case_version_id": case_version_id,
+                        "passed": results.get(case_version_id, False),
+                        "score": 1 if results.get(case_version_id, False) else 0,
+                        "result_artifact_id": None,
+                        "created_at": created_at,
+                    }
+                    for case_version_id in case_version_ids
+                ],
+            )
+
+        return RecordEvalRunResult(
+            eval_run_id=eval_run_id,
+            skill_id=skill_id,
+            variant_version_id=variant_version_id,
+            eval_set_version_id=eval_set_version_id,
+            passed=passed_count,
+            failed=failed_count,
+            total=len(case_version_ids),
         )
 
     def _get_or_create_tag_set(
