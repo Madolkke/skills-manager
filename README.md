@@ -67,3 +67,5 @@ npm run build
 - [API contract](docs/api-contract.md)
 - [Design spec](docs/mvp-design-spec.md)
 - [SQLite schema spike](docs/sqlite-schema-spike.md)
+- [Storage adapter contract](docs/storage-adapter-contract.md)
+- [Roadmap](docs/roadmap.md)
