@@ -69,3 +69,4 @@ npm run build
 - [SQLite schema spike](docs/sqlite-schema-spike.md)
 - [Storage adapter contract](docs/storage-adapter-contract.md)
 - [Roadmap](docs/roadmap.md)
+- [1.0 architecture review](docs/architecture-review-1.0.md)
