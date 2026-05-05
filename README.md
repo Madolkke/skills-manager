@@ -62,6 +62,12 @@ cd demo
 npm run build
 ```
 
+Formal API domain skeleton:
+
+```bash
+PYTHONPATH=apps/api python3 -m unittest discover -s apps/api/tests
+```
+
 ### External Eval Import Smoke
 
 With the backend running:
