@@ -68,6 +68,9 @@ Formal API domain skeleton:
 PYTHONPATH=apps/api python3 -m unittest discover -s apps/api/tests
 ```
 
+Formal API Alembic migrations live under `apps/api/migrations`; the first migration executes
+`apps/api/skillhub/infrastructure/db/schema.sql`.
+
 ### External Eval Import Smoke
 
 With the backend running:
