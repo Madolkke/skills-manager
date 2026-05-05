@@ -963,6 +963,57 @@ button:disabled {
   gap: 12px;
 }
 
+.run-history {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+
+.run-history h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.run-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.run-history-item {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--ink);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.run-history-item.active {
+  border-color: #274c77;
+  background: #f5f9ff;
+}
+
+.run-history-item span {
+  display: grid;
+  gap: 4px;
+}
+
+.run-history-item span:last-child {
+  text-align: right;
+  color: var(--muted);
+}
+
+.run-history-item em {
+  color: var(--muted);
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
 .run-inspection-grid,
 .run-inspection-detail {
   display: grid;
@@ -1215,9 +1266,18 @@ td {
   .diff-summary,
   .diff-selector-row,
   .drawer-split,
+  .run-history-item,
   .run-inspection-grid,
   .run-inspection-detail,
   .skill-intro-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .run-history-item {
+    flex-direction: column;
+  }
+
+  .run-history-item span:last-child {
+    text-align: left;
   }
 }

@@ -1,4 +1,4 @@
-import type { AppData, EvalCase, EvalSetVersion, Variant, VariantEvalSummary } from "./types";
+import type { AppData, EvalCase, EvalRun, EvalSetVersion, Variant, VariantEvalSummary } from "./types";
 
 export function tagsForVariant(data: AppData, variant: Variant): string[] {
   return data.tagSets.find((tagSet) => tagSet.id === variant.tagSetRef)?.tags ?? [];
@@ -28,16 +28,23 @@ export function artifactContent(data: AppData, artifactRef: string): string {
 }
 
 export function runFor(data: AppData, variantVersionRef: string, evalSetVersionRef: string) {
+  return runsFor(data, variantVersionRef, evalSetVersionRef).at(-1);
+}
+
+export function runsFor(data: AppData, variantVersionRef: string, evalSetVersionRef: string): EvalRun[] {
   return data.evalRuns
     .filter((run) => run.variantVersionRef === variantVersionRef && run.evalSetVersionRef === evalSetVersionRef && run.status === "finished")
-    .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-    .at(-1);
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
 
 export function caseScore(data: AppData, variantVersionRef: string, evalSetVersionRef: string, caseRef: string): number | null {
   const run = runFor(data, variantVersionRef, evalSetVersionRef);
   if (!run) return null;
-  return data.caseResults.find((result) => result.runRef === run.id && result.caseRef === caseRef)?.score ?? null;
+  return caseScoreForRun(data, run.id, caseRef);
+}
+
+export function caseScoreForRun(data: AppData, runRef: string, caseRef: string): number | null {
+  return data.caseResults.find((result) => result.runRef === runRef && result.caseRef === caseRef)?.score ?? null;
 }
 
 export function aggregateScore(data: AppData, variantVersionRef: string, evalSetVersionRef: string): number | null {
@@ -52,10 +59,17 @@ export function aggregateScore(data: AppData, variantVersionRef: string, evalSet
 export function resultCounts(data: AppData, variantVersionRef: string, evalSetVersionRef: string) {
   const version = data.evalSetVersions.find((item) => item.id === evalSetVersionRef);
   if (!version) return { passed: 0, failed: 0, missing: 0, total: 0 };
+  const run = runFor(data, variantVersionRef, evalSetVersionRef);
+  const cases = casesForVersion(data, version);
+  if (!run) return { passed: 0, failed: 0, missing: cases.length, total: cases.length };
+  return resultCountsForRun(data, version, run.id);
+}
+
+export function resultCountsForRun(data: AppData, version: EvalSetVersion, runRef: string) {
   const cases = casesForVersion(data, version);
   return cases.reduce(
     (counts, item) => {
-      const score = caseScore(data, variantVersionRef, evalSetVersionRef, item.id);
+      const score = caseScoreForRun(data, runRef, item.id);
       if (score === null) return { ...counts, missing: counts.missing + 1 };
       if (score > 0) return { ...counts, passed: counts.passed + 1 };
       return { ...counts, failed: counts.failed + 1 };

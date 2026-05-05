@@ -1,5 +1,6 @@
-import type { AppData, EvalSetVersion, Variant, VariantVersion } from "../domain/types";
-import { artifactContent, caseScore, casesForVersion, percent, resultCounts, runFor } from "../domain/scoring";
+import { useEffect, useMemo, useState } from "react";
+import type { AppData, EvalRun, EvalSetVersion, Variant, VariantVersion } from "../domain/types";
+import { artifactContent, caseScoreForRun, casesForVersion, percent, resultCountsForRun, runsFor } from "../domain/scoring";
 import { ResultDot, TagPill } from "./ui";
 
 export function ResultPage({
@@ -14,12 +15,25 @@ export function ResultPage({
   evalSetVersion: EvalSetVersion;
 }) {
   const cases = casesForVersion(data, evalSetVersion);
-  const counts = resultCounts(data, variantVersion.id, evalSetVersion.id);
-  const run = runFor(data, variantVersion.id, evalSetVersion.id);
+  const runs = useMemo(() => runsFor(data, variantVersion.id, evalSetVersion.id), [data, evalSetVersion.id, variantVersion.id]);
+  const latestRun = runs.at(-1);
+  const [selectedRunRef, setSelectedRunRef] = useState(latestRun?.id ?? "");
+  const run = runs.find((item) => item.id === selectedRunRef) ?? latestRun;
+  const counts = run ? resultCountsForRun(data, evalSetVersion, run.id) : { passed: 0, failed: 0, missing: cases.length, total: cases.length };
   const resultArtifact = run?.resultArtifactRef ? data.artifacts.find((artifact) => artifact.id === run.resultArtifactRef) : undefined;
   const importedResult = resultArtifact ? parseJsonObject(resultArtifact.content) : null;
   const runConfig = importedResult && isRecord(importedResult.config) ? importedResult.config : null;
   const runMetadata = importedResult && isRecord(importedResult.metadata) ? importedResult.metadata : null;
+
+  useEffect(() => {
+    if (!latestRun) {
+      setSelectedRunRef("");
+      return;
+    }
+    if (!runs.some((item) => item.id === selectedRunRef)) {
+      setSelectedRunRef(latestRun.id);
+    }
+  }, [latestRun, runs, selectedRunRef]);
 
   return (
     <section className="panel">
@@ -47,6 +61,31 @@ export function ResultPage({
         <Metric label="通过" value={String(counts.passed)} />
         <Metric label="不通过" value={String(counts.failed)} />
         <Metric label="未测" value={String(counts.missing)} />
+      </div>
+      <div className="run-history">
+        <h3>EvalRun 历史</h3>
+        <div className="run-history-list">
+          {runs.length === 0 && <div className="history-row">暂无运行记录</div>}
+          {runs
+            .slice()
+            .reverse()
+            .map((item) => (
+              <button
+                className={item.id === run?.id ? "run-history-item active" : "run-history-item"}
+                key={item.id}
+                type="button"
+                onClick={() => setSelectedRunRef(item.id)}
+              >
+                <span>
+                  <strong>{item.strategyRef}</strong>
+                  <em>{item.id}</em>
+                </span>
+                <span>
+                  {runPercent(data, evalSetVersion, item)} · {item.startedAt}
+                </span>
+              </button>
+            ))}
+        </div>
       </div>
       <div className="run-inspection">
         <div className="run-inspection-grid">
@@ -89,7 +128,7 @@ export function ResultPage({
                   <pre className="case-artifact">{artifactContent(data, item.expectationArtifactRef)}</pre>
                 </td>
                 <td>
-                  <ResultDot score={caseScore(data, variantVersion.id, evalSetVersion.id, item.id)} />
+                  <ResultDot score={run ? caseScoreForRun(data, run.id, item.id) : null} />
                 </td>
               </tr>
             ))}
@@ -124,4 +163,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function formatJson(value: Record<string, unknown> | null): string {
   return value ? JSON.stringify(value, null, 2) : "无";
+}
+
+function runPercent(data: AppData, evalSetVersion: EvalSetVersion, run: EvalRun): string {
+  const counts = resultCountsForRun(data, evalSetVersion, run.id);
+  return percent(counts.total ? counts.passed / counts.total : null);
 }
