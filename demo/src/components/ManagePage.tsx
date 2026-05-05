@@ -2,7 +2,7 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { aggregateScore, currentVersionForVariant, percent, tagsForVariant } from "../domain/scoring";
 import type { AppState } from "../domain/types";
 import { createBackendSkill, createBackendVariant, updateBackendSkill, updateBackendVariant } from "../store/backendState";
-import { TagPill } from "./ui";
+import { StatePill, TagPill } from "./ui";
 
 export function ManagePage({
   state,
@@ -21,6 +21,7 @@ export function ManagePage({
   const variants = data.variants.filter((item) => item.skillRef === state.selectedSkillRef);
   const variantIds = variants.map((variant) => variant.id).join("|");
   const defaultVariant = skill ? variants.find((item) => item.id === skill.defaultVariantRef) ?? variants[0] : variants[0];
+  const skillStatus = skill?.lifecycleStatus ?? "active";
   const [backendError, setBackendError] = useState("");
   const [summary, setSummary] = useState(defaultVariant?.summary ?? "");
   const [skillForm, setSkillForm] = useState({
@@ -84,6 +85,24 @@ export function ManagePage({
             <p>这里只管理分发入口和默认 Variant；版本实验放到 Experiment 页面。</p>
           </div>
           <div className="topbar-actions">
+            <StatePill tone={skillStatus === "active" ? "pass" : "warn"}>
+              {skillStatus === "active" ? "active" : "archived"}
+            </StatePill>
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() =>
+                runApiAction(
+                  updateBackendSkill({
+                    skillId: skill.id,
+                    lifecycleStatus: skillStatus === "active" ? "archived" : "active",
+                    view: "manage",
+                  }),
+                )
+              }
+            >
+              {skillStatus === "active" ? "Archive Skill" : "Restore Skill"}
+            </button>
             <button
               className="ghost-button"
               type="button"
@@ -148,7 +167,12 @@ export function ManagePage({
           <div className="workbench-variants">
             {variants.map((variant) => (
               <div className="variant-mini-card" key={variant.id}>
-                <strong>{variant.name}</strong>
+                <div className="variant-mini-header">
+                  <strong>{variant.name}</strong>
+                  <StatePill tone={(variant.lifecycleStatus ?? "active") === "active" ? "pass" : "warn"}>
+                    {(variant.lifecycleStatus ?? "active") === "active" ? "active" : "archived"}
+                  </StatePill>
+                </div>
                 <span>{variant.label}</span>
                 <div>
                   {tagsForVariant(data, variant).map((tag) => (
@@ -156,6 +180,22 @@ export function ManagePage({
                   ))}
                 </div>
                 <b>{percent(aggregateScore(data, currentVersionForVariant(data, variant)?.id ?? "", version.id))}</b>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  disabled={variant.id === skill.defaultVariantRef && (variant.lifecycleStatus ?? "active") === "active"}
+                  onClick={() =>
+                    runApiAction(
+                      updateBackendVariant({
+                        variantId: variant.id,
+                        lifecycleStatus: (variant.lifecycleStatus ?? "active") === "active" ? "archived" : "active",
+                        view: "manage",
+                      }),
+                    )
+                  }
+                >
+                  {(variant.lifecycleStatus ?? "active") === "active" ? "Archive Variant" : "Restore Variant"}
+                </button>
               </div>
             ))}
           </div>

@@ -75,6 +75,7 @@ export async function updateBackendSkill(input: {
   slug?: string;
   ownerRef?: string;
   defaultVariantRef?: string;
+  lifecycleStatus?: "active" | "archived";
   view?: AppState["view"];
 }): Promise<AppState> {
   const result = await patchJson("/api/skills", {
@@ -82,6 +83,7 @@ export async function updateBackendSkill(input: {
     slug: input.slug,
     owner_ref: input.ownerRef,
     default_variant_ref: input.defaultVariantRef,
+    lifecycle_status: input.lifecycleStatus,
   });
   const selectedVariantRef = result?.skill?.default_variant_ref;
   const overrides: StateOverrides = {
@@ -159,12 +161,14 @@ export async function updateBackendVariant(input: {
   variantId: string;
   summary?: string;
   label?: string;
+  lifecycleStatus?: "active" | "archived";
   view?: AppState["view"];
 }): Promise<AppState> {
   await patchJson("/api/variants", {
     variant_id: input.variantId,
     summary: input.summary,
     label: input.label,
+    lifecycle_status: input.lifecycleStatus,
   });
   return loadBackendState({
     view: input.view ?? "workbench",
