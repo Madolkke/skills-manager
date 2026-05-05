@@ -586,6 +586,16 @@ Content-Type: application/json
 - 未提供的 case 默认 `false`。正式版可以把缺失结果升级成 `missing` 或导入校验错误；demo 阶段先保持与手工记录一致。
 - `variant_version_id` 和 `eval_set_version_id` 必须属于同一个 skill，否则返回 400。
 
+Demo runner:
+
+```bash
+cd demo-backend
+python -m skillhub_demo.external_runner \
+  --variant-version-id version-a-v1 \
+  --eval-set-version-id evalset-v1 \
+  --fail-case-title-contains 仅重命名
+```
+
 ### Reset Demo State
 
 ```http

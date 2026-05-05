@@ -62,6 +62,19 @@ cd demo
 npm run build
 ```
 
+### External Eval Import Smoke
+
+With the backend running:
+
+```bash
+cd demo-backend
+. .venv/bin/activate
+python -m skillhub_demo.external_runner \
+  --variant-version-id version-a-v1 \
+  --eval-set-version-id evalset-v1 \
+  --fail-case-title-contains 仅重命名
+```
+
 ## Main Docs
 
 - [MVP spec](docs/MVP_SPEC.md)

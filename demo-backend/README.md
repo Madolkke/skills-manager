@@ -37,6 +37,20 @@ Use a disposable SQLite file:
 python -m skillhub_demo.server --sqlite-file /tmp/skillhub-demo.sqlite3
 ```
 
+## Minimal External Runner
+
+The runner reads the target eval set from the API, builds a standard import payload with the
+returned `case_version_refs`, and posts it back to `/api/eval-result-imports`.
+
+```bash
+python -m skillhub_demo.external_runner \
+  --variant-version-id version-a-v1 \
+  --eval-set-version-id evalset-v1 \
+  --fail-case-title-contains 仅重命名
+```
+
+Use `--dry-run` to print the payload without importing it.
+
 ## API Sketch
 
 - `GET /health`
