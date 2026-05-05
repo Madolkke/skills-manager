@@ -316,7 +316,7 @@ skill-name/
   assets/
 ```
 
-其中 `SKILL.md` 是必需文件，包含 YAML frontmatter 的 `name` 和 `description` 以及正文说明；其他目录按需存在。平台数据库只保存 `content_ref`、摘要、归属关系和测评事实，不把每个文件拆成业务表字段。
+其中 `SKILL.md` 是必需文件，包含 YAML frontmatter 的 `name` 和 `description` 以及正文说明；其他目录按需存在。平台数据库只保存 `content_ref`、摘要、归属关系和测评事实，不把每个文件拆成业务表字段。demo 后端已经把 bundle 内容放到 `ArtifactStore`，领域状态里只保留 artifact 元数据、hash 和 locator。
 
 Git 适合承载：
 
@@ -337,9 +337,9 @@ Git 适合承载：
 
 MVP diff 策略：
 
-- 存储完整 `skill_bundle` 快照。
+- `ArtifactStore` 存储完整 `skill_bundle` 快照。
 - diff 由两个 `VariantVersion.content_ref` 指向的快照按需计算。
-- 是否使用 Git object storage、对象存储、SQLite blob、文件系统目录或混合方案，放到正式技术栈选型阶段决策。
+- 当前 demo 用本地文件系统 artifact store；是否使用 Git object storage、对象存储、SQLite blob、文件系统目录或混合方案，放到正式技术栈选型阶段决策。
 
 ## 8. Demo 验收标准
 

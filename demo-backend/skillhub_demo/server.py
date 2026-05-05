@@ -129,7 +129,10 @@ class Handler(BaseHTTPRequestHandler):
         return store().eval_result_detail(variant_version_id, eval_set_version_id)
 
     def _skill_bundle(self, query: Dict[str, str]) -> Any:
-        return store().skill_bundle_detail(self._required(query, "artifact_id"))
+        artifact_id = self._required(query, "artifact_id")
+        if REPOSITORY is not None and hasattr(REPOSITORY, "skill_bundle_detail"):
+            return REPOSITORY.skill_bundle_detail(create_seed_data, artifact_id)  # type: ignore[attr-defined]
+        return store().skill_bundle_detail(artifact_id)
 
     def _create_eval_case(self, _query: Dict[str, str]) -> Any:
         body = self._json_body()
@@ -189,6 +192,14 @@ class Handler(BaseHTTPRequestHandler):
         files = body.get("files")
         if not isinstance(files, dict) or not all(isinstance(key, str) and isinstance(value, str) for key, value in files.items()):
             raise ApiError(400, "files must be an object mapping path to string content")
+        if REPOSITORY is not None and hasattr(REPOSITORY, "import_skill_bundle"):
+            result = REPOSITORY.import_skill_bundle(  # type: ignore[attr-defined]
+                create_seed_data,
+                body.get("name", "") if isinstance(body.get("name", ""), str) else "",
+                files,
+            )
+            self._sync_store_cache()
+            return result
         return self._mutate(
             lambda current_store: current_store.import_skill_bundle(
                 name=body.get("name", "") if isinstance(body.get("name", ""), str) else "",
@@ -300,11 +311,16 @@ class Handler(BaseHTTPRequestHandler):
         global STORE
         if REPOSITORY is not None:
             result = REPOSITORY.mutate(create_seed_data, operation)
-            STORE = SkillHubStore(REPOSITORY.load(create_seed_data))
+            self._sync_store_cache()
             return result
         result = operation(store())
         STORE = store()
         return result
+
+    def _sync_store_cache(self) -> None:
+        global STORE
+        if REPOSITORY is not None:
+            STORE = SkillHubStore(REPOSITORY.load(create_seed_data))
 
     def _send_json(self, status: int, payload: Any) -> None:
         body = b"" if status == 204 else json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")

@@ -18,8 +18,9 @@ python -m unittest
 python -m skillhub_demo.server --port 8788
 ```
 
-By default, mutations are saved to `data/skillhub-demo.sqlite3`. If `data/skillhub-demo.json`
-exists and the SQLite file has no snapshot yet, the server imports that JSON state once.
+By default, mutations are saved to `data/skillhub-demo.sqlite3`, and imported skill bundle
+contents are saved under `data/artifacts/`. If `data/skillhub-demo.json` exists and the SQLite
+file has no snapshot yet, the server imports that JSON state once.
 
 Use JSON mode when you want a disposable text file:
 

@@ -21,6 +21,7 @@ from .models import (
     VariantVersion,
     to_jsonable,
 )
+from .skill_bundle import normalize_bundle_files, skill_bundle_content, skill_bundle_payload, skill_md_metadata
 
 
 def now_iso() -> str:
@@ -305,20 +306,16 @@ class SkillHubStore:
             "tag_set": to_jsonable(tag_set),
         }
 
-    def import_skill_bundle(self, name: str, files: Dict[str, str]) -> Dict[str, Any]:
-        normalized_files = self._normalize_bundle_files(files)
-        skill_md = normalized_files.get("SKILL.md")
-        if skill_md is None:
-            raise ValueError("Skill bundle must include SKILL.md")
-
-        metadata = self._skill_md_metadata(skill_md)
-        bundle_name = name.strip() or metadata["name"]
-        payload = {
-            "name": bundle_name,
-            "metadata": metadata,
-            "files": normalized_files,
-        }
-        content = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    def import_skill_bundle(self, name: str, files: Dict[str, str], content_locator: Optional[str] = None) -> Dict[str, Any]:
+        payload = skill_bundle_payload(name, files)
+        normalized_files = payload["files"]
+        if not isinstance(normalized_files, dict):
+            raise ValueError("Skill bundle payload has invalid files")
+        metadata = payload["metadata"]
+        if not isinstance(metadata, dict):
+            raise ValueError("Skill bundle payload has invalid metadata")
+        bundle_name = str(payload["name"])
+        content = skill_bundle_content(name, files)
         content_hash = digest(content)
         existing = next(
             (item for item in self.data.artifacts if item.kind == "skill_bundle" and item.content_hash == content_hash),
@@ -334,7 +331,7 @@ class SkillHubStore:
             existing = Artifact(
                 id=artifact_id,
                 kind="skill_bundle",
-                content=content,
+                content=content_locator or content,
                 content_hash=content_hash,
                 media_type="application/vnd.skillhub.bundle+json",
                 created_at=created_at,
@@ -547,46 +544,10 @@ class SkillHubStore:
             raise ValueError("ContentRef digest does not match bundle artifact")
 
     def _normalize_bundle_files(self, files: Dict[str, str]) -> Dict[str, str]:
-        if not files:
-            raise ValueError("Skill bundle files cannot be empty")
-        normalized: Dict[str, str] = {}
-        for raw_path, content in files.items():
-            if not isinstance(raw_path, str) or not isinstance(content, str):
-                raise ValueError("Skill bundle files must map string paths to string content")
-            path = raw_path.strip().lstrip("./")
-            parts = [part for part in path.split("/") if part]
-            if not parts or any(part == ".." for part in parts):
-                raise ValueError("Invalid skill bundle path: %s" % raw_path)
-            normalized["/".join(parts)] = content
-        return dict(sorted(normalized.items()))
+        return normalize_bundle_files(files)
 
     def _skill_md_metadata(self, content: str) -> Dict[str, str]:
-        lines = content.splitlines()
-        if not lines or lines[0].strip() != "---":
-            raise ValueError("SKILL.md must start with YAML frontmatter")
-
-        end_index = None
-        for index, line in enumerate(lines[1:], start=1):
-            if line.strip() == "---":
-                end_index = index
-                break
-        if end_index is None:
-            raise ValueError("SKILL.md frontmatter must end with ---")
-
-        fields: Dict[str, str] = {}
-        for line in lines[1:end_index]:
-            if ":" not in line:
-                continue
-            key, value = line.split(":", 1)
-            fields[key.strip()] = value.strip().strip('"').strip("'")
-
-        skill_name = fields.get("name", "")
-        description = fields.get("description", "")
-        if not skill_name or not description:
-            raise ValueError("SKILL.md frontmatter must include name and description")
-        if not all(char.islower() or char.isdigit() or char == "-" for char in skill_name):
-            raise ValueError("SKILL.md name must use lowercase letters, digits, and hyphens")
-        return {"name": skill_name, "description": description}
+        return skill_md_metadata(content)
 
     def _unique_id(self, base_id: str, existing_ids: List[str], salt: str) -> str:
         if base_id not in existing_ids:

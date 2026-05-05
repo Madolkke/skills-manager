@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, Union
 
+from .artifact_store import ArtifactStore, FileArtifactStore
 from .models import AppData
 from .persistence import load_app_data, save_app_data
 from .sqlite_store import (
@@ -15,7 +16,8 @@ from .sqlite_store import (
     skills_overview,
     variant_page,
 )
-from .store import SkillHubStore
+from .skill_bundle import skill_bundle_content
+from .store import SkillHubStore, digest
 
 
 PathLike = Union[str, Path]
@@ -35,8 +37,9 @@ class StateRepository(Protocol):
 
 
 class JsonFileRepository:
-    def __init__(self, path: PathLike):
+    def __init__(self, path: PathLike, artifact_store: Optional[ArtifactStore] = None):
         self.path = Path(path)
+        self.artifact_store = artifact_store or FileArtifactStore(self.path.parent / "artifacts")
         self.label = "json:%s" % self.path
 
     def load(self, fallback: Callable[[], AppData]) -> AppData:
@@ -51,11 +54,25 @@ class JsonFileRepository:
         self.save(store.data)
         return result
 
+    def import_skill_bundle(self, fallback: Callable[[], AppData], name: str, files: dict) -> Any:
+        content = skill_bundle_content(name, files)
+        locator = self.artifact_store.write_text("skill-bundles", digest(content), content)
+        return self.mutate(fallback, lambda store: store.import_skill_bundle(name, files, content_locator=locator))
+
+    def skill_bundle_detail(self, fallback: Callable[[], AppData], artifact_id: str) -> dict:
+        return _skill_bundle_detail(SkillHubStore(self.load(fallback)), self.artifact_store, artifact_id)
+
 
 class SqliteRepository:
-    def __init__(self, path: PathLike, import_json_path: Optional[PathLike] = None):
+    def __init__(
+        self,
+        path: PathLike,
+        import_json_path: Optional[PathLike] = None,
+        artifact_store: Optional[ArtifactStore] = None,
+    ):
         self.path = Path(path)
         self.import_json_path = Path(import_json_path) if import_json_path is not None else None
+        self.artifact_store = artifact_store or FileArtifactStore(self.path.parent / "artifacts")
         self.label = "sqlite:%s" % self.path
 
     def load(self, fallback: Callable[[], AppData]) -> AppData:
@@ -84,6 +101,14 @@ class SqliteRepository:
         result = operation(store)
         self.save(store.data)
         return result
+
+    def import_skill_bundle(self, fallback: Callable[[], AppData], name: str, files: dict) -> Any:
+        content = skill_bundle_content(name, files)
+        locator = self.artifact_store.write_text("skill-bundles", digest(content), content)
+        return self.mutate(fallback, lambda store: store.import_skill_bundle(name, files, content_locator=locator))
+
+    def skill_bundle_detail(self, fallback: Callable[[], AppData], artifact_id: str) -> dict:
+        return _skill_bundle_detail(SkillHubStore(self.load(fallback)), self.artifact_store, artifact_id)
 
     def skills(self) -> list:
         connection = connect(str(self.path))
@@ -124,3 +149,28 @@ class SqliteRepository:
         if self.import_json_path is not None and self.import_json_path.exists():
             return load_app_data(self.import_json_path, fallback)
         return fallback()
+
+
+def _skill_bundle_detail(store: SkillHubStore, artifact_store: ArtifactStore, artifact_id: str) -> dict:
+    import json
+
+    artifact = store._artifact(artifact_id)
+    if artifact.kind != "skill_bundle":
+        raise ValueError("Artifact %s is not a skill_bundle" % artifact_id)
+    raw = artifact.content if artifact.content.lstrip().startswith("{") else artifact_store.read_text(artifact.content)
+    payload = json.loads(raw)
+    files = payload.get("files", {})
+    if not isinstance(files, dict):
+        raise ValueError("Skill bundle artifact has invalid files")
+    return {
+        "artifact": {
+            "id": artifact.id,
+            "kind": artifact.kind,
+            "content": artifact.content,
+            "content_hash": artifact.content_hash,
+            "media_type": artifact.media_type,
+            "created_at": artifact.created_at,
+        },
+        "metadata": payload.get("metadata", {}),
+        "files": [{"path": path, "content": files[path]} for path in sorted(files)],
+    }

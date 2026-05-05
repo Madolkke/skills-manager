@@ -32,6 +32,7 @@ Notes:
 - The backend uses only the Python standard library.
 - The virtual environment keeps your global Python install clean.
 - Demo mutations are persisted to SQLite at `demo-backend/data/skillhub-demo.sqlite3` by default.
+- Imported skill bundle contents are stored under `demo-backend/data/artifacts/` by default.
 - On first SQLite startup, existing `demo-backend/data/skillhub-demo.json` state is imported as legacy seed data.
 - Use `python -m skillhub_demo.server --store json --data-file /tmp/skillhub-demo.json` for the old JSON-file mode.
 

@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from skillhub_demo.artifact_store import FileArtifactStore
 from skillhub_demo.repository import JsonFileRepository, SqliteRepository
 from skillhub_demo.seed import create_seed_data
 from skillhub_demo.sqlite_store import connect, eval_result_counts, table_counts
@@ -156,6 +157,33 @@ class RepositoryTest(unittest.TestCase):
 
             slugs = [item.slug for item in loaded.data.skills]
             self.assertIn("api-reviewer", slugs)
+
+    def test_sqlite_repository_stores_skill_bundle_content_outside_state(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_store = FileArtifactStore(Path(tmpdir) / "artifacts")
+            repo = SqliteRepository(Path(tmpdir) / "skillhub-demo.sqlite3", artifact_store=artifact_store)
+
+            bundle = repo.import_skill_bundle(
+                create_seed_data,
+                "code-reviewer-bundle",
+                {
+                    "SKILL.md": (
+                        "---\n"
+                        "name: code-reviewer\n"
+                        "description: Review pull requests for bugs and test gaps.\n"
+                        "---\n\n"
+                        "# Code Reviewer\n"
+                    ),
+                    "references/checklist.md": "- Check nullability.\n",
+                },
+            )
+            loaded = SkillHubStore(repo.load(create_seed_data))
+            artifact = loaded._artifact(bundle["content_ref"]["locator"])
+            detail = repo.skill_bundle_detail(create_seed_data, artifact.id)
+
+            self.assertTrue(artifact.content.startswith("file:skill-bundles/"))
+            self.assertEqual(detail["metadata"]["name"], "code-reviewer")
+            self.assertEqual([item["path"] for item in detail["files"]], ["SKILL.md", "references/checklist.md"])
 
 
 if __name__ == "__main__":
