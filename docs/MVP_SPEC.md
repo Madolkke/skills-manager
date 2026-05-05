@@ -263,6 +263,7 @@ flowchart LR
 | `POST /api/eval-cases` | 添加 case 并生成新 EvalSetVersion |
 | `POST /api/variant-versions` | 发布新 VariantVersion |
 | `POST /api/eval-runs` | 保存 EvalRun 和 CaseResult |
+| `POST /api/eval-result-imports` | 导入外部测评结果并保存 EvalRun、CaseResult 和原始结果 artifact |
 | `POST /api/reset` | 将 demo 状态重置为 seed data |
 
 前端写入原则：

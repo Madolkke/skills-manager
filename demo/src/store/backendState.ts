@@ -264,6 +264,26 @@ export async function recordBackendEvalRun(input: {
   });
 }
 
+export async function importBackendEvalResult(input: {
+  payload: string;
+  skillId?: string;
+  selectedVariantId: string;
+  view?: AppState["view"];
+}): Promise<AppState> {
+  const parsed = JSON.parse(input.payload) as {
+    variant_version_id?: string;
+    eval_set_version_id?: string;
+  };
+  const result = await postJson("/api/eval-result-imports", parsed);
+  return loadBackendState({
+    view: input.view ?? "workbench",
+    selectedSkillRef: input.skillId,
+    selectedVariantRef: input.selectedVariantId,
+    selectedVersionRef: result?.eval_run?.variant_version_ref ?? parsed.variant_version_id,
+    evalSetVersionRef: result?.eval_run?.eval_set_version_ref ?? parsed.eval_set_version_id,
+  });
+}
+
 export async function resetBackendState(): Promise<AppState> {
   await postJson("/api/reset", {});
   return loadBackendState({ view: "hub" });

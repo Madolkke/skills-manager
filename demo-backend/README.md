@@ -53,6 +53,7 @@ python -m skillhub_demo.server --sqlite-file /tmp/skillhub-demo.sqlite3
 - `POST /api/eval-case-versions`
 - `POST /api/variant-versions`
 - `POST /api/eval-runs`
+- `POST /api/eval-result-imports`
 - `POST /api/reset`
 
 The core invariant is:
@@ -63,4 +64,5 @@ EvalRun -> VariantVersion + EvalSetVersion
 EvalCase -> current EvalCaseVersion
 EvalSetVersion -> ordered EvalCaseVersion snapshot
 CaseResult -> pass/fail for one EvalCaseVersion
+External eval import -> EvalRun + result artifact
 ```

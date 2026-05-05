@@ -226,6 +226,39 @@ class StoreTest(unittest.TestCase):
         )
         self.assertEqual(run["result_counts"], {"passed": 2, "failed": 1, "missing": 0, "total": 3})
 
+    def test_import_eval_result_records_external_strategy_and_artifact(self):
+        run = self.store.import_eval_result(
+            {
+                "variant_version_id": "version-a-v1",
+                "eval_set_version_id": "evalset-v1",
+                "strategy_ref": "script-runner-v1",
+                "run_config_hash": "script-config-a",
+                "results": {
+                    "casever-null-v1": True,
+                    "casever-auth-v1": False,
+                    "casever-noise-v1": True,
+                },
+            }
+        )
+
+        self.assertEqual(run["result_counts"], {"passed": 2, "failed": 1, "missing": 0, "total": 3})
+        self.assertEqual(run["eval_run"]["strategy_ref"], "script-runner-v1")
+        self.assertEqual(run["eval_run"]["run_config_hash"], "script-config-a")
+        artifact = self.store._artifact(run["eval_run"]["result_artifact_ref"])
+        self.assertEqual(artifact.kind, "eval_result_import")
+        self.assertIn('"strategy_ref": "script-runner-v1"', artifact.content)
+
+    def test_import_eval_result_rejects_case_versions_outside_eval_set(self):
+        with self.assertRaisesRegex(ValueError, "outside eval set"):
+            self.store.import_eval_result(
+                {
+                    "variant_version_id": "version-a-v1",
+                    "eval_set_version_id": "evalset-v1",
+                    "strategy_ref": "script-runner-v1",
+                    "results": {"casever-unknown-v1": True},
+                }
+            )
+
     def test_publish_variant_version_can_leave_current_pointer_unchanged(self):
         result = self.store.publish_variant_version("variant-a", "候选版本")
         self.assertEqual(result["variant_version"]["version"], "v3")

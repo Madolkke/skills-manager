@@ -3,6 +3,7 @@ import { aggregateScore, artifactContent, casesForVersion, percent, resultCounts
 import type { AppState } from "../domain/types";
 import {
   createBackendEvalCaseVersion,
+  importBackendEvalResult,
   publishBackendSkillBundleVersion,
   publishBackendVariantVersion,
   recordBackendEvalRun,
@@ -31,6 +32,7 @@ export function WorkbenchPage({
   const [evalVariantVersionRef, setEvalVariantVersionRef] = useState(state.selectedVersionRef);
   const [evalSetVersionRef, setEvalSetVersionRef] = useState(state.evalSetVersionRef || versions.at(-1)?.id || "");
   const [manualResults, setManualResults] = useState<Record<string, boolean>>({});
+  const [evalImportPayload, setEvalImportPayload] = useState("");
   const [caseVersionForm, setCaseVersionForm] = useState({
     caseRef: "",
     input: "",
@@ -111,6 +113,22 @@ export function WorkbenchPage({
     const defaults = Object.fromEntries(cases.map((item) => [item.id, manualResults[item.id] ?? true]));
     return defaults as Record<string, boolean>;
   }, [cases, manualResults]);
+  const defaultImportPayload = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          variant_version_id: selectedVariantVersion?.id ?? "",
+          eval_set_version_id: version?.id ?? "",
+          strategy_ref: "external-script-v1",
+          run_config_hash: "external-script-v1",
+          results: Object.fromEntries(cases.map((item) => [item.id, true])),
+        },
+        null,
+        2,
+      ),
+    [cases, selectedVariantVersion?.id, version?.id],
+  );
+  const importPayloadText = evalImportPayload || defaultImportPayload;
   const selectedCase = cases.find((item) => item.id === caseVersionForm.caseRef) ?? cases[0];
 
   useEffect(() => {
@@ -242,6 +260,37 @@ export function WorkbenchPage({
             </label>
           ))}
         </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <div>
+            <h2>导入测评结果</h2>
+            <p>外部 runner 只要提交同一份标准 JSON，就能落成 EvalRun 和 CaseResult。</p>
+          </div>
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!selectedVariant || !selectedVariantVersion}
+            onClick={() => {
+              if (!selectedVariant) return;
+              runApiAction(
+                importBackendEvalResult({
+                  payload: importPayloadText,
+                  skillId: state.selectedSkillRef,
+                  selectedVariantId: selectedVariant.id,
+                  view: "workbench",
+                }),
+              );
+            }}
+          >
+            导入 EvalRun
+          </button>
+        </div>
+        <label className="field-block wide">
+          <span>标准导入 JSON</span>
+          <textarea value={importPayloadText} onChange={(event) => setEvalImportPayload(event.target.value)} />
+        </label>
       </section>
 
       <section className="panel">

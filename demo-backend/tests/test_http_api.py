@@ -117,6 +117,28 @@ class HttpApiTest(unittest.TestCase):
         self.assertEqual(detail["cases"][0]["id"], result["eval_case_version"]["id"])
         self.assertEqual(detail["cases"][0]["input"], "updated input")
 
+    def test_eval_result_import_flow(self):
+        result = self.post(
+            "/api/eval-result-imports",
+            {
+                "variant_version_id": "version-a-v1",
+                "eval_set_version_id": "evalset-v1",
+                "strategy_ref": "external-script-v1",
+                "run_config_hash": "external-script-config",
+                "results": {
+                    "casever-null-v1": True,
+                    "casever-auth-v1": True,
+                    "casever-noise-v1": False,
+                },
+            },
+        )
+
+        self.assertEqual(result["eval_run"]["strategy_ref"], "external-script-v1")
+        self.assertEqual(result["eval_run"]["run_config_hash"], "external-script-config")
+        self.assertEqual(result["result_counts"], {"passed": 2, "failed": 1, "missing": 0, "total": 3})
+        detail = self.get("/api/eval-result?variant_version_id=version-a-v1&eval_set_version_id=evalset-v1")
+        self.assertEqual(detail["result_counts"]["failed"], 1)
+
     def get(self, path):
         with urlopen("%s%s" % (self.base_url, path), timeout=5) as response:
             return json.loads(response.read().decode("utf-8"))

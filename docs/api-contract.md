@@ -169,8 +169,8 @@ MVP 约束：
 | `EvalCase` | `POST /api/eval-cases` | `GET /api/eval-set` | 不建议原地更新 | 未实现，正式版做 archive | 已覆盖 append-only |
 | `EvalCaseVersion` | `POST /api/eval-case-versions` | `GET /api/eval-set` | 不允许原地更新 | 不允许硬删 | 已覆盖 append-only |
 | `EvalSetVersion` | 由 `POST /api/eval-cases` 自动创建 | `GET /api/eval-set` | 不允许原地更新 | 不允许硬删 | 已覆盖快照 |
-| `EvalRun` | `POST /api/eval-runs` | `GET /api/eval-result`、`GET /api/variant-page` | finished 后不改事实 | 不允许硬删 | 已覆盖测评记录 |
-| `CaseResult` | 随 `POST /api/eval-runs` 创建 | `GET /api/eval-result` | 不允许原地更新 | 不允许硬删 | 已覆盖 pass/fail |
+| `EvalRun` | `POST /api/eval-runs`、`POST /api/eval-result-imports` | `GET /api/eval-result`、`GET /api/variant-page` | finished 后不改事实 | 不允许硬删 | 已覆盖手工记录和外部导入 |
+| `CaseResult` | 随 `POST /api/eval-runs` 或 `POST /api/eval-result-imports` 创建 | `GET /api/eval-result` | 不允许原地更新 | 不允许硬删 | 已覆盖 pass/fail |
 
 刻意不做完整 CRUD 的对象：
 
@@ -184,7 +184,7 @@ MVP 约束：
 
 1. `POST /api/skills` 创建 `Skill + EvalCorpus + EvalSetVersion v1 + 默认 Variant + VariantVersion v1`。
 2. `POST /api/eval-cases` 添加测试用例，创建 `EvalCase + EvalCaseVersion v1`，并自动生成新的 `EvalSetVersion`。
-3. `POST /api/eval-runs` 选择某个 `VariantVersion + EvalSetVersion`，记录每条 case 的 pass/fail。
+3. `POST /api/eval-runs` 选择某个 `VariantVersion + EvalSetVersion`，手工记录每条 case 的 pass/fail；也可以用 `POST /api/eval-result-imports` 导入外部 runner 的标准结果。
 4. `GET /api/eval-result` 查看这次组合的详细结果。
 5. `GET /api/variant-page` 回到变体页面，查看当前版本在所有测评集版本上的验证状态。
 
@@ -193,7 +193,7 @@ MVP 约束：
 1. 可选：`POST /api/skill-bundles` 导入标准 skill 文件夹快照，得到 `content_ref`。
 2. `POST /api/variant-versions` 发布新 `VariantVersion`，并移动 `Variant.current_version_ref`。
 3. 旧 `EvalRun` 仍绑定旧 `VariantVersion`，不会被新版本覆盖。
-4. 对新 `VariantVersion` 调用 `POST /api/eval-runs`，形成新的测评事实。
+4. 对新 `VariantVersion` 调用 `POST /api/eval-runs` 或 `POST /api/eval-result-imports`，形成新的测评事实。
 5. `GET /api/variant-page` 对比当前版本、历史版本、验证状态和 bundle diff。
 
 ## Demo 持久化
@@ -540,8 +540,8 @@ Content-Type: application/json
   "variant_version_id": "version-a-v1",
   "eval_set_version_id": "evalset-v1",
   "results": {
-    "case-null": true,
-    "case-auth": false
+    "casever-null-v1": true,
+    "casever-auth-v1": false
   }
 }
 ```
@@ -551,6 +551,34 @@ Content-Type: application/json
 - 创建 `EvalRun`。
 - 为 eval set 中每个 case 创建 `CaseResult`。
 - 未提供的 case 默认 `false`，demo 阶段这样更容易暴露遗漏。
+- `variant_version_id` 和 `eval_set_version_id` 必须属于同一个 skill，否则返回 400。
+
+### Import Eval Result
+
+```http
+POST /api/eval-result-imports
+Content-Type: application/json
+
+{
+  "variant_version_id": "version-a-v1",
+  "eval_set_version_id": "evalset-v1",
+  "strategy_ref": "external-script-v1",
+  "run_config_hash": "external-script-config",
+  "results": {
+    "casever-null-v1": true,
+    "casever-auth-v1": false
+  }
+}
+```
+
+行为：
+
+- 创建 `eval_result_import` artifact，保存外部导入的原始 JSON。
+- 创建 `EvalRun`，`strategy_ref` 和 `run_config_hash` 来自导入 payload。
+- 为 eval set 中每个 `EvalCaseVersion` 创建 `CaseResult`。
+- `results` 的 key 必须属于该 `EvalSetVersion.case_version_refs`；未知 case version 返回 400。
+- `results` 的 value 必须是 JSON boolean，不做字符串 `"true"` / `"false"` 的隐式转换。
+- 未提供的 case 默认 `false`。正式版可以把缺失结果升级成 `missing` 或导入校验错误；demo 阶段先保持与手工记录一致。
 - `variant_version_id` 和 `eval_set_version_id` 必须属于同一个 skill，否则返回 400。
 
 ### Reset Demo State

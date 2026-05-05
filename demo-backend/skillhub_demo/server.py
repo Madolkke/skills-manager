@@ -61,6 +61,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/api/eval-case-versions": self._create_eval_case_version,
                 "/api/variant-versions": self._publish_variant_version,
                 "/api/eval-runs": self._record_eval_run,
+                "/api/eval-result-imports": self._import_eval_result,
                 "/api/reset": self._reset_state,
             }
         )
@@ -280,7 +281,7 @@ class Handler(BaseHTTPRequestHandler):
         body = self._json_body()
         results = body.get("results")
         if not isinstance(results, dict):
-            raise ApiError(400, "results must be an object mapping case id to boolean")
+            raise ApiError(400, "results must be an object mapping case version id to boolean")
         return self._mutate(
             lambda current_store: current_store.record_eval_run(
                 variant_version_id=self._required(body, "variant_version_id"),
@@ -288,6 +289,10 @@ class Handler(BaseHTTPRequestHandler):
                 results={key: bool(value) for key, value in results.items()},
             )
         )
+
+    def _import_eval_result(self, _query: Dict[str, str]) -> Any:
+        body = self._json_body()
+        return self._mutate(lambda current_store: current_store.import_eval_result(body))
 
     def _reset_state(self, _query: Dict[str, str]) -> Any:
         global STORE

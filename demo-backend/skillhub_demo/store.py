@@ -504,6 +504,9 @@ class SkillHubStore:
         variant_version_id: str,
         eval_set_version_id: str,
         results: Dict[str, bool],
+        strategy_ref: str = "manual-eval-v1",
+        run_config_hash: str = "manual-v1",
+        result_artifact_ref: Optional[str] = None,
     ) -> Dict[str, Any]:
         eval_set = self._eval_set_version(eval_set_version_id)
         variant_version = self._variant_version(variant_version_id)
@@ -517,11 +520,12 @@ class SkillHubStore:
             id=run_id,
             variant_version_ref=variant_version_id,
             eval_set_version_ref=eval_set_version_id,
-            strategy_ref="manual-eval-v1",
-            run_config_hash="manual-v1",
+            strategy_ref=strategy_ref,
+            run_config_hash=run_config_hash,
             status="finished",
             started_at=created_at,
             finished_at=created_at,
+            result_artifact_ref=result_artifact_ref,
         )
         self.data.eval_runs.append(run)
         for case_version_ref in eval_set.case_version_refs:
@@ -530,6 +534,52 @@ class SkillHubStore:
                 CaseResult(run_ref=run.id, case_version_ref=case_version_ref, passed=passed, score=1 if passed else 0)
             )
         return {"eval_run": to_jsonable(run), "result_counts": self.result_counts(variant_version_id, eval_set_version_id)}
+
+    def import_eval_result(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        variant_version_id = self._required_payload_str(payload, "variant_version_id")
+        eval_set_version_id = self._required_payload_str(payload, "eval_set_version_id")
+        strategy_ref = self._required_payload_str(payload, "strategy_ref")
+        run_config_hash = str(payload.get("run_config_hash") or digest(json.dumps(payload.get("config", {}), sort_keys=True)))
+        results = payload.get("results")
+        if not isinstance(results, dict):
+            raise ValueError("results must be an object mapping case version id to boolean")
+        if not all(isinstance(value, bool) for value in results.values()):
+            raise ValueError("results values must be booleans")
+
+        eval_set = self._eval_set_version(eval_set_version_id)
+        variant_version = self._variant_version(variant_version_id)
+        variant = self._variant(variant_version.variant_ref)
+        corpus = self._corpus_for_skill(variant.skill_ref)
+        if eval_set.corpus_ref != corpus.id:
+            raise ValueError("Eval set must belong to the same skill as variant version %s" % variant_version_id)
+        unknown_refs = sorted(set(str(key) for key in results.keys()) - set(eval_set.case_version_refs))
+        if unknown_refs:
+            raise ValueError("results contain case versions outside eval set: %s" % ", ".join(unknown_refs))
+
+        created_at = now_iso()
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        artifact = Artifact(
+            id=self._unique_id(
+                "artifact-eval-result-import-%s" % digest(raw),
+                [item.id for item in self.data.artifacts],
+                created_at,
+            ),
+            kind="eval_result_import",
+            content=raw,
+            content_hash=digest(raw),
+            media_type="application/vnd.skillhub.eval-result+json",
+            created_at=created_at,
+        )
+        self.data.artifacts.append(artifact)
+        normalized_results = {str(key): bool(value) for key, value in results.items()}
+        return self.record_eval_run(
+            variant_version_id=variant_version_id,
+            eval_set_version_id=eval_set_version_id,
+            results=normalized_results,
+            strategy_ref=strategy_ref,
+            run_config_hash=run_config_hash,
+            result_artifact_ref=artifact.id,
+        )
 
     def latest_eval_set_for_skill(self, skill_id: str) -> EvalSetVersion:
         corpus = self._corpus_for_skill(skill_id)
@@ -685,6 +735,12 @@ class SkillHubStore:
             raise ValueError("ContentRef locator must point to a skill_bundle artifact")
         if content_ref.digest != "sha-%s" % artifact.content_hash:
             raise ValueError("ContentRef digest does not match bundle artifact")
+
+    def _required_payload_str(self, payload: Dict[str, Any], key: str) -> str:
+        value = payload.get(key)
+        if not isinstance(value, str) or not value:
+            raise ValueError("Missing required field: %s" % key)
+        return value
 
     def _replace_case_version_ref(self, refs: List[str], case_id: str, next_case_version_id: str) -> List[str]:
         replaced = False
