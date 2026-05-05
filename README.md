@@ -79,6 +79,17 @@ uv run uvicorn skillhub.api.main:app --reload
 Formal API Alembic migrations live under `apps/api/migrations`; the first migration executes
 `apps/api/skillhub/infrastructure/db/schema.sql`.
 
+Formal web UI skeleton:
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+The formal web app defaults to `http://127.0.0.1:8000` for `SKILLHUB_API_URL` and falls back to
+sample read-model data when the API is not running.
+
 ### External Eval Import Smoke
 
 With the backend running:

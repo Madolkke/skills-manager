@@ -43,7 +43,7 @@ jobs:
         run: PYTHONPATH=apps/api python -m unittest discover -s apps/api/tests
 
   frontend:
-    name: Frontend build
+    name: Demo frontend build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -63,4 +63,30 @@ jobs:
         run: npm ci
 
       - name: Build frontend
+        run: npm run build
+
+  formal-web:
+    name: Formal web build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build formal web
         run: npm run build
