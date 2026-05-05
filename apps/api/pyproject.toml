@@ -16,3 +16,10 @@ dependencies = [
 dev = [
   "pytest>=8.3",
 ]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["skillhub*"]

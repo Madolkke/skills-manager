@@ -10,4 +10,9 @@ demo-backend/**/__pycache__/
 demo-backend/**/*.pyc
 demo-backend/data/*.tmp
 
+apps/api/.venv/
+apps/api/*.egg-info/
+apps/api/**/__pycache__/
+apps/api/**/*.pyc
+
 .DS_Store

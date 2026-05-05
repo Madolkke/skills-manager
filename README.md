@@ -65,7 +65,8 @@ npm run build
 Formal API domain skeleton:
 
 ```bash
-PYTHONPATH=apps/api python3 -m unittest discover -s apps/api/tests
+cd apps/api
+uv run python -m unittest discover -s tests
 ```
 
 Formal API Alembic migrations live under `apps/api/migrations`; the first migration executes
