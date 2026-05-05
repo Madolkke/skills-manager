@@ -6,6 +6,10 @@ from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub.infrastructure.db.tables import (
+    artifacts,
+    eval_case_versions,
+    eval_cases,
+    eval_set_case_versions,
     eval_set_versions,
     eval_sets,
     metadata,
@@ -154,6 +158,107 @@ class SqlSkillRepositoryTest(unittest.TestCase):
                 change_summary="Missing variant.",
                 actor="tester",
                 make_current=False,
+            )
+
+    def test_create_eval_case_creates_case_version_and_new_eval_set_snapshot(self):
+        skill = self.create_skill()
+
+        created = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing owner check",
+            input_text="diff --git a/api.ts b/api.ts",
+            expected_output="Should flag missing ownerId filter.",
+            actor="tester",
+        )
+
+        with self.engine.connect() as connection:
+            eval_case = connection.execute(select(eval_cases).where(eval_cases.c.id == created.eval_case_id)).mappings().one()
+            case_version = connection.execute(select(eval_case_versions).where(eval_case_versions.c.id == created.eval_case_version_id)).mappings().one()
+            eval_set = connection.execute(select(eval_sets).where(eval_sets.c.id == skill.eval_set_id)).mappings().one()
+            membership = connection.execute(
+                select(eval_set_case_versions)
+                .where(eval_set_case_versions.c.eval_set_version_id == created.eval_set_version_id)
+                .order_by(eval_set_case_versions.c.position)
+            ).mappings().all()
+            artifact_count = connection.execute(select(artifacts.c.id)).all()
+
+        self.assertEqual(eval_case["current_version_id"], created.eval_case_version_id)
+        self.assertEqual(case_version["case_id"], created.eval_case_id)
+        self.assertEqual(case_version["version_number"], 1)
+        self.assertEqual(eval_set["current_version_id"], created.eval_set_version_id)
+        self.assertEqual([item["case_version_id"] for item in membership], [created.eval_case_version_id])
+        self.assertEqual(len(artifact_count), 2)
+
+    def test_eval_case_version_replaces_current_case_in_new_eval_set_without_mutating_old_snapshot(self):
+        skill = self.create_skill()
+        first = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: null nickname",
+            input_text="old input",
+            expected_output="old expectation",
+            actor="tester",
+        )
+        second = self.repository.create_eval_case_version(
+            case_id=first.eval_case_id,
+            input_text="new input",
+            expected_output="new expectation",
+            actor="tester",
+        )
+
+        with self.engine.connect() as connection:
+            old_membership = connection.execute(
+                select(eval_set_case_versions.c.case_version_id).where(
+                    eval_set_case_versions.c.eval_set_version_id == first.eval_set_version_id
+                )
+            ).scalars().all()
+            new_membership = connection.execute(
+                select(eval_set_case_versions.c.case_version_id).where(
+                    eval_set_case_versions.c.eval_set_version_id == second.eval_set_version_id
+                )
+            ).scalars().all()
+            eval_case = connection.execute(select(eval_cases).where(eval_cases.c.id == first.eval_case_id)).mappings().one()
+            latest_eval_set_version = connection.execute(
+                select(eval_set_versions).where(eval_set_versions.c.id == second.eval_set_version_id)
+            ).mappings().one()
+
+        self.assertEqual(old_membership, [first.eval_case_version_id])
+        self.assertEqual(new_membership, [second.eval_case_version_id])
+        self.assertEqual(eval_case["current_version_id"], second.eval_case_version_id)
+        self.assertEqual(latest_eval_set_version["version_number"], 3)
+
+    def test_eval_case_version_can_be_created_without_moving_case_or_eval_set_current_pointer(self):
+        skill = self.create_skill()
+        first = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: token leak",
+            input_text="old input",
+            expected_output="old expectation",
+            actor="tester",
+        )
+        candidate = self.repository.create_eval_case_version(
+            case_id=first.eval_case_id,
+            input_text="candidate input",
+            expected_output="candidate expectation",
+            actor="tester",
+            make_current=False,
+        )
+
+        with self.engine.connect() as connection:
+            eval_case = connection.execute(select(eval_cases).where(eval_cases.c.id == first.eval_case_id)).mappings().one()
+            eval_set = connection.execute(select(eval_sets).where(eval_sets.c.id == skill.eval_set_id)).mappings().one()
+
+        self.assertEqual(eval_case["current_version_id"], first.eval_case_version_id)
+        self.assertEqual(eval_set["current_version_id"], first.eval_set_version_id)
+        self.assertEqual(candidate.eval_set_version_id, first.eval_set_version_id)
+
+    def test_create_eval_case_requires_existing_skill_eval_set(self):
+        with self.assertRaisesRegex(NotFoundError, "Primary EvalSet not found"):
+            self.repository.create_eval_case(
+                skill_id="missing",
+                title="Missing skill",
+                input_text="input",
+                expected_output="expected",
+                actor="tester",
             )
 
     def create_skill(self, *, slug: str = "code-reviewer", digest: str = "digest-bundle"):

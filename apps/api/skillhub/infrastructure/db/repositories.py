@@ -28,6 +28,17 @@ class CreateVariantVersionResult:
     version_number: int
 
 
+@dataclass(frozen=True)
+class CreateEvalCaseResult:
+    skill_id: str
+    eval_set_id: str
+    eval_set_version_id: str
+    eval_case_id: str
+    eval_case_version_id: str
+    input_artifact_id: str
+    expected_output_artifact_id: str
+
+
 class SqlSkillRepository:
     def __init__(self, engine: Engine):
         self.engine = engine
@@ -202,6 +213,172 @@ class SqlSkillRepository:
                 .values(current_version_id=version_id, updated_at=updated_at)
             )
 
+    def create_eval_case(
+        self,
+        *,
+        skill_id: str,
+        title: str,
+        input_text: str,
+        expected_output: str,
+        actor: str,
+        notes: str | None = None,
+    ) -> CreateEvalCaseResult:
+        created_at = utc_now()
+        eval_case_id = new_id("case")
+        eval_case_version_id = new_id("casever")
+
+        with self.engine.begin() as connection:
+            eval_set = self._primary_eval_set_row(connection, skill_id)
+            current_eval_set_version = self._eval_set_version_row(connection, eval_set["current_version_id"])
+            input_artifact_id = self._insert_text_artifact(
+                connection,
+                kind="eval_input",
+                namespace=skill_id,
+                content=input_text,
+                actor=actor,
+                created_at=created_at,
+            )
+            expected_output_artifact_id = self._insert_text_artifact(
+                connection,
+                kind="expected_output",
+                namespace=skill_id,
+                content=expected_output,
+                actor=actor,
+                created_at=created_at,
+            )
+
+            connection.execute(
+                insert(tables.eval_cases).values(
+                    id=eval_case_id,
+                    skill_id=skill_id,
+                    title=title,
+                    current_version_id=None,
+                    lifecycle_status="active",
+                    created_at=created_at,
+                    updated_at=created_at,
+                )
+            )
+            connection.execute(
+                insert(tables.eval_case_versions).values(
+                    id=eval_case_version_id,
+                    skill_id=skill_id,
+                    case_id=eval_case_id,
+                    version_number=1,
+                    input_artifact_id=input_artifact_id,
+                    expected_output_artifact_id=expected_output_artifact_id,
+                    notes=notes,
+                    created_at=created_at,
+                    created_by=actor,
+                )
+            )
+            connection.execute(
+                update(tables.eval_cases)
+                .where(tables.eval_cases.c.id == eval_case_id)
+                .values(current_version_id=eval_case_version_id, updated_at=created_at)
+            )
+
+            eval_set_version_id = self._create_eval_set_version(
+                connection,
+                skill_id=skill_id,
+                eval_set_id=eval_set["id"],
+                case_version_ids=[
+                    *self._eval_set_case_version_ids(connection, current_eval_set_version["id"]),
+                    eval_case_version_id,
+                ],
+                created_at=created_at,
+                actor=actor,
+            )
+
+        return CreateEvalCaseResult(
+            skill_id=skill_id,
+            eval_set_id=eval_set["id"],
+            eval_set_version_id=eval_set_version_id,
+            eval_case_id=eval_case_id,
+            eval_case_version_id=eval_case_version_id,
+            input_artifact_id=input_artifact_id,
+            expected_output_artifact_id=expected_output_artifact_id,
+        )
+
+    def create_eval_case_version(
+        self,
+        *,
+        case_id: str,
+        input_text: str,
+        expected_output: str,
+        actor: str,
+        notes: str | None = None,
+        make_current: bool = True,
+    ) -> CreateEvalCaseResult:
+        created_at = utc_now()
+        eval_case_version_id = new_id("casever")
+
+        with self.engine.begin() as connection:
+            eval_case = self._eval_case_row(connection, case_id)
+            skill_id = eval_case["skill_id"]
+            version_number = self._next_eval_case_version_number(connection, case_id)
+            input_artifact_id = self._insert_text_artifact(
+                connection,
+                kind="eval_input",
+                namespace=skill_id,
+                content=input_text,
+                actor=actor,
+                created_at=created_at,
+            )
+            expected_output_artifact_id = self._insert_text_artifact(
+                connection,
+                kind="expected_output",
+                namespace=skill_id,
+                content=expected_output,
+                actor=actor,
+                created_at=created_at,
+            )
+            connection.execute(
+                insert(tables.eval_case_versions).values(
+                    id=eval_case_version_id,
+                    skill_id=skill_id,
+                    case_id=case_id,
+                    version_number=version_number,
+                    input_artifact_id=input_artifact_id,
+                    expected_output_artifact_id=expected_output_artifact_id,
+                    notes=notes,
+                    created_at=created_at,
+                    created_by=actor,
+                )
+            )
+
+            eval_set = self._primary_eval_set_row(connection, skill_id)
+            eval_set_version_id = eval_set["current_version_id"]
+            if make_current:
+                connection.execute(
+                    update(tables.eval_cases)
+                    .where(tables.eval_cases.c.id == case_id)
+                    .values(current_version_id=eval_case_version_id, updated_at=created_at)
+                )
+                current_eval_set_version = self._eval_set_version_row(connection, eval_set["current_version_id"])
+                eval_set_version_id = self._create_eval_set_version(
+                    connection,
+                    skill_id=skill_id,
+                    eval_set_id=eval_set["id"],
+                    case_version_ids=[
+                        eval_case_version_id
+                        if self._eval_case_version_row(connection, case_version_id)["case_id"] == case_id
+                        else case_version_id
+                        for case_version_id in self._eval_set_case_version_ids(connection, current_eval_set_version["id"])
+                    ],
+                    created_at=created_at,
+                    actor=actor,
+                )
+
+        return CreateEvalCaseResult(
+            skill_id=skill_id,
+            eval_set_id=eval_set["id"],
+            eval_set_version_id=eval_set_version_id,
+            eval_case_id=case_id,
+            eval_case_version_id=eval_case_version_id,
+            input_artifact_id=input_artifact_id,
+            expected_output_artifact_id=expected_output_artifact_id,
+        )
+
     def _get_or_create_tag_set(
         self,
         connection,
@@ -246,11 +423,143 @@ class SqlSkillRepository:
             raise NotFoundError(f"VariantVersion not found: {version_id}")
         return row
 
+    def _eval_case_row(self, connection, case_id: str):
+        row = (
+            connection.execute(select(tables.eval_cases).where(tables.eval_cases.c.id == case_id))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise NotFoundError(f"EvalCase not found: {case_id}")
+        return row
+
+    def _eval_case_version_row(self, connection, case_version_id: str):
+        row = (
+            connection.execute(select(tables.eval_case_versions).where(tables.eval_case_versions.c.id == case_version_id))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise NotFoundError(f"EvalCaseVersion not found: {case_version_id}")
+        return row
+
+    def _primary_eval_set_row(self, connection, skill_id: str):
+        row = (
+            connection.execute(
+                select(tables.eval_sets)
+                .where(tables.eval_sets.c.skill_id == skill_id)
+                .where(tables.eval_sets.c.name == "Primary")
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise NotFoundError(f"Primary EvalSet not found for skill: {skill_id}")
+        return row
+
+    def _eval_set_version_row(self, connection, eval_set_version_id: str):
+        row = (
+            connection.execute(select(tables.eval_set_versions).where(tables.eval_set_versions.c.id == eval_set_version_id))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise NotFoundError(f"EvalSetVersion not found: {eval_set_version_id}")
+        return row
+
     def _next_variant_version_number(self, connection, variant_id: str) -> int:
         version_numbers = connection.execute(
             select(tables.variant_versions.c.version_number).where(tables.variant_versions.c.variant_id == variant_id)
         ).scalars()
         return 1 + max(version_numbers, default=0)
+
+    def _next_eval_case_version_number(self, connection, case_id: str) -> int:
+        version_numbers = connection.execute(
+            select(tables.eval_case_versions.c.version_number).where(tables.eval_case_versions.c.case_id == case_id)
+        ).scalars()
+        return 1 + max(version_numbers, default=0)
+
+    def _next_eval_set_version_number(self, connection, eval_set_id: str) -> int:
+        version_numbers = connection.execute(
+            select(tables.eval_set_versions.c.version_number).where(tables.eval_set_versions.c.eval_set_id == eval_set_id)
+        ).scalars()
+        return 1 + max(version_numbers, default=0)
+
+    def _create_eval_set_version(
+        self,
+        connection,
+        *,
+        skill_id: str,
+        eval_set_id: str,
+        case_version_ids: list[str],
+        created_at: datetime,
+        actor: str,
+    ) -> str:
+        eval_set_version_id = new_id("evalsetver")
+        connection.execute(
+            insert(tables.eval_set_versions).values(
+                id=eval_set_version_id,
+                skill_id=skill_id,
+                eval_set_id=eval_set_id,
+                version_number=self._next_eval_set_version_number(connection, eval_set_id),
+                created_at=created_at,
+                created_by=actor,
+            )
+        )
+        connection.execute(
+            insert(tables.eval_set_case_versions),
+            [
+                {
+                    "eval_set_version_id": eval_set_version_id,
+                    "skill_id": skill_id,
+                    "case_version_id": case_version_id,
+                    "position": position,
+                }
+                for position, case_version_id in enumerate(case_version_ids)
+            ],
+        )
+        connection.execute(
+            update(tables.eval_sets)
+            .where(tables.eval_sets.c.id == eval_set_id)
+            .values(current_version_id=eval_set_version_id, updated_at=created_at)
+        )
+        return eval_set_version_id
+
+    def _eval_set_case_version_ids(self, connection, eval_set_version_id: str) -> list[str]:
+        return list(
+            connection.execute(
+                select(tables.eval_set_case_versions.c.case_version_id)
+                .where(tables.eval_set_case_versions.c.eval_set_version_id == eval_set_version_id)
+                .order_by(tables.eval_set_case_versions.c.position)
+            ).scalars()
+        )
+
+    def _insert_text_artifact(
+        self,
+        connection,
+        *,
+        kind: str,
+        namespace: str,
+        content: str,
+        actor: str,
+        created_at: datetime,
+    ) -> str:
+        artifact_id = new_id("artifact")
+        content_digest = digest_text(content)
+        connection.execute(
+            insert(tables.artifacts).values(
+                id=artifact_id,
+                kind=kind,
+                namespace=namespace,
+                locator=f"inline:{content_digest}",
+                digest=content_digest,
+                media_type="text/plain",
+                size_bytes=len(content.encode("utf-8")),
+                created_at=created_at,
+                created_by=actor,
+            )
+        )
+        return artifact_id
 
     def _content_ref_payload(self, content_ref: ContentRef) -> dict[str, str]:
         payload = {
