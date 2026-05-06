@@ -15,5 +15,8 @@ apps/api/*.egg-info/
 apps/api/**/__pycache__/
 apps/api/**/*.pyc
 
+apps/web/.next/
+apps/web/.next-dev/
+
 .DS_Store
 .superpowers/
