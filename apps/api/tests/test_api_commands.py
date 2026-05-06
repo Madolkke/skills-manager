@@ -1,4 +1,7 @@
 import unittest
+from base64 import b64encode
+from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi.testclient import TestClient
 
@@ -184,6 +187,114 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(archive_skill.status_code, 200)
         archived_detail = self.client.get(f"/api/skills/{skill['skill_id']}")
         self.assertEqual(archived_detail.json()["skill"]["lifecycle_status"], "archived")
+
+    def test_import_skill_from_file_tree_uses_skill_md_frontmatter(self):
+        response = self.client.post(
+            "/api/skill-imports",
+            json={
+                "owner_ref": "skillhub-lab",
+                "tags": ["codex", "gpt5.4"],
+                "actor": "tester",
+                "source": {
+                    "kind": "files",
+                    "name": "security-reviewing",
+                    "files": [
+                        {
+                            "path": "security-reviewing/SKILL.md",
+                            "content_text": (
+                                "---\n"
+                                "name: security-reviewing\n"
+                                "description: Review pull requests for auth and data access regressions.\n"
+                                "---\n"
+                                "# Security Reviewing\n"
+                                "Flag auth regressions first.\n"
+                            ),
+                        },
+                        {
+                            "path": "security-reviewing/references/checklist.md",
+                            "content_text": "Check owner filters and secret logging.\n",
+                        },
+                    ],
+                },
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        imported = response.json()
+        self.assertEqual(imported["slug"], "security-reviewing")
+        self.assertEqual(imported["file_count"], 2)
+        self.assertEqual(imported["entry_path"], "SKILL.md")
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        self.assertEqual(detail["skill"]["slug"], "security-reviewing")
+        self.assertEqual(detail["summary"]["default_variant"]["summary"], "Review pull requests for auth and data access regressions.")
+        self.assertEqual(detail["summary"]["default_variant"]["tags"], ["codex", "gpt5.4"])
+        self.assertEqual(detail["summary"]["default_variant"]["current_version"]["content_ref"]["kind"], "artifact")
+        bundle_artifact = detail["summary"]["default_variant"]["current_version"]["bundle_artifact"]
+        self.assertIn("\"path\": \"SKILL.md\"", bundle_artifact["content_text"])
+
+    def test_import_skill_from_zip_uses_same_bundle_contract(self):
+        archive = BytesIO()
+        with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
+            bundle.writestr(
+                "data-quality/SKILL.md",
+                (
+                    "---\n"
+                    "name: data-quality\n"
+                    "description: Inspect data pipelines for schema drift and missing checks.\n"
+                    "---\n"
+                    "# Data Quality\n"
+                ),
+            )
+            bundle.writestr("data-quality/examples/input.md", "broken schema example")
+
+        response = self.client.post(
+            "/api/skill-imports",
+            json={
+                "owner_ref": "skillhub-lab",
+                "tags": ["opencode", "minimax2.7"],
+                "actor": "tester",
+                "source": {
+                    "kind": "zip",
+                    "name": "data-quality.zip",
+                    "zip_base64": b64encode(archive.getvalue()).decode("ascii"),
+                },
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        imported = response.json()
+        self.assertEqual(imported["slug"], "data-quality")
+        self.assertEqual(imported["file_count"], 2)
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        self.assertEqual(detail["summary"]["default_variant"]["tags"], ["minimax2.7", "opencode"])
+
+    def test_import_duplicate_skill_returns_validation_error(self):
+        payload = {
+            "owner_ref": "skillhub-lab",
+            "tags": ["codex"],
+            "actor": "tester",
+            "source": {
+                "kind": "files",
+                "name": "duplicate-reviewer",
+                "files": [
+                    {
+                        "path": "duplicate-reviewer/SKILL.md",
+                        "content_text": (
+                            "---\n"
+                            "name: duplicate-reviewer\n"
+                            "description: Reviewer that demonstrates duplicate handling.\n"
+                            "---\n"
+                        ),
+                    }
+                ],
+            },
+        }
+        self.assertEqual(self.client.post("/api/skill-imports", json=payload).status_code, 200)
+
+        duplicate = self.client.post("/api/skill-imports", json=payload)
+
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn("already exists", duplicate.json()["detail"])
 
     def create_skill(self, slug: str, digest: str = "digest-code"):
         response = self.client.post(

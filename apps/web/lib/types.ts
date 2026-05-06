@@ -49,6 +49,7 @@ export type VariantVersion = {
   change_summary: string;
   created_at?: string;
   created_by: string;
+  bundle_artifact?: ArtifactRef | null;
 };
 
 export type ContentRef = {

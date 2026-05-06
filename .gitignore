@@ -18,5 +18,6 @@ apps/api/**/*.pyc
 apps/web/.next/
 apps/web/.next-dev/
 
+.uv-cache/
 .DS_Store
 .superpowers/

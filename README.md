@@ -14,81 +14,89 @@ Eval-backed SkillHub prototype for managing skill variants, versioned eval sets,
 
 ## Quick Start
 
-Run the backend first, then the frontend in a second terminal.
+The formal product workspace lives under `apps/api` and `apps/web`.
 
-### 1. Backend API
+### One-command local run
 
 ```bash
-cd demo-backend
-python3 -m venv .venv
-. .venv/bin/activate
-python -m unittest discover -s tests
-python -m skillhub_demo.server --port 8788
+bash scripts/dev.sh
 ```
 
-The API will be available at `http://127.0.0.1:8788`.
+This starts:
 
-Notes:
+- API: `http://127.0.0.1:8000`
+- Web: `http://127.0.0.1:3000/skills`
 
-- The backend uses only the Python standard library.
-- The virtual environment keeps your global Python install clean.
-- Demo mutations are persisted to SQLite at `demo-backend/data/skillhub-demo.sqlite3` by default.
-- Imported skill bundle contents are stored under `demo-backend/data/artifacts/` by default.
-- On first SQLite startup, existing `demo-backend/data/skillhub-demo.json` state is imported as legacy seed data.
-- Use `python -m skillhub_demo.server --store json --data-file /tmp/skillhub-demo.json` for the old JSON-file mode.
+The script uses `uv` for the Python API and installs `apps/web` npm dependencies when `node_modules` is missing. It does not write to your global Python environment.
 
-### 2. Frontend App
+### Manual run
 
-Open a second terminal:
+Terminal 1:
 
 ```bash
-cd demo
+cd apps/api
+uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Terminal 2:
+
+```bash
+cd apps/web
 npm install
-npm run dev
+SKILLHUB_API_URL=http://127.0.0.1:8000 \
+NEXT_PUBLIC_SKILLHUB_API_URL=http://127.0.0.1:8000 \
+npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-The app will be available at `http://127.0.0.1:5173`.
+### Product flow to try
+
+1. Open `http://127.0.0.1:3000/skills`.
+2. Use the left catalog to switch skills.
+3. Use the right inspector to create a skill, import a standard skill bundle, create variants, add test cases, edit case versions, and record manual pass/fail eval runs.
+4. In `导入 bundle`, upload either:
+   - a folder containing root `SKILL.md`, or
+   - a zip whose root folder contains `SKILL.md`.
+5. `SKILL.md` must start with frontmatter:
+
+```markdown
+---
+name: security-reviewing
+description: Review pull requests for auth and data access regressions.
+---
+
+# Security Reviewing
+```
+
+The imported bundle is stored as a `skill_bundle` artifact, and the created variant version points to that immutable artifact.
 
 ### Verification Commands
 
+Run before pushing changes:
+
 ```bash
-cd demo-backend
-. .venv/bin/activate
-python -m unittest discover -s tests
+cd apps/api
+uv run pytest
 ```
 
 ```bash
-cd demo
+cd apps/web
+npm run typecheck
 npm run build
 ```
 
-Formal API domain skeleton:
+Smoke-check the running app:
 
 ```bash
-cd apps/api
-uv run python -m unittest discover -s tests
-```
-
-Run the formal API locally:
-
-```bash
-cd apps/api
-uv run uvicorn skillhub.api.main:app --reload
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:3000/skills
 ```
 
 Formal API Alembic migrations live under `apps/api/migrations`; the first migration executes
 `apps/api/skillhub/infrastructure/db/schema.sql`.
 
-Formal web UI skeleton:
+### Legacy prototype
 
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-
-The formal web app defaults to `http://127.0.0.1:8000` for `SKILLHUB_API_URL` and falls back to
-sample read-model data when the API is not running.
+The older proof-of-concept remains in `demo-backend`, `demo`, and `prototype` for reference. New product work should target `apps/api` and `apps/web`.
 
 ### External Eval Import Smoke
 

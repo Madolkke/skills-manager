@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.pool import StaticPool
 
+from skillhub.application.skill_imports import parse_skill_import_source
 from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
@@ -33,6 +34,14 @@ class CreateSkillPayload(BaseModel):
     content_ref: ContentRefPayload
     change_summary: str
     actor: str = "system"
+
+
+class ImportSkillPayload(BaseModel):
+    owner_ref: str
+    tags: list[str] = Field(min_length=1)
+    source: dict[str, Any]
+    actor: str = "system"
+    variant_label: str = "Imported"
 
 
 class CreateVariantVersionPayload(BaseModel):
@@ -154,6 +163,41 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 actor=payload.actor,
             )
         )
+
+    @app.post("/api/skill-imports")
+    def import_skill(payload: ImportSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+        bundle = parse_skill_import_source(payload.source)
+        artifact = repository.create_text_artifact(
+            kind="skill_bundle",
+            namespace=f"skill-import:{bundle.slug}",
+            content=bundle.manifest_text,
+            actor=payload.actor,
+        )
+        result = repository.create_skill(
+            slug=bundle.slug,
+            owner_ref=payload.owner_ref,
+            variant_name=payload.variant_label,
+            variant_label=payload.variant_label,
+            variant_summary=bundle.description,
+            tags=payload.tags,
+            content_ref=ContentRef(
+                kind="artifact",
+                locator=f"artifact:{artifact['id']}",
+                digest=artifact["digest"],
+                path=bundle.entry_path,
+            ),
+            change_summary=f"Imported standard skill bundle with {bundle.file_count} files.",
+            actor=payload.actor,
+        )
+        return {
+            **asdict(result),
+            "slug": bundle.slug,
+            "description": bundle.description,
+            "file_count": bundle.file_count,
+            "entry_path": bundle.entry_path,
+            "bundle_artifact_id": artifact["id"],
+            "bundle_digest": bundle.digest,
+        }
 
     @app.post("/api/variant-versions")
     def create_variant_version(

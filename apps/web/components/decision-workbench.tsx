@@ -17,8 +17,17 @@ type DecisionWorkbenchProps = {
 };
 
 type Mode = "overview" | "variants" | "evals";
-type ActionMode = "skill" | "new-skill" | "new-variant" | "new-version" | "new-case" | "edit-case" | "run";
+type ActionMode =
+  | "skill"
+  | "new-skill"
+  | "import-skill"
+  | "new-variant"
+  | "new-version"
+  | "new-case"
+  | "edit-case"
+  | "run";
 type Notice = { tone: "good" | "bad" | "neutral"; message: string } | null;
+type ImportSkillResponse = { skill_id: string; slug: string; file_count: number };
 
 export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: DecisionWorkbenchProps) {
   const [skills, setSkills] = useState(initialSkills);
@@ -77,7 +86,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     if (nextActionMode === "new-variant" || nextActionMode === "new-version") {
       setMode("variants");
     }
-    if (nextActionMode === "skill" || nextActionMode === "new-skill") {
+    if (nextActionMode === "skill" || nextActionMode === "new-skill" || nextActionMode === "import-skill") {
       setMode("overview");
     }
   }
@@ -153,6 +162,48 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       setCatalogQuery("");
       chooseAction("skill");
       event.currentTarget.reset();
+    });
+  }
+
+  async function importSkill(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const zipInput = event.currentTarget.elements.namedItem("zip_file") as HTMLInputElement | null;
+    const folderInput = event.currentTarget.elements.namedItem("folder_files") as HTMLInputElement | null;
+    const zipFile = zipInput?.files?.[0];
+    const folderFiles = Array.from(folderInput?.files ?? []);
+    await runCommand("Skill bundle 已导入。", async () => {
+      const source = zipFile && zipFile.size > 0
+        ? {
+            kind: "zip",
+            name: zipFile.name,
+            zip_base64: await fileToBase64(zipFile),
+          }
+        : {
+            kind: "files",
+            name: folderFiles[0]?.webkitRelativePath?.split("/")[0] || folderFiles[0]?.name || "skill-folder",
+            files: await Promise.all(
+              folderFiles.map(async (file) => ({
+                path: file.webkitRelativePath || file.name,
+                content_text: await file.text(),
+              })),
+            ),
+          };
+      const result = await apiSend<ImportSkillResponse>("/api/skill-imports", {
+        method: "POST",
+        body: {
+          owner_ref: textValue(form, "owner_ref"),
+          tags: tagList(textValue(form, "tags")),
+          variant_label: textValue(form, "variant_label") || "Imported",
+          source,
+          actor: ACTOR,
+        },
+      });
+      setSelectedSkillId(result.skill_id);
+      setCatalogQuery("");
+      chooseAction("skill");
+      event.currentTarget.reset();
+      return `已导入 ${result.slug}，包含 ${result.file_count} 个文件。`;
     });
   }
 
@@ -399,6 +450,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           busy={busy}
           cases={cases}
           createCase={createCase}
+          importSkill={importSkill}
           createSkill={createSkill}
           createVariant={createVariant}
           createVariantVersion={createVariantVersion}
@@ -595,6 +647,7 @@ function Inspector({
   busy,
   cases,
   createCase,
+  importSkill,
   createSkill,
   createVariant,
   createVariantVersion,
@@ -615,6 +668,7 @@ function Inspector({
   busy: boolean;
   cases: EvalSetVersionDetail["cases"];
   createCase: (event: FormEvent<HTMLFormElement>) => void;
+  importSkill: (event: FormEvent<HTMLFormElement>) => void;
   createSkill: (event: FormEvent<HTMLFormElement>) => void;
   createVariant: (event: FormEvent<HTMLFormElement>) => void;
   createVariantVersion: (event: FormEvent<HTMLFormElement>) => void;
@@ -650,6 +704,7 @@ function Inspector({
         {[
           ["skill", "编辑 Skill"],
           ["new-skill", "新建 skill"],
+          ["import-skill", "导入 bundle"],
           ["new-variant", "新建 variant"],
           ["new-version", "追加版本"],
           ["new-case", "新增 case"],
@@ -687,6 +742,25 @@ function Inspector({
           <textarea name="summary" placeholder="这个 skill 解决什么问题" required />
           <textarea name="change_summary" placeholder="初始版本说明" required />
           <button disabled={busy} type="submit">创建</button>
+        </form>
+      ) : null}
+
+      {actionMode === "import-skill" ? (
+        <form className="inspectorForm" onSubmit={importSkill}>
+          <h3>导入标准 Skill</h3>
+          <p className="inspectorHint">选择包含 SKILL.md 的文件夹，或上传 zip。SKILL.md frontmatter 的 name 会成为 skill slug。</p>
+          <input name="owner_ref" placeholder="skillhub-lab" required />
+          <input name="tags" placeholder="codex, gpt5.4" required />
+          <input name="variant_label" placeholder="Imported" defaultValue="Imported" />
+          <label className="fileDrop">
+            <span>选择文件夹</span>
+            <input {...folderInputProps} />
+          </label>
+          <label className="fileDrop">
+            <span>或选择 zip</span>
+            <input accept=".zip,application/zip" name="zip_file" type="file" />
+          </label>
+          <button disabled={busy} type="submit">导入并创建 skill</button>
         </form>
       ) : null}
 
@@ -773,6 +847,8 @@ function Metric({ label, tone = "neutral", value }: { label: string; tone?: "neu
 
 function formatBundlePreview(variant: VariantDetail | null): string {
   if (!variant?.current_version) return "还没有 current version。";
+  const importedSkill = skillMdFromBundleArtifact(variant.current_version.bundle_artifact?.content_text);
+  if (importedSkill) return importedSkill;
   return [
     `name: ${variant.label}`,
     `tags: ${variant.tags.join(", ")}`,
@@ -782,6 +858,18 @@ function formatBundlePreview(variant: VariantDetail | null): string {
     "",
     variant.current_version.change_summary,
   ].join("\n");
+}
+
+function skillMdFromBundleArtifact(contentText?: string | null): string | null {
+  if (!contentText) return null;
+  try {
+    const manifest = JSON.parse(contentText) as {
+      files?: Array<{ path?: string; content_text?: string }>;
+    };
+    return manifest.files?.find((file) => file.path === "SKILL.md")?.content_text ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function textValue(form: FormData, key: string) {
@@ -798,11 +886,28 @@ async function digestText(value: string) {
   return `sha256:${Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
+async function fileToBase64(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, { headers: { accept: "application/json" } });
   if (!response.ok) throw new Error(await responseText(response));
   return response.json() as Promise<T>;
 }
+
+const folderInputProps = {
+  directory: "",
+  multiple: true,
+  name: "folder_files",
+  type: "file",
+  webkitdirectory: "",
+} as const;
 
 async function apiSend<T = unknown>(path: string, options: { method: string; body?: unknown }): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

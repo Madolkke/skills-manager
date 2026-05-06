@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Engine, desc, insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef, digest_text, new_id, normalize_tags, utc_now
@@ -101,89 +102,92 @@ class SqlSkillRepository:
         variant_id = new_id("variant")
         variant_version_id = new_id("varver")
 
-        with self.engine.begin() as connection:
-            tag_set_id = self._get_or_create_tag_set(
-                connection,
-                tags=normalized_tags,
-                normalized_hash=normalized_hash,
-                created_at=created_at,
-            )
+        try:
+            with self.engine.begin() as connection:
+                tag_set_id = self._get_or_create_tag_set(
+                    connection,
+                    tags=normalized_tags,
+                    normalized_hash=normalized_hash,
+                    created_at=created_at,
+                )
 
-            connection.execute(
-                insert(tables.skills).values(
-                    id=skill_id,
-                    slug=slug,
-                    owner_ref=owner_ref,
-                    default_variant_id=None,
-                    lifecycle_status="active",
-                    created_at=created_at,
-                    updated_at=created_at,
+                connection.execute(
+                    insert(tables.skills).values(
+                        id=skill_id,
+                        slug=slug,
+                        owner_ref=owner_ref,
+                        default_variant_id=None,
+                        lifecycle_status="active",
+                        created_at=created_at,
+                        updated_at=created_at,
+                    )
                 )
-            )
-            connection.execute(
-                insert(tables.eval_sets).values(
-                    id=eval_set_id,
-                    skill_id=skill_id,
-                    name="Primary",
-                    description="Primary regression suite",
-                    current_version_id=None,
-                    lifecycle_status="active",
-                    created_at=created_at,
-                    updated_at=created_at,
+                connection.execute(
+                    insert(tables.eval_sets).values(
+                        id=eval_set_id,
+                        skill_id=skill_id,
+                        name="Primary",
+                        description="Primary regression suite",
+                        current_version_id=None,
+                        lifecycle_status="active",
+                        created_at=created_at,
+                        updated_at=created_at,
+                    )
                 )
-            )
-            connection.execute(
-                insert(tables.eval_set_versions).values(
-                    id=eval_set_version_id,
-                    skill_id=skill_id,
-                    eval_set_id=eval_set_id,
-                    version_number=1,
-                    created_at=created_at,
-                    created_by=actor,
+                connection.execute(
+                    insert(tables.eval_set_versions).values(
+                        id=eval_set_version_id,
+                        skill_id=skill_id,
+                        eval_set_id=eval_set_id,
+                        version_number=1,
+                        created_at=created_at,
+                        created_by=actor,
+                    )
                 )
-            )
-            connection.execute(
-                update(tables.eval_sets)
-                .where(tables.eval_sets.c.id == eval_set_id)
-                .values(current_version_id=eval_set_version_id, updated_at=created_at)
-            )
-            connection.execute(
-                insert(tables.variants).values(
-                    id=variant_id,
-                    skill_id=skill_id,
-                    name=variant_name,
-                    label=variant_label,
-                    summary=variant_summary,
-                    tag_set_id=tag_set_id,
-                    current_version_id=None,
-                    lifecycle_status="active",
-                    created_at=created_at,
-                    updated_at=created_at,
+                connection.execute(
+                    update(tables.eval_sets)
+                    .where(tables.eval_sets.c.id == eval_set_id)
+                    .values(current_version_id=eval_set_version_id, updated_at=created_at)
                 )
-            )
-            connection.execute(
-                insert(tables.variant_versions).values(
-                    id=variant_version_id,
-                    skill_id=skill_id,
-                    variant_id=variant_id,
-                    version_number=1,
-                    content_ref=self._content_ref_payload(content_ref),
-                    content_digest=content_ref.digest,
-                    change_summary=change_summary,
-                    created_at=created_at,
-                    created_by=actor,
+                connection.execute(
+                    insert(tables.variants).values(
+                        id=variant_id,
+                        skill_id=skill_id,
+                        name=variant_name,
+                        label=variant_label,
+                        summary=variant_summary,
+                        tag_set_id=tag_set_id,
+                        current_version_id=None,
+                        lifecycle_status="active",
+                        created_at=created_at,
+                        updated_at=created_at,
+                    )
                 )
-            )
-            connection.execute(
-                update(tables.variants)
-                .where(tables.variants.c.id == variant_id)
-                .values(current_version_id=variant_version_id, updated_at=created_at)
-            )
-            connection.execute(
-                update(tables.skills)
-                .where(tables.skills.c.id == skill_id)
-                .values(default_variant_id=variant_id, updated_at=created_at)
-            )
+                connection.execute(
+                    insert(tables.variant_versions).values(
+                        id=variant_version_id,
+                        skill_id=skill_id,
+                        variant_id=variant_id,
+                        version_number=1,
+                        content_ref=self._content_ref_payload(content_ref),
+                        content_digest=content_ref.digest,
+                        change_summary=change_summary,
+                        created_at=created_at,
+                        created_by=actor,
+                    )
+                )
+                connection.execute(
+                    update(tables.variants)
+                    .where(tables.variants.c.id == variant_id)
+                    .values(current_version_id=variant_version_id, updated_at=created_at)
+                )
+                connection.execute(
+                    update(tables.skills)
+                    .where(tables.skills.c.id == skill_id)
+                    .values(default_variant_id=variant_id, updated_at=created_at)
+                )
+        except IntegrityError as exc:
+            raise InvariantError(f"Skill slug already exists: {slug}") from exc
 
         return CreateSkillResult(
             skill_id=skill_id,
@@ -342,6 +346,20 @@ class SqlSkillRepository:
                 .where(tables.skills.c.id == skill_id)
                 .values(lifecycle_status="archived", updated_at=updated_at)
             )
+
+    def create_text_artifact(self, *, kind: str, namespace: str, content: str, actor: str) -> dict[str, Any]:
+        created_at = utc_now()
+        with self.engine.begin() as connection:
+            artifact_id = self._insert_text_artifact(
+                connection,
+                kind=kind,
+                namespace=namespace,
+                content=content,
+                actor=actor,
+                created_at=created_at,
+            )
+            artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id)).mappings().one()
+            return self._row_dict(artifact)
 
     def update_eval_case_title(self, *, case_id: str, title: str) -> dict[str, Any]:
         updated_at = utc_now()
@@ -725,7 +743,7 @@ class SqlSkillRepository:
         return EvalRunDetail(
             eval_run=self._row_dict(eval_run),
             skill=self._row_dict(skill),
-            variant_version=self._row_dict(variant_version),
+            variant_version=self._variant_version_detail(connection, variant_version),
             eval_set_version=self._row_dict(eval_set_version),
             case_results=case_results,
         )
@@ -918,6 +936,17 @@ class SqlSkillRepository:
     ) -> str:
         artifact_id = new_id("artifact")
         content_digest = digest_text(content)
+        existing = (
+            connection.execute(
+                select(tables.artifacts.c.id)
+                .where(tables.artifacts.c.locator == f"inline:{content_digest}")
+                .where(tables.artifacts.c.digest == content_digest)
+            )
+            .scalars()
+            .one_or_none()
+        )
+        if existing is not None:
+            return existing
         connection.execute(
             insert(tables.artifacts).values(
                 id=artifact_id,
@@ -995,7 +1024,7 @@ class SqlSkillRepository:
 
     def _variant_detail(self, connection, variant) -> dict[str, Any]:
         versions = [
-            self._row_dict(row)
+            self._variant_version_detail(connection, row)
             for row in connection.execute(
                 select(tables.variant_versions)
                 .where(tables.variant_versions.c.variant_id == variant["id"])
@@ -1021,6 +1050,21 @@ class SqlSkillRepository:
             "current_version": current_version,
             "versions": versions,
         }
+
+    def _variant_version_detail(self, connection, version) -> dict[str, Any]:
+        detail = self._row_dict(version)
+        content_ref = detail.get("content_ref") or {}
+        locator = content_ref.get("locator") if isinstance(content_ref, dict) else None
+        if content_ref.get("kind") == "artifact" and isinstance(locator, str) and locator.startswith("artifact:"):
+            artifact_id = locator.split(":", 1)[1]
+            artifact = (
+                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id))
+                .mappings()
+                .one_or_none()
+            )
+            if artifact is not None:
+                detail["bundle_artifact"] = self._row_dict(artifact)
+        return detail
 
     def _eval_set_summary(self, connection, eval_set) -> dict[str, Any]:
         versions = [

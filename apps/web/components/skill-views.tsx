@@ -94,7 +94,7 @@ export function VariantPageView({
 locator: ${selectedVersion?.content_ref.locator}
 digest: ${selectedVersion?.content_digest}
 
-${selectedVersion?.change_summary}`}</pre>
+${formatVariantBundle(selectedVersion)}`}</pre>
           </div>
         </Section>
 
@@ -147,6 +147,21 @@ ${selectedVersion?.change_summary}`}</pre>
       </Section>
     </div>
   );
+}
+
+function formatVariantBundle(version: VariantDetail["versions"][number] | null | undefined): string {
+  if (!version) return "No selected version.";
+  const contentText = version.bundle_artifact?.content_text;
+  if (contentText) {
+    try {
+      const manifest = JSON.parse(contentText) as { files?: Array<{ path?: string; content_text?: string }> };
+      const skillMd = manifest.files?.find((file) => file.path === "SKILL.md")?.content_text;
+      if (skillMd) return skillMd;
+    } catch {
+      return contentText;
+    }
+  }
+  return version.change_summary;
 }
 
 export function EvalSetVersionView({ detail }: { detail: EvalSetVersionDetail }) {
