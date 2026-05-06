@@ -5,14 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { passRate } from "@/lib/api";
 import { formatDate, percent, shortId } from "@/lib/format";
-import type {
-  EvalRunRecord,
-  EvalSetSummary,
-  EvalSetVersionDetail,
-  SkillDetail,
-  SkillSummary,
-  VariantDetail,
-} from "@/lib/types";
+import type { EvalRunRecord, EvalSetVersionDetail, SkillDetail, SkillSummary, VariantDetail } from "@/lib/types";
 import { Badge } from "./chrome";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_SKILLHUB_API_URL ?? "http://127.0.0.1:8000";
@@ -23,29 +16,43 @@ type DecisionWorkbenchProps = {
   featuredSkill: SkillDetail;
 };
 
+type Mode = "overview" | "variants" | "evals";
+type ActionMode = "skill" | "new-skill" | "new-variant" | "new-version" | "new-case" | "edit-case" | "run";
 type Notice = { tone: "good" | "bad" | "neutral"; message: string } | null;
 
 export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: DecisionWorkbenchProps) {
   const [skills, setSkills] = useState(initialSkills);
-  const [selectedSkillId, setSelectedSkillId] = useState(
-    initialSkills[0]?.skill.id ?? featuredSkill.skill.id,
-  );
+  const [selectedSkillId, setSelectedSkillId] = useState(initialSkills[0]?.skill.id ?? featuredSkill.skill.id);
   const [selectedDetail, setSelectedDetail] = useState<SkillDetail>(featuredSkill);
   const [evalSetDetail, setEvalSetDetail] = useState<EvalSetVersionDetail | null>(null);
   const [caseResults, setCaseResults] = useState<Record<string, boolean>>({});
+  const [mode, setMode] = useState<Mode>("overview");
+  const [actionMode, setActionMode] = useState<ActionMode>("skill");
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
-  const selectedSummary = useMemo(() => {
-    return skills.find((summary) => summary.skill.id === selectedSkillId) ?? selectedDetail.summary;
-  }, [selectedDetail.summary, selectedSkillId, skills]);
-
+  const visibleSkills = useMemo(() => {
+    const query = catalogQuery.trim().toLowerCase();
+    if (!query) return skills;
+    return skills.filter((summary) => {
+      const tags = summary.default_variant?.tags.join(" ") ?? "";
+      return `${summary.skill.slug} ${summary.skill.owner_ref} ${tags}`.toLowerCase().includes(query);
+    });
+  }, [catalogQuery, skills]);
+  const selectedSummary = useMemo(
+    () => skills.find((summary) => summary.skill.id === selectedSkillId) ?? selectedDetail.summary,
+    [selectedDetail.summary, selectedSkillId, skills],
+  );
   const defaultVariant = selectedDetail.summary.default_variant ?? selectedSummary.default_variant;
   const primaryEvalSet = selectedDetail.eval_sets[0] ?? selectedSummary.primary_eval_set;
   const currentEvalSetVersion = primaryEvalSet?.current_version ?? null;
   const latestRun = selectedDetail.latest_eval_runs[0] ?? selectedSummary.latest_accepted_eval_run;
   const score = latestRun ? passRate(latestRun) : null;
   const cases = evalSetDetail?.cases ?? [];
+  const selectedCase = cases.find((item) => item.case.id === selectedCaseId) ?? cases[0] ?? null;
+  const passedDraft = cases.filter((item) => caseResults[item.case_version.id]).length;
 
   useEffect(() => {
     void loadSkill(selectedSkillId);
@@ -62,27 +69,34 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentEvalSetVersion?.id]);
 
+  function chooseAction(nextActionMode: ActionMode) {
+    setActionMode(nextActionMode);
+    if (nextActionMode === "new-case" || nextActionMode === "edit-case" || nextActionMode === "run") {
+      setMode("evals");
+    }
+    if (nextActionMode === "new-variant" || nextActionMode === "new-version") {
+      setMode("variants");
+    }
+    if (nextActionMode === "skill" || nextActionMode === "new-skill") {
+      setMode("overview");
+    }
+  }
+
   async function loadSkills(nextSelectedId = selectedSkillId) {
     const nextSkills = await apiGet<SkillSummary[]>("/api/skills");
     setSkills(nextSkills);
-    if (nextSkills.some((item) => item.skill.id === nextSelectedId)) {
-      setSelectedSkillId(nextSelectedId);
-      await loadSkill(nextSelectedId);
-      return;
-    }
-    const fallbackId = nextSkills[0]?.skill.id ?? featuredSkill.skill.id;
-    setSelectedSkillId(fallbackId);
-    await loadSkill(fallbackId);
+    const nextId = nextSkills.some((item) => item.skill.id === nextSelectedId)
+      ? nextSelectedId
+      : nextSkills[0]?.skill.id ?? featuredSkill.skill.id;
+    setSelectedSkillId(nextId);
+    await loadSkill(nextId);
   }
 
   async function loadSkill(skillId: string) {
     try {
-      const detail = await apiGet<SkillDetail>(`/api/skills/${skillId}`);
-      setSelectedDetail(detail);
+      setSelectedDetail(await apiGet<SkillDetail>(`/api/skills/${skillId}`));
     } catch {
-      if (skillId === featuredSkill.skill.id) {
-        setSelectedDetail(featuredSkill);
-      }
+      if (skillId === featuredSkill.skill.id) setSelectedDetail(featuredSkill);
     }
   }
 
@@ -113,14 +127,14 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
   async function createSkill(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = formValues(event.currentTarget);
+    const form = new FormData(event.currentTarget);
+    const slug = textValue(form, "slug");
     await runCommand("Skill 已创建。", async () => {
       const summary = textValue(form, "summary");
-      const digest = await digestText(summary + textValue(form, "slug"));
       const result = await apiSend<{ skill_id: string }>("/api/skills", {
         method: "POST",
         body: {
-          slug: textValue(form, "slug"),
+          slug,
           owner_ref: textValue(form, "owner_ref"),
           variant_name: "Default",
           variant_label: textValue(form, "variant_label"),
@@ -128,29 +142,27 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           tags: tagList(textValue(form, "tags")),
           content_ref: {
             kind: "skill_bundle",
-            locator: `inline:${textValue(form, "slug")}`,
-            digest,
+            locator: `inline:${slug}`,
+            digest: await digestText(summary + slug),
           },
           change_summary: textValue(form, "change_summary"),
           actor: ACTOR,
         },
       });
       setSelectedSkillId(result.skill_id);
+      setCatalogQuery("");
+      chooseAction("skill");
       event.currentTarget.reset();
-      return "Skill 已创建，并自动生成 Primary eval set 与默认 variant。";
     });
   }
 
   async function updateSkill(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = formValues(event.currentTarget);
+    const form = new FormData(event.currentTarget);
     await runCommand("Skill 已更新。", async () => {
       await apiSend(`/api/skills/${selectedDetail.skill.id}`, {
         method: "PATCH",
-        body: {
-          slug: textValue(form, "slug"),
-          owner_ref: textValue(form, "owner_ref"),
-        },
+        body: { slug: textValue(form, "slug"), owner_ref: textValue(form, "owner_ref") },
       });
     });
   }
@@ -158,28 +170,28 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   async function archiveSkill() {
     await runCommand("Skill 已归档。", async () => {
       await apiSend(`/api/skills/${selectedDetail.skill.id}`, { method: "DELETE" });
-      return "Skill 已归档；历史版本和测评记录仍然保留。";
+      return "Skill 已归档，历史版本和测评记录仍保留。";
     });
   }
 
   async function createVariant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = formValues(event.currentTarget);
+    const form = new FormData(event.currentTarget);
     await runCommand("Variant 已创建。", async () => {
+      const label = textValue(form, "label");
       const summary = textValue(form, "summary");
-      const digest = await digestText(summary + textValue(form, "tags"));
       await apiSend("/api/variants", {
         method: "POST",
         body: {
           skill_id: selectedDetail.skill.id,
-          name: textValue(form, "label"),
-          label: textValue(form, "label"),
+          name: label,
+          label,
           summary,
           tags: tagList(textValue(form, "tags")),
           content_ref: {
             kind: "skill_bundle",
-            locator: `inline:${selectedDetail.skill.slug}/${textValue(form, "label")}`,
-            digest,
+            locator: `inline:${selectedDetail.skill.slug}/${label}`,
+            digest: await digestText(summary + textValue(form, "tags")),
           },
           change_summary: textValue(form, "change_summary"),
           actor: ACTOR,
@@ -192,7 +204,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
   async function createVariantVersion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = formValues(event.currentTarget);
+    const form = new FormData(event.currentTarget);
     await runCommand("Variant 版本已创建。", async () => {
       const variantId = textValue(form, "variant_id");
       const content = textValue(form, "content");
@@ -216,9 +228,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
   async function createCase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = formValues(event.currentTarget);
+    const form = new FormData(event.currentTarget);
     await runCommand("测试用例已加入当前评测集。", async () => {
-      await apiSend("/api/eval-cases", {
+      const result = await apiSend<{ eval_case_id: string }>("/api/eval-cases", {
         method: "POST",
         body: {
           skill_id: selectedDetail.skill.id,
@@ -229,13 +241,14 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           actor: ACTOR,
         },
       });
+      setSelectedCaseId(result.eval_case_id);
       event.currentTarget.reset();
     });
   }
 
   async function updateCase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = formValues(event.currentTarget);
+    const form = new FormData(event.currentTarget);
     await runCommand("测试用例新版本已保存。", async () => {
       await apiSend(`/api/eval-cases/${textValue(form, "case_id")}`, {
         method: "PATCH",
@@ -249,12 +262,14 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           make_current: true,
         },
       });
+      setSelectedCaseId(textValue(form, "case_id"));
     });
   }
 
   async function archiveCase(caseId: string) {
     await runCommand("测试用例已归档。", async () => {
       await apiSend(`/api/eval-cases/${caseId}`, { method: "DELETE" });
+      if (selectedCaseId === caseId) setSelectedCaseId(null);
     });
   }
 
@@ -275,288 +290,498 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     });
   }
 
+  function setAllCases(passed: boolean) {
+    setCaseResults(Object.fromEntries(cases.map((item) => [item.case_version.id, passed])));
+  }
+
   return (
-    <div className="decisionWorkbench productWorkbench">
-      <nav className="screenNav" aria-label="Workbench screens">
-        <a href="#screen-distribution">01 分发</a>
-        <a href="#screen-variants">02 变体</a>
-        <a href="#screen-evals">03 测评</a>
-        <span>{busy ? "Saving..." : "Ready"}</span>
-      </nav>
-
-      {notice ? <div className={`notice notice-${notice.tone}`}>{notice.message}</div> : null}
-
-      <section className="productScreen distributionScreen" id="screen-distribution">
-        <div className="screenIntro">
-          <p className="eyebrow">01 / Distribution</p>
-          <h1>先像普通 SkillHub 一样找到 skill。</h1>
-          <p>区别在于，默认 variant、当前版本和验证证据始终贴着选择动作出现。</p>
+    <div className="linearWorkbench">
+      <aside className="linearCatalog" aria-label="Skill catalog">
+        <div className="linearCatalogTop">
+          <span>SkillHub</span>
+          <button onClick={() => chooseAction("new-skill")} type="button">新建</button>
         </div>
-
-        <div className="distributionGrid">
-          <section className="catalogPane" aria-label="Skill catalog">
-            <div className="paneHeader">
-              <div>
-                <span>Catalog</span>
-                <strong>Skill index</strong>
-              </div>
-              <small>{skills.length} entries</small>
-            </div>
-            <div className="catalogList">
-              {skills.map((summary) => {
-                const isSelected = summary.skill.id === selectedDetail.skill.id;
-                const run = summary.latest_accepted_eval_run;
-                const rate = run ? passRate(run) : null;
-                return (
-                  <button
-                    className={`catalogItem ${isSelected ? "catalogItemActive" : ""}`}
-                    key={summary.skill.id}
-                    onClick={() => setSelectedSkillId(summary.skill.id)}
-                    type="button"
-                  >
-                    <span className="catalogItemTop">
-                      <strong>{summary.skill.slug}</strong>
-                      <StatusDot run={run} />
-                    </span>
-                    <span>{summary.default_variant?.summary ?? "还没有默认 variant。"}</span>
-                    <span className="catalogMeta">
-                      {summary.default_variant?.tags.join(" + ") ?? "no tags"}
-                      <b>{run ? percent(rate) : "unverified"}</b>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="selectedPane selectedPaneLarge" aria-label="Selected skill">
-            <div className="selectedHero">
-              <div>
-                <p className="eyebrow">{selectedDetail.skill.owner_ref}</p>
-                <h2>{selectedDetail.skill.slug}</h2>
-                <p>{defaultVariant?.summary ?? "这个 skill 还没有配置默认 variant。"}</p>
-              </div>
-              <div className="selectedActions">
-                <Link className="workbenchButton workbenchButtonPrimary" href={`/skills/${selectedDetail.skill.id}`}>
-                  打开详情
-                </Link>
-                {defaultVariant ? (
-                  <Link className="workbenchButton" href={`/variants/${defaultVariant.id}`}>
-                    当前 variant
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="proofStrip">
-              <ProofMetric label="默认 variant" value={defaultVariant?.label ?? "none"} />
-              <ProofMetric label="当前版本" value={defaultVariant?.current_version ? `v${defaultVariant.current_version.version_number}` : "none"} />
-              <ProofMetric label="评测集" value={currentEvalSetVersion ? `v${currentEvalSetVersion.version_number}` : "none"} />
-              <ProofMetric label="最新结果" value={latestRun ? percent(score) : "未测评"} tone={score === 100 ? "good" : latestRun ? "bad" : "neutral"} />
-            </div>
-
-            <div className="opsGrid opsGridTwo">
-              <form className="opsCard" onSubmit={updateSkill}>
-                <h3>编辑 Skill</h3>
-                <input name="slug" defaultValue={selectedDetail.skill.slug} required />
-                <input name="owner_ref" defaultValue={selectedDetail.skill.owner_ref} required />
-                <div className="formActions">
-                  <button disabled={busy} type="submit">保存</button>
-                  <button className="dangerButton" disabled={busy} onClick={archiveSkill} type="button">归档</button>
-                </div>
-              </form>
-
-              <form className="opsCard opsCardStrong" onSubmit={createSkill}>
-                <h3>添加 Skill</h3>
-                <input name="slug" placeholder="security-reviewer" required />
-                <input name="owner_ref" placeholder="skillhub-lab" required />
-                <input name="variant_label" placeholder="Baseline" required />
-                <input name="tags" placeholder="codex, gpt5.4" required />
-                <textarea name="summary" placeholder="这个 skill 用来做什么" required />
-                <textarea name="change_summary" placeholder="初始版本说明" required />
-                <button disabled={busy} type="submit">创建 skill</button>
-              </form>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section className="productScreen" id="screen-variants">
-        <div className="screenIntro">
-          <p className="eyebrow">02 / Variants</p>
-          <h1>变体是不同约束下的当前答案，不是血缘图。</h1>
-          <p>维护者可以创建新约束 variant，也可以追加不可变版本，再决定是否成为 current。</p>
-        </div>
-
-        <div className="variantOpsGrid">
-          <div className="variantLedger">
-            {selectedDetail.variants.map((variant) => (
-              <article className="variantLedgerRow" key={variant.id}>
-                <div>
-                  <span>{variant.tags.join(" + ")}</span>
-                  <strong>{variant.label}</strong>
-                  <p>{variant.summary}</p>
-                </div>
-                <div>
-                  <Badge tone={variant.id === defaultVariant?.id ? "good" : "blue"}>
-                    {variant.id === defaultVariant?.id ? "default" : "variant"}
-                  </Badge>
-                  <small>{variant.current_version ? `current v${variant.current_version.version_number}` : "no current"}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="opsGrid">
-            <form className="opsCard" onSubmit={createVariant}>
-              <h3>添加 Variant</h3>
-              <input name="label" placeholder="Codex + long-context" required />
-              <input name="tags" placeholder="codex, long-context" required />
-              <textarea name="summary" placeholder="这个约束组合下为什么需要独立最优解" required />
-              <textarea name="change_summary" placeholder="初始版本说明" required />
-              <label className="checkLine"><input name="make_default" type="checkbox" /> 设为默认 variant</label>
-              <button disabled={busy} type="submit">创建 variant</button>
-            </form>
-
-            <form className="opsCard" onSubmit={createVariantVersion}>
-              <h3>追加版本</h3>
-              <select name="variant_id" required>
-                {selectedDetail.variants.map((variant) => (
-                  <option key={variant.id} value={variant.id}>{variant.label}</option>
-                ))}
-              </select>
-              <textarea name="content" placeholder="新的 skill bundle 内容摘要或 locator 来源" required />
-              <textarea name="change_summary" placeholder="这次更新带来了什么收益" required />
-              <label className="checkLine"><input name="make_current" type="checkbox" defaultChecked /> 成为 current version</label>
-              <button disabled={busy} type="submit">保存版本</button>
-            </form>
-          </div>
-        </div>
-      </section>
-
-      <section className="productScreen evalScreen" id="screen-evals">
-        <div className="screenIntro">
-          <p className="eyebrow">03 / Evaluation</p>
-          <h1>测评集管理和手工确认要像记账一样顺手。</h1>
-          <p>每个 case 是 input + expected output + notes 的版本快照；每次运行绑定 exact variant version 和 exact eval set version。</p>
-        </div>
-
-        <div className="evalGrid">
-          <section className="caseWorkbench">
-            <div className="paneHeader">
-              <div>
-                <span>Eval set</span>
-                <strong>{primaryEvalSet?.name ?? "Primary"}</strong>
-              </div>
-              <small>{currentEvalSetVersion ? `version ${currentEvalSetVersion.version_number}` : "no snapshot"}</small>
-            </div>
-
-            <div className="caseList">
-              {cases.map((item) => (
-                <article className="caseCard" key={item.case_version.id}>
-                  <div>
-                    <span>Case v{item.case_version.version_number}</span>
-                    <strong>{item.case.title}</strong>
-                    <p>{item.case_version.notes ?? "No notes"}</p>
-                  </div>
-                  <div className="casePreview">
-                    <pre>{item.case_version.input_artifact.content_text ?? item.case_version.input_artifact.digest}</pre>
-                    <pre>{item.case_version.expected_output_artifact.content_text ?? item.case_version.expected_output_artifact.digest}</pre>
-                  </div>
-                  <div className="caseActions">
-                    <label className="passToggle">
-                      <input
-                        checked={caseResults[item.case_version.id] ?? false}
-                        onChange={(event) =>
-                          setCaseResults((current) => ({
-                            ...current,
-                            [item.case_version.id]: event.target.checked,
-                          }))
-                        }
-                        type="checkbox"
-                      />
-                      {caseResults[item.case_version.id] ? "通过" : "不通过"}
-                    </label>
-                    <button className="dangerButton" disabled={busy} onClick={() => archiveCase(item.case.id)} type="button">归档</button>
-                  </div>
-                </article>
-              ))}
-              {cases.length === 0 ? <div className="emptyState">还没有测试用例。先添加一个 case，再做手工评测。</div> : null}
-            </div>
-          </section>
-
-          <aside className="evalOps">
-            <form className="opsCard opsCardStrong" onSubmit={createCase}>
-              <h3>添加测试用例</h3>
-              <input name="title" placeholder="PR: 订单详情缺少 owner 校验" required />
-              <textarea name="input_text" placeholder="输入：代码 diff、任务上下文、用户请求..." required />
-              <textarea name="expected_output" placeholder="期望输出：应该指出什么、避免什么..." required />
-              <textarea name="notes" placeholder="来源、bad case、维护说明" />
-              <button disabled={busy} type="submit">加入评测集</button>
-            </form>
-
-            <form className="opsCard" onSubmit={updateCase}>
-              <h3>编辑 Case 为新版本</h3>
-              <select name="case_id" required>
-                {cases.map((item) => (
-                  <option key={item.case.id} value={item.case.id}>{item.case.title}</option>
-                ))}
-              </select>
-              <input name="title" placeholder="新标题，可保持语义不变" required />
-              <textarea name="input_text" placeholder="新的 input 内容" required />
-              <textarea name="expected_output" placeholder="新的 expected output" required />
-              <textarea name="notes" placeholder="为什么更新这个 case" />
-              <button disabled={busy || cases.length === 0} type="submit">保存 case version</button>
-            </form>
-
-            <div className="opsCard runCard">
-              <h3>手工确认结果</h3>
-              <p>{defaultVariant?.current_version ? `VariantVersion ${shortId(defaultVariant.current_version.id)}` : "缺少 variant version"}</p>
-              <p>{currentEvalSetVersion ? `EvalSetVersion ${shortId(currentEvalSetVersion.id)}` : "缺少 eval set version"}</p>
+        <label className="linearSearch">
+          <span>搜索</span>
+          <input
+            onChange={(event) => setCatalogQuery(event.currentTarget.value)}
+            placeholder="skill、owner、tag"
+            value={catalogQuery}
+          />
+        </label>
+        <div className="linearSkillList">
+          {visibleSkills.map((summary) => {
+            const isSelected = summary.skill.id === selectedDetail.skill.id;
+            const run = summary.latest_accepted_eval_run;
+            const rate = run ? passRate(run) : null;
+            return (
               <button
-                className="workbenchButton workbenchButtonPrimary"
-                disabled={busy || cases.length === 0 || !defaultVariant?.current_version || !currentEvalSetVersion}
-                onClick={recordEvalRun}
+                className={`linearSkillItem ${isSelected ? "linearSkillItemActive" : ""}`}
+                key={summary.skill.id}
+                onClick={() => {
+                  setSelectedSkillId(summary.skill.id);
+                  chooseAction("skill");
+                  setSelectedCaseId(null);
+                }}
                 type="button"
               >
-                记录本次测评
+                <span className="linearSkillTitle">
+                  <strong>{summary.skill.slug}</strong>
+                  <i>{run ? percent(rate) : "未测"}</i>
+                </span>
+                <span>{summary.default_variant?.tags.join(" + ") ?? "draft"}</span>
               </button>
-              {latestRun ? (
-                <Link className="workbenchButton" href={`/eval-runs/${latestRun.id}`}>
-                  查看最近 run：{formatDate(latestRun.created_at)}
-                </Link>
-              ) : null}
-            </div>
-          </aside>
+            );
+          })}
+          {visibleSkills.length === 0 ? <div className="linearCatalogEmpty">没有匹配的 skill</div> : null}
+        </div>
+      </aside>
+
+      <main className="linearMain">
+        <header className="linearHeader">
+          <div>
+            <p>{selectedDetail.skill.owner_ref}</p>
+            <h1>{selectedDetail.skill.slug}</h1>
+          </div>
+          <nav className="linearTabs" aria-label="Workbench modes">
+            <button className={mode === "overview" ? "linearTabActive" : ""} onClick={() => setMode("overview")} type="button">概览</button>
+            <button className={mode === "variants" ? "linearTabActive" : ""} onClick={() => setMode("variants")} type="button">变体</button>
+            <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
+          </nav>
+        </header>
+
+        {notice ? <div className={`linearNotice linearNotice-${notice.tone}`}>{notice.message}</div> : null}
+
+        {mode === "overview" ? (
+          <OverviewPane
+            defaultVariant={defaultVariant}
+            latestRun={latestRun}
+            onAction={chooseAction}
+            primaryEvalSetVersion={currentEvalSetVersion?.version_number}
+            score={score}
+            selectedDetail={selectedDetail}
+          />
+        ) : null}
+
+        {mode === "variants" ? (
+          <VariantsPane
+            defaultVariant={defaultVariant}
+            onAction={chooseAction}
+            variants={selectedDetail.variants}
+          />
+        ) : null}
+
+        {mode === "evals" ? (
+          <EvalsPane
+            busy={busy}
+            caseResults={caseResults}
+            cases={cases}
+            currentEvalSetVersion={currentEvalSetVersion?.version_number}
+            onAction={chooseAction}
+            onArchiveCase={archiveCase}
+            onEditCase={(caseId) => {
+              setSelectedCaseId(caseId);
+              chooseAction("edit-case");
+            }}
+            onRecord={recordEvalRun}
+            onSetAll={setAllCases}
+            onToggle={(caseVersionId, passed) =>
+              setCaseResults((current) => ({ ...current, [caseVersionId]: passed }))
+            }
+            passedDraft={passedDraft}
+          />
+        ) : null}
+      </main>
+
+      <aside className="linearInspector" aria-label="Inspector">
+        <Inspector
+          actionMode={actionMode}
+          busy={busy}
+          cases={cases}
+          createCase={createCase}
+          createSkill={createSkill}
+          createVariant={createVariant}
+          createVariantVersion={createVariantVersion}
+          currentEvalSetVersionId={currentEvalSetVersion?.id}
+          defaultVariant={defaultVariant}
+          latestRun={latestRun}
+          onAction={chooseAction}
+          onArchiveSkill={archiveSkill}
+          onSelectCase={setSelectedCaseId}
+          recordEvalRun={recordEvalRun}
+          score={score}
+          selectedCase={selectedCase}
+          selectedDetail={selectedDetail}
+          updateCase={updateCase}
+          updateSkill={updateSkill}
+        />
+      </aside>
+    </div>
+  );
+}
+
+function OverviewPane({
+  defaultVariant,
+  latestRun,
+  onAction,
+  primaryEvalSetVersion,
+  score,
+  selectedDetail,
+}: {
+  defaultVariant: VariantDetail | null;
+  latestRun: EvalRunRecord | null;
+  onAction: (mode: ActionMode) => void;
+  primaryEvalSetVersion?: number;
+  score: number | null;
+  selectedDetail: SkillDetail;
+}) {
+  return (
+    <div className="linearPane">
+      <section className="linearHero">
+        <div>
+          <span>默认分发对象</span>
+          <h2>{defaultVariant?.label ?? "暂无默认 variant"}</h2>
+          <p>{defaultVariant?.summary ?? "这个 skill 还没有默认 variant。"}</p>
+        </div>
+        <div className="linearHeroActions">
+          <button onClick={() => onAction("skill")} type="button">编辑 skill</button>
+          <button onClick={() => onAction("new-skill")} type="button">添加 skill</button>
+        </div>
+      </section>
+
+      <div className="linearMetrics">
+        <Metric label="变体数" value={String(selectedDetail.variants.length)} />
+        <Metric label="当前版本" value={defaultVariant?.current_version ? `v${defaultVariant.current_version.version_number}` : "暂无"} />
+        <Metric label="测评集版本" value={primaryEvalSetVersion ? `v${primaryEvalSetVersion}` : "暂无"} />
+        <Metric label="最近分数" tone={latestRun ? (score === 100 ? "good" : "bad") : "neutral"} value={latestRun ? percent(score) : "未测"} />
+      </div>
+
+      <section className="linearSection">
+        <div className="linearSectionHeader">
+          <h3>Skill bundle</h3>
+          <Link href={defaultVariant ? `/variants/${defaultVariant.id}` : "#"}>打开 variant</Link>
+        </div>
+        <div className="linearBundle">
+          <span>SKILL.md</span>
+          <pre>{formatBundlePreview(defaultVariant)}</pre>
         </div>
       </section>
     </div>
   );
 }
 
-function ProofMetric({
-  label,
-  tone = "neutral",
-  value,
+function VariantsPane({
+  defaultVariant,
+  onAction,
+  variants,
 }: {
-  label: string;
-  tone?: "neutral" | "good" | "bad";
-  value: string;
+  defaultVariant: VariantDetail | null;
+  onAction: (mode: ActionMode) => void;
+  variants: VariantDetail[];
 }) {
   return (
-    <div className={`proofMetric proofMetric-${tone}`}>
+    <div className="linearPane">
+      <div className="linearToolbar">
+        <div>
+          <h2>变体空间</h2>
+          <p>每个 variant 是一组 tags 约束下维护者认可的当前答案。</p>
+        </div>
+        <div>
+          <button onClick={() => onAction("new-variant")} type="button">添加 variant</button>
+          <button onClick={() => onAction("new-version")} type="button">追加版本</button>
+        </div>
+      </div>
+      <div className="linearTable">
+        <div className="linearTableHead linearVariantGrid">
+          <span>Variant</span>
+          <span>Tags</span>
+          <span>当前版本</span>
+          <span>状态</span>
+        </div>
+        {variants.map((variant) => (
+          <Link className="linearTableRow linearVariantGrid" href={`/variants/${variant.id}`} key={variant.id}>
+            <strong>{variant.label}</strong>
+            <span>{variant.tags.join(" + ")}</span>
+            <span>{variant.current_version ? `v${variant.current_version.version_number}` : "暂无"}</span>
+            <span>{variant.id === defaultVariant?.id ? <Badge tone="good">默认</Badge> : <Badge tone="blue">有效</Badge>}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EvalsPane({
+  busy,
+  caseResults,
+  cases,
+  currentEvalSetVersion,
+  onAction,
+  onArchiveCase,
+  onEditCase,
+  onRecord,
+  onSetAll,
+  onToggle,
+  passedDraft,
+}: {
+  busy: boolean;
+  caseResults: Record<string, boolean>;
+  cases: EvalSetVersionDetail["cases"];
+  currentEvalSetVersion?: number;
+  onAction: (mode: ActionMode) => void;
+  onArchiveCase: (caseId: string) => void;
+  onEditCase: (caseId: string) => void;
+  onRecord: () => void;
+  onSetAll: (passed: boolean) => void;
+  onToggle: (caseVersionId: string, passed: boolean) => void;
+  passedDraft: number;
+}) {
+  return (
+    <div className="linearPane">
+      <div className="linearToolbar">
+        <div>
+          <h2>手工测评</h2>
+          <p>EvalSetVersion {currentEvalSetVersion ? `v${currentEvalSetVersion}` : "暂无"} · 当前草稿 {passedDraft}/{cases.length} 通过</p>
+        </div>
+        <div>
+          <button onClick={() => onAction("new-case")} type="button">添加 case</button>
+          <button disabled={cases.length === 0} onClick={() => onAction("edit-case")} type="button">编辑选中 case</button>
+        </div>
+      </div>
+
+      <div className="evalRunBar">
+        <button onClick={() => onSetAll(true)} type="button">全部通过</button>
+        <button onClick={() => onSetAll(false)} type="button">全部不通过</button>
+        <button disabled={busy || cases.length === 0} onClick={onRecord} type="button">记录本次测评</button>
+      </div>
+
+      <div className="linearTable">
+        <div className="linearTableHead linearEvalGrid">
+          <span>结果</span>
+          <span>用例</span>
+          <span>输入</span>
+          <span>期望</span>
+          <span />
+        </div>
+        {cases.map((item) => {
+          const passed = caseResults[item.case_version.id] ?? false;
+          return (
+            <div className="linearTableRow linearEvalGrid" key={item.case_version.id}>
+              <div className="resultSwitch">
+                <button className={passed ? "resultOn" : ""} onClick={() => onToggle(item.case_version.id, true)} type="button">通过</button>
+                <button className={!passed ? "resultOff" : ""} onClick={() => onToggle(item.case_version.id, false)} type="button">不通过</button>
+              </div>
+              <div>
+                <strong>{item.case.title}</strong>
+                <small>case v{item.case_version.version_number}</small>
+              </div>
+              <pre>{item.case_version.input_artifact.content_text ?? item.case_version.input_artifact.digest}</pre>
+              <pre>{item.case_version.expected_output_artifact.content_text ?? item.case_version.expected_output_artifact.digest}</pre>
+              <div className="caseRowActions">
+                <button onClick={() => onEditCase(item.case.id)} type="button">编辑</button>
+                <button onClick={() => onArchiveCase(item.case.id)} type="button">归档</button>
+              </div>
+            </div>
+          );
+        })}
+        {cases.length === 0 ? <div className="linearEmpty">还没有测试用例。先从右侧添加一个 case。</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function Inspector({
+  actionMode,
+  busy,
+  cases,
+  createCase,
+  createSkill,
+  createVariant,
+  createVariantVersion,
+  currentEvalSetVersionId,
+  defaultVariant,
+  latestRun,
+  onAction,
+  onArchiveSkill,
+  onSelectCase,
+  recordEvalRun,
+  score,
+  selectedCase,
+  selectedDetail,
+  updateCase,
+  updateSkill,
+}: {
+  actionMode: ActionMode;
+  busy: boolean;
+  cases: EvalSetVersionDetail["cases"];
+  createCase: (event: FormEvent<HTMLFormElement>) => void;
+  createSkill: (event: FormEvent<HTMLFormElement>) => void;
+  createVariant: (event: FormEvent<HTMLFormElement>) => void;
+  createVariantVersion: (event: FormEvent<HTMLFormElement>) => void;
+  currentEvalSetVersionId?: string;
+  defaultVariant: VariantDetail | null;
+  latestRun: EvalRunRecord | null;
+  onAction: (mode: ActionMode) => void;
+  onArchiveSkill: () => void;
+  onSelectCase: (caseId: string) => void;
+  recordEvalRun: () => void;
+  score: number | null;
+  selectedCase: EvalSetVersionDetail["cases"][number] | null;
+  selectedDetail: SkillDetail;
+  updateCase: (event: FormEvent<HTMLFormElement>) => void;
+  updateSkill: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <div className="inspectorStack">
+      <section className="inspectorCard inspectorEvidence">
+        <div className="inspectorTitle">
+          <span>证据</span>
+          <Badge tone={latestRun ? (score === 100 ? "good" : "bad") : "neutral"}>{latestRun ? "已验证" : "未验证"}</Badge>
+        </div>
+        <strong>{latestRun ? percent(score) : "未测评"}</strong>
+        <small>{latestRun ? `${latestRun.summary.passed ?? 0}/${latestRun.summary.total ?? 0} 通过` : "暂无 accepted run"}</small>
+        <div className="bindingList">
+          <span>VariantVersion <b>{shortId(defaultVariant?.current_version?.id)}</b></span>
+          <span>EvalSetVersion <b>{shortId(currentEvalSetVersionId)}</b></span>
+        </div>
+      </section>
+
+      <div className="actionMenu">
+        {[
+          ["skill", "编辑 Skill"],
+          ["new-skill", "新建 skill"],
+          ["new-variant", "新建 variant"],
+          ["new-version", "追加版本"],
+          ["new-case", "新增 case"],
+          ["edit-case", "编辑 case"],
+          ["run", "提交测评"],
+        ].map(([value, label]) => (
+          <button
+            className={actionMode === value ? "actionMenuActive" : ""}
+            key={value}
+            onClick={() => onAction(value as ActionMode)}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {actionMode === "skill" ? (
+        <form className="inspectorForm" onSubmit={updateSkill}>
+          <h3>编辑 skill</h3>
+          <input name="slug" defaultValue={selectedDetail.skill.slug} required />
+          <input name="owner_ref" defaultValue={selectedDetail.skill.owner_ref} required />
+          <button disabled={busy} type="submit">保存</button>
+          <button className="dangerButton" disabled={busy} onClick={onArchiveSkill} type="button">归档 skill</button>
+        </form>
+      ) : null}
+
+      {actionMode === "new-skill" ? (
+        <form className="inspectorForm" onSubmit={createSkill}>
+          <h3>添加 skill</h3>
+          <input name="slug" placeholder="security-reviewer" required />
+          <input name="owner_ref" placeholder="skillhub-lab" required />
+          <input name="variant_label" placeholder="Baseline" required />
+          <input name="tags" placeholder="codex, gpt5.4" required />
+          <textarea name="summary" placeholder="这个 skill 解决什么问题" required />
+          <textarea name="change_summary" placeholder="初始版本说明" required />
+          <button disabled={busy} type="submit">创建</button>
+        </form>
+      ) : null}
+
+      {actionMode === "new-variant" ? (
+        <form className="inspectorForm" onSubmit={createVariant}>
+          <h3>添加 variant</h3>
+          <input name="label" placeholder="Codex + long-context" required />
+          <input name="tags" placeholder="codex, long-context" required />
+          <textarea name="summary" placeholder="这个约束下的最优解说明" required />
+          <textarea name="change_summary" placeholder="初始版本说明" required />
+          <label><input name="make_default" type="checkbox" /> 设为默认</label>
+          <button disabled={busy} type="submit">创建 variant</button>
+        </form>
+      ) : null}
+
+      {actionMode === "new-version" ? (
+        <form className="inspectorForm" onSubmit={createVariantVersion}>
+          <h3>追加版本</h3>
+          <select name="variant_id" required>
+            {selectedDetail.variants.map((variant) => (
+              <option key={variant.id} value={variant.id}>{variant.label}</option>
+            ))}
+          </select>
+          <textarea name="content" placeholder="新的 skill bundle 内容摘要或 locator 来源" required />
+          <textarea name="change_summary" placeholder="这次更新的收益" required />
+          <label><input name="make_current" type="checkbox" defaultChecked /> 设为 current</label>
+          <button disabled={busy} type="submit">保存版本</button>
+        </form>
+      ) : null}
+
+      {actionMode === "new-case" ? (
+        <form className="inspectorForm" onSubmit={createCase}>
+          <h3>添加测试用例</h3>
+          <input name="title" placeholder="PR: 缺少 owner 校验" required />
+          <textarea name="input_text" placeholder="输入：代码 diff、上下文、用户请求..." required />
+          <textarea name="expected_output" placeholder="期望输出：应该指出什么、避免什么..." required />
+          <textarea name="notes" placeholder="来源、bad case、维护说明" />
+          <button disabled={busy} type="submit">加入评测集</button>
+        </form>
+      ) : null}
+
+      {actionMode === "edit-case" ? (
+        <form className="inspectorForm" key={selectedCase?.case.id ?? "empty-case"} onSubmit={updateCase}>
+          <h3>编辑 case 为新版本</h3>
+          <select
+            name="case_id"
+            onChange={(event) => onSelectCase(event.currentTarget.value)}
+            required
+            value={selectedCase?.case.id ?? ""}
+          >
+            {cases.length === 0 ? <option value="">暂无 case</option> : null}
+            {cases.map((item) => (
+              <option key={item.case.id} value={item.case.id}>{item.case.title}</option>
+            ))}
+          </select>
+          <input name="title" defaultValue={selectedCase?.case.title ?? ""} placeholder="新标题" required />
+          <textarea name="input_text" defaultValue={selectedCase?.case_version.input_artifact.content_text ?? ""} placeholder="新的 input" required />
+          <textarea name="expected_output" defaultValue={selectedCase?.case_version.expected_output_artifact.content_text ?? ""} placeholder="新的 expected output" required />
+          <textarea name="notes" defaultValue={selectedCase?.case_version.notes ?? ""} placeholder="为什么更新" />
+          <button disabled={busy || cases.length === 0} type="submit">保存 case version</button>
+        </form>
+      ) : null}
+
+      {actionMode === "run" ? (
+        <section className="inspectorForm">
+          <h3>记录本次测评</h3>
+          <p>结果在中栏逐条切换，这里只负责提交 exact binding。</p>
+          <button disabled={busy || cases.length === 0} onClick={recordEvalRun} type="button">提交 eval run</button>
+          {latestRun ? <Link href={`/eval-runs/${latestRun.id}`}>查看最近 run</Link> : null}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function Metric({ label, tone = "neutral", value }: { label: string; tone?: "neutral" | "good" | "bad"; value: string }) {
+  return (
+    <div className={`linearMetric linearMetric-${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
   );
 }
 
-function StatusDot({ run }: { run: EvalRunRecord | null }) {
-  return <span className={`catalogStatus ${run ? "catalogStatusOn" : ""}`} aria-hidden="true" />;
-}
-
-function formValues(form: HTMLFormElement) {
-  return new FormData(form);
+function formatBundlePreview(variant: VariantDetail | null): string {
+  if (!variant?.current_version) return "还没有 current version。";
+  return [
+    `name: ${variant.label}`,
+    `tags: ${variant.tags.join(", ")}`,
+    `version: v${variant.current_version.version_number}`,
+    `locator: ${variant.current_version.content_ref.locator}`,
+    `digest: ${variant.current_version.content_digest}`,
+    "",
+    variant.current_version.change_summary,
+  ].join("\n");
 }
 
 function textValue(form: FormData, key: string) {
