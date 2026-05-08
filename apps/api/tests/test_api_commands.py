@@ -231,6 +231,9 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(detail["summary"]["default_variant"]["current_version"]["content_ref"]["kind"], "artifact")
         bundle_artifact = detail["summary"]["default_variant"]["current_version"]["bundle_artifact"]
         self.assertIn("\"path\": \"SKILL.md\"", bundle_artifact["content_text"])
+        bundle_files = detail["summary"]["default_variant"]["current_version"]["bundle_files"]
+        self.assertEqual([file["path"] for file in bundle_files], ["SKILL.md", "references/checklist.md"])
+        self.assertEqual(bundle_files[0]["content_text"].splitlines()[1], "name: security-reviewing")
 
     def test_import_skill_from_zip_uses_same_bundle_contract(self):
         archive = BytesIO()

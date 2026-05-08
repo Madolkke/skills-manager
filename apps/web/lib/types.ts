@@ -50,6 +50,7 @@ export type VariantVersion = {
   created_at?: string;
   created_by: string;
   bundle_artifact?: ArtifactRef | null;
+  bundle_files?: BundleFile[];
 };
 
 export type ContentRef = {
@@ -57,6 +58,15 @@ export type ContentRef = {
   locator: string;
   digest: string;
   path?: string | null;
+};
+
+export type BundleFile = {
+  path: string;
+  sha256?: string;
+  size_bytes?: number;
+  content_text?: string | null;
+  content_base64?: string | null;
+  binary?: boolean;
 };
 
 export type EvalSetSummary = {

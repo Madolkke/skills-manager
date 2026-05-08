@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import json
 from typing import Any
 
 from sqlalchemy import Engine, desc, insert, select, update
@@ -1063,8 +1064,24 @@ class SqlSkillRepository:
                 .one_or_none()
             )
             if artifact is not None:
-                detail["bundle_artifact"] = self._row_dict(artifact)
+                artifact_detail = self._row_dict(artifact)
+                detail["bundle_artifact"] = artifact_detail
+                detail["bundle_files"] = self._bundle_files_from_artifact(artifact_detail)
         return detail
+
+    def _bundle_files_from_artifact(self, artifact: dict[str, Any]) -> list[dict[str, Any]]:
+        content_text = artifact.get("content_text")
+        if not isinstance(content_text, str):
+            return []
+        try:
+            manifest = json.loads(content_text)
+        except json.JSONDecodeError:
+            return []
+        files = manifest.get("files") if isinstance(manifest, dict) else None
+        if not isinstance(files, list):
+            return []
+        normalized_files = [file for file in files if isinstance(file, dict) and isinstance(file.get("path"), str)]
+        return sorted(normalized_files, key=lambda file: file["path"])
 
     def _eval_set_summary(self, connection, eval_set) -> dict[str, Any]:
         versions = [

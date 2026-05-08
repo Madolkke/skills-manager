@@ -2552,3 +2552,587 @@ h2 {
     justify-content: flex-start;
   }
 }
+
+/* Product workbench polish for /skills. This intentionally overrides the older prototype rules above. */
+.linearWorkbench {
+  grid-template-columns: minmax(230px, 0.58fr) minmax(520px, 1.55fr) minmax(310px, 0.78fr);
+  gap: 0;
+  width: min(100%, 1760px);
+  height: calc(100vh - 82px);
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+}
+
+.linearCatalog {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: #f7f8fa;
+  padding: 10px;
+}
+
+.linearCatalogTop {
+  padding: 4px 4px 12px;
+}
+
+.linearCatalogTop > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.linearCatalogTop small {
+  color: #7b8493;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.catalogTopActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.catalogTopActions button:first-child {
+  border-color: #d8dee8;
+  background: #ffffff;
+  color: #334155;
+}
+
+.linearSearch {
+  margin: 0 0 10px;
+}
+
+.linearSearch input {
+  min-height: 34px;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.linearSkillList {
+  gap: 3px;
+  padding-right: 2px;
+}
+
+.linearSkillItem {
+  gap: 4px;
+  border-radius: 7px;
+  padding: 9px;
+}
+
+.linearSkillItem span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linearSkillItemActive {
+  border-color: #ccd4e0;
+  box-shadow: inset 3px 0 0 #111827;
+}
+
+.linearMain {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: #fbfcfd;
+}
+
+.linearHeader {
+  align-items: center;
+  min-height: 70px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 14px 18px 12px;
+}
+
+.linearHeader h1 {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.linearTabs {
+  border-radius: 7px;
+}
+
+.linearTabs button {
+  min-width: 66px;
+  border-radius: 5px;
+}
+
+.linearTabs .linearTabActive {
+  color: #111827;
+}
+
+.linearPane {
+  gap: 12px;
+  padding: 14px;
+}
+
+.overviewPane {
+  align-content: start;
+}
+
+.productHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.28fr);
+  gap: 14px;
+  align-items: stretch;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.productHeroCopy {
+  min-width: 0;
+}
+
+.productHeroCopy > span,
+.heroScore span,
+.caseReviewHeader span,
+.caseIOGrid span,
+.variantMapCard span {
+  color: #7b8493;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.productHero h2 {
+  margin: 6px 0 8px;
+  color: #111827;
+  font-size: 30px;
+  line-height: 1.08;
+}
+
+.productHero p {
+  max-width: 760px;
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.58;
+}
+
+.tagLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.heroScore {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  border-left: 1px solid #e4e9f0;
+  padding-left: 16px;
+}
+
+.heroScore strong {
+  color: #111827;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.heroScore small {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.linearMetrics {
+  gap: 8px;
+}
+
+.linearMetric {
+  min-height: 76px;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 11px;
+}
+
+.linearMetric strong {
+  font-size: 22px;
+}
+
+.linearSection {
+  overflow: hidden;
+  border-color: #dfe5ee;
+  border-radius: 8px;
+}
+
+.linearSectionHeader {
+  align-items: center;
+  min-height: 54px;
+  padding: 12px 14px;
+}
+
+.linearSectionHeader h3 {
+  font-size: 16px;
+}
+
+.linearSectionHeader p {
+  max-width: 680px;
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.sectionActions a,
+.sectionActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid #cfd7e3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 10px;
+}
+
+.linearBundle {
+  grid-template-columns: minmax(190px, 0.34fr) minmax(0, 1fr);
+  min-height: 260px;
+}
+
+.bundleFileList {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  border-right: 1px solid #e1e7ef;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.bundleFileList span {
+  display: grid;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 8px;
+}
+
+.bundleFileList small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.bundleFileList .bundleFileActive {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #111827;
+}
+
+.linearBundle pre,
+.skillMdPane,
+.caseIOGrid pre {
+  background: #0f141b;
+  color: #eef4ff;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  line-height: 1.58;
+}
+
+.skillMdPane {
+  overflow: auto;
+  max-height: 380px;
+  margin: 0;
+  border: 0;
+  font-size: 12px;
+  padding: 15px;
+  white-space: pre-wrap;
+}
+
+.variantMapCanvas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.variantMapCard {
+  display: grid;
+  gap: 12px;
+  min-height: 186px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  padding: 14px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.variantMapCard:hover {
+  border-color: #b9c4d3;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.variantMapCardDefault {
+  border-color: #9ccfb8;
+  background: linear-gradient(180deg, #ffffff, #f4fbf7);
+}
+
+.variantMapCard strong {
+  display: block;
+  margin: 5px 0 7px;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.variantMapCard p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.variantMapMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-self: end;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.evalPane {
+  align-content: start;
+}
+
+.evalRunBar {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.evalProgress {
+  display: grid;
+  gap: 4px;
+}
+
+.evalProgress strong {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.evalProgress span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.evalProgress i {
+  display: block;
+  max-width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: #111827;
+}
+
+.evalRunActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.evalRunActions .primaryAction {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.caseReviewList {
+  display: grid;
+  gap: 10px;
+}
+
+.caseReviewCard {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 13px;
+  cursor: default;
+}
+
+.caseReviewCardActive {
+  border-color: #111827;
+  box-shadow: inset 3px 0 0 #111827;
+}
+
+.caseReviewHeader,
+.caseReviewFooter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caseReviewHeader strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 17px;
+  line-height: 1.24;
+}
+
+.caseIOGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.caseIOGrid > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.caseIOGrid pre {
+  overflow: auto;
+  max-height: 170px;
+  min-height: 118px;
+  margin: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
+.caseReviewFooter small {
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.resultSwitch {
+  border-radius: 7px;
+}
+
+.resultSwitch button {
+  border-radius: 5px;
+}
+
+.resultSwitch .resultOn {
+  background: #0a7a55;
+}
+
+.resultSwitch .resultOff {
+  background: #b42318;
+  color: #ffffff;
+}
+
+.linearInspector {
+  background: #f7f8fa;
+  padding: 10px;
+}
+
+.inspectorCard,
+.inspectorForm {
+  border-radius: 8px;
+}
+
+.inspectorEvidence {
+  background: #111827;
+}
+
+.actionMenu {
+  grid-template-columns: 1fr 1fr;
+}
+
+.actionMenu button {
+  min-height: 34px;
+  border-radius: 6px;
+}
+
+.inspectorForm input,
+.inspectorForm select,
+.inspectorForm textarea {
+  border-radius: 6px;
+}
+
+.inspectorForm textarea {
+  min-height: 104px;
+}
+
+.runSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.runSummary span {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #dfe5ee;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 8px;
+}
+
+.runSummary b {
+  color: #111827;
+  font-size: 16px;
+}
+
+@media (max-width: 900px) {
+  .linearWorkbench {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: calc(100vh - 92px);
+    overflow: visible;
+  }
+
+  .linearCatalog,
+  .linearInspector {
+    height: auto;
+  }
+
+  .productHero,
+  .linearMetrics,
+  .linearBundle,
+  .variantMapCanvas,
+  .caseIOGrid,
+  .evalRunBar {
+    grid-template-columns: 1fr;
+  }
+
+  .heroScore,
+  .bundleFileList {
+    border-left: 0;
+    border-right: 0;
+    border-top: 1px solid #e4e9f0;
+    padding-left: 0;
+    padding-top: 14px;
+  }
+
+  .evalRunActions {
+    justify-content: flex-start;
+  }
+}
