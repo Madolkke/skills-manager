@@ -302,6 +302,147 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(duplicate.status_code, 400)
         self.assertIn("already exists", duplicate.json()["detail"])
 
+    def test_variant_version_from_bundle_source_can_be_diffed(self):
+        imported = self.import_standard_skill_bundle("diff-reviewing")
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        variant = detail["summary"]["default_variant"]
+        first_version = variant["current_version"]
+
+        second_version = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": variant["id"],
+                "source": {
+                    "kind": "files",
+                    "name": "diff-reviewing",
+                    "files": [
+                        {
+                            "path": "diff-reviewing/SKILL.md",
+                            "content_text": (
+                                "---\n"
+                                "name: diff-reviewing\n"
+                                "description: Review pull requests for auth and data access regressions.\n"
+                                "---\n"
+                                "# Security Reviewing\n"
+                                "Flag auth regressions first.\n"
+                                "Prioritize missing tenant filters.\n"
+                            ),
+                        },
+                        {
+                            "path": "diff-reviewing/references/new-checklist.md",
+                            "content_text": "Check tenant filters and audit logs.\n",
+                        },
+                    ],
+                },
+                "change_summary": "Add tenant filter guidance and replace checklist.",
+                "make_current": True,
+                "actor": "tester",
+            },
+        )
+        self.assertEqual(second_version.status_code, 200)
+
+        diff = self.client.get(
+            "/api/artifacts/diff",
+            params={
+                "left_variant_version_id": first_version["id"],
+                "right_variant_version_id": second_version.json()["variant_version_id"],
+            },
+        )
+
+        self.assertEqual(diff.status_code, 200)
+        payload = diff.json()
+        self.assertEqual(payload["left"]["version_number"], 1)
+        self.assertEqual(payload["right"]["version_number"], 2)
+        self.assertEqual(payload["summary"]["changed"], 1)
+        self.assertEqual(payload["summary"]["added"], 1)
+        self.assertEqual(payload["summary"]["removed"], 1)
+        self.assertEqual([file["path"] for file in payload["files"]], [
+            "SKILL.md",
+            "references/checklist.md",
+            "references/new-checklist.md",
+        ])
+        skill_file = payload["files"][0]
+        self.assertEqual(skill_file["status"], "changed")
+        self.assertTrue(
+            any(line["kind"] == "added" and "tenant filters" in line["text"] for hunk in skill_file["hunks"] for line in hunk["lines"])
+        )
+
+    def test_bundle_diff_marks_binary_changes_without_hunks(self):
+        imported = self.import_standard_skill_bundle(
+            "binary-reviewing",
+            extra_files=[
+                {
+                    "path": "binary-reviewing/assets/pixel.bin",
+                    "content_base64": b64encode(b"\x00\x01").decode("ascii"),
+                }
+            ],
+        )
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        variant = detail["summary"]["default_variant"]
+        first_version = variant["current_version"]
+
+        second_version = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": variant["id"],
+                "source": {
+                    "kind": "files",
+                    "name": "binary-reviewing",
+                    "files": [
+                        {
+                            "path": "binary-reviewing/SKILL.md",
+                            "content_text": (
+                                "---\n"
+                                "name: binary-reviewing\n"
+                                "description: Review pull requests for auth and data access regressions.\n"
+                                "---\n"
+                                "# Binary Reviewing\n"
+                            ),
+                        },
+                        {
+                            "path": "binary-reviewing/assets/pixel.bin",
+                            "content_base64": b64encode(b"\x00\x02").decode("ascii"),
+                        },
+                    ],
+                },
+                "change_summary": "Update binary asset.",
+                "make_current": True,
+                "actor": "tester",
+            },
+        )
+        self.assertEqual(second_version.status_code, 200)
+
+        diff = self.client.get(
+            "/api/artifacts/diff",
+            params={
+                "left_variant_version_id": first_version["id"],
+                "right_variant_version_id": second_version.json()["variant_version_id"],
+            },
+        )
+
+        self.assertEqual(diff.status_code, 200)
+        binary_file = next(file for file in diff.json()["files"] if file["path"] == "assets/pixel.bin")
+        self.assertEqual(binary_file["status"], "changed")
+        self.assertTrue(binary_file["binary"])
+        self.assertNotIn("hunks", binary_file)
+
+    def test_bundle_diff_rejects_cross_skill_versions(self):
+        first = self.import_standard_skill_bundle("first-diff")
+        second = self.import_standard_skill_bundle("second-diff")
+        first_version = self.client.get(f"/api/skills/{first['skill_id']}").json()["summary"]["default_variant"]["current_version"]
+        second_version = self.client.get(f"/api/skills/{second['skill_id']}").json()["summary"]["default_variant"]["current_version"]
+
+        diff = self.client.get(
+            "/api/artifacts/diff",
+            params={
+                "left_variant_version_id": first_version["id"],
+                "right_variant_version_id": second_version["id"],
+            },
+        )
+
+        self.assertEqual(diff.status_code, 400)
+        self.assertIn("same skill", diff.json()["detail"])
+
     def test_cors_allows_localhost_development_ports(self):
         response = self.client.options(
             "/api/skill-imports",
@@ -313,6 +454,37 @@ class ApiCommandTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["access-control-allow-origin"], "http://127.0.0.1:3011")
+
+    def import_standard_skill_bundle(self, slug: str, extra_files: list[dict] | None = None):
+        files = [
+            {
+                "path": f"{slug}/SKILL.md",
+                "content_text": (
+                    "---\n"
+                    f"name: {slug}\n"
+                    "description: Review pull requests for auth and data access regressions.\n"
+                    "---\n"
+                    "# Security Reviewing\n"
+                    "Flag auth regressions first.\n"
+                ),
+            },
+            {
+                "path": f"{slug}/references/checklist.md",
+                "content_text": "Check owner filters and secret logging.\n",
+            },
+            *(extra_files or []),
+        ]
+        response = self.client.post(
+            "/api/skill-imports",
+            json={
+                "owner_ref": "skillhub-lab",
+                "tags": ["codex"],
+                "actor": "tester",
+                "source": {"kind": "files", "name": slug, "files": files},
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()
 
     def create_skill(self, slug: str, digest: str = "digest-code"):
         response = self.client.post(

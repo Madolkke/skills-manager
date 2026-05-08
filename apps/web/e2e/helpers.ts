@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -19,7 +19,8 @@ export async function importSkillBundle(page: Page, skillName: string) {
       "",
     ].join("\n"),
   );
-  await writeFile(join(bundleDir, "checklist.md"), "Check owner filters and secret logging.\n");
+  await mkdir(join(bundleDir, "references"));
+  await writeFile(join(bundleDir, "references", "checklist.md"), "Check owner filters and secret logging.\n");
 
   try {
     await page.goto("/skills");
@@ -48,6 +49,36 @@ export async function addEvalCase(page: Page, title: string) {
   await page.getByRole("button", { name: "加入评测集" }).click();
 
   await expect(page.locator(".caseReviewCard").filter({ hasText: title })).toBeVisible();
+}
+
+export async function appendSkillBundleVersion(page: Page, skillName: string) {
+  const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-version-bundle-"));
+
+  await writeFile(
+    join(bundleDir, "SKILL.md"),
+    [
+      "---",
+      `name: ${skillName}`,
+      "description: Review pull requests for authorization and data access regressions.",
+      "---",
+      "",
+      "# Security Reviewing",
+      "Flag auth regressions first.",
+      "Prioritize missing tenant filters.",
+      "",
+    ].join("\n"),
+  );
+  await writeFile(join(bundleDir, "new-checklist.md"), "Check tenant filters and audit logs.\n");
+
+  try {
+    await page.getByLabel("Inspector").getByRole("button", { name: "追加版本" }).click();
+    await page.locator('input[name="version_folder_files"]').setInputFiles(bundleDir);
+    await page.getByPlaceholder("这次更新的收益").fill("Add tenant filter guidance and replace the checklist.");
+    await page.getByRole("button", { name: "保存版本" }).click();
+    await expect(page.getByText("Variant 版本已创建。")).toBeVisible();
+  } finally {
+    await rm(bundleDir, { force: true, recursive: true });
+  }
 }
 
 export async function hideVolatileUi(page: Page) {

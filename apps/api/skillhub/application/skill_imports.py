@@ -51,9 +51,19 @@ def _files_from_payload(source: dict) -> list[ImportedFile]:
     for raw_file in raw_files:
         path = raw_file.get("path") if isinstance(raw_file, dict) else None
         content_text = raw_file.get("content_text") if isinstance(raw_file, dict) else None
-        if not isinstance(path, str) or not isinstance(content_text, str):
-            raise InvariantError("Each imported file needs path and content_text.")
-        files.append(ImportedFile(path=_safe_path(path), content=content_text.encode("utf-8")))
+        content_base64 = raw_file.get("content_base64") if isinstance(raw_file, dict) else None
+        if not isinstance(path, str):
+            raise InvariantError("Each imported file needs path and content_text or content_base64.")
+        if isinstance(content_text, str):
+            content = content_text.encode("utf-8")
+        elif isinstance(content_base64, str):
+            try:
+                content = b64decode(content_base64, validate=True)
+            except ValueError as exc:
+                raise InvariantError("Imported file content_base64 must be valid base64.") from exc
+        else:
+            raise InvariantError("Each imported file needs path and content_text or content_base64.")
+        files.append(ImportedFile(path=_safe_path(path), content=content))
     return _normalize_root(files)
 
 
@@ -140,9 +150,12 @@ def _manifest_file(file: ImportedFile) -> dict[str, object]:
     digest = sha256(file.content).hexdigest()
     base = {"path": file.path, "sha256": digest, "size_bytes": len(file.content)}
     try:
-        return {**base, "content_text": file.content.decode("utf-8")}
+        text = file.content.decode("utf-8")
     except UnicodeDecodeError:
         return {**base, "content_base64": b64encode(file.content).decode("ascii"), "binary": True}
+    if "\x00" in text:
+        return {**base, "content_base64": b64encode(file.content).decode("ascii"), "binary": True}
+    return {**base, "content_text": text}
 
 
 def _normalize_root(files: list[ImportedFile]) -> list[ImportedFile]:

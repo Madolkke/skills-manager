@@ -69,6 +69,55 @@ export type BundleFile = {
   binary?: boolean;
 };
 
+export type BundleDiffStatus = "added" | "removed" | "changed" | "unchanged";
+
+export type BundleDiffLine = {
+  kind: "context" | "added" | "removed";
+  old_line: number | null;
+  new_line: number | null;
+  text: string;
+};
+
+export type BundleDiffHunk = {
+  old_start: number;
+  old_lines: number;
+  new_start: number;
+  new_lines: number;
+  lines: BundleDiffLine[];
+};
+
+export type BundleDiffFile = {
+  path: string;
+  status: BundleDiffStatus;
+  binary: boolean;
+  left_digest: string | null;
+  right_digest: string | null;
+  left_size_bytes: number | null;
+  right_size_bytes: number | null;
+  hunks?: BundleDiffHunk[];
+};
+
+export type BundleDiff = {
+  left: {
+    variant_version_id: string;
+    version_number: number;
+    content_digest: string;
+  };
+  right: {
+    variant_version_id: string;
+    version_number: number;
+    content_digest: string;
+  };
+  summary: {
+    added: number;
+    removed: number;
+    changed: number;
+    unchanged: number;
+    binary: number;
+  };
+  files: BundleDiffFile[];
+};
+
 export type EvalSetSummary = {
   id: string;
   skill_id: string;

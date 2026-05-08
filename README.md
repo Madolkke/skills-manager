@@ -1,6 +1,6 @@
 # Skills Manager
 
-Eval-backed SkillHub prototype for managing skill variants, versioned eval sets, manual eval runs, and standard skill bundle snapshots.
+Eval-backed SkillHub product workspace for managing skill variants, versioned eval sets, manual eval runs, and standard skill bundle snapshots.
 
 ## What This Demo Proves
 
@@ -10,7 +10,7 @@ Eval-backed SkillHub prototype for managing skill variants, versioned eval sets,
 - An `EvalSetVersion` is a case snapshot.
 - An `EvalRun` records pass/fail results for one `VariantVersion + EvalSetVersion`.
 - External runners can import a standard eval result JSON and get the same `EvalRun + CaseResult` record.
-- Standard skill folders can be imported as `skill_bundle` artifacts and viewed by version; file-level bundle diff is designed and queued next.
+- Standard skill folders can be imported as `skill_bundle` artifacts, viewed by version, and compared with file-level bundle diff.
 
 ## Quick Start
 
@@ -71,6 +71,7 @@ description: Review pull requests for auth and data access regressions.
 ```
 
 The imported bundle is stored as a `skill_bundle` artifact, and the created variant version points to that immutable artifact.
+After importing a second bundle version through `追加版本`, use `比较版本` to inspect changed, added, removed, and binary files between two exact `VariantVersion` snapshots.
 
 ### Verification Commands
 

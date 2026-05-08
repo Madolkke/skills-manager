@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { addEvalCase, createStoredZip, importSkillBundle } from "./helpers";
+import { addEvalCase, appendSkillBundleVersion, createStoredZip, importSkillBundle } from "./helpers";
 
 test("invalid skill folders show a blocking import preview", async ({ page }) => {
   const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-invalid-bundle-"));
@@ -121,6 +121,20 @@ test("operator can edit and archive eval cases", async ({ page }) => {
     .getByRole("button", { name: "归档" })
     .click();
   await expect(page.getByText("还没有测试用例。先从右侧添加一个 case。")).toBeVisible();
+});
+
+test("operator can compare standard bundle versions", async ({ page }) => {
+  const skillName = `diff-reviewing-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+  await appendSkillBundleVersion(page, skillName);
+
+  await page.getByRole("button", { name: "比较版本" }).click();
+
+  await expect(page.getByText("v1 -> v2")).toBeVisible();
+  await expect(page.locator(".diffFileRow").filter({ hasText: "SKILL.md" })).toBeVisible();
+  await expect(page.locator(".diffFileRow").filter({ hasText: "references/checklist.md" })).toBeVisible();
+  await expect(page.locator(".diffFileRow").filter({ hasText: "new-checklist.md" })).toBeVisible();
+  await expect(page.getByText("Prioritize missing tenant filters.")).toBeVisible();
 });
 
 test("workbench keeps the primary content within a mobile viewport", async ({ page }) => {

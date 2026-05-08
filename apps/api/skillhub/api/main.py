@@ -47,7 +47,8 @@ class ImportSkillPayload(BaseModel):
 
 class CreateVariantVersionPayload(BaseModel):
     variant_id: str
-    content_ref: ContentRefPayload
+    content_ref: ContentRefPayload | None = None
+    source: dict[str, Any] | None = None
     change_summary: str
     actor: str = "system"
     make_current: bool = False
@@ -149,6 +150,19 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def eval_run_detail(eval_run_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.eval_run_detail(eval_run_id))
 
+    @app.get("/api/artifacts/diff")
+    def artifact_diff(
+        left_variant_version_id: str,
+        right_variant_version_id: str,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.bundle_diff(
+                left_variant_version_id=left_variant_version_id,
+                right_variant_version_id=right_variant_version_id,
+            )
+        )
+
     @app.post("/api/skills")
     def create_skill(payload: CreateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(
@@ -205,10 +219,28 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         payload: CreateVariantVersionPayload,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
+        if payload.source is not None:
+            bundle = parse_skill_import_source(payload.source)
+            artifact = repository.create_text_artifact(
+                kind="skill_bundle",
+                namespace=f"variant-version-import:{bundle.slug}",
+                content=bundle.manifest_text,
+                actor=payload.actor,
+            )
+            content = ContentRef(
+                kind="artifact",
+                locator=f"artifact:{artifact['id']}",
+                digest=artifact["digest"],
+                path=bundle.entry_path,
+            )
+        elif payload.content_ref is not None:
+            content = content_ref(payload.content_ref)
+        else:
+            raise InvariantError("Variant version requires either content_ref or standard skill bundle source.")
         return result_payload(
             repository.create_variant_version(
                 variant_id=payload.variant_id,
-                content_ref=content_ref(payload.content_ref),
+                content_ref=content,
                 change_summary=payload.change_summary,
                 actor=payload.actor,
                 make_current=payload.make_current,

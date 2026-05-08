@@ -6,7 +6,18 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { passRate } from "@/lib/api";
 import { emptySkillDetail } from "@/lib/empty-state";
 import { percent, shortId } from "@/lib/format";
-import type { BundleFile, EvalRunRecord, EvalSetVersionDetail, SkillDetail, SkillSummary, VariantDetail } from "@/lib/types";
+import type {
+  BundleDiff,
+  BundleDiffFile,
+  BundleDiffStatus,
+  BundleFile,
+  EvalRunRecord,
+  EvalSetVersionDetail,
+  SkillDetail,
+  SkillSummary,
+  VariantDetail,
+  VariantVersion,
+} from "@/lib/types";
 import { Badge } from "./chrome";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_SKILLHUB_API_URL ?? "http://127.0.0.1:8000";
@@ -17,7 +28,7 @@ type DecisionWorkbenchProps = {
   featuredSkill: SkillDetail;
 };
 
-type Mode = "overview" | "variants" | "evals";
+type Mode = "overview" | "variants" | "evals" | "diff";
 type ActionMode =
   | "skill"
   | "new-skill"
@@ -35,6 +46,17 @@ type ImportPreview = {
   detail: string;
 } | null;
 type CommandResult = string | void | { message?: string; selectedSkillId?: string };
+type BundleSource =
+  | { kind: "zip"; name: string; zip_base64: string }
+  | {
+      kind: "files";
+      name: string;
+      files: Array<
+        | { path: string; content_text: string }
+        | { path: string; content_base64: string }
+      >;
+    };
+type DiffFilter = "all" | BundleDiffStatus | "binary";
 
 export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: DecisionWorkbenchProps) {
   const [skills, setSkills] = useState(initialSkills);
@@ -47,6 +69,12 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [catalogQuery, setCatalogQuery] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview>(null);
+  const [bundleDiff, setBundleDiff] = useState<BundleDiff | null>(null);
+  const [diffLeftVersionId, setDiffLeftVersionId] = useState<string | null>(null);
+  const [diffRightVersionId, setDiffRightVersionId] = useState<string | null>(null);
+  const [selectedDiffPath, setSelectedDiffPath] = useState<string | null>(null);
+  const [diffFilter, setDiffFilter] = useState<DiffFilter>("all");
+  const [diffLoading, setDiffLoading] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
@@ -76,6 +104,11 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
   useEffect(() => {
     void loadSkill(selectedSkillId);
+    setBundleDiff(null);
+    setDiffLeftVersionId(null);
+    setDiffRightVersionId(null);
+    setSelectedDiffPath(null);
+    setDiffFilter("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSkillId]);
 
@@ -140,6 +173,48 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     } catch {
       setEvalSetDetail(null);
       setCaseResults({});
+    }
+  }
+
+  async function loadBundleDiff(leftVariantVersionId: string, rightVariantVersionId: string) {
+    setDiffLoading(true);
+    setNotice(null);
+    try {
+      const diff = await apiGet<BundleDiff>(
+        `/api/artifacts/diff?left_variant_version_id=${encodeURIComponent(leftVariantVersionId)}&right_variant_version_id=${encodeURIComponent(rightVariantVersionId)}`,
+      );
+      setBundleDiff(diff);
+      setSelectedDiffPath((current) => {
+        if (current && diff.files.some((file) => file.path === current)) return current;
+        return diff.files[0]?.path ?? null;
+      });
+    } catch (error) {
+      setBundleDiff(null);
+      setSelectedDiffPath(null);
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载版本 diff 失败" });
+    } finally {
+      setDiffLoading(false);
+    }
+  }
+
+  function openDiffMode(variant = defaultVariant) {
+    setMode("diff");
+    const pair = defaultDiffPair(variant);
+    if (!pair) {
+      setBundleDiff(null);
+      setSelectedDiffPath(null);
+      return;
+    }
+    setDiffLeftVersionId(pair.left.id);
+    setDiffRightVersionId(pair.right.id);
+    void loadBundleDiff(pair.left.id, pair.right.id);
+  }
+
+  function updateDiffPair(leftVariantVersionId: string, rightVariantVersionId: string) {
+    setDiffLeftVersionId(leftVariantVersionId);
+    setDiffRightVersionId(rightVariantVersionId);
+    if (leftVariantVersionId && rightVariantVersionId && leftVariantVersionId !== rightVariantVersionId) {
+      void loadBundleDiff(leftVariantVersionId, rightVariantVersionId);
     }
   }
 
@@ -208,22 +283,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       return;
     }
     await runCommand("Skill bundle 已导入。", async () => {
-      const source = zipFile && zipFile.size > 0
-        ? {
-            kind: "zip",
-            name: zipFile.name,
-            zip_base64: await fileToBase64(zipFile),
-          }
-        : {
-            kind: "files",
-            name: folderFiles[0]?.webkitRelativePath?.split("/")[0] || folderFiles[0]?.name || "skill-folder",
-            files: await Promise.all(
-              folderFiles.map(async (file) => ({
-                path: file.webkitRelativePath || file.name,
-                content_text: await file.text(),
-              })),
-            ),
-          };
+      const source = await sourceFromSelectedBundle({ folderFiles, zipFile });
       const result = await apiSend<ImportSkillResponse>("/api/skill-imports", {
         method: "POST",
         body: {
@@ -333,18 +393,38 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const zipInput = formElement.elements.namedItem("version_zip_file") as HTMLInputElement | null;
+    const folderInput = formElement.elements.namedItem("version_folder_files") as HTMLInputElement | null;
+    const zipFile = zipInput?.files?.[0];
+    const folderFiles = Array.from(folderInput?.files ?? []);
+    if (zipFile && zipFile.size > 0 && folderFiles.length > 0) {
+      setNotice({ tone: "bad", message: "文件夹和 zip 只能选择一种来源。" });
+      return;
+    }
+    if ((!zipFile || zipFile.size === 0) && folderFiles.length === 0 && !textValue(form, "content")) {
+      setNotice({ tone: "bad", message: "请选择标准 Skill 文件夹、zip，或填写 content_ref 摘要。" });
+      return;
+    }
     await runCommand("Variant 版本已创建。", async () => {
       const variantId = textValue(form, "variant_id");
       const content = textValue(form, "content");
+      const hasBundleSource = (zipFile && zipFile.size > 0) || folderFiles.length > 0;
+      const source = hasBundleSource
+        ? await sourceFromSelectedBundle({ folderFiles, zipFile })
+        : null;
       await apiSend("/api/variant-versions", {
         method: "POST",
         body: {
           variant_id: variantId,
-          content_ref: {
-            kind: "skill_bundle",
-            locator: `inline:${variantId}/${Date.now()}`,
-            digest: await digestText(content),
-          },
+          ...(source
+            ? { source }
+            : {
+                content_ref: {
+                  kind: "skill_bundle",
+                  locator: `inline:${variantId}/${Date.now()}`,
+                  digest: await digestText(content),
+                },
+              }),
           change_summary: textValue(form, "change_summary"),
           actor: ACTOR,
           make_current: form.get("make_current") === "on",
@@ -495,6 +575,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             <button className={mode === "overview" ? "linearTabActive" : ""} onClick={() => setMode("overview")} type="button">概览</button>
             <button className={mode === "variants" ? "linearTabActive" : ""} onClick={() => setMode("variants")} type="button">变体</button>
             <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
+            <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
           </nav>
         </header>
 
@@ -506,6 +587,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             hasPersistedSkill={hasPersistedSkill}
             latestRun={latestRun}
             onAction={chooseAction}
+            onDiff={() => openDiffMode()}
             primaryEvalSetVersion={currentEvalSetVersion?.version_number}
             score={score}
             selectedDetail={selectedDetail}
@@ -516,7 +598,23 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           <VariantsPane
             defaultVariant={defaultVariant}
             onAction={chooseAction}
+            onDiff={() => openDiffMode()}
             variants={selectedDetail.variants}
+          />
+        ) : null}
+
+        {mode === "diff" ? (
+          <DiffPane
+            diff={bundleDiff}
+            filter={diffFilter}
+            leftVersionId={diffLeftVersionId}
+            loading={diffLoading}
+            onPairChange={updateDiffPair}
+            onSelectFile={setSelectedDiffPath}
+            onSetFilter={setDiffFilter}
+            rightVersionId={diffRightVersionId}
+            selectedPath={selectedDiffPath}
+            variant={defaultVariant}
           />
         ) : null}
 
@@ -586,6 +684,7 @@ function OverviewPane({
   hasPersistedSkill,
   latestRun,
   onAction,
+  onDiff,
   primaryEvalSetVersion,
   score,
   selectedDetail,
@@ -594,6 +693,7 @@ function OverviewPane({
   hasPersistedSkill: boolean;
   latestRun: EvalRunRecord | null;
   onAction: (mode: ActionMode) => void;
+  onDiff: () => void;
   primaryEvalSetVersion?: number;
   score: number | null;
   selectedDetail: SkillDetail;
@@ -664,6 +764,7 @@ function OverviewPane({
           </div>
           <div className="sectionActions">
             <button onClick={() => onAction("new-version")} type="button">追加版本</button>
+            <button disabled={!defaultVariant || defaultVariant.versions.length < 2} onClick={onDiff} type="button">比较版本</button>
             <Link href={defaultVariant ? `/variants/${defaultVariant.id}` : "#"}>打开详情</Link>
           </div>
         </div>
@@ -690,10 +791,12 @@ function OverviewPane({
 function VariantsPane({
   defaultVariant,
   onAction,
+  onDiff,
   variants,
 }: {
   defaultVariant: VariantDetail | null;
   onAction: (mode: ActionMode) => void;
+  onDiff: () => void;
   variants: VariantDetail[];
 }) {
   const historyCount = variants.reduce((total, variant) => total + variant.versions.length, 0);
@@ -708,6 +811,7 @@ function VariantsPane({
         <div>
           <button onClick={() => onAction("new-variant")} type="button">添加 variant</button>
           <button onClick={() => onAction("new-version")} type="button">追加版本</button>
+          <button disabled={!defaultVariant || defaultVariant.versions.length < 2} onClick={onDiff} type="button">比较版本</button>
         </div>
       </div>
       <div className="variantMapCanvas">
@@ -728,6 +832,168 @@ function VariantsPane({
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+function DiffPane({
+  diff,
+  filter,
+  leftVersionId,
+  loading,
+  onPairChange,
+  onSelectFile,
+  onSetFilter,
+  rightVersionId,
+  selectedPath,
+  variant,
+}: {
+  diff: BundleDiff | null;
+  filter: DiffFilter;
+  leftVersionId: string | null;
+  loading: boolean;
+  onPairChange: (leftVariantVersionId: string, rightVariantVersionId: string) => void;
+  onSelectFile: (path: string) => void;
+  onSetFilter: (filter: DiffFilter) => void;
+  rightVersionId: string | null;
+  selectedPath: string | null;
+  variant: VariantDetail | null;
+}) {
+  const versions = sortedVersions(variant?.versions ?? []);
+  const filteredFiles = filterDiffFiles(diff?.files ?? [], filter);
+  const selectedFile = filteredFiles.find((file) => file.path === selectedPath) ?? filteredFiles[0] ?? null;
+
+  if (!variant || versions.length < 2) {
+    return (
+      <div className="linearPane diffPane">
+        <div className="linearToolbar">
+          <div>
+            <h2>版本差异</h2>
+            <p>至少需要两个不可变 VariantVersion，才能比较标准 Skill bundle 的文件变化。</p>
+          </div>
+        </div>
+        <div className="linearEmpty">当前默认 variant 还没有可比较的历史版本。先从右侧追加一个版本。</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="linearPane diffPane">
+      <div className="linearToolbar">
+        <div>
+          <h2>版本差异</h2>
+          <p>{variant.label} · {diff ? `v${diff.left.version_number} -> v${diff.right.version_number}` : "选择两个版本后加载 diff"}</p>
+        </div>
+        <div className="diffSelectors">
+          <label>
+            <span>From</span>
+            <select
+              onChange={(event) => updatePairFromSelect(event.currentTarget.value, rightVersionId, onPairChange)}
+              value={leftVersionId ?? ""}
+            >
+              {versions.map((version) => (
+                <option disabled={version.id === rightVersionId} key={version.id} value={version.id}>
+                  v{version.version_number}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>To</span>
+            <select
+              onChange={(event) => updatePairFromSelect(leftVersionId, event.currentTarget.value, onPairChange)}
+              value={rightVersionId ?? ""}
+            >
+              {versions.map((version) => (
+                <option disabled={version.id === leftVersionId} key={version.id} value={version.id}>
+                  v{version.version_number}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <section className="diffWorkbench" aria-busy={loading}>
+        <div className="diffSummary">
+          <Metric label="Changed" value={String(diff?.summary.changed ?? 0)} />
+          <Metric label="Added" tone="good" value={String(diff?.summary.added ?? 0)} />
+          <Metric label="Removed" tone="bad" value={String(diff?.summary.removed ?? 0)} />
+          <Metric label="Binary" value={String(diff?.summary.binary ?? 0)} />
+        </div>
+
+        <div className="diffFilterBar" aria-label="Diff filters">
+          {[
+            ["all", "全部"],
+            ["changed", "修改"],
+            ["added", "新增"],
+            ["removed", "删除"],
+            ["binary", "二进制"],
+          ].map(([value, label]) => (
+            <button
+              className={filter === value ? "diffFilterActive" : ""}
+              key={value}
+              onClick={() => onSetFilter(value as DiffFilter)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="diffGrid">
+          <aside className="diffFileRail" aria-label="Changed files">
+            {loading ? <div className="linearEmpty">正在加载 diff...</div> : null}
+            {!loading && filteredFiles.length === 0 ? <div className="linearEmpty">这个筛选下没有文件变化。</div> : null}
+            {filteredFiles.map((file) => (
+              <button
+                className={`diffFileRow ${selectedFile?.path === file.path ? "diffFileRowActive" : ""}`}
+                key={file.path}
+                onClick={() => onSelectFile(file.path)}
+                type="button"
+              >
+                <span>{file.path}</span>
+                <small>{file.binary ? "binary" : file.status}</small>
+              </button>
+            ))}
+          </aside>
+
+          <section className="diffDetail">
+            {selectedFile ? (
+              <>
+                <div className="diffDetailHead">
+                  <div>
+                    <span>{selectedFile.status}</span>
+                    <strong>{selectedFile.path}</strong>
+                  </div>
+                  <small>{diffFileSizeLabel(selectedFile)}</small>
+                </div>
+                {selectedFile.binary ? (
+                  <div className="diffBinaryNotice">二进制文件不展示文本 diff；仍保留 digest 和大小用于审查。</div>
+                ) : (
+                  <div className="diffCode">
+                    {(selectedFile.hunks ?? []).flatMap((hunk, hunkIndex) =>
+                      hunk.lines.map((line, lineIndex) => (
+                        <div className={`diffLine diffLine-${line.kind}`} key={`${hunkIndex}-${lineIndex}`}>
+                          <span>{line.old_line ?? ""}</span>
+                          <span>{line.new_line ?? ""}</span>
+                          <code>{diffLinePrefix(line.kind)}{line.text || " "}</code>
+                        </div>
+                      )),
+                    )}
+                    {(selectedFile.hunks ?? []).length === 0 ? <div className="diffBinaryNotice">没有可展示的文本变化。</div> : null}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="evalCaseDetailEmpty">
+                <strong>等待 diff</strong>
+                <span>选择两个 bundle 版本后，这里会显示文件级和行级变化。</span>
+              </div>
+            )}
+          </section>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1029,7 +1295,16 @@ function Inspector({
               <option key={variant.id} value={variant.id}>{variant.label}</option>
             ))}
           </select>
-          <textarea name="content" placeholder="新的 skill bundle 内容摘要或 locator 来源" required />
+          <p className="inspectorHint">优先上传标准 Skill 文件夹或 zip；这会生成可 diff 的不可变 bundle artifact。</p>
+          <label className="fileDrop">
+            <span>选择新版本文件夹</span>
+            <input {...versionFolderInputProps} />
+          </label>
+          <label className="fileDrop">
+            <span>或选择新版本 zip</span>
+            <input accept=".zip,application/zip" name="version_zip_file" type="file" />
+          </label>
+          <textarea name="content" placeholder="没有文件时，可填写 content_ref 摘要或 locator 来源" />
           <textarea name="change_summary" placeholder="这次更新的收益" required />
           <label><input name="make_current" type="checkbox" defaultChecked /> 设为 current</label>
           <button disabled={busy} type="submit">保存版本</button>
@@ -1094,6 +1369,70 @@ function Metric({ label, tone = "neutral", value }: { label: string; tone?: "neu
       <strong>{value}</strong>
     </div>
   );
+}
+
+async function sourceFromSelectedBundle({
+  folderFiles,
+  zipFile,
+}: {
+  folderFiles: File[];
+  zipFile?: File;
+}): Promise<BundleSource> {
+  if (zipFile && zipFile.size > 0) {
+    return {
+      kind: "zip",
+      name: zipFile.name,
+      zip_base64: await fileToBase64(zipFile),
+    };
+  }
+  if (folderFiles.length === 0) throw new Error("请选择包含 SKILL.md 的文件夹，或上传一个 zip。");
+  return {
+    kind: "files",
+    name: folderFiles[0]?.webkitRelativePath?.split("/")[0] || folderFiles[0]?.name || "skill-folder",
+    files: await Promise.all(folderFiles.map(filePayloadFromFile)),
+  };
+}
+
+function sortedVersions(versions: VariantVersion[]) {
+  return [...versions].sort((left, right) => left.version_number - right.version_number);
+}
+
+function defaultDiffPair(variant: VariantDetail | null): { left: VariantVersion; right: VariantVersion } | null {
+  const versions = sortedVersions(variant?.versions ?? []);
+  if (versions.length < 2) return null;
+  const fallbackRight = versions[versions.length - 1];
+  const right = versions.find((version) => version.id === variant?.current_version?.id) ?? fallbackRight;
+  const rightIndex = versions.findIndex((version) => version.id === right.id);
+  const left = versions[rightIndex - 1] ?? versions[versions.length - 2];
+  if (!left || left.id === right.id) return null;
+  return { left, right };
+}
+
+function updatePairFromSelect(
+  leftVariantVersionId: string | null,
+  rightVariantVersionId: string | null,
+  onPairChange: (leftVariantVersionId: string, rightVariantVersionId: string) => void,
+) {
+  if (!leftVariantVersionId || !rightVariantVersionId || leftVariantVersionId === rightVariantVersionId) return;
+  onPairChange(leftVariantVersionId, rightVariantVersionId);
+}
+
+function filterDiffFiles(files: BundleDiffFile[], filter: DiffFilter) {
+  if (filter === "all") return files;
+  if (filter === "binary") return files.filter((file) => file.binary);
+  return files.filter((file) => file.status === filter);
+}
+
+function diffLinePrefix(kind: "context" | "added" | "removed") {
+  if (kind === "added") return "+ ";
+  if (kind === "removed") return "- ";
+  return "  ";
+}
+
+function diffFileSizeLabel(file: BundleDiffFile) {
+  const left = typeof file.left_size_bytes === "number" ? formatBytes(file.left_size_bytes) : "missing";
+  const right = typeof file.right_size_bytes === "number" ? formatBytes(file.right_size_bytes) : "missing";
+  return `${left} -> ${right}`;
 }
 
 function formatBundlePreview(variant: VariantDetail | null): string {
@@ -1181,7 +1520,22 @@ async function digestText(value: string) {
 }
 
 async function fileToBase64(file: File) {
+  return bytesToBase64(new Uint8Array(await file.arrayBuffer()));
+}
+
+async function filePayloadFromFile(file: File) {
+  const path = file.webkitRelativePath || file.name;
   const bytes = new Uint8Array(await file.arrayBuffer());
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (!text.includes("\x00")) return { path, content_text: text };
+  } catch {
+    // Fall through to base64 for non UTF-8 bundle assets.
+  }
+  return { path, content_base64: bytesToBase64(bytes) };
+}
+
+function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
   for (let index = 0; index < bytes.length; index += 0x8000) {
     binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
@@ -1199,6 +1553,14 @@ const folderInputProps = {
   directory: "",
   multiple: true,
   name: "folder_files",
+  type: "file",
+  webkitdirectory: "",
+} as const;
+
+const versionFolderInputProps = {
+  directory: "",
+  multiple: true,
+  name: "version_folder_files",
   type: "file",
   webkitdirectory: "",
 } as const;
