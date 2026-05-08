@@ -2289,6 +2289,38 @@ h2 {
   padding: 0;
 }
 
+.importPreview {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--workbench-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.importPreview strong {
+  overflow-wrap: anywhere;
+}
+
+.importPreview span {
+  color: var(--workbench-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.importPreview-good {
+  border-color: #9bd9c5;
+  background: var(--workbench-success-soft);
+}
+
+.importPreview-bad {
+  border-color: #f2b8af;
+  background: var(--workbench-danger-soft);
+}
+
+.importPreview-neutral {
+  background: var(--workbench-panel-soft);
+}
+
 .inspectorForm button:first-of-type {
   border-color: #9bd9c5;
   background: var(--workbench-success-soft);

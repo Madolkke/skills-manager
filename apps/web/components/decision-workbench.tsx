@@ -28,6 +28,11 @@ type ActionMode =
   | "run";
 type Notice = { tone: "good" | "bad" | "neutral"; message: string } | null;
 type ImportSkillResponse = { skill_id: string; slug: string; file_count: number };
+type ImportPreview = {
+  tone: "good" | "bad" | "neutral";
+  title: string;
+  detail: string;
+} | null;
 
 export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: DecisionWorkbenchProps) {
   const [skills, setSkills] = useState(initialSkills);
@@ -39,6 +44,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [actionMode, setActionMode] = useState<ActionMode>("skill");
   const [catalogQuery, setCatalogQuery] = useState("");
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreview>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
@@ -210,8 +216,46 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       setSelectedSkillId(result.skill_id);
       setCatalogQuery("");
       chooseAction("skill");
+      setImportPreview(null);
       event.currentTarget.reset();
       return `已导入 ${result.slug}，包含 ${result.file_count} 个文件。`;
+    });
+  }
+
+  async function refreshImportPreview(event: FormEvent<HTMLFormElement>) {
+    const form = event.currentTarget;
+    const zipInput = form.elements.namedItem("zip_file") as HTMLInputElement | null;
+    const folderInput = form.elements.namedItem("folder_files") as HTMLInputElement | null;
+    const zipFile = zipInput?.files?.[0];
+    const folderFiles = Array.from(folderInput?.files ?? []);
+    if (zipFile && zipFile.size > 0 && folderFiles.length > 0) {
+      setImportPreview({ tone: "bad", title: "来源冲突", detail: "文件夹和 zip 只能选择一种。" });
+      return;
+    }
+    if (zipFile && zipFile.size > 0) {
+      setImportPreview({
+        tone: "neutral",
+        title: zipFile.name,
+        detail: `Zip bundle · ${formatBytes(zipFile.size)} · 提交后由后端校验 SKILL.md。`,
+      });
+      return;
+    }
+    if (folderFiles.length === 0) {
+      setImportPreview(null);
+      return;
+    }
+    const skillFile = folderFiles.find((file) => (file.webkitRelativePath || file.name).endsWith("SKILL.md"));
+    if (!skillFile) {
+      setImportPreview({ tone: "bad", title: "缺少 SKILL.md", detail: `${folderFiles.length} 个文件中没有找到 SKILL.md。` });
+      return;
+    }
+    const metadata = parseSkillMetadata(await skillFile.text());
+    setImportPreview({
+      tone: metadata.name && metadata.description ? "good" : "bad",
+      title: metadata.name || "未识别 name",
+      detail: metadata.description
+        ? `${metadata.description} · ${folderFiles.length} files`
+        : "SKILL.md frontmatter 需要 description。",
     });
   }
 
@@ -468,7 +512,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           onAction={chooseAction}
           onArchiveSkill={archiveSkill}
           onSelectCase={setSelectedCaseId}
+          importPreview={importPreview}
           recordEvalRun={recordEvalRun}
+          refreshImportPreview={refreshImportPreview}
           score={score}
           selectedCase={selectedCase}
           selectedDetail={selectedDetail}
@@ -665,7 +711,9 @@ function Inspector({
   onAction,
   onArchiveSkill,
   onSelectCase,
+  importPreview,
   recordEvalRun,
+  refreshImportPreview,
   score,
   selectedCase,
   selectedDetail,
@@ -686,7 +734,9 @@ function Inspector({
   onAction: (mode: ActionMode) => void;
   onArchiveSkill: () => void;
   onSelectCase: (caseId: string) => void;
+  importPreview: ImportPreview;
   recordEvalRun: () => void;
+  refreshImportPreview: (event: FormEvent<HTMLFormElement>) => void;
   score: number | null;
   selectedCase: EvalSetVersionDetail["cases"][number] | null;
   selectedDetail: SkillDetail;
@@ -754,7 +804,7 @@ function Inspector({
       ) : null}
 
       {actionMode === "import-skill" ? (
-        <form className="inspectorForm" onSubmit={importSkill}>
+        <form className="inspectorForm" onChange={refreshImportPreview} onSubmit={importSkill}>
           <h3>导入标准 Skill</h3>
           <p className="inspectorHint">选择包含 SKILL.md 的文件夹，或上传 zip。SKILL.md frontmatter 的 name 会成为 skill slug。</p>
           <input name="owner_ref" placeholder="skillhub-lab" required />
@@ -768,6 +818,12 @@ function Inspector({
             <span>或选择 zip</span>
             <input accept=".zip,application/zip" name="zip_file" type="file" />
           </label>
+          {importPreview ? (
+            <div className={`importPreview importPreview-${importPreview.tone}`}>
+              <strong>{importPreview.title}</strong>
+              <span>{importPreview.detail}</span>
+            </div>
+          ) : null}
           <button disabled={busy} type="submit">导入并创建 skill</button>
         </form>
       ) : null}
@@ -878,6 +934,25 @@ function skillMdFromBundleArtifact(contentText?: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+function parseSkillMetadata(content: string) {
+  const lines = content.split(/\r?\n/);
+  const metadata: Record<string, string> = {};
+  if (lines[0]?.trim() !== "---") return metadata;
+  for (const line of lines.slice(1)) {
+    if (line.trim() === "---") break;
+    const separator = line.indexOf(":");
+    if (separator < 0) continue;
+    metadata[line.slice(0, separator).trim()] = line.slice(separator + 1).trim().replace(/^["']|["']$/g, "");
+  }
+  return metadata;
+}
+
+function formatBytes(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function textValue(form: FormData, key: string) {
