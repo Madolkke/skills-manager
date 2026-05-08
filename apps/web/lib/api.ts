@@ -19,7 +19,8 @@ async function getJson<T>(path: string, fallback: T): Promise<T> {
 }
 
 export async function listSkills(): Promise<SkillSummary[]> {
-  return getJson("/api/skills", skillSummaries);
+  const result = await getJson("/api/skills", skillSummaries);
+  return result.length > 0 ? result : skillSummaries;
 }
 
 export async function getSkillDetail(skillId: string): Promise<SkillDetail> {
