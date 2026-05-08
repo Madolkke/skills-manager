@@ -34,6 +34,7 @@ type ImportPreview = {
   title: string;
   detail: string;
 } | null;
+type CommandResult = string | void | { message?: string; selectedSkillId?: string };
 
 export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: DecisionWorkbenchProps) {
   const [skills, setSkills] = useState(initialSkills);
@@ -142,13 +143,15 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     }
   }
 
-  async function runCommand(message: string, command: () => Promise<string | void>) {
+  async function runCommand(message: string, command: () => Promise<CommandResult>) {
     setBusy(true);
     setNotice(null);
     try {
       const result = await command();
-      await loadSkills(selectedSkillId);
-      setNotice({ tone: "good", message: result || message });
+      const nextSelectedId = typeof result === "object" && result?.selectedSkillId ? result.selectedSkillId : selectedSkillId;
+      const resultMessage = typeof result === "string" ? result : typeof result === "object" ? result?.message : undefined;
+      await loadSkills(nextSelectedId);
+      setNotice({ tone: "good", message: resultMessage || message });
     } catch (error) {
       setNotice({ tone: "bad", message: error instanceof Error ? error.message : "操作失败" });
     } finally {
@@ -181,10 +184,10 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           actor: ACTOR,
         },
       });
-      setSelectedSkillId(result.skill_id);
       setCatalogQuery("");
       chooseAction("skill");
       formElement.reset();
+      return { selectedSkillId: result.skill_id };
     });
   }
 
@@ -231,12 +234,14 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           actor: ACTOR,
         },
       });
-      setSelectedSkillId(result.skill_id);
       setCatalogQuery("");
       chooseAction("skill");
       setImportPreview(null);
       formElement.reset();
-      return `已导入 ${result.slug}，包含 ${result.file_count} 个文件。`;
+      return {
+        message: `已导入 ${result.slug}，包含 ${result.file_count} 个文件。`,
+        selectedSkillId: result.skill_id,
+      };
     });
   }
 
@@ -938,7 +943,7 @@ function Inspector({
               <span>{importPreview.detail}</span>
             </div>
           ) : null}
-          <button disabled={busy} type="submit">导入并创建 skill</button>
+          <button disabled={busy || importPreview?.tone === "bad"} type="submit">导入并创建 skill</button>
         </form>
       ) : null}
 
