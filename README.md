@@ -10,7 +10,7 @@ Eval-backed SkillHub prototype for managing skill variants, versioned eval sets,
 - An `EvalSetVersion` is a case snapshot.
 - An `EvalRun` records pass/fail results for one `VariantVersion + EvalSetVersion`.
 - External runners can import a standard eval result JSON and get the same `EvalRun + CaseResult` record.
-- Standard skill folders can be imported as `skill_bundle` artifacts and viewed or diffed by version.
+- Standard skill folders can be imported as `skill_bundle` artifacts and viewed by version; file-level bundle diff is designed and queued next.
 
 ## Quick Start
 
@@ -140,6 +140,7 @@ python -m skillhub_demo.external_runner \
 - [Formal tech stack](docs/formal-tech-stack.md)
 - [Formal architecture v0.1](docs/formal-architecture-v0.1.md)
 - [Formal UI design v0.1](docs/formal-ui-design.md)
+- [Product completion audit](docs/product-completion-audit-2026-05-08.md)
 - [Bundle diff workbench design](docs/superpowers/specs/2026-05-08-bundle-diff-workbench-design.md)
 - [Roadmap](docs/roadmap.md)
 - [1.0 architecture review](docs/architecture-review-1.0.md)
