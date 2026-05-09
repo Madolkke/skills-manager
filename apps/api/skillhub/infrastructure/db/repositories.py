@@ -745,14 +745,124 @@ class SqlSkillRepository:
                         "case_version": self._case_version_detail(connection, case_version),
                     }
                 )
+            variant_version_detail = self._variant_version_detail(connection, variant_version)
 
         return EvalRunDetail(
             eval_run=self._row_dict(eval_run),
             skill=self._row_dict(skill),
-            variant_version=self._variant_version_detail(connection, variant_version),
+            variant_version=variant_version_detail,
             eval_set_version=self._row_dict(eval_set_version),
             case_results=case_results,
         )
+
+    def list_eval_runs_for_skill(
+        self,
+        *,
+        skill_id: str,
+        variant_version_id: str | None = None,
+        eval_set_version_id: str | None = None,
+        strategy: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        safe_limit = max(1, min(limit, 200))
+        with self.engine.connect() as connection:
+            skill = self._skill_row(connection, skill_id)
+            query = select(tables.eval_runs).where(tables.eval_runs.c.skill_id == skill_id)
+            if variant_version_id:
+                query = query.where(tables.eval_runs.c.variant_version_id == variant_version_id)
+            if eval_set_version_id:
+                query = query.where(tables.eval_runs.c.eval_set_version_id == eval_set_version_id)
+            if strategy:
+                query = query.where(tables.eval_runs.c.strategy == strategy)
+            if status:
+                query = query.where(tables.eval_runs.c.status == status)
+
+            run_rows = (
+                connection.execute(query.order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id)).limit(safe_limit))
+                .mappings()
+                .all()
+            )
+            runs = []
+            for run in run_rows:
+                variant_version = self._variant_version_row(connection, run["variant_version_id"])
+                variant = self._variant_row(connection, variant_version["variant_id"])
+                eval_set_version = self._eval_set_version_row(connection, run["eval_set_version_id"])
+                eval_set = (
+                    connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_version["eval_set_id"]))
+                    .mappings()
+                    .one()
+                )
+                runs.append(
+                    {
+                        "eval_run": self._row_dict(run),
+                        "variant": {**self._row_dict(variant), "tags": self._tags_for_tag_set(connection, variant["tag_set_id"])},
+                        "variant_version": self._row_dict(variant_version),
+                        "eval_set": self._row_dict(eval_set),
+                        "eval_set_version": self._row_dict(eval_set_version),
+                    }
+                )
+
+        return {
+            "skill": self._row_dict(skill),
+            "runs": runs,
+        }
+
+    def eval_case_history(self, case_id: str) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            eval_case = self._eval_case_row(connection, case_id)
+            version_rows = (
+                connection.execute(
+                    select(tables.eval_case_versions)
+                    .where(tables.eval_case_versions.c.case_id == case_id)
+                    .order_by(desc(tables.eval_case_versions.c.version_number))
+                )
+                .mappings()
+                .all()
+            )
+            versions = []
+            for case_version in version_rows:
+                membership_rows = (
+                    connection.execute(
+                        select(
+                            tables.eval_set_case_versions.c.eval_set_version_id,
+                            tables.eval_set_case_versions.c.position,
+                            tables.eval_set_versions.c.eval_set_id,
+                            tables.eval_set_versions.c.version_number,
+                            tables.eval_set_versions.c.created_at,
+                            tables.eval_set_versions.c.created_by,
+                        )
+                        .join(
+                            tables.eval_set_versions,
+                            tables.eval_set_case_versions.c.eval_set_version_id == tables.eval_set_versions.c.id,
+                        )
+                        .where(tables.eval_set_case_versions.c.case_version_id == case_version["id"])
+                        .order_by(desc(tables.eval_set_versions.c.version_number))
+                    )
+                    .mappings()
+                    .all()
+                )
+                versions.append(
+                    {
+                        "case_version": self._case_version_detail(connection, case_version),
+                        "included_in_eval_set_versions": [
+                            {
+                                "id": membership["eval_set_version_id"],
+                                "eval_set_id": membership["eval_set_id"],
+                                "version_number": membership["version_number"],
+                                "position": membership["position"],
+                                "created_at": membership["created_at"],
+                                "created_by": membership["created_by"],
+                            }
+                            for membership in membership_rows
+                        ],
+                    }
+                )
+
+        return {
+            "case": self._row_dict(eval_case),
+            "versions": versions,
+        }
 
     def bundle_diff(self, *, left_variant_version_id: str, right_variant_version_id: str) -> dict[str, Any]:
         with self.engine.connect() as connection:
@@ -844,6 +954,14 @@ class SqlSkillRepository:
         if row is None:
             raise NotFoundError(f"Variant not found: {variant_id}")
         return row
+
+    def _tags_for_tag_set(self, connection, tag_set_id: str) -> list[str]:
+        row = (
+            connection.execute(select(tables.tag_sets.c.tags).where(tables.tag_sets.c.id == tag_set_id))
+            .mappings()
+            .one()
+        )
+        return list(row["tags"])
 
     def _skill_row(self, connection, skill_id: str):
         row = (

@@ -3950,6 +3950,259 @@ body {
   text-align: center;
 }
 
+.historyPane {
+  align-content: start;
+}
+
+.historyFilters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 8px;
+  min-width: min(100%, 620px);
+}
+
+.historyFilters label {
+  display: grid;
+  gap: 4px;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.historyFilters select {
+  min-height: 34px;
+  min-width: 0;
+  border: 1px solid #dce2ea;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.historyGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.48fr) minmax(0, 1fr);
+  min-height: 470px;
+  overflow: hidden;
+  border: 1px solid #dde4ed;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.historyRunList {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  overflow: auto;
+  border-right: 1px solid #e6ebf2;
+  background: #f7f9fb;
+  padding: 10px;
+}
+
+.historyRunRow {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.22fr) minmax(0, 1fr) minmax(130px, 0.42fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 66px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #111827;
+  cursor: pointer;
+  padding: 10px;
+  text-align: left;
+}
+
+.historyRunRow:hover,
+.historyRunRowActive {
+  border-color: #ccd6e3;
+  background: #ffffff;
+}
+
+.historyRunRow span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.historyRunRow strong,
+.historyRunRow b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyRunRow strong {
+  font-size: 20px;
+}
+
+.historyRunRow small {
+  overflow: hidden;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyRunDetail {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.historyDetailHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 62px;
+  border-bottom: 1px solid #e6ebf2;
+  padding: 12px;
+}
+
+.historyDetailHead span,
+.caseHistoryVersionHead span {
+  color: #7b8493;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.historyDetailHead strong {
+  display: block;
+  margin-top: 4px;
+  color: #111827;
+  font-size: 20px;
+}
+
+.historyDetailHead a {
+  border: 1px solid #d6dde8;
+  border-radius: 7px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 8px 10px;
+}
+
+.historyBindingGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  border-bottom: 1px solid #e6ebf2;
+  padding: 10px;
+}
+
+.historyCaseResults {
+  overflow: auto;
+}
+
+.historyCaseResult {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #edf1f6;
+  padding: 12px;
+}
+
+.historyCaseResult div {
+  display: grid;
+  gap: 4px;
+}
+
+.historyCaseResult span {
+  color: #7b8493;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.historyCaseResult strong {
+  color: #111827;
+  font-size: 15px;
+}
+
+.historyEmpty {
+  display: grid;
+  place-items: start;
+  gap: 8px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #667085;
+  padding: 16px;
+}
+
+.historyEmpty strong {
+  color: #111827;
+}
+
+.historyEmpty button {
+  min-height: 34px;
+  border: 1px solid #111827;
+  border-radius: 7px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.caseHistoryPanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.caseHistoryTimeline {
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.caseHistoryVersion {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dde4ed;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.caseHistoryVersionHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caseHistoryVersionHead div {
+  display: grid;
+  gap: 4px;
+}
+
+.caseHistoryVersionHead strong {
+  color: #111827;
+  font-size: 15px;
+}
+
+.caseHistoryVersionHead small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.caseHistoryMembership {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 @media (max-width: 1180px) {
   .linearWorkbench {
     grid-template-columns: minmax(220px, 0.55fr) minmax(0, 1fr);
@@ -3980,6 +4233,9 @@ body {
   .linearMetrics,
   .diffSummary,
   .diffGrid,
+  .historyFilters,
+  .historyGrid,
+  .historyBindingGrid,
   .evalReviewGrid,
   .caseIOGrid,
   .inspectorStack {

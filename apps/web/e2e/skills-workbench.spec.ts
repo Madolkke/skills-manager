@@ -137,6 +137,56 @@ test("operator can compare standard bundle versions", async ({ page }) => {
   await expect(page.getByText("Prioritize missing tenant filters.")).toBeVisible();
 });
 
+test("operator can review eval run history with filters", async ({ page }) => {
+  const skillName = `history-reviewing-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+  await addEvalCase(page, "PR: missing tenant scope");
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: missing tenant scope" })
+    .getByRole("button", { name: "通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: missing tenant scope" })
+    .getByRole("button", { name: "不通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
+
+  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+
+  await expect(page.locator(".historyRunRow")).toHaveCount(2);
+  await expect(page.locator(".historyRunRow").filter({ hasText: "0/1" })).toBeVisible();
+  await page.getByLabel("Strategy filter").selectOption("manual_pass_fail");
+  await expect(page.locator(".historyRunRow")).toHaveCount(2);
+  await expect(page.getByText("PR: missing tenant scope")).toBeVisible();
+});
+
+test("operator can inspect eval case version history", async ({ page }) => {
+  await importSkillBundle(page, `case-history-${Date.now()}`);
+  await addEvalCase(page, "PR: stale case wording");
+  await page.getByLabel("Inspector").getByRole("button", { name: "编辑 case" }).click();
+  await page.getByPlaceholder("新标题").fill("PR: edited case wording");
+  await page.getByPlaceholder("新的 input").fill("diff --git a/service.py b/service.py\n+return Project.find_many({})");
+  await page.getByPlaceholder("新的 expected output").fill("Must flag missing tenant scope.");
+  await page.getByPlaceholder("为什么更新").fill("Clarified tenant-scope expected result.");
+  await page.getByRole("button", { name: "保存 case version" }).click();
+
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: edited case wording" })
+    .getByRole("button", { name: "历史" })
+    .click();
+
+  await expect(page.getByText("Case version history")).toBeVisible();
+  await expect(page.locator(".caseHistoryVersion")).toHaveCount(2);
+  await expect(page.locator(".caseHistoryVersion").filter({ hasText: "Clarified tenant-scope expected result." })).toBeVisible();
+  await expect(page.locator(".caseHistoryVersion").filter({ hasText: "Must flag missing tenant scope." })).toBeVisible();
+});
+
 test("workbench keeps the primary content within a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/skills");

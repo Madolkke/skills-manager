@@ -212,6 +212,36 @@ export type EvalRunDetail = {
   case_results: CaseResultDetail[];
 };
 
+export type EvalRunHistoryRow = {
+  eval_run: EvalRunRecord;
+  variant: Omit<VariantDetail, "current_version" | "versions"> & { tags: string[] };
+  variant_version: VariantVersion;
+  eval_set: Omit<EvalSetSummary, "current_version" | "versions">;
+  eval_set_version: EvalSetVersion;
+};
+
+export type EvalRunHistory = {
+  skill: SkillSummary["skill"];
+  runs: EvalRunHistoryRow[];
+};
+
+export type EvalCaseHistoryVersion = {
+  case_version: EvalCaseVersionDetail;
+  included_in_eval_set_versions: Array<{
+    id: string;
+    eval_set_id: string;
+    version_number: number;
+    position: number;
+    created_at?: string;
+    created_by: string;
+  }>;
+};
+
+export type EvalCaseHistory = {
+  case: EvalSetCase["case"];
+  versions: EvalCaseHistoryVersion[];
+};
+
 export type CaseResultDetail = {
   result: {
     run_id: string;

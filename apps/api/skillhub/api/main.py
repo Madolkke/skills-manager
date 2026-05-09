@@ -139,6 +139,27 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def skill_detail(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.skill_detail(skill_id))
 
+    @app.get("/api/skills/{skill_id}/eval-runs")
+    def eval_run_history(
+        skill_id: str,
+        variant_version_id: str | None = None,
+        eval_set_version_id: str | None = None,
+        strategy: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.list_eval_runs_for_skill(
+                skill_id=skill_id,
+                variant_version_id=variant_version_id,
+                eval_set_version_id=eval_set_version_id,
+                strategy=strategy,
+                status=status,
+                limit=limit,
+            )
+        )
+
     @app.get("/api/eval-set-versions/{eval_set_version_id}")
     def eval_set_version_detail(
         eval_set_version_id: str,
@@ -149,6 +170,10 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/api/eval-runs/{eval_run_id}")
     def eval_run_detail(eval_run_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.eval_run_detail(eval_run_id))
+
+    @app.get("/api/eval-cases/{case_id}/versions")
+    def eval_case_history(case_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.eval_case_history(case_id))
 
     @app.get("/api/artifacts/diff")
     def artifact_diff(

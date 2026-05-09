@@ -11,7 +11,10 @@ import type {
   BundleDiffFile,
   BundleDiffStatus,
   BundleFile,
+  EvalCaseHistory,
   EvalRunRecord,
+  EvalRunDetail,
+  EvalRunHistory,
   EvalSetVersionDetail,
   SkillDetail,
   SkillSummary,
@@ -28,7 +31,7 @@ type DecisionWorkbenchProps = {
   featuredSkill: SkillDetail;
 };
 
-type Mode = "overview" | "variants" | "evals" | "diff";
+type Mode = "overview" | "variants" | "evals" | "diff" | "history";
 type ActionMode =
   | "skill"
   | "new-skill"
@@ -46,6 +49,12 @@ type ImportPreview = {
   detail: string;
 } | null;
 type CommandResult = string | void | { message?: string; selectedSkillId?: string };
+type RunFilters = {
+  variant_version_id: string;
+  eval_set_version_id: string;
+  strategy: string;
+  status: string;
+};
 type BundleSource =
   | { kind: "zip"; name: string; zip_base64: string }
   | {
@@ -75,6 +84,19 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [selectedDiffPath, setSelectedDiffPath] = useState<string | null>(null);
   const [diffFilter, setDiffFilter] = useState<DiffFilter>("all");
   const [diffLoading, setDiffLoading] = useState(false);
+  const [runHistory, setRunHistory] = useState<EvalRunHistory | null>(null);
+  const [runHistoryLoading, setRunHistoryLoading] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRunDetail, setSelectedRunDetail] = useState<EvalRunDetail | null>(null);
+  const [runFilters, setRunFilters] = useState<RunFilters>({
+    variant_version_id: "all",
+    eval_set_version_id: "all",
+    strategy: "all",
+    status: "all",
+  });
+  const [caseHistory, setCaseHistory] = useState<EvalCaseHistory | null>(null);
+  const [caseHistoryCaseId, setCaseHistoryCaseId] = useState<string | null>(null);
+  const [caseHistoryLoading, setCaseHistoryLoading] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
@@ -109,6 +131,11 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     setDiffRightVersionId(null);
     setSelectedDiffPath(null);
     setDiffFilter("all");
+    setRunHistory(null);
+    setSelectedRunId(null);
+    setSelectedRunDetail(null);
+    setCaseHistory(null);
+    setCaseHistoryCaseId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSkillId]);
 
@@ -121,6 +148,29 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     void loadEvalSetVersion(currentEvalSetVersion.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentEvalSetVersion?.id]);
+
+  useEffect(() => {
+    if (mode !== "history" || !hasPersistedSkill) return;
+    void loadRunHistory(selectedDetail.skill.id, runFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    hasPersistedSkill,
+    selectedDetail.skill.id,
+    runFilters.variant_version_id,
+    runFilters.eval_set_version_id,
+    runFilters.strategy,
+    runFilters.status,
+  ]);
+
+  useEffect(() => {
+    if (mode !== "history" || !selectedRunId) {
+      setSelectedRunDetail(null);
+      return;
+    }
+    void loadSelectedRunDetail(selectedRunId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, selectedRunId]);
 
   function chooseAction(nextActionMode: ActionMode) {
     setActionMode(nextActionMode);
@@ -170,9 +220,62 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       const detail = await apiGet<EvalSetVersionDetail>(`/api/eval-set-versions/${evalSetVersionId}`);
       setEvalSetDetail(detail);
       setCaseResults(Object.fromEntries(detail.cases.map((item) => [item.case_version.id, null])));
+      setCaseHistory(null);
+      setCaseHistoryCaseId(null);
     } catch {
       setEvalSetDetail(null);
       setCaseResults({});
+      setCaseHistory(null);
+      setCaseHistoryCaseId(null);
+    }
+  }
+
+  async function loadRunHistory(skillId: string, filters: RunFilters) {
+    setRunHistoryLoading(true);
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== "all") params.set(key, value);
+      }
+      const query = params.toString();
+      const history = await apiGet<EvalRunHistory>(`/api/skills/${skillId}/eval-runs${query ? `?${query}` : ""}`);
+      setRunHistory(history);
+      setSelectedRunId((current) => {
+        if (current && history.runs.some((row) => row.eval_run.id === current)) return current;
+        return history.runs[0]?.eval_run.id ?? null;
+      });
+      if (history.runs.length === 0) setSelectedRunDetail(null);
+    } catch (error) {
+      setRunHistory(null);
+      setSelectedRunId(null);
+      setSelectedRunDetail(null);
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载测评历史失败" });
+    } finally {
+      setRunHistoryLoading(false);
+    }
+  }
+
+  async function loadSelectedRunDetail(evalRunId: string) {
+    try {
+      setSelectedRunDetail(await apiGet<EvalRunDetail>(`/api/eval-runs/${evalRunId}`));
+    } catch (error) {
+      setSelectedRunDetail(null);
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载 run 详情失败" });
+    }
+  }
+
+  async function loadCaseHistory(caseId: string) {
+    setCaseHistoryLoading(true);
+    setCaseHistoryCaseId(caseId);
+    setSelectedCaseId(caseId);
+    setMode("evals");
+    try {
+      setCaseHistory(await apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`));
+    } catch (error) {
+      setCaseHistory(null);
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载 case 历史失败" });
+    } finally {
+      setCaseHistoryLoading(false);
     }
   }
 
@@ -576,6 +679,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             <button className={mode === "variants" ? "linearTabActive" : ""} onClick={() => setMode("variants")} type="button">变体</button>
             <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
             <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
+            <button className={mode === "history" ? "linearTabActive" : ""} onClick={() => setMode("history")} type="button">历史</button>
           </nav>
         </header>
 
@@ -618,9 +722,27 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           />
         ) : null}
 
+        {mode === "history" ? (
+          <HistoryPane
+            evalSets={selectedDetail.eval_sets}
+            filters={runFilters}
+            loading={runHistoryLoading}
+            onAction={chooseAction}
+            onFilterChange={(key, value) => setRunFilters((current) => ({ ...current, [key]: value }))}
+            onSelectRun={setSelectedRunId}
+            runDetail={selectedRunDetail}
+            runHistory={runHistory}
+            selectedRunId={selectedRunId}
+            variants={selectedDetail.variants}
+          />
+        ) : null}
+
         {mode === "evals" ? (
           <EvalsPane
             busy={busy}
+            caseHistory={caseHistory}
+            caseHistoryCaseId={caseHistoryCaseId}
+            caseHistoryLoading={caseHistoryLoading}
             caseResults={caseResults}
             cases={cases}
             confirmedDraft={confirmedDraft}
@@ -632,6 +754,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
               setSelectedCaseId(caseId);
               chooseAction("edit-case");
             }}
+            onHistoryCase={loadCaseHistory}
             onRecord={recordEvalRun}
             onSelectCase={setSelectedCaseId}
             onSetAll={setAllCases}
@@ -998,8 +1121,189 @@ function DiffPane({
   );
 }
 
+function HistoryPane({
+  evalSets,
+  filters,
+  loading,
+  onAction,
+  onFilterChange,
+  onSelectRun,
+  runDetail,
+  runHistory,
+  selectedRunId,
+  variants,
+}: {
+  evalSets: SkillDetail["eval_sets"];
+  filters: RunFilters;
+  loading: boolean;
+  onAction: (mode: ActionMode) => void;
+  onFilterChange: (key: keyof RunFilters, value: string) => void;
+  onSelectRun: (runId: string) => void;
+  runDetail: EvalRunDetail | null;
+  runHistory: EvalRunHistory | null;
+  selectedRunId: string | null;
+  variants: VariantDetail[];
+}) {
+  const rows = runHistory?.runs ?? [];
+  const selectedRow = rows.find((row) => row.eval_run.id === selectedRunId) ?? rows[0] ?? null;
+  const variantVersions = variants.flatMap((variant) =>
+    variant.versions.map((version) => ({
+      id: version.id,
+      label: `${variant.label} v${version.version_number}`,
+    })),
+  );
+  const evalSetVersions = evalSets.flatMap((evalSet) =>
+    evalSet.versions.map((version) => ({
+      id: version.id,
+      label: `${evalSet.name} v${version.version_number}`,
+    })),
+  );
+
+  return (
+    <div className="linearPane historyPane">
+      <div className="linearToolbar">
+        <div>
+          <h2>历史记录</h2>
+          <p>{loading ? "正在加载 runs..." : `${rows.length} runs · exact VariantVersion + EvalSetVersion bindings`}</p>
+        </div>
+        <div className="historyFilters">
+          <label>
+            <span>Variant</span>
+            <select
+              aria-label="Variant version filter"
+              onChange={(event) => onFilterChange("variant_version_id", event.currentTarget.value)}
+              value={filters.variant_version_id}
+            >
+              <option value="all">All versions</option>
+              {variantVersions.map((version) => (
+                <option key={version.id} value={version.id}>{version.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Eval set</span>
+            <select
+              aria-label="Eval set version filter"
+              onChange={(event) => onFilterChange("eval_set_version_id", event.currentTarget.value)}
+              value={filters.eval_set_version_id}
+            >
+              <option value="all">All snapshots</option>
+              {evalSetVersions.map((version) => (
+                <option key={version.id} value={version.id}>{version.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Strategy</span>
+            <select
+              aria-label="Strategy filter"
+              onChange={(event) => onFilterChange("strategy", event.currentTarget.value)}
+              value={filters.strategy}
+            >
+              <option value="all">All strategies</option>
+              <option value="manual_pass_fail">manual_pass_fail</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select
+              aria-label="Status filter"
+              onChange={(event) => onFilterChange("status", event.currentTarget.value)}
+              value={filters.status}
+            >
+              <option value="all">All statuses</option>
+              <option value="finished">finished</option>
+              <option value="failed">failed</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="historyGrid">
+        <section className="historyRunList" aria-label="Eval run history">
+          {rows.map((row) => {
+            const isSelected = row.eval_run.id === selectedRunId;
+            return (
+              <button
+                className={`historyRunRow ${isSelected ? "historyRunRowActive" : ""}`}
+                key={row.eval_run.id}
+                onClick={() => onSelectRun(row.eval_run.id)}
+                type="button"
+              >
+                <span>
+                  <strong>{runFraction(row.eval_run)}</strong>
+                  <small>{percent(passRate(row.eval_run))}</small>
+                </span>
+                <span>
+                  <b>{row.variant.label} v{row.variant_version.version_number}</b>
+                  <small>{row.eval_set.name} v{row.eval_set_version.version_number}</small>
+                </span>
+                <span>
+                  <b>{row.eval_run.strategy}</b>
+                  <small>{row.eval_run.status} · {formatDate(row.eval_run.created_at)}</small>
+                </span>
+              </button>
+            );
+          })}
+          {!loading && rows.length === 0 ? (
+            <div className="historyEmpty">
+              <strong>还没有测评历史</strong>
+              <span>先在“测评”里记录一次 run，历史页会按 exact version binding 展示。</span>
+              <button onClick={() => onAction("run")} type="button">去记录测评</button>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="historyRunDetail">
+          {selectedRow ? (
+            <>
+              <div className="historyDetailHead">
+                <div>
+                  <span>Selected run</span>
+                  <strong>{runFraction(selectedRow.eval_run)} · {percent(passRate(selectedRow.eval_run))}</strong>
+                </div>
+                <Link href={`/eval-runs/${selectedRow.eval_run.id}`}>打开详情</Link>
+              </div>
+              <div className="historyBindingGrid">
+                <Metric label="VariantVersion" value={`v${selectedRow.variant_version.version_number}`} />
+                <Metric label="EvalSetVersion" value={`v${selectedRow.eval_set_version.version_number}`} />
+                <Metric label="Strategy" value={selectedRow.eval_run.strategy} />
+                <Metric label="Status" value={selectedRow.eval_run.status} />
+              </div>
+              <div className="historyCaseResults">
+                <div className="evalCaseRailHead">
+                  <strong>Case results</strong>
+                  <span>{runDetail?.case_results.length ?? 0} cases</span>
+                </div>
+                {runDetail?.case_results.map((item) => (
+                  <article className="historyCaseResult" key={item.result.case_version_id}>
+                    <div>
+                      <span>case v{item.case_version.version_number}</span>
+                      <strong>{item.case.title}</strong>
+                    </div>
+                    <Badge tone={item.result.passed ? "good" : "bad"}>{item.result.passed ? "通过" : "不通过"}</Badge>
+                  </article>
+                ))}
+                {!runDetail ? <div className="linearEmpty">正在加载 run 详情...</div> : null}
+              </div>
+            </>
+          ) : (
+            <div className="evalCaseDetailEmpty">
+              <strong>等待历史记录</strong>
+              <span>记录测评后，这里会显示逐 case 结果。</span>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function EvalsPane({
   busy,
+  caseHistory,
+  caseHistoryCaseId,
+  caseHistoryLoading,
   caseResults,
   cases,
   confirmedDraft,
@@ -1008,6 +1312,7 @@ function EvalsPane({
   onAction,
   onArchiveCase,
   onEditCase,
+  onHistoryCase,
   onRecord,
   onSelectCase,
   onSetAll,
@@ -1016,6 +1321,9 @@ function EvalsPane({
   selectedCaseId,
 }: {
   busy: boolean;
+  caseHistory: EvalCaseHistory | null;
+  caseHistoryCaseId: string | null;
+  caseHistoryLoading: boolean;
   caseResults: Record<string, boolean | null>;
   cases: EvalSetVersionDetail["cases"];
   confirmedDraft: number;
@@ -1024,6 +1332,7 @@ function EvalsPane({
   onAction: (mode: ActionMode) => void;
   onArchiveCase: (caseId: string) => void;
   onEditCase: (caseId: string) => void;
+  onHistoryCase: (caseId: string) => void;
   onRecord: () => void;
   onSelectCase: (caseId: string) => void;
   onSetAll: (passed: boolean) => void;
@@ -1088,8 +1397,9 @@ function EvalsPane({
                   <div className="caseReviewFooter">
                     <small>{item.case_version.notes || "No notes"}</small>
                     <div className="caseRowActions">
-                    <button onClick={() => onEditCase(item.case.id)} type="button">编辑</button>
-                    <button onClick={() => onArchiveCase(item.case.id)} type="button">归档</button>
+                      <button onClick={() => onEditCase(item.case.id)} type="button">编辑</button>
+                      <button onClick={() => onHistoryCase(item.case.id)} type="button">历史</button>
+                      <button onClick={() => onArchiveCase(item.case.id)} type="button">归档</button>
                     </div>
                   </div>
                 </article>
@@ -1100,8 +1410,12 @@ function EvalsPane({
         </section>
 
         <section className="evalCaseDetail">
+          {caseHistoryCaseId === selectedCaseId ? (
+            <CaseHistoryPanel history={caseHistory} loading={caseHistoryLoading} />
+          ) : null}
           {cases.map((item) => {
             const isSelected = selectedCaseId === item.case.id || (!selectedCaseId && item.position === 0);
+            if (caseHistoryCaseId === selectedCaseId) return null;
             if (!isSelected) return null;
             return (
               <div key={item.case_version.id}>
@@ -1129,6 +1443,65 @@ function EvalsPane({
             </div>
           ) : null}
         </section>
+      </div>
+    </div>
+  );
+}
+
+function CaseHistoryPanel({ history, loading }: { history: EvalCaseHistory | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="evalCaseDetailEmpty">
+        <strong>Case version history</strong>
+        <span>正在加载这个 case 的历史版本...</span>
+      </div>
+    );
+  }
+  if (!history) {
+    return (
+      <div className="evalCaseDetailEmpty">
+        <strong>Case version history</strong>
+        <span>暂时没有可展示的历史记录。</span>
+      </div>
+    );
+  }
+  return (
+    <div className="caseHistoryPanel">
+      <div className="evalCaseDetailHead">
+        <span>Case version history</span>
+        <strong>{history.case.title}</strong>
+      </div>
+      <div className="caseHistoryTimeline">
+        {history.versions.map((item) => (
+          <article className="caseHistoryVersion" key={item.case_version.id}>
+            <div className="caseHistoryVersionHead">
+              <div>
+                <span>v{item.case_version.version_number}</span>
+                <strong>{item.case_version.notes || "No notes"}</strong>
+              </div>
+              <small>{formatDate(item.case_version.created_at)} · {item.case_version.created_by}</small>
+            </div>
+            <div className="caseIOGrid">
+              <div>
+                <span>Input</span>
+                <pre>{item.case_version.input_artifact.content_text ?? item.case_version.input_artifact.digest}</pre>
+              </div>
+              <div>
+                <span>Expected output</span>
+                <pre>{item.case_version.expected_output_artifact.content_text ?? item.case_version.expected_output_artifact.digest}</pre>
+              </div>
+            </div>
+            <div className="caseHistoryMembership">
+              {item.included_in_eval_set_versions.length > 0 ? (
+                item.included_in_eval_set_versions.map((membership) => (
+                  <Badge key={membership.id}>EvalSet v{membership.version_number} · position {membership.position + 1}</Badge>
+                ))
+              ) : (
+                <Badge>未进入 eval set snapshot</Badge>
+              )}
+            </div>
+          </article>
+        ))}
       </div>
     </div>
   );
@@ -1433,6 +1806,20 @@ function diffFileSizeLabel(file: BundleDiffFile) {
   const left = typeof file.left_size_bytes === "number" ? formatBytes(file.left_size_bytes) : "missing";
   const right = typeof file.right_size_bytes === "number" ? formatBytes(file.right_size_bytes) : "missing";
   return `${left} -> ${right}`;
+}
+
+function runFraction(run: EvalRunRecord) {
+  return `${run.summary.passed ?? 0}/${run.summary.total ?? 0}`;
+}
+
+function formatDate(value?: string) {
+  if (!value) return "unknown time";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function formatBundlePreview(variant: VariantDetail | null): string {

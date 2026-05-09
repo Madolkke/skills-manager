@@ -11,6 +11,7 @@ Eval-backed SkillHub product workspace for managing skill variants, versioned ev
 - An `EvalRun` records pass/fail results for one `VariantVersion + EvalSetVersion`.
 - External runners can import a standard eval result JSON and get the same `EvalRun + CaseResult` record.
 - Standard skill folders can be imported as `skill_bundle` artifacts, viewed by version, and compared with file-level bundle diff.
+- Run history and case version history are queryable inside the workbench, so previous experiments and test case edits remain explainable.
 
 ## Quick Start
 
@@ -72,6 +73,7 @@ description: Review pull requests for auth and data access regressions.
 
 The imported bundle is stored as a `skill_bundle` artifact, and the created variant version points to that immutable artifact.
 After importing a second bundle version through `追加版本`, use `比较版本` to inspect changed, added, removed, and binary files between two exact `VariantVersion` snapshots.
+After recording multiple manual eval runs, open `历史` to filter runs by exact variant version, eval set version, strategy, and status. In `测评`, each case row has `历史` so you can inspect prior case versions, input, expected output, notes, and eval set snapshot membership.
 
 ### Verification Commands
 

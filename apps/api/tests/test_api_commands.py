@@ -92,6 +92,156 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(eval_run.status_code, 200)
         self.assertTrue(eval_run.json()["case_results"][0]["result"]["passed"])
 
+    def test_eval_run_history_filters_by_variant_eval_set_strategy_status(self):
+        skill = self.create_skill("history-reviewer")
+        first_case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: missing tenant filter",
+                "input_text": "return Project.all()",
+                "expected_output": "Flag missing tenant scope.",
+                "actor": "tester",
+            },
+        ).json()
+        second_version = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": skill["variant_id"],
+                "content_ref": {"kind": "skill_bundle", "locator": "memory:v2", "digest": "digest-v2"},
+                "change_summary": "Add stricter review rules.",
+                "make_current": True,
+                "actor": "tester",
+            },
+        ).json()
+        first_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": skill["variant_version_id"],
+                "eval_set_version_id": first_case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {first_case["eval_case_version_id"]: True},
+                "actor": "tester",
+            },
+        ).json()
+        second_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": second_version["variant_version_id"],
+                "eval_set_version_id": first_case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {first_case["eval_case_version_id"]: False},
+                "actor": "tester",
+            },
+        ).json()
+
+        history = self.client.get(
+            f"/api/skills/{skill['skill_id']}/eval-runs",
+            params={
+                "variant_version_id": second_version["variant_version_id"],
+                "eval_set_version_id": first_case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "status": "finished",
+            },
+        )
+
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual([row["eval_run"]["id"] for row in history.json()["runs"]], [second_run["eval_run_id"]])
+        row = history.json()["runs"][0]
+        self.assertEqual(row["variant_version"]["version_number"], 2)
+        self.assertEqual(row["eval_set_version"]["id"], first_case["eval_set_version_id"])
+        self.assertEqual(row["variant"]["label"], "Baseline")
+        self.assertEqual(row["eval_run"]["summary"], {"passed": 0, "failed": 1, "total": 1})
+        self.assertNotEqual(first_run["eval_run_id"], second_run["eval_run_id"])
+
+    def test_eval_run_history_orders_newest_first_and_limits_results(self):
+        skill = self.create_skill("history-limit-reviewer")
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: missing owner check",
+                "input_text": "Project.query.all()",
+                "expected_output": "Flag missing owner check.",
+                "actor": "tester",
+            },
+        ).json()
+        run_ids = []
+        for _ in range(3):
+            run = self.client.post(
+                "/api/eval-runs",
+                json={
+                    "variant_version_id": skill["variant_version_id"],
+                    "eval_set_version_id": case["eval_set_version_id"],
+                    "strategy": "manual_pass_fail",
+                    "results": {case["eval_case_version_id"]: True},
+                    "actor": "tester",
+                },
+            ).json()
+            run_ids.append(run["eval_run_id"])
+
+        history = self.client.get(f"/api/skills/{skill['skill_id']}/eval-runs", params={"limit": 2})
+
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual([row["eval_run"]["id"] for row in history.json()["runs"]], list(reversed(run_ids[-2:])))
+
+    def test_eval_case_history_returns_versions_and_eval_set_membership(self):
+        skill = self.create_skill("case-history-reviewer")
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: stale title",
+                "input_text": "return Project.find_many()",
+                "expected_output": "Flag missing tenant scope.",
+                "notes": "Original customer regression.",
+                "actor": "tester",
+            },
+        ).json()
+        revised = self.client.patch(
+            f"/api/eval-cases/{case['eval_case_id']}",
+            json={
+                "case_id": case["eval_case_id"],
+                "title": "PR: edited owner filter",
+                "input_text": "return Project.find_many({})",
+                "expected_output": "Must flag missing owner or tenant scope.",
+                "notes": "Clarified expected finding.",
+                "actor": "tester",
+                "make_current": True,
+            },
+        ).json()
+
+        history = self.client.get(f"/api/eval-cases/{case['eval_case_id']}/versions")
+
+        self.assertEqual(history.status_code, 200)
+        payload = history.json()
+        self.assertEqual(payload["case"]["title"], "PR: edited owner filter")
+        self.assertEqual([item["case_version"]["version_number"] for item in payload["versions"]], [2, 1])
+        self.assertEqual(payload["versions"][0]["case_version"]["notes"], "Clarified expected finding.")
+        self.assertIn("missing owner", payload["versions"][0]["case_version"]["expected_output_artifact"]["content_text"])
+        self.assertEqual(payload["versions"][0]["included_in_eval_set_versions"][0]["id"], revised["eval_set_version_id"])
+        self.assertEqual(payload["versions"][1]["included_in_eval_set_versions"][0]["id"], case["eval_set_version_id"])
+
+    def test_eval_case_history_reads_archived_case(self):
+        skill = self.create_skill("archived-case-history-reviewer")
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: archive me",
+                "input_text": "rename only",
+                "expected_output": "No finding",
+                "actor": "tester",
+            },
+        ).json()
+        self.client.delete(f"/api/eval-cases/{case['eval_case_id']}")
+
+        history = self.client.get(f"/api/eval-cases/{case['eval_case_id']}/versions")
+
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()["case"]["lifecycle_status"], "archived")
+        self.assertEqual(history.json()["versions"][0]["case_version"]["version_number"], 1)
+
     def test_promote_rejects_other_variant_version(self):
         first = self.create_skill("code-reviewer")
         second = self.create_skill("security-reviewer", digest="digest-security")
