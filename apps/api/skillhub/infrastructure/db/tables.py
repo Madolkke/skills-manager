@@ -234,6 +234,32 @@ case_results = Table(
     ForeignKeyConstraint(["case_version_id", "skill_id"], ["eval_case_versions.id", "eval_case_versions.skill_id"], name="case_results_case_skill_fkey"),
 )
 
+promotion_decisions = Table(
+    "promotion_decisions",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("skill_id", Text, nullable=False),
+    Column("variant_id", Text, nullable=False),
+    Column("from_version_id", Text),
+    Column("to_version_id", Text, nullable=False),
+    Column("eval_set_version_id", Text, nullable=False),
+    Column("evidence_eval_run_id", Text, nullable=False),
+    Column("baseline_eval_run_id", Text),
+    Column("readiness_status", Text, nullable=False),
+    Column("summary", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("decision_note", Text, nullable=False, server_default=text("''")),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("readiness_status in ('ready', 'risky', 'unverified', 'blocked')", name="promotion_decisions_readiness_status_check"),
+    UniqueConstraint("id", "skill_id", name="promotion_decisions_id_skill_unique"),
+    ForeignKeyConstraint(["variant_id", "skill_id"], ["variants.id", "variants.skill_id"], name="promotion_decisions_variant_skill_fkey"),
+    ForeignKeyConstraint(["from_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="promotion_decisions_from_version_skill_fkey"),
+    ForeignKeyConstraint(["to_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="promotion_decisions_to_version_skill_fkey"),
+    ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="promotion_decisions_eval_set_version_skill_fkey"),
+    ForeignKeyConstraint(["evidence_eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="promotion_decisions_evidence_run_skill_fkey"),
+    ForeignKeyConstraint(["baseline_eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="promotion_decisions_baseline_run_skill_fkey"),
+)
+
 jobs = Table(
     "jobs",
     metadata,
@@ -295,6 +321,9 @@ Index("eval_runs_variant_version_id_idx", eval_runs.c.variant_version_id)
 Index("eval_runs_eval_set_version_id_idx", eval_runs.c.eval_set_version_id)
 Index("case_results_skill_id_idx", case_results.c.skill_id)
 Index("case_results_case_version_id_idx", case_results.c.case_version_id)
+Index("promotion_decisions_variant_created_at_idx", promotion_decisions.c.variant_id, promotion_decisions.c.created_at.desc())
+Index("promotion_decisions_to_version_id_idx", promotion_decisions.c.to_version_id)
+Index("promotion_decisions_evidence_eval_run_id_idx", promotion_decisions.c.evidence_eval_run_id)
 Index("jobs_status_created_at_idx", jobs.c.status, jobs.c.created_at)
 Index("role_assignments_resource_idx", role_assignments.c.resource_type, role_assignments.c.resource_id)
 Index("audit_events_resource_idx", audit_events.c.resource_type, audit_events.c.resource_id, audit_events.c.created_at.desc())

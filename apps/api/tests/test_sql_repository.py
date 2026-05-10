@@ -1,12 +1,14 @@
 import unittest
+import json
 
 from sqlalchemy import create_engine, event, select
 
 from skillhub.domain.errors import InvariantError, NotFoundError
-from skillhub.domain.models import ContentRef
+from skillhub.domain.models import ContentRef, digest_text
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub.infrastructure.db.tables import (
     artifacts,
+    audit_events,
     case_results,
     eval_case_versions,
     eval_cases,
@@ -15,6 +17,7 @@ from skillhub.infrastructure.db.tables import (
     eval_set_versions,
     eval_sets,
     metadata,
+    promotion_decisions,
     skills,
     tag_sets,
     variant_versions,
@@ -126,16 +129,45 @@ class SqlSkillRepositoryTest(unittest.TestCase):
         self.assertEqual(variant["current_version_id"], created.variant_version_id)
 
     def test_promote_variant_version_moves_current_pointer_to_existing_version(self):
-        skill = self.create_skill()
+        skill = self.create_skill_with_bundle(slug="promote-existing", guidance="Flag auth regressions first.")
         candidate = self.repository.create_variant_version(
             variant_id=skill.variant_id,
-            content_ref=ContentRef(kind="skill_bundle", locator="memory:candidate", digest="digest-candidate"),
+            content_ref=self.bundle_content_ref("promote-existing-v2", "Flag auth regressions and tenant leaks first."),
             change_summary="Candidate version.",
             actor="tester",
             make_current=False,
         )
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing tenant filter",
+            input_text="Project.all()",
+            expected_output="Flag missing tenant scope.",
+            actor="tester",
+        )
+        self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: False},
+            actor="tester",
+        )
+        candidate_run = self.repository.record_eval_run(
+            variant_version_id=candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: True},
+            actor="tester",
+        )
 
-        self.repository.promote_variant_version(variant_id=skill.variant_id, version_id=candidate.variant_version_id)
+        self.repository.promote_variant_version(
+            variant_id=skill.variant_id,
+            version_id=candidate.variant_version_id,
+            evidence_eval_run_id=candidate_run.eval_run_id,
+            eval_set_version_id=case.eval_set_version_id,
+            decision_note="Candidate fixes tenant leak detection.",
+            accept_risk=False,
+            actor="tester",
+        )
 
         with self.engine.connect() as connection:
             variant = connection.execute(select(variants).where(variants.c.id == skill.variant_id)).mappings().one()
@@ -151,6 +183,283 @@ class SqlSkillRepositoryTest(unittest.TestCase):
                 variant_id=first.variant_id,
                 version_id=second.variant_version_id,
             )
+
+    def test_promotion_review_ready_compares_case_results_and_bundle_diff(self):
+        skill = self.create_skill_with_bundle(slug="promotion-ready", guidance="Flag auth regressions first.")
+        candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-ready-v2", "Flag auth regressions and tenant leaks first."),
+            change_summary="Add tenant guidance.",
+            actor="tester",
+            make_current=False,
+        )
+        first_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing tenant filter",
+            input_text="Project.all()",
+            expected_output="Flag missing tenant scope.",
+            actor="tester",
+        )
+        second_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: token logging",
+            input_text="console.log(token)",
+            expected_output="Flag token logging.",
+            actor="tester",
+        )
+        current_run = self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={first_case.eval_case_version_id: False, second_case.eval_case_version_id: True},
+            actor="tester",
+        )
+        candidate_run = self.repository.record_eval_run(
+            variant_version_id=candidate.variant_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={first_case.eval_case_version_id: True, second_case.eval_case_version_id: True},
+            actor="tester",
+        )
+
+        review = self.repository.promotion_review(
+            variant_id=skill.variant_id,
+            candidate_version_id=candidate.variant_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
+        )
+
+        self.assertEqual(review["readiness"]["status"], "ready")
+        self.assertEqual(review["readiness"]["label"], "可设为当前版本")
+        self.assertFalse(review["readiness"]["requires_note"])
+        self.assertEqual(review["candidate_run"]["id"], candidate_run.eval_run_id)
+        self.assertEqual(review["current_run"]["id"], current_run.eval_run_id)
+        self.assertEqual(
+            review["comparison_summary"],
+            {
+                "fixed": 1,
+                "regressed": 0,
+                "stable_pass": 1,
+                "stable_fail": 0,
+                "missing_baseline": 0,
+                "missing_candidate": 0,
+            },
+        )
+        self.assertEqual([case["change"] for case in review["case_comparisons"]], ["fixed", "stable_pass"])
+        self.assertEqual(review["case_comparisons"][0]["change_label"], "修复")
+        self.assertEqual(review["case_comparisons"][0]["input_text"], "Project.all()")
+        self.assertEqual(review["bundle_diff"]["summary"]["changed"], 1)
+
+    def test_promotion_review_marks_regression_as_risky(self):
+        skill = self.create_skill_with_bundle(slug="promotion-risky", guidance="Flag auth regressions first.")
+        candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-risky-v2", "Flag auth regressions with stricter wording."),
+            change_summary="Change wording.",
+            actor="tester",
+            make_current=False,
+        )
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: harmless rename",
+            input_text="rename local variable only",
+            expected_output="Do not report a finding.",
+            actor="tester",
+        )
+        self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: True},
+            actor="tester",
+        )
+        self.repository.record_eval_run(
+            variant_version_id=candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: False},
+            actor="tester",
+        )
+
+        review = self.repository.promotion_review(
+            variant_id=skill.variant_id,
+            candidate_version_id=candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+        )
+
+        self.assertEqual(review["readiness"]["status"], "risky")
+        self.assertEqual(review["readiness"]["reason"], "发现 1 个回退")
+        self.assertTrue(review["readiness"]["requires_note"])
+        self.assertEqual(review["comparison_summary"]["regressed"], 1)
+        self.assertEqual(review["case_comparisons"][0]["change"], "regressed")
+        self.assertEqual(review["case_comparisons"][0]["change_label"], "回退")
+
+    def test_promotion_review_without_candidate_run_is_unverified(self):
+        skill = self.create_skill_with_bundle(slug="promotion-unverified", guidance="Flag auth regressions first.")
+        candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-unverified-v2", "Flag auth regressions and data leaks."),
+            change_summary="Add data leak guidance.",
+            actor="tester",
+            make_current=False,
+        )
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: token leak",
+            input_text="console.log(token)",
+            expected_output="Flag token logging.",
+            actor="tester",
+        )
+
+        review = self.repository.promotion_review(
+            variant_id=skill.variant_id,
+            candidate_version_id=candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+        )
+
+        self.assertEqual(review["readiness"]["status"], "unverified")
+        self.assertEqual(review["readiness"]["label"], "未验证")
+        self.assertIsNone(review["candidate_run"])
+        self.assertEqual(review["comparison_summary"]["missing_candidate"], 1)
+
+    def test_promote_rejects_evidence_run_from_another_candidate_version(self):
+        skill = self.create_skill_with_bundle(slug="promotion-evidence", guidance="Flag auth regressions first.")
+        first_candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-evidence-v2", "First candidate."),
+            change_summary="First candidate.",
+            actor="tester",
+            make_current=False,
+        )
+        second_candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-evidence-v3", "Second candidate."),
+            change_summary="Second candidate.",
+            actor="tester",
+            make_current=False,
+        )
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: owner scope",
+            input_text="Project.find_many()",
+            expected_output="Flag missing owner scope.",
+            actor="tester",
+        )
+        wrong_run = self.repository.record_eval_run(
+            variant_version_id=first_candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: True},
+            actor="tester",
+        )
+
+        with self.assertRaisesRegex(InvariantError, "evidence eval run"):
+            self.repository.promote_variant_version(
+                variant_id=skill.variant_id,
+                version_id=second_candidate.variant_version_id,
+                evidence_eval_run_id=wrong_run.eval_run_id,
+                eval_set_version_id=case.eval_set_version_id,
+                decision_note="",
+                accept_risk=False,
+                actor="tester",
+            )
+
+    def test_promote_risky_candidate_requires_decision_note(self):
+        skill = self.create_skill_with_bundle(slug="promotion-note", guidance="Flag auth regressions first.")
+        candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-note-v2", "Flag auth regressions with stricter wording."),
+            change_summary="Change wording.",
+            actor="tester",
+            make_current=False,
+        )
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: harmless rename",
+            input_text="rename local variable only",
+            expected_output="Do not report a finding.",
+            actor="tester",
+        )
+        self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: True},
+            actor="tester",
+        )
+        candidate_run = self.repository.record_eval_run(
+            variant_version_id=candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: False},
+            actor="tester",
+        )
+
+        with self.assertRaisesRegex(InvariantError, "decision note"):
+            self.repository.promote_variant_version(
+                variant_id=skill.variant_id,
+                version_id=candidate.variant_version_id,
+                evidence_eval_run_id=candidate_run.eval_run_id,
+                eval_set_version_id=case.eval_set_version_id,
+                decision_note="",
+                accept_risk=True,
+                actor="tester",
+            )
+
+    def test_promote_with_evidence_records_decision_and_audit_event(self):
+        skill = self.create_skill_with_bundle(slug="promotion-success", guidance="Flag auth regressions first.")
+        candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=self.bundle_content_ref("promotion-success-v2", "Flag auth regressions and tenant leaks first."),
+            change_summary="Add tenant guidance.",
+            actor="tester",
+            make_current=False,
+        )
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing tenant filter",
+            input_text="Project.all()",
+            expected_output="Flag missing tenant scope.",
+            actor="tester",
+        )
+        self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: False},
+            actor="tester",
+        )
+        candidate_run = self.repository.record_eval_run(
+            variant_version_id=candidate.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: True},
+            actor="tester",
+        )
+
+        decision = self.repository.promote_variant_version(
+            variant_id=skill.variant_id,
+            version_id=candidate.variant_version_id,
+            evidence_eval_run_id=candidate_run.eval_run_id,
+            eval_set_version_id=case.eval_set_version_id,
+            decision_note="Candidate fixes the tenant leak case.",
+            accept_risk=False,
+            actor="tester",
+        )
+
+        with self.engine.connect() as connection:
+            variant = connection.execute(select(variants).where(variants.c.id == skill.variant_id)).mappings().one()
+            decision_row = connection.execute(select(promotion_decisions)).mappings().one()
+            audit_row = connection.execute(select(audit_events)).mappings().one()
+
+        self.assertEqual(variant["current_version_id"], candidate.variant_version_id)
+        self.assertEqual(decision["id"], decision_row["id"])
+        self.assertEqual(decision_row["from_version_id"], skill.variant_version_id)
+        self.assertEqual(decision_row["to_version_id"], candidate.variant_version_id)
+        self.assertEqual(decision_row["evidence_eval_run_id"], candidate_run.eval_run_id)
+        self.assertEqual(decision_row["readiness_status"], "ready")
+        self.assertEqual(decision_row["summary"]["fixed"], 1)
+        self.assertEqual(audit_row["action"], "variant.promoted")
+        self.assertEqual(audit_row["payload"]["promotion_decision_id"], decision_row["id"])
 
     def test_create_variant_version_requires_existing_variant(self):
         with self.assertRaisesRegex(NotFoundError, "Variant not found"):
@@ -449,6 +758,46 @@ class SqlSkillRepositoryTest(unittest.TestCase):
             change_summary="Initial version.",
             actor="tester",
         )
+
+    def create_skill_with_bundle(self, *, slug: str, guidance: str):
+        return self.repository.create_skill(
+            slug=slug,
+            owner_ref="skillhub-lab",
+            variant_name="Variant A",
+            variant_label="Baseline",
+            variant_summary="Baseline maintained answer.",
+            tags=["codex"],
+            content_ref=self.bundle_content_ref(slug, guidance),
+            change_summary="Initial version.",
+            actor="tester",
+        )
+
+    def bundle_content_ref(self, namespace: str, guidance: str) -> ContentRef:
+        skill_md = (
+            "---\n"
+            f"name: {namespace}\n"
+            "description: Review pull requests for auth and data access regressions.\n"
+            "---\n"
+            "# Security Reviewing\n"
+            f"{guidance}\n"
+        )
+        manifest = {
+            "files": [
+                {
+                    "path": "SKILL.md",
+                    "content_text": skill_md,
+                    "sha256": digest_text(skill_md),
+                    "size_bytes": len(skill_md.encode("utf-8")),
+                }
+            ]
+        }
+        artifact = self.repository.create_text_artifact(
+            kind="skill_bundle",
+            namespace=namespace,
+            content=json.dumps(manifest, sort_keys=True),
+            actor="tester",
+        )
+        return ContentRef(kind="artifact", locator=f"artifact:{artifact['id']}", digest=artifact["digest"], path="SKILL.md")
 
 
 if __name__ == "__main__":

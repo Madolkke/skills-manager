@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import Engine, desc, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
+from skillhub.application.promotion_review import build_promotion_case_comparisons, build_promotion_readiness
 from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef, digest_text, new_id, normalize_tags, utc_now
 from skillhub.infrastructure.db import tables
@@ -242,18 +243,112 @@ class SqlSkillRepository:
             version_number=version_number,
         )
 
-    def promote_variant_version(self, *, variant_id: str, version_id: str) -> None:
+    def promote_variant_version(
+        self,
+        *,
+        variant_id: str,
+        version_id: str,
+        evidence_eval_run_id: str | None = None,
+        eval_set_version_id: str | None = None,
+        decision_note: str | None = None,
+        accept_risk: bool = False,
+        actor: str = "system",
+    ) -> dict[str, Any]:
         updated_at = utc_now()
         with self.engine.begin() as connection:
             variant = self._variant_row(connection, variant_id)
             version = self._variant_version_row(connection, version_id)
             if version["variant_id"] != variant_id:
                 raise InvariantError("Variant current_version_id must point to its own version.")
+            if evidence_eval_run_id is None or eval_set_version_id is None:
+                raise InvariantError("Promotion requires evidence eval run and eval set version.")
+
+            evidence_run = self._eval_run_row(connection, evidence_eval_run_id)
+            if evidence_run["variant_version_id"] != version_id:
+                raise InvariantError("Promotion evidence eval run must bind the candidate version.")
+            if evidence_run["eval_set_version_id"] != eval_set_version_id:
+                raise InvariantError("Promotion evidence eval run must bind the requested eval set version.")
+            if evidence_run["status"] != "finished":
+                raise InvariantError("Promotion evidence eval run must be finished.")
+
+            review = self._promotion_review(
+                connection,
+                variant_id=variant_id,
+                candidate_version_id=version_id,
+                eval_set_version_id=eval_set_version_id,
+            )
+            if review["candidate_run"] is None or review["candidate_run"]["id"] != evidence_eval_run_id:
+                raise InvariantError("Promotion evidence eval run must be the latest finished candidate run.")
+            readiness = review["readiness"]
+            if readiness["status"] in {"unverified", "blocked"}:
+                raise InvariantError(f"Promotion is not ready: {readiness['reason']}")
+            if readiness["requires_note"] and not (decision_note or "").strip():
+                raise InvariantError("Promotion decision note is required when review has risk.")
+            if readiness["requires_note"] and not accept_risk:
+                raise InvariantError("Promotion risk must be accepted before promoting this version.")
+
+            decision_id = new_id("promodec")
+            audit_event_id = new_id("audit")
+            from_version_id = variant["current_version_id"]
+            baseline_run = review["current_run"]
+            clean_note = (decision_note or "").strip()
+
             connection.execute(
                 update(tables.variants)
                 .where(tables.variants.c.id == variant_id)
                 .values(current_version_id=version_id, updated_at=updated_at)
             )
+            connection.execute(
+                insert(tables.promotion_decisions).values(
+                    id=decision_id,
+                    skill_id=variant["skill_id"],
+                    variant_id=variant_id,
+                    from_version_id=from_version_id,
+                    to_version_id=version_id,
+                    eval_set_version_id=eval_set_version_id,
+                    evidence_eval_run_id=evidence_eval_run_id,
+                    baseline_eval_run_id=baseline_run["id"] if baseline_run is not None else None,
+                    readiness_status=readiness["status"],
+                    summary=review["comparison_summary"],
+                    decision_note=clean_note,
+                    created_at=updated_at,
+                    created_by=actor,
+                )
+            )
+            connection.execute(
+                insert(tables.audit_events).values(
+                    id=audit_event_id,
+                    actor_ref=actor,
+                    action="variant.promoted",
+                    resource_type="variant",
+                    resource_id=variant_id,
+                    payload={
+                        "promotion_decision_id": decision_id,
+                        "from_version_id": from_version_id,
+                        "to_version_id": version_id,
+                        "evidence_eval_run_id": evidence_eval_run_id,
+                        "eval_set_version_id": eval_set_version_id,
+                        "readiness_status": readiness["status"],
+                    },
+                    created_at=updated_at,
+                )
+            )
+
+        return {
+            "id": decision_id,
+            "skill_id": variant["skill_id"],
+            "variant_id": variant_id,
+            "from_version_id": from_version_id,
+            "to_version_id": version_id,
+            "eval_set_version_id": eval_set_version_id,
+            "evidence_eval_run_id": evidence_eval_run_id,
+            "baseline_eval_run_id": baseline_run["id"] if baseline_run is not None else None,
+            "readiness_status": readiness["status"],
+            "summary": review["comparison_summary"],
+            "decision_note": clean_note,
+            "created_at": updated_at,
+            "created_by": actor,
+        }
 
     def create_variant(
         self,
@@ -864,6 +959,21 @@ class SqlSkillRepository:
             "versions": versions,
         }
 
+    def promotion_review(
+        self,
+        *,
+        variant_id: str,
+        candidate_version_id: str,
+        eval_set_version_id: str | None = None,
+    ) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            return self._promotion_review(
+                connection,
+                variant_id=variant_id,
+                candidate_version_id=candidate_version_id,
+                eval_set_version_id=eval_set_version_id,
+            )
+
     def bundle_diff(self, *, left_variant_version_id: str, right_variant_version_id: str) -> dict[str, Any]:
         with self.engine.connect() as connection:
             left_version = self._variant_version_row(connection, left_variant_version_id)
@@ -871,9 +981,11 @@ class SqlSkillRepository:
             if left_version["skill_id"] != right_version["skill_id"]:
                 raise InvariantError("Bundle diff requires variant versions from the same skill.")
 
-            _left_artifact, left_files = self._bundle_artifact_for_version(connection, left_version)
-            _right_artifact, right_files = self._bundle_artifact_for_version(connection, right_version)
+            return self._bundle_diff_from_versions(connection, left_version, right_version)
 
+    def _bundle_diff_from_versions(self, connection, left_version, right_version) -> dict[str, Any]:
+        _left_artifact, left_files = self._bundle_artifact_for_version(connection, left_version)
+        _right_artifact, right_files = self._bundle_artifact_for_version(connection, right_version)
         left_by_path = {file["path"]: file for file in left_files}
         right_by_path = {file["path"]: file for file in right_files}
         summary = {"added": 0, "removed": 0, "changed": 0, "unchanged": 0, "binary": 0}
@@ -919,6 +1031,115 @@ class SqlSkillRepository:
             "right": self._diff_version_summary(right_version),
             "summary": summary,
             "files": files,
+        }
+
+    def _promotion_review(
+        self,
+        connection,
+        *,
+        variant_id: str,
+        candidate_version_id: str,
+        eval_set_version_id: str | None,
+    ) -> dict[str, Any]:
+        variant = self._variant_row(connection, variant_id)
+        skill = self._skill_row(connection, variant["skill_id"])
+        candidate_version = self._variant_version_row(connection, candidate_version_id)
+        if candidate_version["variant_id"] != variant_id:
+            raise InvariantError("Promotion candidate version must belong to the target variant.")
+
+        if eval_set_version_id is None:
+            eval_set = self._primary_eval_set_row(connection, variant["skill_id"])
+            eval_set_version_id = eval_set["current_version_id"]
+        eval_set_version = self._eval_set_version_row(connection, eval_set_version_id)
+        if eval_set_version["skill_id"] != variant["skill_id"]:
+            raise InvariantError("Promotion review requires an eval set version from the same skill.")
+        eval_set = (
+            connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_version["eval_set_id"]))
+            .mappings()
+            .one()
+        )
+
+        current_version = None
+        if variant["current_version_id"] is not None:
+            current_version = self._variant_version_row(connection, variant["current_version_id"])
+
+        candidate_run = self._latest_finished_run(
+            connection,
+            variant_version_id=candidate_version_id,
+            eval_set_version_id=eval_set_version_id,
+        )
+        current_run = (
+            self._latest_finished_run(
+                connection,
+                variant_version_id=current_version["id"],
+                eval_set_version_id=eval_set_version_id,
+            )
+            if current_version is not None
+            else None
+        )
+        candidate_results = self._case_results_by_case_version(connection, candidate_run["id"]) if candidate_run else {}
+        current_results = self._case_results_by_case_version(connection, current_run["id"]) if current_run else {}
+        case_comparisons, comparison_summary = build_promotion_case_comparisons(
+            eval_set_cases=self._eval_set_cases(connection, eval_set_version_id),
+            current_results=current_results if current_run is not None else None,
+            candidate_results=candidate_results if candidate_run is not None else None,
+        )
+
+        blocking_items = []
+        bundle_diff = None
+        if current_version is not None:
+            try:
+                bundle_diff = self._bundle_diff_from_versions(connection, current_version, candidate_version)
+            except (InvariantError, NotFoundError):
+                blocking_items.append("候选版本没有可审查的文件快照")
+
+        readiness = build_promotion_readiness(
+            candidate_run_present=candidate_run is not None,
+            candidate_result_count=len(candidate_results),
+            case_count=len(case_comparisons),
+            comparison_summary=comparison_summary,
+            case_comparisons=case_comparisons,
+            blocking_items=blocking_items,
+            eval_set_version_number=eval_set_version["version_number"],
+        )
+
+        return {
+            "skill": self._row_dict(skill),
+            "variant": {**self._row_dict(variant), "tags": self._tags_for_tag_set(connection, variant["tag_set_id"])},
+            "current_version": self._variant_version_detail(connection, current_version) if current_version is not None else None,
+            "candidate_version": self._variant_version_detail(connection, candidate_version),
+            "eval_set": self._row_dict(eval_set),
+            "eval_set_version": self._row_dict(eval_set_version),
+            "candidate_run": self._row_dict(candidate_run) if candidate_run is not None else None,
+            "current_run": self._row_dict(current_run) if current_run is not None else None,
+            "readiness": readiness,
+            "comparison_summary": comparison_summary,
+            "case_comparisons": case_comparisons,
+            "bundle_diff": bundle_diff,
+        }
+
+    def _latest_finished_run(self, connection, *, variant_version_id: str, eval_set_version_id: str):
+        return (
+            connection.execute(
+                select(tables.eval_runs)
+                .where(tables.eval_runs.c.variant_version_id == variant_version_id)
+                .where(tables.eval_runs.c.eval_set_version_id == eval_set_version_id)
+                .where(tables.eval_runs.c.status == "finished")
+                .order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id))
+                .limit(1)
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def _case_results_by_case_version(self, connection, run_id: str) -> dict[str, bool]:
+        return {
+            row["case_version_id"]: row["passed"]
+            for row in connection.execute(
+                select(tables.case_results.c.case_version_id, tables.case_results.c.passed).where(tables.case_results.c.run_id == run_id)
+            )
+            .mappings()
+            .all()
         }
 
     def _get_or_create_tag_set(

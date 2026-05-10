@@ -3,7 +3,7 @@
     "id": "001",
     "title": "实现设为当前版本评审后端契约",
     "priority": 1,
-    "passes": false,
+    "passes": true,
     "spec": ".agent/tasks/TASK-001.json"
   },
   {

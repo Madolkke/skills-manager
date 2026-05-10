@@ -257,6 +257,173 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("own version", response.json()["detail"])
 
+    def test_promotion_review_endpoint_returns_case_impact(self):
+        imported = self.import_standard_skill_bundle("promotion-api-review")
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        variant = detail["summary"]["default_variant"]
+        current_version = variant["current_version"]
+        candidate = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": variant["id"],
+                "source": {
+                    "kind": "files",
+                    "name": "promotion-api-review",
+                    "files": [
+                        {
+                            "path": "promotion-api-review/SKILL.md",
+                            "content_text": (
+                                "---\n"
+                                "name: promotion-api-review\n"
+                                "description: Review pull requests for auth and data access regressions.\n"
+                                "---\n"
+                                "# Security Reviewing\n"
+                                "Flag auth regressions and tenant leaks first.\n"
+                            ),
+                        },
+                        {
+                            "path": "promotion-api-review/references/checklist.md",
+                            "content_text": "Check owner filters and tenant filters.\n",
+                        },
+                    ],
+                },
+                "change_summary": "Add tenant leak guidance.",
+                "make_current": False,
+                "actor": "tester",
+            },
+        ).json()
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": imported["skill_id"],
+                "title": "PR: missing tenant filter",
+                "input_text": "Project.all()",
+                "expected_output": "Flag missing tenant scope.",
+                "actor": "tester",
+            },
+        ).json()
+        self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": current_version["id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: False},
+                "actor": "tester",
+            },
+        )
+        candidate_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": candidate["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: True},
+                "actor": "tester",
+            },
+        ).json()
+
+        response = self.client.get(
+            f"/api/variants/{variant['id']}/promotion-review",
+            params={
+                "candidate_version_id": candidate["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["candidate_run"]["id"], candidate_run["eval_run_id"])
+        self.assertEqual(payload["readiness"]["status"], "ready")
+        self.assertEqual(payload["comparison_summary"]["fixed"], 1)
+        self.assertEqual(payload["case_comparisons"][0]["change_label"], "修复")
+        self.assertEqual(payload["bundle_diff"]["summary"]["changed"], 2)
+
+    def test_promotion_command_records_decision(self):
+        imported = self.import_standard_skill_bundle("promotion-api-command")
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        variant = detail["summary"]["default_variant"]
+        current_version = variant["current_version"]
+        candidate = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": variant["id"],
+                "source": {
+                    "kind": "files",
+                    "name": "promotion-api-command",
+                    "files": [
+                        {
+                            "path": "promotion-api-command/SKILL.md",
+                            "content_text": (
+                                "---\n"
+                                "name: promotion-api-command\n"
+                                "description: Review pull requests for auth and data access regressions.\n"
+                                "---\n"
+                                "# Security Reviewing\n"
+                                "Flag auth regressions and tenant leaks first.\n"
+                            ),
+                        },
+                        {
+                            "path": "promotion-api-command/references/checklist.md",
+                            "content_text": "Check owner filters and tenant filters.\n",
+                        },
+                    ],
+                },
+                "change_summary": "Add tenant leak guidance.",
+                "make_current": False,
+                "actor": "tester",
+            },
+        ).json()
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": imported["skill_id"],
+                "title": "PR: missing tenant filter",
+                "input_text": "Project.all()",
+                "expected_output": "Flag missing tenant scope.",
+                "actor": "tester",
+            },
+        ).json()
+        self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": current_version["id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: False},
+                "actor": "tester",
+            },
+        )
+        candidate_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": candidate["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: True},
+                "actor": "tester",
+            },
+        ).json()
+
+        response = self.client.post(
+            "/api/variants/promotions",
+            json={
+                "variant_id": variant["id"],
+                "version_id": candidate["variant_version_id"],
+                "evidence_eval_run_id": candidate_run["eval_run_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "decision_note": "Candidate fixes tenant leak detection.",
+                "accept_risk": False,
+                "actor": "tester",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(response.json()["promotion_decision"]["to_version_id"], candidate["variant_version_id"])
+        promoted = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        self.assertEqual(promoted["summary"]["default_variant"]["current_version"]["id"], candidate["variant_version_id"])
+
     def test_missing_variant_returns_404(self):
         response = self.client.post(
             "/api/variant-versions",

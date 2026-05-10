@@ -24,6 +24,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "case_results",
                 "jobs",
                 "role_assignments",
+                "promotion_decisions",
                 "audit_events",
             },
         )
@@ -82,9 +83,33 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("eval_runs", "eval_runs_variant_version_id_idx"),
             ("eval_runs", "eval_runs_eval_set_version_id_idx"),
             ("case_results", "case_results_case_version_id_idx"),
+            ("promotion_decisions", "promotion_decisions_variant_created_at_idx"),
             ("jobs", "jobs_status_created_at_idx"),
         ]:
             self.assertIn(index_name, self.index_names(table_name))
+
+    def test_promotion_decisions_link_to_exact_evidence(self):
+        self.assert_foreign_key(
+            "promotion_decisions",
+            "promotion_decisions_variant_skill_fkey",
+            ("variant_id", "skill_id"),
+            "variants",
+            ("id", "skill_id"),
+        )
+        self.assert_foreign_key(
+            "promotion_decisions",
+            "promotion_decisions_to_version_skill_fkey",
+            ("to_version_id", "skill_id"),
+            "variant_versions",
+            ("id", "skill_id"),
+        )
+        self.assert_foreign_key(
+            "promotion_decisions",
+            "promotion_decisions_evidence_run_skill_fkey",
+            ("evidence_eval_run_id", "skill_id"),
+            "eval_runs",
+            ("id", "skill_id"),
+        )
 
     def assert_foreign_key(
         self,

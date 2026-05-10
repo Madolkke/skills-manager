@@ -69,6 +69,11 @@ class CreateVariantPayload(BaseModel):
 class PromoteVariantVersionPayload(BaseModel):
     variant_id: str
     version_id: str
+    evidence_eval_run_id: str | None = None
+    eval_set_version_id: str | None = None
+    decision_note: str | None = None
+    accept_risk: bool = False
+    actor: str = "system"
 
 
 class UpdateSkillPayload(BaseModel):
@@ -188,6 +193,21 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             )
         )
 
+    @app.get("/api/variants/{variant_id}/promotion-review")
+    def promotion_review(
+        variant_id: str,
+        candidate_version_id: str,
+        eval_set_version_id: str | None = None,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.promotion_review(
+                variant_id=variant_id,
+                candidate_version_id=candidate_version_id,
+                eval_set_version_id=eval_set_version_id,
+            )
+        )
+
     @app.post("/api/skills")
     def create_skill(payload: CreateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(
@@ -293,8 +313,16 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         payload: PromoteVariantVersionPayload,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        repository.promote_variant_version(variant_id=payload.variant_id, version_id=payload.version_id)
-        return {"ok": True}
+        decision = repository.promote_variant_version(
+            variant_id=payload.variant_id,
+            version_id=payload.version_id,
+            evidence_eval_run_id=payload.evidence_eval_run_id,
+            eval_set_version_id=payload.eval_set_version_id,
+            decision_note=payload.decision_note,
+            accept_risk=payload.accept_risk,
+            actor=payload.actor,
+        )
+        return {"ok": True, "promotion_decision": decision}
 
     @app.patch("/api/skills/{skill_id}")
     def update_skill(

@@ -434,6 +434,87 @@ Content-Type: application/json
 - 如果 `make_current=false` 或省略，新版本仍是可测评的不可变候选版本，但不会成为当前默认版本。
 - 旧版本和旧 run 保留。
 
+### Promotion Review
+
+正式版后端新增“设为当前版本评审”读模型。它不移动指针，只把候选版本、当前版本、目标测评集版本、最新测评结果、逐 case 影响和文件 diff 汇总成一个决策视图。
+
+```http
+GET /api/variants/{variant_id}/promotion-review?candidate_version_id=varver-v2&eval_set_version_id=evalsetver-v3
+```
+
+`eval_set_version_id` 可省略；省略时使用该 skill 的 Primary eval set 当前版本。
+
+返回重点字段：
+
+```json
+{
+  "variant": { "id": "variant-a", "tags": ["codex"] },
+  "current_version": { "id": "varver-v1", "version_number": 1 },
+  "candidate_version": { "id": "varver-v2", "version_number": 2 },
+  "eval_set_version": { "id": "evalsetver-v3", "version_number": 3 },
+  "candidate_run": { "id": "evalrun-candidate", "summary": { "passed": 2, "failed": 0, "total": 2 } },
+  "current_run": { "id": "evalrun-current", "summary": { "passed": 1, "failed": 1, "total": 2 } },
+  "readiness": {
+    "status": "ready",
+    "label": "可设为当前版本",
+    "requires_note": false
+  },
+  "comparison_summary": {
+    "fixed": 1,
+    "regressed": 0,
+    "stable_pass": 1,
+    "stable_fail": 0,
+    "missing_baseline": 0,
+    "missing_candidate": 0
+  },
+  "case_comparisons": [
+    {
+      "case_title": "PR: missing tenant filter",
+      "change": "fixed",
+      "change_label": "修复",
+      "current_passed": false,
+      "candidate_passed": true
+    }
+  ],
+  "bundle_diff": { "summary": { "changed": 1, "added": 0, "removed": 0 } }
+}
+```
+
+`readiness.status` 取值：
+
+| 状态 | 页面文案 | 含义 |
+| --- | --- | --- |
+| `ready` | 可设为当前版本 | 候选版本已完整测评，未发现回退或失败。 |
+| `risky` | 有风险 | 存在回退、仍未通过或缺少当前版本对照。 |
+| `unverified` | 未验证 | 候选版本没有目标测评集版本上的 finished run。 |
+| `blocked` | 无法设为当前版本 | 测评不完整或候选版本没有可审查文件快照。 |
+
+### Promote Variant Version
+
+设为当前版本必须带证据，不能只传 `variant_id + version_id`。命令成功后移动 `Variant.current_version_id`，并写入 `promotion_decisions` 和 `audit_events`。
+
+```http
+POST /api/variants/promotions
+Content-Type: application/json
+
+{
+  "variant_id": "variant-a",
+  "version_id": "varver-v2",
+  "evidence_eval_run_id": "evalrun-candidate",
+  "eval_set_version_id": "evalsetver-v3",
+  "decision_note": "v2 修复 tenant scope 漏报。",
+  "accept_risk": false,
+  "actor": "tester"
+}
+```
+
+校验规则：
+
+- `version_id` 必须属于 `variant_id`。
+- `evidence_eval_run_id` 必须绑定 `version_id + eval_set_version_id`。
+- 证据 run 必须是最新的 finished candidate run。
+- 如果评审存在回退或仍未通过，`decision_note` 不能为空，且 `accept_risk` 必须为 `true`。
+
 ### Skill Bundle Detail
 
 ```http
