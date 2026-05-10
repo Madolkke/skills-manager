@@ -220,6 +220,18 @@ create table accepted_verifications (
   constraint accepted_verifications_eval_run_skill_fkey foreign key (eval_run_id, skill_id) references eval_runs(id, skill_id)
 );
 
+create table saved_views (
+  id text primary key,
+  skill_id text not null references skills(id),
+  name text not null,
+  view_type text not null,
+  config jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  constraint saved_views_type_check check (view_type in ('run_history')),
+  constraint saved_views_skill_type_name_unique unique (skill_id, view_type, name)
+);
+
 create table jobs (
   id text primary key,
   type text not null,
@@ -280,6 +292,7 @@ create index promotion_decisions_to_version_id_idx on promotion_decisions (to_ve
 create index promotion_decisions_evidence_eval_run_id_idx on promotion_decisions (evidence_eval_run_id);
 create index accepted_verifications_variant_eval_set_idx on accepted_verifications (variant_id, eval_set_version_id);
 create index accepted_verifications_eval_run_id_idx on accepted_verifications (eval_run_id);
+create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index jobs_status_created_at_idx on jobs (status, created_at);
 create index role_assignments_resource_idx on role_assignments (resource_type, resource_id);
 create index audit_events_resource_idx on audit_events (resource_type, resource_id, created_at desc);

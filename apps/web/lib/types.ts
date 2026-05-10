@@ -261,6 +261,16 @@ export type EvalRunMatrix = {
   cells: EvalRunMatrixCell[];
 };
 
+export type SavedView = {
+  id: string;
+  skill_id: string;
+  name: string;
+  view_type: "run_history";
+  config: Partial<Record<"variant_version_id" | "eval_set_version_id" | "strategy" | "status", string>>;
+  created_at?: string;
+  created_by: string;
+};
+
 export type EvalCaseHistoryVersion = {
   case_version: EvalCaseVersionDetail;
   included_in_eval_set_versions: Array<{

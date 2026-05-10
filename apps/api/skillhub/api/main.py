@@ -137,6 +137,14 @@ class AcceptEvalRunVerificationPayload(BaseModel):
     actor: str = "system"
 
 
+class CreateSavedViewPayload(BaseModel):
+    skill_id: str
+    name: str
+    view_type: str = "run_history"
+    config: dict[str, str] = Field(default_factory=dict)
+    actor: str = "system"
+
+
 def create_app(engine: Engine | None = None) -> FastAPI:
     app = FastAPI(title="SkillHub API", version="0.1.0")
     app.add_middleware(
@@ -210,6 +218,30 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 limit=limit,
             )
         )
+
+    @app.get("/api/skills/{skill_id}/saved-views")
+    def saved_views(
+        skill_id: str,
+        view_type: str = "run_history",
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.list_saved_views(skill_id=skill_id, view_type=view_type))
+
+    @app.post("/api/saved-views")
+    def create_saved_view(payload: CreateSavedViewPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(
+            repository.create_saved_view(
+                skill_id=payload.skill_id,
+                name=payload.name,
+                view_type=payload.view_type,
+                config=payload.config,
+                actor=payload.actor,
+            )
+        )
+
+    @app.delete("/api/saved-views/{saved_view_id}")
+    def delete_saved_view(saved_view_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.delete_saved_view(saved_view_id))
 
     @app.get("/api/eval-set-versions/{eval_set_version_id}")
     def eval_set_version_detail(

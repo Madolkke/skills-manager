@@ -75,5 +75,12 @@
     "priority": 11,
     "passes": true,
     "spec": ".agent/tasks/TASK-011.json"
+  },
+  {
+    "id": "012",
+    "title": "实现测评历史保存视图",
+    "priority": 12,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-012.json"
   }
 ]

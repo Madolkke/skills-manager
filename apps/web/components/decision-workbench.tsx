@@ -16,6 +16,7 @@ import { GlobalCommandButton } from "@/components/command-menu/global-command-bu
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
 import { RunMatrixPanel } from "@/components/run-matrix/run-matrix-panel";
+import { SavedRunViews } from "@/components/saved-views/saved-run-views";
 import type {
   BundleDiff,
   BundleDiffFile,
@@ -30,6 +31,7 @@ import type {
   EvalSetVersionDetail,
   PromotionDecision,
   PromotionReview,
+  SavedView,
   SkillDetail,
   SkillSummary,
   VariantDetail,
@@ -75,6 +77,12 @@ type RunFilters = {
   strategy: string;
   status: string;
 };
+const DEFAULT_RUN_FILTERS: RunFilters = {
+  variant_version_id: "all",
+  eval_set_version_id: "all",
+  strategy: "all",
+  status: "all",
+};
 type BundleSource =
   | { kind: "zip"; name: string; zip_base64: string }
   | {
@@ -108,18 +116,17 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [runHistoryLoading, setRunHistoryLoading] = useState(false);
   const [runMatrix, setRunMatrix] = useState<EvalRunMatrix | null>(null);
   const [runMatrixLoading, setRunMatrixLoading] = useState(false);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [savedViewsLoading, setSavedViewsLoading] = useState(false);
+  const [selectedSavedViewId, setSelectedSavedViewId] = useState("adhoc");
+  const [savedViewName, setSavedViewName] = useState("");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRunDetail, setSelectedRunDetail] = useState<EvalRunDetail | null>(null);
   const [compareBaselineRunId, setCompareBaselineRunId] = useState<string | null>(null);
   const [compareCandidateRunId, setCompareCandidateRunId] = useState<string | null>(null);
   const [runComparison, setRunComparison] = useState<EvalRunComparison | null>(null);
   const [runComparisonLoading, setRunComparisonLoading] = useState(false);
-  const [runFilters, setRunFilters] = useState<RunFilters>({
-    variant_version_id: "all",
-    eval_set_version_id: "all",
-    strategy: "all",
-    status: "all",
-  });
+  const [runFilters, setRunFilters] = useState<RunFilters>(DEFAULT_RUN_FILTERS);
   const [caseHistory, setCaseHistory] = useState<EvalCaseHistory | null>(null);
   const [caseHistoryCaseId, setCaseHistoryCaseId] = useState<string | null>(null);
   const [caseHistoryLoading, setCaseHistoryLoading] = useState(false);
@@ -199,6 +206,10 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     setDiffFilter("all");
     setRunHistory(null);
     setRunMatrix(null);
+    setSavedViews([]);
+    setSavedViewsLoading(false);
+    setSelectedSavedViewId("adhoc");
+    setSavedViewName("");
     setSelectedRunId(null);
     setSelectedRunDetail(null);
     setCompareBaselineRunId(null);
@@ -254,6 +265,12 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     runFilters.strategy,
     runFilters.status,
   ]);
+
+  useEffect(() => {
+    if (mode !== "history" || !hasPersistedSkill) return;
+    void loadSavedViews(selectedDetail.skill.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, hasPersistedSkill, selectedDetail.skill.id]);
 
   useEffect(() => {
     if (mode !== "history" || !selectedRunId) {
@@ -382,6 +399,76 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载 run matrix 失败" });
     } finally {
       setRunMatrixLoading(false);
+    }
+  }
+
+  async function loadSavedViews(skillId: string) {
+    setSavedViewsLoading(true);
+    try {
+      const views = await apiGet<SavedView[]>(`/api/skills/${skillId}/saved-views?view_type=run_history`);
+      setSavedViews(views);
+      setSelectedSavedViewId((current) => (current === "adhoc" || views.some((view) => view.id === current) ? current : "adhoc"));
+    } catch (error) {
+      setSavedViews([]);
+      setSelectedSavedViewId("adhoc");
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载保存视图失败" });
+    } finally {
+      setSavedViewsLoading(false);
+    }
+  }
+
+  function updateRunFilter(key: keyof RunFilters, value: string) {
+    setSelectedSavedViewId("adhoc");
+    setRunFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function applySavedView(view: SavedView | null) {
+    setSelectedSavedViewId(view?.id ?? "adhoc");
+    setSavedViewName("");
+    if (!view) return;
+    setRunFilters({ ...DEFAULT_RUN_FILTERS, ...view.config });
+  }
+
+  async function createSavedRunView() {
+    const name = savedViewName.trim();
+    if (!name) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const view = await apiSend<SavedView>("/api/saved-views", {
+        method: "POST",
+        body: {
+          skill_id: selectedDetail.skill.id,
+          name,
+          view_type: "run_history",
+          config: runFilterConfig(runFilters),
+          actor: ACTOR,
+        },
+      });
+      await loadSavedViews(selectedDetail.skill.id);
+      setSelectedSavedViewId(view.id);
+      setSavedViewName("");
+      setNotice({ tone: "good", message: "保存视图已创建。" });
+    } catch (error) {
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "保存视图失败" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteSavedRunView() {
+    if (selectedSavedViewId === "adhoc") return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await apiSend<{ ok: boolean }>(`/api/saved-views/${selectedSavedViewId}`, { method: "DELETE" });
+      setSavedViews((current) => current.filter((view) => view.id !== selectedSavedViewId));
+      setSelectedSavedViewId("adhoc");
+      setNotice({ tone: "good", message: "保存视图已删除。" });
+    } catch (error) {
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "删除保存视图失败" });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1014,8 +1101,12 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             loading={runHistoryLoading}
             onAcceptComparison={acceptComparisonCandidate}
             onAction={chooseAction}
+            onApplySavedView={applySavedView}
             onChooseComparisonRun={chooseComparisonRun}
-            onFilterChange={(key, value) => setRunFilters((current) => ({ ...current, [key]: value }))}
+            onDeleteSavedView={deleteSavedRunView}
+            onFilterChange={updateRunFilter}
+            onSaveView={createSavedRunView}
+            onSavedViewNameChange={setSavedViewName}
             onSelectRun={setSelectedRunId}
             runComparison={runComparison}
             runComparisonLoading={runComparisonLoading}
@@ -1023,6 +1114,10 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             runHistory={runHistory}
             runMatrix={runMatrix}
             runMatrixLoading={runMatrixLoading}
+            savedViewName={savedViewName}
+            savedViews={savedViews}
+            savedViewsLoading={savedViewsLoading}
+            selectedSavedViewId={selectedSavedViewId}
             selectedRunId={selectedRunId}
             variants={selectedDetail.variants}
           />
@@ -1490,8 +1585,12 @@ function HistoryPane({
   loading,
   onAcceptComparison,
   onAction,
+  onApplySavedView,
   onChooseComparisonRun,
+  onDeleteSavedView,
   onFilterChange,
+  onSaveView,
+  onSavedViewNameChange,
   onSelectRun,
   runComparison,
   runComparisonLoading,
@@ -1499,6 +1598,10 @@ function HistoryPane({
   runHistory,
   runMatrix,
   runMatrixLoading,
+  savedViewName,
+  savedViews,
+  savedViewsLoading,
+  selectedSavedViewId,
   selectedRunId,
   variants,
 }: {
@@ -1510,8 +1613,12 @@ function HistoryPane({
   loading: boolean;
   onAcceptComparison: (note: string) => void;
   onAction: (mode: ActionMode) => void;
+  onApplySavedView: (view: SavedView | null) => void;
   onChooseComparisonRun: (role: "baseline" | "candidate", runId: string) => void;
+  onDeleteSavedView: () => void;
   onFilterChange: (key: keyof RunFilters, value: string) => void;
+  onSaveView: () => void;
+  onSavedViewNameChange: (name: string) => void;
   onSelectRun: (runId: string) => void;
   runComparison: EvalRunComparison | null;
   runComparisonLoading: boolean;
@@ -1519,6 +1626,10 @@ function HistoryPane({
   runHistory: EvalRunHistory | null;
   runMatrix: EvalRunMatrix | null;
   runMatrixLoading: boolean;
+  savedViewName: string;
+  savedViews: SavedView[];
+  savedViewsLoading: boolean;
+  selectedSavedViewId: string;
   selectedRunId: string | null;
   variants: VariantDetail[];
 }) {
@@ -1544,7 +1655,19 @@ function HistoryPane({
           <h2>历史记录</h2>
           <p>{loading ? "正在加载 runs..." : `${rows.length} runs · exact VariantVersion + EvalSetVersion bindings`}</p>
         </div>
-        <div className="historyFilters">
+        <div className="historyToolbarStack">
+          <SavedRunViews
+            busy={busy}
+            loading={savedViewsLoading}
+            name={savedViewName}
+            onApply={onApplySavedView}
+            onDelete={onDeleteSavedView}
+            onNameChange={onSavedViewNameChange}
+            onSave={onSaveView}
+            selectedViewId={selectedSavedViewId}
+            views={savedViews}
+          />
+          <div className="historyFilters">
           <label>
             <span>Variant</span>
             <select
@@ -1594,6 +1717,7 @@ function HistoryPane({
               <option value="failed">failed</option>
             </select>
           </label>
+          </div>
         </div>
       </div>
 
@@ -2276,6 +2400,10 @@ async function sourceFromSelectedBundle({
 
 function sortedVersions(versions: VariantVersion[]) {
   return [...versions].sort((left, right) => left.version_number - right.version_number);
+}
+
+function runFilterConfig(filters: RunFilters) {
+  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== "all"));
 }
 
 function defaultDiffPair(variant: VariantDetail | null): { left: VariantVersion; right: VariantVersion } | null {

@@ -219,6 +219,52 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(history.status_code, 200)
         self.assertEqual([row["eval_run"]["id"] for row in history.json()["runs"]], list(reversed(run_ids[-2:])))
 
+    def test_saved_run_view_endpoints_create_list_and_delete_view(self):
+        skill = self.create_skill("saved-view-reviewer")
+
+        created = self.client.post(
+            "/api/saved-views",
+            json={
+                "skill_id": skill["skill_id"],
+                "name": "Candidate runs",
+                "view_type": "run_history",
+                "config": {
+                    "variant_version_id": skill["variant_version_id"],
+                    "eval_set_version_id": "all",
+                    "strategy": "manual_pass_fail",
+                    "status": "",
+                    "unknown": "ignored",
+                },
+                "actor": "tester",
+            },
+        )
+
+        self.assertEqual(created.status_code, 200)
+        view = created.json()
+        self.assertEqual(view["name"], "Candidate runs")
+        self.assertEqual(view["config"], {"variant_version_id": skill["variant_version_id"], "strategy": "manual_pass_fail"})
+
+        duplicate = self.client.post(
+            "/api/saved-views",
+            json={
+                "skill_id": skill["skill_id"],
+                "name": "Candidate runs",
+                "view_type": "run_history",
+                "config": {},
+                "actor": "tester",
+            },
+        )
+        listed = self.client.get(f"/api/skills/{skill['skill_id']}/saved-views", params={"view_type": "run_history"})
+        deleted = self.client.delete(f"/api/saved-views/{view['id']}")
+        listed_after_delete = self.client.get(f"/api/skills/{skill['skill_id']}/saved-views", params={"view_type": "run_history"})
+
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual([item["id"] for item in listed.json()], [view["id"]])
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(deleted.json(), {"ok": True})
+        self.assertEqual(listed_after_delete.json(), [])
+
     def test_eval_case_history_returns_versions_and_eval_set_membership(self):
         skill = self.create_skill("case-history-reviewer")
         case = self.client.post(

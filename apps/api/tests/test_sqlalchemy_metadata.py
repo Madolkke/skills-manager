@@ -23,6 +23,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "eval_runs",
                 "case_results",
                 "jobs",
+                "saved_views",
                 "role_assignments",
                 "promotion_decisions",
                 "accepted_verifications",
@@ -86,6 +87,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("case_results", "case_results_case_version_id_idx"),
             ("promotion_decisions", "promotion_decisions_variant_created_at_idx"),
             ("accepted_verifications", "accepted_verifications_variant_eval_set_idx"),
+            ("saved_views", "saved_views_skill_type_idx"),
             ("jobs", "jobs_status_created_at_idx"),
         ]:
             self.assertIn(index_name, self.index_names(table_name))

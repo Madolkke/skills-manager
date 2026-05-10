@@ -457,6 +457,44 @@ test("operator can inspect run matrix across eval runs", async ({ page }) => {
   await expect(page.locator(".runMatrixCellPass")).toHaveCount(3);
 });
 
+test("operator can save and reapply an eval run history view", async ({ page }) => {
+  const skillName = `saved-run-view-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+  await addEvalCase(page, "PR: missing tenant scope");
+
+  await page.locator(".caseReviewCard").filter({ hasText: "PR: missing tenant scope" }).getByRole("button", { name: "不通过", exact: true }).click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
+
+  await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
+  await page.locator(".caseReviewCard").filter({ hasText: "PR: missing tenant scope" }).getByRole("button", { name: "通过", exact: true }).click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
+
+  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+  await expect(page.locator(".historyRunRow")).toHaveCount(2);
+
+  const variantFilter = page.getByLabel("Variant version filter");
+  const candidateVersionId = await variantFilter.locator("option", { hasText: "v2" }).getAttribute("value");
+  expect(candidateVersionId).toBeTruthy();
+  await variantFilter.selectOption(candidateVersionId!);
+  await expect(page.locator(".historyRunRow")).toHaveCount(1);
+  await expect(page.locator(".runMatrixRunHeader")).toHaveCount(1);
+
+  await page.getByLabel("保存视图名称").fill("候选版本通过记录");
+  await page.getByRole("button", { name: "保存当前视图" }).click();
+  await expect(page.getByLabel("Saved run view")).toContainText("候选版本通过记录");
+
+  await variantFilter.selectOption("all");
+  await expect(page.locator(".historyRunRow")).toHaveCount(2);
+  await page.getByLabel("Saved run view").selectOption({ label: "候选版本通过记录" });
+  await expect(variantFilter).toHaveValue(candidateVersionId!);
+  await expect(page.locator(".historyRunRow")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "删除视图" }).click();
+  await expect(page.getByLabel("Saved run view")).not.toContainText("候选版本通过记录");
+});
+
 test("operator can compare eval runs and accept a verification pointer", async ({ page }) => {
   await importSkillBundle(page, `run-compare-${Date.now()}`);
   await addEvalCase(page, "PR: missing tenant scope");

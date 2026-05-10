@@ -22,6 +22,7 @@
 - 标准 bundle version 可以在专门的 diff mode 里比较文件状态、筛选 changed/added/removed/binary，并查看行级 diff。
 - History mode 支持按 exact variant version、eval set version、strategy、status 过滤 eval run，并查看每个 run 的逐 case 结果。
 - History mode 支持 `Run matrix`，把当前筛选下的 runs 展成 case x run 矩阵，快速识别哪些 case 在哪些 run 上通过、不通过或未覆盖。
+- History mode 支持保存、应用、删除当前筛选视图，用户可以把“候选 v2 / Primary v3”这类常用实验入口固化下来，不需要反复手动组合筛选。
 - History mode 支持把两次同 `EvalSetVersion` 的 run 标为对照/候选，直接查看通过率 delta、逐 case 修复/回退，并把候选 run 接受为当前验证依据。
 - 每个 eval case 可以在测评页内查看版本时间线，包括 input、expected output、notes，以及被哪些 eval set snapshot 包含；也可以从旧版本一键恢复为新的当前版本，历史不会被覆盖。
 - Playwright 覆盖 folder/zip import、导入后验证引导、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
@@ -45,6 +46,7 @@
 - **GitHub Actions / LangSmith:** eval run history 以状态、策略、分数、exact binding 为核心，先扫全局，再进入单个 run 的 case 结果；run-to-run comparison 借鉴实验对比视图，只允许同 eval set snapshot 比较，避免把测试集变化误判成 skill 提升。
 - **LangSmith experiment comparison:** LangSmith 的 comparison view 支持多 experiment 表格、过滤、列显示和 regression/improvement。SkillHub 适配为 run matrix，先把多 run x 多 case 的 pass/fail 关系铺开，后续再做保存视图和回退高亮。
 - **W&B Tables:** W&B Tables 用表格比较模型版本、时间和具体样本结果。SkillHub 适配为 case x run 矩阵，把 skill 评测从两两比较扩展到多 run 浏览。
+- **Linear Saved Views / Airtable Views:** 常用筛选不应该每次重建，视图保存的是查询意图而不是复制数据。SkillHub 适配为保存 `run_history` 筛选配置，run 列表和矩阵仍实时读取同一份后端结果。
 - **W&B / release gate:** accepted verification 借鉴 pinned baseline / release gate 思路，用一个明确指针说明“当前分发依据是哪次测评”，而不是让用户猜最新 run 是否可信。
 - **Sentry issue timeline:** case history 留在当前排查上下文中，避免用户跳走后丢失对当前测试集的理解。
 - **GitHub / GitLab revert:** 恢复旧内容不应该覆盖历史，而应该创建新的提交。SkillHub 适配为从旧 `EvalCaseVersion` 恢复时创建新的 current case version，并生成新的 `EvalSetVersion`。
@@ -66,18 +68,19 @@
 11. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path、command menu path、batch case path、manual eval queue path、candidate handoff path、first verification guide path、case restore path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
 12. 以前 case history 只能查看，错误编辑后要手工复制旧内容；现在可以从旧 case version 恢复，系统会生成新的当前版本和 eval set snapshot。
 13. 以前多次 run 只能列表浏览或两两比较；现在 history 页有 run matrix，可以按当前筛选直接看多 run 在每个 case 上的覆盖和结果。
+14. 以前常用历史筛选只能手动重建；现在可以保存为命名视图，一键恢复 run 列表和矩阵的同一组筛选。
 
 ## 仍然存在的摩擦
 
 1. 右侧 inspector 仍然偏表单化。导入后清单已经压缩首轮路径，但创建/编辑动作本身仍需要更成熟的内联编辑体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
-3. Run matrix 已经提供 read-only 多 run x case 浏览，但还没有 saved view、列配置、分组和 regression coloring。
+3. Run matrix 已经提供 read-only 多 run x case 浏览和保存筛选视图，但还没有列配置、分组和 regression coloring。
 4. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
 5. Accessibility 覆盖仍偏浅。现在有键盘 smoke 和标签，但还需要系统化验证 focus order、screen reader label、reduced motion。
 
 ## 下一轮优化队列
 
 1. 优化创建/编辑表单：把常用表单逐步迁入主内容区或内联抽屉，让 inspector 更像上下文工具而不是唯一操作区。
-2. 做 saved view / run matrix 列配置：让用户保存筛选、隐藏列、分组并突出 regression/improvement。
+2. 做 run matrix 多维表格：支持隐藏列、分组并突出 regression/improvement。
 3. 把 accepted verification 接入 Hub 文案和权限模型：明确谁能接受、谁只能查看。
 4. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。

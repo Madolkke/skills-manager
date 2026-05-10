@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-10 19:45 CST - TASK-012 测评历史保存视图
+
+- 新增 `saved_views` 持久化模型和 `GET /api/skills/{skill_id}/saved-views`、`POST /api/saved-views`、`DELETE /api/saved-views/{id}`。
+- 在 History mode 增加保存视图控件，可保存当前 run filters、应用保存视图并同步刷新 run list 和 run matrix、删除不再需要的视图。
+- 新增 repository/API/E2E 覆盖保存视图 round trip；文档已补充 README、产品审计和 UX 复盘。
+- 已验证：`uv run pytest` 80 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 26 passed；视觉基线已更新。
+
 ### 2026-05-10 19:20 CST - TASK-011 测评结果矩阵视图
 
 - 新增 `GET /api/skills/{skill_id}/eval-run-matrix`，复用 history filters 返回 case x run 矩阵 read model。

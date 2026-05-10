@@ -891,6 +891,57 @@ class SqlSkillRepositoryTest(unittest.TestCase):
         self.assertTrue(cells[(candidate_run.eval_run_id, first_case.eval_case_id)])
         self.assertTrue(cells[(candidate_run.eval_run_id, second_case.eval_case_id)])
 
+    def test_saved_run_view_round_trip_normalizes_filters(self):
+        skill = self.create_skill()
+
+        view = self.repository.create_saved_view(
+            skill_id=skill.skill_id,
+            name="Candidate runs",
+            view_type="run_history",
+            config={
+                "variant_version_id": skill.variant_version_id,
+                "eval_set_version_id": "all",
+                "strategy": "manual_pass_fail",
+                "status": "",
+                "ignored": "value",
+            },
+            actor="tester",
+        )
+        views = self.repository.list_saved_views(skill_id=skill.skill_id, view_type="run_history")
+
+        self.assertEqual(view["name"], "Candidate runs")
+        self.assertEqual(views, [view])
+        self.assertEqual(
+            view["config"],
+            {
+                "variant_version_id": skill.variant_version_id,
+                "strategy": "manual_pass_fail",
+            },
+        )
+
+        self.repository.delete_saved_view(view["id"])
+
+        self.assertEqual(self.repository.list_saved_views(skill_id=skill.skill_id, view_type="run_history"), [])
+
+    def test_saved_run_view_rejects_duplicate_name_for_same_skill(self):
+        skill = self.create_skill()
+        self.repository.create_saved_view(
+            skill_id=skill.skill_id,
+            name="Candidate runs",
+            view_type="run_history",
+            config={},
+            actor="tester",
+        )
+
+        with self.assertRaises(InvariantError):
+            self.repository.create_saved_view(
+                skill_id=skill.skill_id,
+                name="Candidate runs",
+                view_type="run_history",
+                config={},
+                actor="tester",
+            )
+
     def test_compare_eval_runs_returns_fixed_and_regressed_summary(self):
         skill = self.create_skill()
         first_case = self.repository.create_eval_case(

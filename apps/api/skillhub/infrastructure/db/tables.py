@@ -280,6 +280,20 @@ accepted_verifications = Table(
     ForeignKeyConstraint(["eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="accepted_verifications_eval_run_skill_fkey"),
 )
 
+saved_views = Table(
+    "saved_views",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
+    Column("name", Text, nullable=False),
+    Column("view_type", Text, nullable=False),
+    Column("config", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("view_type in ('run_history')", name="saved_views_type_check"),
+    UniqueConstraint("skill_id", "view_type", "name", name="saved_views_skill_type_name_unique"),
+)
+
 jobs = Table(
     "jobs",
     metadata,
@@ -346,6 +360,7 @@ Index("promotion_decisions_to_version_id_idx", promotion_decisions.c.to_version_
 Index("promotion_decisions_evidence_eval_run_id_idx", promotion_decisions.c.evidence_eval_run_id)
 Index("accepted_verifications_variant_eval_set_idx", accepted_verifications.c.variant_id, accepted_verifications.c.eval_set_version_id)
 Index("accepted_verifications_eval_run_id_idx", accepted_verifications.c.eval_run_id)
+Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
 Index("jobs_status_created_at_idx", jobs.c.status, jobs.c.created_at)
 Index("role_assignments_resource_idx", role_assignments.c.resource_type, role_assignments.c.resource_id)
 Index("audit_events_resource_idx", audit_events.c.resource_type, audit_events.c.resource_id, audit_events.c.created_at.desc())
