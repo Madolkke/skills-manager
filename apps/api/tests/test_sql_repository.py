@@ -842,6 +842,55 @@ class SqlSkillRepositoryTest(unittest.TestCase):
         self.assertEqual(detail.case_results[0]["case"]["title"], "PR: missing owner check")
         self.assertTrue(detail.case_results[0]["result"]["passed"])
 
+    def test_eval_run_matrix_returns_case_rows_and_run_columns(self):
+        skill = self.create_skill()
+        first_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing tenant scope",
+            input_text="Project.all()",
+            expected_output="Flag missing tenant scope.",
+            actor="tester",
+        )
+        second_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: token logging",
+            input_text="console.log(token)",
+            expected_output="Flag token logging.",
+            actor="tester",
+        )
+        candidate = self.repository.create_variant_version(
+            variant_id=skill.variant_id,
+            content_ref=ContentRef(kind="skill_bundle", locator="memory:v2", digest="digest-v2"),
+            change_summary="Candidate.",
+            actor="tester",
+            make_current=False,
+        )
+        baseline_run = self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={first_case.eval_case_version_id: False, second_case.eval_case_version_id: True},
+            actor="tester",
+        )
+        candidate_run = self.repository.record_eval_run(
+            variant_version_id=candidate.variant_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={first_case.eval_case_version_id: True, second_case.eval_case_version_id: True},
+            actor="tester",
+        )
+
+        matrix = self.repository.eval_run_matrix_for_skill(skill_id=skill.skill_id)
+
+        self.assertEqual([row["case"]["title"] for row in matrix["cases"]], ["PR: missing tenant scope", "PR: token logging"])
+        self.assertEqual({row["eval_run"]["id"] for row in matrix["runs"]}, {baseline_run.eval_run_id, candidate_run.eval_run_id})
+        self.assertEqual(len(matrix["cells"]), 4)
+        cells = {(cell["run_id"], cell["case_id"]): cell["passed"] for cell in matrix["cells"]}
+        self.assertFalse(cells[(baseline_run.eval_run_id, first_case.eval_case_id)])
+        self.assertTrue(cells[(baseline_run.eval_run_id, second_case.eval_case_id)])
+        self.assertTrue(cells[(candidate_run.eval_run_id, first_case.eval_case_id)])
+        self.assertTrue(cells[(candidate_run.eval_run_id, second_case.eval_case_id)])
+
     def test_compare_eval_runs_returns_fixed_and_regressed_summary(self):
         skill = self.create_skill()
         first_case = self.repository.create_eval_case(

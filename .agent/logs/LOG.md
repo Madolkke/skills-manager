@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-10 19:20 CST - TASK-011 测评结果矩阵视图
+
+- 新增 `GET /api/skills/{skill_id}/eval-run-matrix`，复用 history filters 返回 case x run 矩阵 read model。
+- 在 History mode 增加 `Run matrix`，显示当前筛选下每个 case 在每个 eval run 中的通过、不通过或未覆盖状态。
+- 已新增 repository/API/E2E 覆盖，并更新 run comparison 视觉基线。
+- 已验证：`uv run pytest` 77 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 25 passed；`git diff --check` passed。
+
 ### 2026-05-10 18:55 CST - TASK-010 Case 历史版本恢复
 
 - 已新增 `POST /api/eval-cases/{case_id}/restores`，恢复旧 `EvalCaseVersion` 时创建新的当前版本，不覆盖历史。

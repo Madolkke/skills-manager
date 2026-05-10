@@ -238,6 +238,29 @@ export type EvalRunHistory = {
   runs: EvalRunHistoryRow[];
 };
 
+export type EvalRunMatrixCase = {
+  case: EvalSetCase["case"];
+  versions: Array<{
+    case_version_id: string;
+    version_number: number;
+  }>;
+};
+
+export type EvalRunMatrixCell = {
+  run_id: string;
+  case_id: string;
+  case_version_id: string;
+  passed: boolean;
+  score: number;
+};
+
+export type EvalRunMatrix = {
+  skill: SkillSummary["skill"];
+  runs: Array<Omit<EvalRunHistoryRow, "accepted_verification">>;
+  cases: EvalRunMatrixCase[];
+  cells: EvalRunMatrixCell[];
+};
+
 export type EvalCaseHistoryVersion = {
   case_version: EvalCaseVersionDetail;
   included_in_eval_set_versions: Array<{

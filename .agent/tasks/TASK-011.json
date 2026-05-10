@@ -1,0 +1,25 @@
+{
+  "id": "011",
+  "title": "实现测评结果矩阵视图",
+  "status": "complete",
+  "goal": "让用户在历史页用矩阵方式查看多个 eval run 在每个 case 上的通过/不通过情况。",
+  "scope": [
+    "新增 run matrix 后端 read model",
+    "历史页接入矩阵区域，复用当前 run filters",
+    "矩阵单元格展示通过、不通过、未覆盖三种状态",
+    "E2E 覆盖批量 case、多次 run 后查看矩阵"
+  ],
+  "out_of_scope": [
+    "保存视图",
+    "权限模型",
+    "无限列虚拟滚动",
+    "矩阵内编辑结果"
+  ],
+  "verification": [
+    "cd apps/api && uv run pytest",
+    "cd apps/web && npm run typecheck",
+    "cd apps/web && npm run build",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e",
+    "git diff --check"
+  ]
+}

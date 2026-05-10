@@ -1015,48 +1015,84 @@ class SqlSkillRepository:
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
-        safe_limit = max(1, min(limit, 200))
         with self.engine.connect() as connection:
             skill = self._skill_row(connection, skill_id)
-            query = select(tables.eval_runs).where(tables.eval_runs.c.skill_id == skill_id)
-            if variant_version_id:
-                query = query.where(tables.eval_runs.c.variant_version_id == variant_version_id)
-            if eval_set_version_id:
-                query = query.where(tables.eval_runs.c.eval_set_version_id == eval_set_version_id)
-            if strategy:
-                query = query.where(tables.eval_runs.c.strategy == strategy)
-            if status:
-                query = query.where(tables.eval_runs.c.status == status)
-
-            run_rows = (
-                connection.execute(query.order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id)).limit(safe_limit))
-                .mappings()
-                .all()
+            run_rows = self._filtered_eval_run_rows(
+                connection,
+                skill_id=skill_id,
+                variant_version_id=variant_version_id,
+                eval_set_version_id=eval_set_version_id,
+                strategy=strategy,
+                status=status,
+                limit=limit,
             )
-            runs = []
-            for run in run_rows:
-                variant_version = self._variant_version_row(connection, run["variant_version_id"])
-                variant = self._variant_row(connection, variant_version["variant_id"])
-                eval_set_version = self._eval_set_version_row(connection, run["eval_set_version_id"])
-                eval_set = (
-                    connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_version["eval_set_id"]))
-                    .mappings()
-                    .one()
-                )
-                runs.append(
-                    {
-                        "eval_run": self._row_dict(run),
-                        "variant": {**self._row_dict(variant), "tags": self._tags_for_tag_set(connection, variant["tag_set_id"])},
-                        "variant_version": self._row_dict(variant_version),
-                        "eval_set": self._row_dict(eval_set),
-                        "eval_set_version": self._row_dict(eval_set_version),
-                        "accepted_verification": self._accepted_verification_for_eval_run(connection, run["id"]),
-                    }
-                )
+            runs = [self._eval_run_context_row(connection, run, include_accepted=True) for run in run_rows]
 
         return {
             "skill": self._row_dict(skill),
             "runs": runs,
+        }
+
+    def eval_run_matrix_for_skill(
+        self,
+        *,
+        skill_id: str,
+        variant_version_id: str | None = None,
+        eval_set_version_id: str | None = None,
+        strategy: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            skill = self._skill_row(connection, skill_id)
+            run_rows = self._filtered_eval_run_rows(
+                connection,
+                skill_id=skill_id,
+                variant_version_id=variant_version_id,
+                eval_set_version_id=eval_set_version_id,
+                strategy=strategy,
+                status=status,
+                limit=limit,
+            )
+            runs = [self._eval_run_context_row(connection, run, include_accepted=False) for run in run_rows]
+            case_rows: dict[str, dict[str, Any]] = {}
+            cells = []
+
+            for run in run_rows:
+                result_rows = (
+                    connection.execute(select(tables.case_results).where(tables.case_results.c.run_id == run["id"]))
+                    .mappings()
+                    .all()
+                )
+                results_by_case_version = {result["case_version_id"]: result for result in result_rows}
+                for eval_set_case in self._eval_set_cases(connection, run["eval_set_version_id"]):
+                    eval_case = eval_set_case["case"]
+                    case_version = eval_set_case["case_version"]
+                    case_row = case_rows.setdefault(eval_case["id"], {"case": eval_case, "versions": []})
+                    if not any(version["case_version_id"] == case_version["id"] for version in case_row["versions"]):
+                        case_row["versions"].append(
+                            {
+                                "case_version_id": case_version["id"],
+                                "version_number": case_version["version_number"],
+                            }
+                        )
+                    result = results_by_case_version.get(case_version["id"])
+                    if result:
+                        cells.append(
+                            {
+                                "run_id": run["id"],
+                                "case_id": eval_case["id"],
+                                "case_version_id": case_version["id"],
+                                "passed": result["passed"],
+                                "score": result["score"],
+                            }
+                        )
+
+        return {
+            "skill": self._row_dict(skill),
+            "runs": runs,
+            "cases": list(case_rows.values()),
+            "cells": cells,
         }
 
     def compare_eval_runs(self, *, baseline_run_id: str, candidate_run_id: str) -> dict[str, Any]:
@@ -1386,6 +1422,53 @@ class SqlSkillRepository:
             "case_comparisons": case_comparisons,
             "bundle_diff": bundle_diff,
         }
+
+    def _filtered_eval_run_rows(
+        self,
+        connection,
+        *,
+        skill_id: str,
+        variant_version_id: str | None,
+        eval_set_version_id: str | None,
+        strategy: str | None,
+        status: str | None,
+        limit: int,
+    ):
+        safe_limit = max(1, min(limit, 200))
+        query = select(tables.eval_runs).where(tables.eval_runs.c.skill_id == skill_id)
+        if variant_version_id:
+            query = query.where(tables.eval_runs.c.variant_version_id == variant_version_id)
+        if eval_set_version_id:
+            query = query.where(tables.eval_runs.c.eval_set_version_id == eval_set_version_id)
+        if strategy:
+            query = query.where(tables.eval_runs.c.strategy == strategy)
+        if status:
+            query = query.where(tables.eval_runs.c.status == status)
+        return (
+            connection.execute(query.order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id)).limit(safe_limit))
+            .mappings()
+            .all()
+        )
+
+    def _eval_run_context_row(self, connection, run, *, include_accepted: bool) -> dict[str, Any]:
+        variant_version = self._variant_version_row(connection, run["variant_version_id"])
+        variant = self._variant_row(connection, variant_version["variant_id"])
+        eval_set_version = self._eval_set_version_row(connection, run["eval_set_version_id"])
+        eval_set = (
+            connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_version["eval_set_id"]))
+            .mappings()
+            .one()
+        )
+        row = {
+            "eval_run": self._row_dict(run),
+            "variant": {**self._row_dict(variant), "tags": self._tags_for_tag_set(connection, variant["tag_set_id"])},
+            "variant_version": self._row_dict(variant_version),
+            "eval_set": self._row_dict(eval_set),
+            "eval_set_version": self._row_dict(eval_set_version),
+        }
+        if include_accepted:
+            row["accepted_verification"] = self._accepted_verification_for_eval_run(connection, run["id"])
+        return row
 
     def _latest_finished_run(self, connection, *, variant_version_id: str, eval_set_version_id: str):
         return (

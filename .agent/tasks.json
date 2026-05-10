@@ -68,5 +68,12 @@
     "priority": 10,
     "passes": true,
     "spec": ".agent/tasks/TASK-010.json"
+  },
+  {
+    "id": "011",
+    "title": "实现测评结果矩阵视图",
+    "priority": 11,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-011.json"
   }
 ]

@@ -190,6 +190,27 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             )
         )
 
+    @app.get("/api/skills/{skill_id}/eval-run-matrix")
+    def eval_run_matrix(
+        skill_id: str,
+        variant_version_id: str | None = None,
+        eval_set_version_id: str | None = None,
+        strategy: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.eval_run_matrix_for_skill(
+                skill_id=skill_id,
+                variant_version_id=variant_version_id,
+                eval_set_version_id=eval_set_version_id,
+                strategy=strategy,
+                status=status,
+                limit=limit,
+            )
+        )
+
     @app.get("/api/eval-set-versions/{eval_set_version_id}")
     def eval_set_version_detail(
         eval_set_version_id: str,

@@ -276,6 +276,81 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(history.json()["case"]["lifecycle_status"], "archived")
         self.assertEqual(history.json()["versions"][0]["case_version"]["version_number"], 1)
 
+    def test_eval_run_matrix_endpoint_respects_variant_filter(self):
+        skill = self.create_skill("run-matrix-reviewer")
+        first_case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: missing tenant scope",
+                "input_text": "Project.all()",
+                "expected_output": "Flag missing tenant scope.",
+                "actor": "tester",
+            },
+        ).json()
+        second_case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: token logging",
+                "input_text": "console.log(token)",
+                "expected_output": "Flag token logging.",
+                "actor": "tester",
+            },
+        ).json()
+        candidate = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": skill["variant_id"],
+                "content_ref": {
+                    "kind": "skill_bundle",
+                    "locator": "memory:candidate",
+                    "digest": "digest-candidate",
+                },
+                "change_summary": "Candidate version.",
+                "make_current": False,
+                "actor": "tester",
+            },
+        ).json()
+        self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": skill["variant_version_id"],
+                "eval_set_version_id": second_case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {
+                    first_case["eval_case_version_id"]: False,
+                    second_case["eval_case_version_id"]: True,
+                },
+                "actor": "tester",
+            },
+        )
+        candidate_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": candidate["variant_version_id"],
+                "eval_set_version_id": second_case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {
+                    first_case["eval_case_version_id"]: True,
+                    second_case["eval_case_version_id"]: True,
+                },
+                "actor": "tester",
+            },
+        ).json()
+
+        matrix = self.client.get(
+            f"/api/skills/{skill['skill_id']}/eval-run-matrix",
+            params={"variant_version_id": candidate["variant_version_id"]},
+        )
+
+        self.assertEqual(matrix.status_code, 200)
+        body = matrix.json()
+        self.assertEqual([row["eval_run"]["id"] for row in body["runs"]], [candidate_run["eval_run_id"]])
+        self.assertEqual([row["case"]["title"] for row in body["cases"]], ["PR: missing tenant scope", "PR: token logging"])
+        self.assertEqual(len(body["cells"]), 2)
+        self.assertTrue(all(cell["passed"] for cell in body["cells"]))
+
     def test_restore_eval_case_version_from_history(self):
         skill = self.create_skill("restore-case-history-reviewer")
         case = self.client.post(

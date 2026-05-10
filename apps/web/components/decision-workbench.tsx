@@ -15,6 +15,7 @@ import { CaseHistoryPanel } from "@/components/eval-cases/case-history-panel";
 import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
+import { RunMatrixPanel } from "@/components/run-matrix/run-matrix-panel";
 import type {
   BundleDiff,
   BundleDiffFile,
@@ -25,6 +26,7 @@ import type {
   EvalRunRecord,
   EvalRunDetail,
   EvalRunHistory,
+  EvalRunMatrix,
   EvalSetVersionDetail,
   PromotionDecision,
   PromotionReview,
@@ -104,6 +106,8 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [diffLoading, setDiffLoading] = useState(false);
   const [runHistory, setRunHistory] = useState<EvalRunHistory | null>(null);
   const [runHistoryLoading, setRunHistoryLoading] = useState(false);
+  const [runMatrix, setRunMatrix] = useState<EvalRunMatrix | null>(null);
+  const [runMatrixLoading, setRunMatrixLoading] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRunDetail, setSelectedRunDetail] = useState<EvalRunDetail | null>(null);
   const [compareBaselineRunId, setCompareBaselineRunId] = useState<string | null>(null);
@@ -194,6 +198,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     setSelectedDiffPath(null);
     setDiffFilter("all");
     setRunHistory(null);
+    setRunMatrix(null);
     setSelectedRunId(null);
     setSelectedRunDetail(null);
     setCompareBaselineRunId(null);
@@ -238,6 +243,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   useEffect(() => {
     if (mode !== "history" || !hasPersistedSkill) return;
     void loadRunHistory(selectedDetail.skill.id, runFilters);
+    void loadRunMatrix(selectedDetail.skill.id, runFilters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     mode,
@@ -359,6 +365,23 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载测评历史失败" });
     } finally {
       setRunHistoryLoading(false);
+    }
+  }
+
+  async function loadRunMatrix(skillId: string, filters: RunFilters) {
+    setRunMatrixLoading(true);
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) {
+        if (value !== "all") params.set(key, value);
+      }
+      const query = params.toString();
+      setRunMatrix(await apiGet<EvalRunMatrix>(`/api/skills/${skillId}/eval-run-matrix${query ? `?${query}` : ""}`));
+    } catch (error) {
+      setRunMatrix(null);
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载 run matrix 失败" });
+    } finally {
+      setRunMatrixLoading(false);
     }
   }
 
@@ -998,6 +1021,8 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             runComparisonLoading={runComparisonLoading}
             runDetail={selectedRunDetail}
             runHistory={runHistory}
+            runMatrix={runMatrix}
+            runMatrixLoading={runMatrixLoading}
             selectedRunId={selectedRunId}
             variants={selectedDetail.variants}
           />
@@ -1472,6 +1497,8 @@ function HistoryPane({
   runComparisonLoading,
   runDetail,
   runHistory,
+  runMatrix,
+  runMatrixLoading,
   selectedRunId,
   variants,
 }: {
@@ -1490,6 +1517,8 @@ function HistoryPane({
   runComparisonLoading: boolean;
   runDetail: EvalRunDetail | null;
   runHistory: EvalRunHistory | null;
+  runMatrix: EvalRunMatrix | null;
+  runMatrixLoading: boolean;
   selectedRunId: string | null;
   variants: VariantDetail[];
 }) {
@@ -1567,6 +1596,8 @@ function HistoryPane({
           </label>
         </div>
       </div>
+
+      <RunMatrixPanel loading={runMatrixLoading} matrix={runMatrix} />
 
       <div className="historyGrid">
         <section className="historyRunList" aria-label="Eval run history">

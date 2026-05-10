@@ -420,7 +420,41 @@ test("operator can review eval run history with filters", async ({ page }) => {
   await expect(page.locator(".historyRunRow").filter({ hasText: "0/1" })).toBeVisible();
   await page.getByLabel("Strategy filter").selectOption("manual_pass_fail");
   await expect(page.locator(".historyRunRow")).toHaveCount(2);
-  await expect(page.getByText("PR: missing tenant scope")).toBeVisible();
+  await expect(page.locator(".historyCaseResults").getByText("PR: missing tenant scope")).toBeVisible();
+});
+
+test("operator can inspect run matrix across eval runs", async ({ page }) => {
+  const skillName = `run-matrix-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+
+  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("button", { name: "批量", exact: true }).click();
+  await page.getByLabel("批量 case 文本").fill(
+    [
+      "PR: missing tenant scope | Project.all() | Flag missing tenant scope.",
+      "PR: token logging | console.log(token) | Flag token logging.",
+    ].join("\n"),
+  );
+  await page.getByRole("button", { name: "批量加入评测集" }).click();
+  await page.locator(".caseReviewCard").filter({ hasText: "PR: missing tenant scope" }).getByRole("button", { name: "不通过", exact: true }).click();
+  await page.locator(".caseReviewCard").filter({ hasText: "PR: token logging" }).getByRole("button", { name: "通过", exact: true }).click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/2 通过。")).toBeVisible();
+
+  await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
+  await page.locator(".caseReviewCard").filter({ hasText: "PR: missing tenant scope" }).getByRole("button", { name: "通过", exact: true }).click();
+  await page.locator(".caseReviewCard").filter({ hasText: "PR: token logging" }).getByRole("button", { name: "通过", exact: true }).click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 2/2 通过。")).toBeVisible();
+
+  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+
+  await expect(page.getByTestId("run-matrix-panel")).toBeVisible();
+  await expect(page.locator(".runMatrixRunHeader")).toHaveCount(2);
+  await expect(page.locator(".runMatrixCaseTitle", { hasText: "PR: missing tenant scope" })).toBeVisible();
+  await expect(page.locator(".runMatrixCaseTitle", { hasText: "PR: token logging" })).toBeVisible();
+  await expect(page.locator(".runMatrixCellFail")).toHaveCount(1);
+  await expect(page.locator(".runMatrixCellPass")).toHaveCount(3);
 });
 
 test("operator can compare eval runs and accept a verification pointer", async ({ page }) => {

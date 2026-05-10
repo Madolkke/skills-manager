@@ -4581,6 +4581,143 @@ body {
   font-weight: 850;
 }
 
+.runMatrixPanel {
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid #dde4ed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.runMatrixHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e6ebf2;
+  padding: 12px;
+}
+
+.runMatrixHead h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.runMatrixHead p,
+.runMatrixHead span {
+  margin: 3px 0 0;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.runMatrixHead > span {
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.runMatrixScroller {
+  overflow: auto;
+  max-width: 100%;
+}
+
+.runMatrixTable {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #111827;
+  font-size: 12px;
+}
+
+.runMatrixTable th,
+.runMatrixTable td {
+  border-right: 1px solid #edf1f6;
+  border-bottom: 1px solid #edf1f6;
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.runMatrixTable th:last-child,
+.runMatrixTable td:last-child {
+  border-right: 0;
+}
+
+.runMatrixCaseHeader,
+.runMatrixCaseTitle {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  background: #f8fafc;
+}
+
+.runMatrixRunHeader {
+  width: 148px;
+  min-width: 148px;
+  background: #ffffff;
+}
+
+.runMatrixRunHeader strong,
+.runMatrixRunHeader span,
+.runMatrixRunHeader small,
+.runMatrixCaseTitle strong,
+.runMatrixCaseTitle span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runMatrixRunHeader strong,
+.runMatrixCaseTitle strong {
+  color: #111827;
+  font-size: 12px;
+}
+
+.runMatrixRunHeader span,
+.runMatrixRunHeader small,
+.runMatrixCaseTitle span {
+  margin-top: 3px;
+  color: #667085;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.runMatrixCellPass,
+.runMatrixCellFail,
+.runMatrixCellMissing {
+  display: inline-grid;
+  place-items: center;
+  min-width: 54px;
+  min-height: 26px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.runMatrixCellPass {
+  background: #e9f8ef;
+  color: #067647;
+}
+
+.runMatrixCellFail {
+  background: #fff0ef;
+  color: #b42318;
+}
+
+.runMatrixCellMissing {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
 .historyGrid {
   display: grid;
   grid-template-columns: minmax(320px, 0.48fr) minmax(0, 1fr);
@@ -5872,6 +6009,7 @@ body {
   .historyGrid,
   .historyBindingGrid,
   .historyRunMain,
+  .runMatrixHead,
   .runCompareScoreGrid,
   .runCompareAcceptBar,
   .verificationStartPanel,
