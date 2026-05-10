@@ -5,6 +5,7 @@
 ## 当前可用流程
 
 - `/skills` 是一个正式的三栏工作台：左侧 catalog、中间 focused workspace、右侧 contextual inspector。它借鉴 Linear 的“选中对象 + 上下文操作”模型，避免把所有表单堆在一个页面里。
+- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - 手工测评现在可以选择 `测评目标版本`，因此候选 `VariantVersion` 可以先被测评，再决定是否成为 current。
 - `变体` 页会列出每个 variant 的历史版本。current 版本显示 `Current`，非 current 版本提供 `设为当前版本评审`。
@@ -23,6 +24,8 @@
 ## 借鉴的产品模式
 
 - **Linear:** 左侧列表负责选择对象，中间主面板展示当前上下文，右侧 inspector 处理局部操作。适合 SkillHub 这种“对象多、动作也多”的维护工作台。
+- **Linear Command Menu:** 同一动作可以通过按钮、快捷键、上下文菜单和命令菜单触发；SkillHub 第一版把“导入/创建/测评/历史/差异”收进 `Cmd/Ctrl+K`，让新手可发现、熟手少移动鼠标。
+- **GitHub Command Palette:** 命令菜单兼具导航、搜索和运行命令能力；SkillHub 借鉴其 scope 思路，把菜单限定在当前 skill 工作区，避免全局搜索过早膨胀。
 - **GitHub / VS Code diff:** 版本变化用文件列表 + 行级 additions/removals 展示，而不是只给 change summary。Skill 本质上是文件夹，必须让用户看到真实文件变化。
 - **GitHub protected branch / release review:** “设为当前版本”不是普通字段更新，而是有证据的指针移动。promotion review 借鉴 release 前检查，把测试结果、diff、风险说明合在一起。
 - **GitHub Actions / LangSmith:** eval run history 以状态、策略、分数、exact binding 为核心，先扫全局，再进入单个 run 的 case 结果；run-to-run comparison 借鉴实验对比视图，只允许同 eval set snapshot 比较，避免把测试集变化误判成 skill 提升。
@@ -37,11 +40,12 @@
 3. 以前手工 eval 只绑定默认 current version；现在可以选择任意 `VariantVersion`，支持 candidate eval。
 4. 以前 risky promotion 没有前端约束；现在发现回退或仍失败时必须填写说明。
 5. 以前 history 只能读单次 run；现在可以比较两次同快照 run，并把候选 run 接受为验证依据。
-6. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
+6. 以前高频动作散落在 inspector 和 tab 中；现在 `Cmd/Ctrl+K` 可以直接跳到添加 case、导入 bundle、记录测评等动作。
+7. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path、command menu path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。高频操作可以继续压缩成更短路径，例如 inline quick-add、命令面板或批量 case 操作。
+1. 右侧 inspector 仍然偏表单化。命令菜单解决了入口问题，但新增 case、记录 run、追加版本本身仍可以继续压缩成 inline quick-add 或批量操作。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run history 还没有 saved view / 多维表格查询；现在能比较两条 run，但还不能保存筛选视图或批量分析。
 4. Case history 仍然是 read-only。用户可以查看旧版本，但不能一键 restore。

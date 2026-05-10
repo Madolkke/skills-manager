@@ -6,6 +6,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { passRate } from "@/lib/api";
 import { emptySkillDetail } from "@/lib/empty-state";
 import { percent, shortId } from "@/lib/format";
+import { CommandMenu, type CommandMenuItem } from "@/components/command-menu/command-menu";
+import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
 import type {
@@ -152,6 +154,24 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const failedDraft = cases.filter((item) => caseResults[item.case_version.id] === false).length;
   const confirmedDraft = passedDraft + failedDraft;
   const hasPersistedSkill = selectedDetail.skill.lifecycle_status !== "empty";
+  const commandItems = useMemo<CommandMenuItem[]>(() => {
+    const canUseSkill = hasPersistedSkill;
+    const canCompareVersions = Boolean(defaultVariant && defaultDiffPair(defaultVariant));
+    return [
+      command("nav-overview", "打开概览", "导航", "查看 skill 说明、当前验证和 bundle 文件。", () => setMode("overview"), "G O"),
+      command("nav-variants", "打开变体", "导航", "查看 variant map 和历史版本。", () => setMode("variants"), "G V", !canUseSkill, "先创建或导入一个 skill。"),
+      command("nav-evals", "打开测评", "导航", "管理测试用例并记录手工测评。", () => setMode("evals"), "G E", !canUseSkill, "先创建或导入一个 skill。"),
+      command("nav-history", "打开历史", "导航", "查看 run history、比较 run 和 accepted verification。", () => setMode("history"), "G H", !canUseSkill, "先创建或导入一个 skill。"),
+      command("nav-diff", "打开差异", "导航", "比较当前 variant 的两个 bundle version。", () => openDiffMode(), "G D", !canCompareVersions, "当前 variant 至少需要两个版本。"),
+      command("import-skill", "导入标准 Skill bundle", "创建", "上传包含 SKILL.md 的文件夹或 zip。", () => chooseAction("import-skill"), "I"),
+      command("new-skill", "新建 skill", "创建", "创建一个空白 skill 和默认 variant。", () => chooseAction("new-skill"), "N"),
+      command("new-variant", "新建 variant", "创建", "为当前 skill 新增一组 tag 约束下的最优解。", () => chooseAction("new-variant"), "V", !canUseSkill, "先创建或导入一个 skill。"),
+      command("new-version", "追加版本", "创建", "上传新的标准 skill bundle，形成不可变 VariantVersion。", () => chooseAction("new-version"), "A", !canUseSkill, "先创建或导入一个 skill。"),
+      command("new-case", "添加 case", "测评", "新增测试用例并生成新的 EvalSetVersion。", () => chooseAction("new-case"), "C", !canUseSkill, "先创建或导入一个 skill。"),
+      command("record-run", "记录本次测评", "测评", "进入 pass/fail 手工测评确认区。", () => chooseAction("run"), "R", !canUseSkill || cases.length === 0, cases.length === 0 ? "当前测试集还没有 case。" : "先创建或导入一个 skill。"),
+      command("compare-version", "比较版本", "证据", "打开 bundle 文件级 diff。", () => openDiffMode(), "D", !canCompareVersions, "当前 variant 至少需要两个版本。"),
+    ];
+  }, [cases.length, defaultVariant, hasPersistedSkill]);
 
   useEffect(() => {
     void loadSkill(selectedSkillId);
@@ -770,6 +790,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
   return (
     <div className="linearWorkbench">
+      <CommandMenu commands={commandItems} scopeLabel={selectedDetail.skill.slug} />
       <aside className="linearCatalog" aria-label="Skill catalog">
         <div className="linearCatalogTop">
           <div>
@@ -826,16 +847,19 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             <p>{selectedDetail.skill.owner_ref} / {selectedDetail.skill.lifecycle_status}</p>
             <h1>{selectedDetail.skill.slug}</h1>
           </div>
-          <nav className="linearTabs" aria-label="Workbench modes">
-            <button className={mode === "overview" ? "linearTabActive" : ""} onClick={() => setMode("overview")} type="button">概览</button>
-            <button className={mode === "variants" ? "linearTabActive" : ""} onClick={() => setMode("variants")} type="button">变体</button>
-            <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
-            <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
-            <button className={mode === "history" ? "linearTabActive" : ""} onClick={() => setMode("history")} type="button">历史</button>
-            {mode === "promotion" || promotionReview ? (
-              <button className={mode === "promotion" ? "linearTabActive" : ""} onClick={() => setMode("promotion")} type="button">评审</button>
-            ) : null}
-          </nav>
+          <div className="linearHeaderActions">
+            <nav className="linearTabs" aria-label="Workbench modes">
+              <button className={mode === "overview" ? "linearTabActive" : ""} onClick={() => setMode("overview")} type="button">概览</button>
+              <button className={mode === "variants" ? "linearTabActive" : ""} onClick={() => setMode("variants")} type="button">变体</button>
+              <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
+              <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
+              <button className={mode === "history" ? "linearTabActive" : ""} onClick={() => setMode("history")} type="button">历史</button>
+              {mode === "promotion" || promotionReview ? (
+                <button className={mode === "promotion" ? "linearTabActive" : ""} onClick={() => setMode("promotion")} type="button">评审</button>
+              ) : null}
+            </nav>
+            <GlobalCommandButton />
+          </div>
         </header>
 
         {notice ? <div className={`linearNotice linearNotice-${notice.tone}`}>{notice.message}</div> : null}
@@ -2087,6 +2111,28 @@ function diffFileSizeLabel(file: BundleDiffFile) {
 
 function runFraction(run: EvalRunRecord) {
   return `${run.summary.passed ?? 0}/${run.summary.total ?? 0}`;
+}
+
+function command(
+  id: string,
+  title: string,
+  group: string,
+  detail: string,
+  run: () => void,
+  shortcut?: string,
+  disabled = false,
+  disabledReason = "",
+): CommandMenuItem {
+  return {
+    id,
+    title,
+    group,
+    detail,
+    run,
+    shortcut,
+    disabled,
+    disabledReason,
+  };
 }
 
 function formatDate(value?: string) {

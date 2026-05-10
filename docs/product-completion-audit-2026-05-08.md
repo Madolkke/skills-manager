@@ -2,7 +2,7 @@
 
 日期：2026-05-10
 
-状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：标准 Skill bundle 导入、variant/version、eval set version、manual eval、历史查看、run-to-run comparison、accepted verification、bundle diff、candidate promotion review 都能闭环。但距离成熟产品还缺少更完整的操作效率、权限、多用户协作、自动测评策略和更深的可访问性验证。
+状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：标准 Skill bundle 导入、variant/version、eval set version、manual eval、历史查看、run-to-run comparison、accepted verification、bundle diff、candidate promotion review 和上下文命令菜单都能闭环。但距离成熟产品还缺少更完整的操作效率、权限、多用户协作、自动测评策略和更深的可访问性验证。
 
 ## 目标拆解
 
@@ -49,6 +49,7 @@
 | Run history | `GET /api/skills/{skill_id}/eval-runs`；前端 history mode 可过滤并查看 case result；E2E 覆盖。 | 完成 |
 | Run-to-run comparison | `GET /api/eval-runs/compare` 只允许同 `EvalSetVersion` 的 finished run 比较；History mode 可选择对照/候选并查看 delta、修复/回退。 | 完成 |
 | Accepted verification | `POST /api/eval-runs/accepted-verifications` 写入 `(variant_id, eval_set_version_id)` 指针和 audit event；History row 显示 `Accepted`。 | 完成 |
+| 上下文命令菜单 | `Cmd/Ctrl+K` 和可见按钮可打开命令菜单；E2E 覆盖搜索 `添加 case` 并跳转表单。 | 完成 |
 | Case version history | `GET /api/eval-cases/{case_id}/versions`；E2E 覆盖 inline history。 | 完成 |
 | 视觉回归 | `apps/web/e2e/visual-workbench.spec.ts` 覆盖 empty、imported overview、manual eval、promotion review、mobile empty。 | 完成 |
 | README | README 已用中文补充一键启动、验证命令、标准 bundle、manual eval 和 promotion 流程。 | 完成 |
@@ -59,29 +60,33 @@
 已执行并通过：
 
 ```bash
+cd apps/api && uv run pytest
 cd apps/web && npm run typecheck
 cd apps/web && npm run build
-cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e
-cd apps/api && uv run pytest
+cd apps/web && npm run e2e
 ```
 
 结果：
 
 - Web typecheck：通过。
 - Web production build：通过。
-- Playwright E2E：17 passed。
+- Playwright E2E：18 passed。
 - API pytest：69 passed。
 
 本轮新增视觉资产：
 
+- `apps/web/e2e/visual-workbench.spec.ts-snapshots/empty-skill-workbench-chromium-darwin.png`
+- `apps/web/e2e/visual-workbench.spec.ts-snapshots/imported-skill-overview-chromium-darwin.png`
+- `apps/web/e2e/visual-workbench.spec.ts-snapshots/manual-eval-review-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/promotion-review-ready-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/run-comparison-ready-chromium-darwin.png`
+- `apps/web/e2e/visual-workbench.spec.ts-snapshots/mobile-empty-workbench-chromium-darwin.png`
 - `.agent/screenshots/promotion-review-ready-2026-05-10.png`
 
 ## 仍然阻塞“成熟产品完成”的风险
 
 1. **权限和多用户协作还没实现。** 当前仍是单用户工作台；没有 owner/maintainer/evaluator/viewer 的 scoped role enforcement。
-2. **Inspector 操作仍偏表单。** 功能闭环已通，但高频动作还可以更顺：例如批量 case、快捷命令、导入后自动引导测评。
+2. **Inspector 操作仍偏表单。** 命令菜单改善了入口，但具体表单仍可以更顺：例如批量 case、inline quick-add、导入后自动引导测评。
 3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
 4. **Run matrix / saved view 还没做。** 现在能比较两次 run，但不能把筛选保存成团队视图，也没有 case × variant/version 的多维矩阵。
 5. **Case restore 还没做。** 可以查看 case 历史，但不能从旧版本一键生成恢复版本。
@@ -94,7 +99,7 @@ cd apps/api && uv run pytest
 
 下一轮最有价值的方向：
 
-1. 把 inspector 的高频流程改成更短路径。
+1. 把 inspector 的具体表单流程改成更短路径，优先做 inline quick-add 和批量 case。
 2. 开始权限模型和 scoped role assignment，尤其是 accepted verification / promotion 权限。
 3. 做 run matrix / saved view，让团队能查询更多维度的测评证据。
 4. 把 eval strategy / runner registry 产品化。

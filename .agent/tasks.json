@@ -26,5 +26,12 @@
     "priority": 4,
     "passes": true,
     "spec": ".agent/tasks/TASK-004.json"
+  },
+  {
+    "id": "005",
+    "title": "实现上下文命令菜单",
+    "priority": 5,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-005.json"
   }
 ]

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
+
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
@@ -37,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <strong>Verified skill operations</strong>
           </div>
           <div className="topbarActions">
-            <button className="iconButton" aria-label="Open command menu">Cmd K</button>
+            <GlobalCommandButton />
             <button className="avatarButton" aria-label="Current user">XX</button>
           </div>
         </div>

@@ -260,6 +260,212 @@ a:focus-visible {
   height: 38px;
 }
 
+.commandMenuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: start center;
+  background: rgba(15, 23, 42, 0.22);
+  padding: min(12vh, 96px) 18px 18px;
+  backdrop-filter: blur(10px);
+}
+
+.commandMenuPanel {
+  width: min(720px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.28);
+}
+
+.commandMenuScope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background:
+    linear-gradient(135deg, rgba(32, 78, 124, 0.92), rgba(17, 24, 39, 0.98)),
+    #111827;
+  color: #e5edf8;
+  padding: 12px 14px;
+}
+
+.commandMenuScope span,
+.commandMenuSearch span {
+  color: #9fb0c7;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.commandMenuScope strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commandMenuSearch {
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid #e4eaf2;
+  padding: 12px;
+}
+
+.commandMenuSearch input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cfd8e6;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 850;
+  outline: none;
+  padding: 0 13px;
+}
+
+.commandMenuSearch input:focus {
+  border-color: #315c8f;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(49, 92, 143, 0.12);
+}
+
+.commandMenuList {
+  display: grid;
+  max-height: min(52vh, 460px);
+  overflow: auto;
+  padding: 8px;
+}
+
+.commandMenuItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #111827;
+  cursor: pointer;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.commandMenuItem:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.commandMenuItemActive:not(:disabled),
+.commandMenuItem:hover:not(:disabled) {
+  border-color: #cbd8e8;
+  background: #eef5fb;
+}
+
+.commandMenuItemMain {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.commandMenuItemMain b,
+.commandMenuItemMain small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commandMenuItemMain b {
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.commandMenuItemMain small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.commandMenuMeta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.commandMenuMeta i {
+  border-radius: 999px;
+  background: #edf2f7;
+  color: #475569;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
+.commandMenuMeta kbd {
+  min-width: 28px;
+  border: 1px solid #cbd5e1;
+  border-bottom-width: 2px;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #334155;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 4px 7px;
+  text-align: center;
+}
+
+.commandMenuEmpty {
+  display: grid;
+  gap: 4px;
+  color: #667085;
+  padding: 24px;
+  text-align: center;
+}
+
+.commandMenuEmpty strong {
+  color: #111827;
+}
+
+.commandMenuTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  min-height: 36px;
+  border: 1px solid #111827;
+  border-radius: 7px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 0 12px;
+  white-space: nowrap;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.commandMenuTrigger:hover {
+  border-color: #1f2937;
+  background: #1f2937;
+  transform: translateY(-1px);
+}
+
+.commandMenuTrigger:focus-visible {
+  outline: 3px solid rgba(49, 92, 143, 0.22);
+  outline-offset: 2px;
+}
+
 .pageHeader,
 .hubOverview,
 .stack,
@@ -1865,6 +2071,13 @@ h2 {
   padding: 3px;
 }
 
+.linearHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .linearTabs button {
   min-height: 31px;
   border: 0;
@@ -2536,12 +2749,24 @@ h2 {
     display: grid;
   }
 
-  .linearTabs {
+  .linearHeaderActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     width: 100%;
   }
 
+  .linearTabs {
+    width: auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .linearTabs::-webkit-scrollbar {
+    display: none;
+  }
+
   .linearTabs button {
-    flex: 1;
+    flex: 0 0 auto;
   }
 
   .linearMetrics {

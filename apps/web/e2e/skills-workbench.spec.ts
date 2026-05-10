@@ -103,6 +103,19 @@ test("keyboard users can open primary inspector actions", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "添加 skill" })).toBeVisible();
 });
 
+test("operator can open command menu and jump to add case", async ({ page }) => {
+  await importSkillBundle(page, `command-menu-${Date.now()}`);
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+  await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
+  await page.getByPlaceholder("搜索命令、页面或动作").fill("添加 case");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "添加测试用例" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Open command menu" }).click();
+  await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
+});
+
 test("operator can edit and archive eval cases", async ({ page }) => {
   await importSkillBundle(page, `case-management-${Date.now()}`);
   await addEvalCase(page, "PR: stale title");
