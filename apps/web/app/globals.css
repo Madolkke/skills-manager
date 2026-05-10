@@ -4731,6 +4731,13 @@ body {
   background: #f8fafc;
 }
 
+.runMatrixImpactHeader,
+.runMatrixImpactCell {
+  width: 126px;
+  min-width: 126px;
+  background: #ffffff;
+}
+
 .runMatrixRunHeader {
   width: 148px;
   min-width: 148px;
@@ -4765,7 +4772,8 @@ body {
 
 .runMatrixCellPass,
 .runMatrixCellFail,
-.runMatrixCellMissing {
+.runMatrixCellMissing,
+.runMatrixImpactCell span {
   display: inline-grid;
   place-items: center;
   min-width: 54px;
@@ -4773,6 +4781,11 @@ body {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 950;
+}
+
+.runMatrixImpactCell span {
+  min-width: 76px;
+  padding: 0 9px;
 }
 
 .runMatrixCellPass {
@@ -4788,6 +4801,32 @@ body {
 .runMatrixCellMissing {
   background: #f1f5f9;
   color: #94a3b8;
+}
+
+.runMatrixImpactFixed {
+  background: #dcfae6;
+  color: #067647;
+}
+
+.runMatrixImpactRegressed {
+  background: #fee4e2;
+  color: #b42318;
+}
+
+.runMatrixImpactStablePass {
+  background: #e6f4ff;
+  color: #175cd3;
+}
+
+.runMatrixImpactStableFail {
+  background: #fff4e5;
+  color: #b54708;
+}
+
+.runMatrixImpactMissing,
+.runMatrixImpactWaiting {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .historyGrid {

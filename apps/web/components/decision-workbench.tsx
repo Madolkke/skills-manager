@@ -1721,7 +1721,12 @@ function HistoryPane({
         </div>
       </div>
 
-      <RunMatrixPanel loading={runMatrixLoading} matrix={runMatrix} />
+      <RunMatrixPanel
+        baselineRunId={compareBaselineRunId}
+        candidateRunId={compareCandidateRunId}
+        loading={runMatrixLoading}
+        matrix={runMatrix}
+      />
 
       <div className="historyGrid">
         <section className="historyRunList" aria-label="Eval run history">

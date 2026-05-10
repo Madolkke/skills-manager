@@ -82,5 +82,12 @@
     "priority": 12,
     "passes": true,
     "spec": ".agent/tasks/TASK-012.json"
+  },
+  {
+    "id": "013",
+    "title": "实现 run matrix 逐 case 影响态",
+    "priority": 13,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-013.json"
   }
 ]

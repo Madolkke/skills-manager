@@ -1,0 +1,25 @@
+{
+  "id": "013",
+  "title": "实现 run matrix 逐 case 影响态",
+  "status": "complete",
+  "goal": "让用户在 run matrix 中直接看出候选 run 相对对照 run 对每个 case 的修复、回退、稳定或缺失。",
+  "scope": [
+    "复用历史页已有的对照/候选 run 选择",
+    "Run matrix 每个 case 行显示 impact chip",
+    "E2E 覆盖修复和稳定通过状态",
+    "更新中文文档、审计和视觉基线"
+  ],
+  "out_of_scope": [
+    "新增后端 read model",
+    "跨 eval set comparison",
+    "列配置和分组持久化",
+    "矩阵内编辑测评结果"
+  ],
+  "verification": [
+    "cd apps/api && uv run pytest",
+    "cd apps/web && npm run typecheck",
+    "cd apps/web && npm run build",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e",
+    "git diff --check"
+  ]
+}

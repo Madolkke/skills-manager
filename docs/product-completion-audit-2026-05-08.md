@@ -51,7 +51,7 @@
 | 风险 promotion | E2E `risky promotion requires a decision note before promoting` 覆盖回退时必须填写说明。 | 完成 |
 | Diff 区域 promotion 入口 | `DiffPane` 对 current -> candidate 提供 `设为当前版本评审`；E2E happy path 从 diff 入口进入评审。 | 完成 |
 | Run history | `GET /api/skills/{skill_id}/eval-runs`；前端 history mode 可过滤并查看 case result；E2E 覆盖。 | 完成 |
-| Run matrix | `GET /api/skills/{skill_id}/eval-run-matrix`；History mode 展示 case x run pass/fail 矩阵；E2E 覆盖多 case、多 run。 | 完成 |
+| Run matrix | `GET /api/skills/{skill_id}/eval-run-matrix`；History mode 展示 case x run pass/fail 矩阵；选择对照/候选后显示逐 case `修复/回退/稳定/缺失` impact；E2E 覆盖多 case、多 run 和 impact。 | 完成 |
 | Saved run views | `saved_views` 表；`GET /api/skills/{skill_id}/saved-views`、`POST /api/saved-views`、`DELETE /api/saved-views/{id}`；History mode 可保存、应用、删除当前 run filters；E2E 覆盖。 | 完成 |
 | Run-to-run comparison | `GET /api/eval-runs/compare` 只允许同 `EvalSetVersion` 的 finished run 比较；History mode 可选择对照/候选并查看 delta、修复/回退。 | 完成 |
 | Accepted verification | `POST /api/eval-runs/accepted-verifications` 写入 `(variant_id, eval_set_version_id)` 指针和 audit event；History row 显示 `Accepted`。 | 完成 |
@@ -98,7 +98,7 @@ cd apps/web && npm run e2e
 1. **权限和多用户协作还没实现。** 当前仍是单用户工作台；没有 owner/maintainer/evaluator/viewer 的 scoped role enforcement。
 2. **部分操作仍偏表单。** 导入后清单、case 新增、记录 run 和 candidate 验证已更连续，但新建/编辑对象仍主要依赖 inspector 表单。
 3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
-4. **Run matrix 还只是只读第一版。** 现在能保存筛选视图并看 case x run pass/fail，但还不能配置列、分组或高亮 regression/improvement。
+4. **Run matrix 还不是完整多维表格。** 现在能保存筛选视图、看 case x run pass/fail，并高亮对照/候选的修复和回退，但还不能配置列或分组。
 5. **Accessibility 覆盖还浅。** 有键盘 smoke 和可见 label，但缺少系统化 focus order、screen reader、reduced-motion 验证。
 6. **Ralph Loop 未真正持续运行。** 配置已安装，但本地 Docker Sandboxes 需要 `sbx login` 授权；没有登录就不能让 Ralph 持续接管任务。
 
@@ -110,6 +110,6 @@ cd apps/web && npm run e2e
 
 1. 把创建/编辑体验继续从 inspector 表单迁到主内容区或内联抽屉，减少上下文跳转。
 2. 开始权限模型和 scoped role assignment，尤其是 accepted verification / promotion 权限。
-3. 把 run matrix 升级为多维表格：支持列配置、分组和 regression/improvement 高亮。
+3. 把 run matrix 升级为多维表格：支持列配置、分组和更多指标列。
 4. 把 eval strategy / runner registry 产品化。
 5. 系统补 accessibility 和可用性测试。

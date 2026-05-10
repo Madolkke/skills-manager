@@ -455,6 +455,11 @@ test("operator can inspect run matrix across eval runs", async ({ page }) => {
   await expect(page.locator(".runMatrixCaseTitle", { hasText: "PR: token logging" })).toBeVisible();
   await expect(page.locator(".runMatrixCellFail")).toHaveCount(1);
   await expect(page.locator(".runMatrixCellPass")).toHaveCount(3);
+
+  await page.locator(".historyRunRow").filter({ hasText: "1/2" }).getByRole("button", { name: "对照" }).click();
+  await page.locator(".historyRunRow").filter({ hasText: "2/2" }).getByRole("button", { name: "候选" }).click();
+  await expect(page.locator(".runMatrixImpactFixed")).toHaveCount(1);
+  await expect(page.locator(".runMatrixImpactStablePass")).toHaveCount(1);
 });
 
 test("operator can save and reapply an eval run history view", async ({ page }) => {

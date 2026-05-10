@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-10 20:10 CST - TASK-013 Run matrix 逐 case 影响态
+
+- 在 History mode 的 Run matrix 中接入现有 `对照` / `候选` run 选择。
+- 矩阵每个 case 行新增 impact chip，显示 `修复`、`回退`、`稳定通过`、`仍未通过`、`缺失` 或等待选择状态。
+- 新增 E2E 覆盖候选 run 相对对照 run 的 `修复` 和 `稳定通过`。
+- 已验证：`uv run pytest` 80 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 26 passed。
+
 ### 2026-05-10 19:45 CST - TASK-012 测评历史保存视图
 
 - 新增 `saved_views` 持久化模型和 `GET /api/skills/{skill_id}/saved-views`、`POST /api/saved-views`、`DELETE /api/saved-views/{id}`。
