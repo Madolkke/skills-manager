@@ -3,7 +3,7 @@
 只列核心目录，忽略依赖、构建产物和工具缓存。
 
 - `apps/api/`：FastAPI 后端。核心包在 `apps/api/skillhub/`，测试在 `apps/api/tests/`。
-- `apps/web/`：Next.js 前端。页面、组件、E2E 和类型检查都在这里。
+- `apps/web/`：Next.js 前端。页面、组件、E2E 和类型检查都在这里；核心工作台组件在 `apps/web/components/`。
 - `docs/`：中文产品文档、API 契约、架构审计和阶段审计。
 - `examples/`：示例 skill bundle。
 - `fixtures/`：测试 fixture。

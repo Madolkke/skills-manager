@@ -33,5 +33,12 @@
     "priority": 5,
     "passes": true,
     "spec": ".agent/tasks/TASK-005.json"
+  },
+  {
+    "id": "006",
+    "title": "实现快速添加测试用例",
+    "priority": 6,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-006.json"
   }
 ]

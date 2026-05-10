@@ -54,6 +54,22 @@ class CreateEvalCaseResult:
 
 
 @dataclass(frozen=True)
+class CreatedEvalCaseResult:
+    eval_case_id: str
+    eval_case_version_id: str
+    input_artifact_id: str
+    expected_output_artifact_id: str
+
+
+@dataclass(frozen=True)
+class CreateEvalCasesBatchResult:
+    skill_id: str
+    eval_set_id: str
+    eval_set_version_id: str
+    created: tuple[CreatedEvalCaseResult, ...]
+
+
+@dataclass(frozen=True)
 class RecordEvalRunResult:
     eval_run_id: str
     skill_id: str
@@ -591,6 +607,112 @@ class SqlSkillRepository:
             input_artifact_id=input_artifact_id,
             expected_output_artifact_id=expected_output_artifact_id,
         )
+
+    def create_eval_cases_batch(
+        self,
+        *,
+        skill_id: str,
+        cases: list[dict[str, Any]],
+        actor: str,
+    ) -> CreateEvalCasesBatchResult:
+        if not cases:
+            raise InvariantError("At least one eval case is required.")
+
+        created_at = utc_now()
+        created_cases: list[CreatedEvalCaseResult] = []
+
+        with self.engine.begin() as connection:
+            eval_set = self._primary_eval_set_row(connection, skill_id)
+            current_eval_set_version = self._eval_set_version_row(connection, eval_set["current_version_id"])
+            for item in cases:
+                title = self._required_text(item, "title")
+                input_text = self._required_text(item, "input_text")
+                expected_output = self._required_text(item, "expected_output")
+                if not title or not input_text or not expected_output:
+                    raise InvariantError("Each eval case requires title, input_text, and expected_output.")
+
+                eval_case_id = new_id("case")
+                eval_case_version_id = new_id("casever")
+                input_artifact_id = self._insert_text_artifact(
+                    connection,
+                    kind="eval_input",
+                    namespace=skill_id,
+                    content=input_text,
+                    actor=actor,
+                    created_at=created_at,
+                )
+                expected_output_artifact_id = self._insert_text_artifact(
+                    connection,
+                    kind="expected_output",
+                    namespace=skill_id,
+                    content=expected_output,
+                    actor=actor,
+                    created_at=created_at,
+                )
+
+                connection.execute(
+                    insert(tables.eval_cases).values(
+                        id=eval_case_id,
+                        skill_id=skill_id,
+                        title=title,
+                        current_version_id=None,
+                        lifecycle_status="active",
+                        created_at=created_at,
+                        updated_at=created_at,
+                    )
+                )
+                connection.execute(
+                    insert(tables.eval_case_versions).values(
+                        id=eval_case_version_id,
+                        skill_id=skill_id,
+                        case_id=eval_case_id,
+                        version_number=1,
+                        input_artifact_id=input_artifact_id,
+                        expected_output_artifact_id=expected_output_artifact_id,
+                        notes=item.get("notes"),
+                        created_at=created_at,
+                        created_by=actor,
+                    )
+                )
+                connection.execute(
+                    update(tables.eval_cases)
+                    .where(tables.eval_cases.c.id == eval_case_id)
+                    .values(current_version_id=eval_case_version_id, updated_at=created_at)
+                )
+                created_cases.append(
+                    CreatedEvalCaseResult(
+                        eval_case_id=eval_case_id,
+                        eval_case_version_id=eval_case_version_id,
+                        input_artifact_id=input_artifact_id,
+                        expected_output_artifact_id=expected_output_artifact_id,
+                    )
+                )
+
+            eval_set_version_id = self._create_eval_set_version(
+                connection,
+                skill_id=skill_id,
+                eval_set_id=eval_set["id"],
+                case_version_ids=[
+                    *self._eval_set_case_version_ids(connection, current_eval_set_version["id"]),
+                    *[item.eval_case_version_id for item in created_cases],
+                ],
+                created_at=created_at,
+                actor=actor,
+            )
+
+        return CreateEvalCasesBatchResult(
+            skill_id=skill_id,
+            eval_set_id=eval_set["id"],
+            eval_set_version_id=eval_set_version_id,
+            created=tuple(created_cases),
+        )
+
+    @staticmethod
+    def _required_text(item: dict[str, Any], key: str) -> str:
+        value = item.get(key)
+        if not isinstance(value, str):
+            return ""
+        return value.strip()
 
     def create_eval_case_version(
         self,

@@ -1,0 +1,28 @@
+{
+  "id": "006",
+  "title": "实现快速添加测试用例",
+  "priority": 6,
+  "area": "frontend-ux",
+  "spec": "docs/superpowers/specs/2026-05-10-fast-case-entry-design.md",
+  "goal": "让用户在测评页快速添加单条或批量测试用例，并保证批量添加只生成一个新的 EvalSetVersion。",
+  "requirements": [
+    "测评页必须提供主内容区的快速添加 case 面板，而不是只依赖右侧 inspector。",
+    "批量粘贴必须支持 tab 或竖线分隔的 title、input、expected output、notes。",
+    "无效批量行不能入库，UI 必须显示可导入条数和跳过条数。",
+    "后端必须提供批量创建接口，一次批量添加只生成一个新的 EvalSetVersion。",
+    "新增 case 后必须可以立即进入手工通过/不通过测评并记录 EvalRun。",
+    "原有单条添加、编辑、归档测试用例流程不能回归。"
+  ],
+  "tests": [
+    "API 测试覆盖 POST /api/eval-cases/batch 返回两条 created，并能读取同一个 EvalSetVersion 下的两条具体 case。",
+    "Repository 测试覆盖批量创建只生成一个 eval set snapshot。",
+    "Playwright 覆盖批量粘贴两条 case 后记录一次手工 eval。"
+  ],
+  "verification": [
+    "cd apps/api && uv run pytest",
+    "cd apps/web && npm run typecheck",
+    "cd apps/web && npm run build",
+    "cd apps/web && npm run e2e",
+    "git diff --check"
+  ]
+}

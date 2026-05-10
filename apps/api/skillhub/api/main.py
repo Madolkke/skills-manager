@@ -94,6 +94,19 @@ class CreateEvalCasePayload(BaseModel):
     notes: str | None = None
 
 
+class CreateEvalCaseItemPayload(BaseModel):
+    title: str = Field(min_length=1)
+    input_text: str = Field(min_length=1)
+    expected_output: str = Field(min_length=1)
+    notes: str | None = None
+
+
+class CreateEvalCasesBatchPayload(BaseModel):
+    skill_id: str
+    cases: list[CreateEvalCaseItemPayload] = Field(min_length=1)
+    actor: str = "system"
+
+
 class CreateEvalCaseVersionPayload(BaseModel):
     case_id: str
     title: str | None = None
@@ -366,6 +379,19 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 expected_output=payload.expected_output,
                 actor=payload.actor,
                 notes=payload.notes,
+            )
+        )
+
+    @app.post("/api/eval-cases/batch")
+    def create_eval_cases_batch(
+        payload: CreateEvalCasesBatchPayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.create_eval_cases_batch(
+                skill_id=payload.skill_id,
+                cases=[case.model_dump() for case in payload.cases],
+                actor=payload.actor,
             )
         )
 

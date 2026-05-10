@@ -7,6 +7,7 @@ import { passRate } from "@/lib/api";
 import { emptySkillDetail } from "@/lib/empty-state";
 import { percent, shortId } from "@/lib/format";
 import { CommandMenu, type CommandMenuItem } from "@/components/command-menu/command-menu";
+import { QuickAddCases, type QuickEvalCaseDraft } from "@/components/eval-cases/quick-add-cases";
 import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
@@ -168,6 +169,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       command("new-variant", "新建 variant", "创建", "为当前 skill 新增一组 tag 约束下的最优解。", () => chooseAction("new-variant"), "V", !canUseSkill, "先创建或导入一个 skill。"),
       command("new-version", "追加版本", "创建", "上传新的标准 skill bundle，形成不可变 VariantVersion。", () => chooseAction("new-version"), "A", !canUseSkill, "先创建或导入一个 skill。"),
       command("new-case", "添加 case", "测评", "新增测试用例并生成新的 EvalSetVersion。", () => chooseAction("new-case"), "C", !canUseSkill, "先创建或导入一个 skill。"),
+      command("batch-case", "批量添加 case", "测评", "打开测评页的快速批量粘贴入口。", () => setMode("evals"), "B", !canUseSkill, "先创建或导入一个 skill。"),
       command("record-run", "记录本次测评", "测评", "进入 pass/fail 手工测评确认区。", () => chooseAction("run"), "R", !canUseSkill || cases.length === 0, cases.length === 0 ? "当前测试集还没有 case。" : "先创建或导入一个 skill。"),
       command("compare-version", "比较版本", "证据", "打开 bundle 文件级 diff。", () => openDiffMode(), "D", !canCompareVersions, "当前 variant 至少需要两个版本。"),
     ];
@@ -502,8 +504,10 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       const resultMessage = typeof result === "string" ? result : typeof result === "object" ? result?.message : undefined;
       await loadSkills(nextSelectedId);
       setNotice({ tone: "good", message: resultMessage || message });
+      return true;
     } catch (error) {
       setNotice({ tone: "bad", message: error instanceof Error ? error.message : "操作失败" });
+      return false;
     } finally {
       setBusy(false);
     }
@@ -731,6 +735,24 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     });
   }
 
+  async function createCases(drafts: QuickEvalCaseDraft[]) {
+    return runCommand(`已批量加入 ${drafts.length} 条测试用例。`, async () => {
+      const result = await apiSend<{
+        created: Array<{ eval_case_id: string; eval_case_version_id: string }>;
+      }>("/api/eval-cases/batch", {
+        method: "POST",
+        body: {
+          skill_id: selectedDetail.skill.id,
+          cases: drafts,
+          actor: ACTOR,
+        },
+      });
+      const lastCase = result.created.at(-1);
+      if (lastCase) setSelectedCaseId(lastCase.eval_case_id);
+      chooseAction("run");
+    });
+  }
+
   async function updateCase(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -949,6 +971,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             evalTargetVersionId={evalTargetVersion?.id ?? ""}
             evalTargetVersions={variantVersionOptions}
             failedDraft={failedDraft}
+            onCreateCases={createCases}
             onAction={chooseAction}
             onArchiveCase={archiveCase}
             onEditCase={(caseId) => {
@@ -1581,6 +1604,7 @@ function EvalsPane({
   failedDraft,
   onAction,
   onArchiveCase,
+  onCreateCases,
   onEditCase,
   onHistoryCase,
   onRecord,
@@ -1609,6 +1633,7 @@ function EvalsPane({
   failedDraft: number;
   onAction: (mode: ActionMode) => void;
   onArchiveCase: (caseId: string) => void;
+  onCreateCases: (cases: QuickEvalCaseDraft[]) => Promise<boolean>;
   onEditCase: (caseId: string) => void;
   onHistoryCase: (caseId: string) => void;
   onRecord: () => void;
@@ -1650,6 +1675,8 @@ function EvalsPane({
         </label>
         <span>测评结果会绑定到 exact VariantVersion，候选版本也可以先测再上架。</span>
       </div>
+
+      <QuickAddCases busy={busy} onCreateCases={onCreateCases} />
 
       <div className="evalRunBar" data-testid="eval-run-bar">
         <div className="evalProgress">

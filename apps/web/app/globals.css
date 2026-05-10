@@ -466,6 +466,156 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+.quickCaseComposer {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #dce4ee;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, #ffffff, #f7fafc);
+  padding: 14px;
+}
+
+.quickCaseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quickCaseHeader div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.quickCaseHeader span,
+.quickCaseBatch label span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.quickCaseHeader strong {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.quickCaseModeSwitch {
+  display: inline-flex;
+  border: 1px solid #d7deea;
+  border-radius: 7px;
+  background: #eef2f6;
+  padding: 3px;
+}
+
+.quickCaseModeSwitch button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #5f6b7a;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 0 11px;
+}
+
+.quickCaseModeSwitch .quickCaseModeActive {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.quickCaseGrid {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 8px;
+}
+
+.quickCaseGrid input,
+.quickCaseGrid textarea,
+.quickCaseBatch textarea {
+  width: 100%;
+  border: 1px solid #d6deea;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  padding: 9px 10px;
+}
+
+.quickCaseGrid textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.quickCaseGrid input[name="quick_notes"] {
+  grid-column: 1 / 3;
+}
+
+.quickCaseGrid button,
+.quickCaseBatch button {
+  min-height: 40px;
+  border: 1px solid #111827;
+  border-radius: 7px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 950;
+  padding: 0 13px;
+}
+
+.quickCaseGrid button:disabled,
+.quickCaseBatch button:disabled {
+  border-color: #d6dde8;
+  background: #eef2f7;
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
+.quickCaseBatch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.quickCaseBatch label {
+  display: grid;
+  gap: 6px;
+}
+
+.quickCaseBatch textarea {
+  min-height: 116px;
+  resize: vertical;
+}
+
+.quickCaseBatchPreview {
+  display: grid;
+  gap: 3px;
+  min-width: 154px;
+  border: 1px solid #dce4ee;
+  border-radius: 7px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.quickCaseBatchPreview strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.quickCaseBatchPreview span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 760;
+}
+
 .pageHeader,
 .hubOverview,
 .stack,
@@ -3147,8 +3297,7 @@ h2 {
 }
 
 .evalRunBar {
-  position: sticky;
-  top: 0;
+  position: static;
   display: grid;
   grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
   align-items: center;
@@ -3208,6 +3357,7 @@ h2 {
   background: #ffffff;
   padding: 13px;
   cursor: default;
+  scroll-margin-top: 116px;
 }
 
 .caseReviewCardActive {
@@ -3797,7 +3947,7 @@ body {
 .evalCaseRail {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .evalCaseRailHead,
@@ -3818,7 +3968,7 @@ body {
 }
 
 .evalCaseRail .caseReviewList {
-  overflow: auto;
+  overflow: visible;
   padding: 10px;
 }
 

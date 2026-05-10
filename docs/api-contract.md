@@ -202,9 +202,10 @@ MVP 约束：
 
 1. `POST /api/skills` 创建 `Skill + EvalCorpus + EvalSetVersion v1 + 默认 Variant + VariantVersion v1`。
 2. `POST /api/eval-cases` 添加测试用例，创建 `EvalCase + EvalCaseVersion v1`，并自动生成新的 `EvalSetVersion`。
-3. `POST /api/eval-runs` 选择某个 `VariantVersion + EvalSetVersion`，手工记录每条 case 的 pass/fail；也可以用 `POST /api/eval-result-imports` 导入外部 runner 的标准结果。
-4. `GET /api/eval-result` 查看这次组合的详细结果。
-5. `GET /api/variant-page` 回到变体页面，查看当前版本在所有测评集版本上的验证状态。
+3. `POST /api/eval-cases/batch` 批量添加测试用例，一次请求创建多组 `EvalCase + EvalCaseVersion v1`，但只生成一个新的 `EvalSetVersion`。
+4. `POST /api/eval-runs` 选择某个 `VariantVersion + EvalSetVersion`，手工记录每条 case 的 pass/fail；也可以用 `POST /api/eval-result-imports` 导入外部 runner 的标准结果。
+5. `GET /api/eval-result` 查看这次组合的详细结果。
+6. `GET /api/variant-page` 回到变体页面，查看当前版本在所有测评集版本上的验证状态。
 
 ### 更新一个 skill 内容并验证不破坏历史
 
@@ -589,6 +590,38 @@ Content-Type: application/json
 - 创建 `EvalCaseVersion v1`。
 - 创建 input / expected artifacts。
 - 基于当前最新测评集创建新的 `EvalSetVersion`。
+
+### Batch Create Eval Cases
+
+```http
+POST /api/eval-cases/batch
+Content-Type: application/json
+
+{
+  "skill_id": "skill-code-reviewer",
+  "actor": "tester",
+  "cases": [
+    {
+      "title": "PR: missing tenant scope",
+      "input_text": "Project.all()",
+      "expected_output": "应指出缺少 tenant scope。",
+      "notes": "从历史 PR 整理。"
+    },
+    {
+      "title": "PR: token logging",
+      "input_text": "console.log(token)",
+      "expected_output": "应指出 token logging 风险。"
+    }
+  ]
+}
+```
+
+行为：
+
+- 为每条输入创建 `EvalCase` 和 `EvalCaseVersion v1`。
+- 为每条输入创建 input / expected artifacts。
+- 基于当前最新测评集创建一个新的 `EvalSetVersion`，包含旧 case versions 和本批新增 case versions。
+- 任一 case 缺少 title、input 或 expected output 时，整个请求失败，不写入部分数据。
 
 ### Create Eval Case Version
 

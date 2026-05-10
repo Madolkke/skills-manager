@@ -116,6 +116,36 @@ test("operator can open command menu and jump to add case", async ({ page }) => 
   await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
 });
 
+test("operator can batch paste eval cases and record a run", async ({ page }) => {
+  await importSkillBundle(page, `batch-cases-${Date.now()}`);
+
+  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("button", { name: "批量", exact: true }).click();
+  await page.getByLabel("批量 case 文本").fill(
+    [
+      "PR: missing tenant scope | Project.all() | Flag missing tenant scope.",
+      "PR: token logging | console.log(token) | Flag token logging.",
+    ].join("\n"),
+  );
+  await expect(page.getByText("可导入 2 条")).toBeVisible();
+  await page.getByRole("button", { name: "批量加入评测集" }).click();
+
+  await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: missing tenant scope" })).toBeVisible();
+  await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: token logging" })).toBeVisible();
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: missing tenant scope" })
+    .getByRole("button", { name: "通过", exact: true })
+    .click();
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: token logging" })
+    .getByRole("button", { name: "不通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/2 通过。")).toBeVisible();
+});
+
 test("operator can edit and archive eval cases", async ({ page }) => {
   await importSkillBundle(page, `case-management-${Date.now()}`);
   await addEvalCase(page, "PR: stale title");

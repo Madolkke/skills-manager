@@ -501,6 +501,49 @@ class SqlSkillRepositoryTest(unittest.TestCase):
         self.assertEqual([item["case_version_id"] for item in membership], [created.eval_case_version_id])
         self.assertEqual(len(artifact_count), 2)
 
+    def test_create_eval_cases_batch_creates_one_eval_set_snapshot(self):
+        skill = self.create_skill()
+
+        created = self.repository.create_eval_cases_batch(
+            skill_id=skill.skill_id,
+            cases=[
+                {
+                    "title": "PR: missing tenant scope",
+                    "input_text": "Project.all()",
+                    "expected_output": "Flag missing tenant scope.",
+                    "notes": "Imported from review backlog.",
+                },
+                {
+                    "title": "PR: token logging",
+                    "input_text": "console.log(token)",
+                    "expected_output": "Flag token logging.",
+                    "notes": "Imported from review backlog.",
+                },
+            ],
+            actor="tester",
+        )
+
+        with self.engine.connect() as connection:
+            eval_set = connection.execute(select(eval_sets).where(eval_sets.c.id == skill.eval_set_id)).mappings().one()
+            eval_set_versions_rows = connection.execute(
+                select(eval_set_versions).where(eval_set_versions.c.eval_set_id == skill.eval_set_id)
+            ).mappings().all()
+            membership = connection.execute(
+                select(eval_set_case_versions)
+                .where(eval_set_case_versions.c.eval_set_version_id == created.eval_set_version_id)
+                .order_by(eval_set_case_versions.c.position)
+            ).mappings().all()
+            artifact_count = connection.execute(select(artifacts.c.id)).all()
+
+        self.assertEqual(eval_set["current_version_id"], created.eval_set_version_id)
+        self.assertEqual(len(eval_set_versions_rows), 2)
+        self.assertEqual(len(created.created), 2)
+        self.assertEqual(
+            [item["case_version_id"] for item in membership],
+            [item.eval_case_version_id for item in created.created],
+        )
+        self.assertEqual(len(artifact_count), 4)
+
     def test_eval_case_version_replaces_current_case_in_new_eval_set_without_mutating_old_snapshot(self):
         skill = self.create_skill()
         first = self.repository.create_eval_case(

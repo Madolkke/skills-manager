@@ -205,6 +205,7 @@ API 分两类：页面查询和命令写入。
 | `PATCH /api/variants/{variant_id}` | 更新 variant 元数据 |
 | `POST /api/variant-versions` | 创建不可变 version，可选择是否 make current |
 | `POST /api/eval-cases` | 创建 case 和 case version，并生成新 eval set version |
+| `POST /api/eval-cases/batch` | 批量创建 case 和 case version，并只生成一个新 eval set version |
 | `POST /api/eval-case-versions` | 修正 case 内容，生成新 case version 和 eval set version |
 | `POST /api/eval-runs` | 记录手工 pass/fail run |
 | `POST /api/eval-runs/accepted-verifications` | 把一次 finished run 接受为当前验证依据 |

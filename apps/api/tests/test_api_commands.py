@@ -54,6 +54,40 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(run_response.json()["passed"], 1)
         self.assertEqual(run_response.json()["failed"], 0)
 
+    def test_batch_eval_cases_endpoint_creates_one_snapshot(self):
+        skill = self.create_skill("batch-case-reviewer")
+
+        response = self.client.post(
+            "/api/eval-cases/batch",
+            json={
+                "skill_id": skill["skill_id"],
+                "actor": "tester",
+                "cases": [
+                    {
+                        "title": "PR: missing tenant scope",
+                        "input_text": "Project.all()",
+                        "expected_output": "Flag missing tenant scope.",
+                        "notes": "Imported from review backlog.",
+                    },
+                    {
+                        "title": "PR: token logging",
+                        "input_text": "console.log(token)",
+                        "expected_output": "Flag token logging.",
+                    },
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body["created"]), 2)
+        detail = self.client.get(f"/api/eval-set-versions/{body['eval_set_version_id']}").json()
+        skill_detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+
+        self.assertEqual([item["case"]["title"] for item in detail["cases"]], ["PR: missing tenant scope", "PR: token logging"])
+        self.assertEqual(skill_detail["eval_sets"][0]["current_version"]["id"], body["eval_set_version_id"])
+        self.assertEqual(len(skill_detail["eval_sets"][0]["versions"]), 2)
+
     def test_read_flow_returns_hub_skill_eval_set_and_eval_run_details(self):
         skill = self.create_skill("security-reviewer", digest="digest-security")
         case = self.client.post(
