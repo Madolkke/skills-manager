@@ -54,5 +54,12 @@
     "priority": 8,
     "passes": true,
     "spec": ".agent/tasks/TASK-008.json"
+  },
+  {
+    "id": "009",
+    "title": "导入后验证引导",
+    "priority": 9,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-009.json"
   }
 ]

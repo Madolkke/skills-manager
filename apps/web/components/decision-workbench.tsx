@@ -10,6 +10,7 @@ import { CommandMenu, type CommandMenuItem } from "@/components/command-menu/com
 import { QuickAddCases, type QuickEvalCaseDraft } from "@/components/eval-cases/quick-add-cases";
 import { EvalReviewControls, type EvalReviewFilter } from "@/components/eval-cases/eval-review-controls";
 import { CandidateVerificationBanner } from "@/components/eval-cases/candidate-verification-banner";
+import { VerificationStartPanel } from "@/components/eval-cases/verification-start-panel";
 import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
@@ -757,8 +758,12 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
         },
       });
       setSelectedCaseId(result.eval_case_id);
-      chooseAction("run");
       formElement.reset();
+      return {
+        actionMode: "run",
+        message: "测试用例已加入当前评测集。已切到手工测评。",
+        mode: "evals",
+      };
     });
   }
 
@@ -915,11 +920,17 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
         {mode === "overview" ? (
           <OverviewPane
+            caseCount={cases.length}
             defaultVariant={defaultVariant}
             hasPersistedSkill={hasPersistedSkill}
             latestRun={latestRun}
             onAction={chooseAction}
             onDiff={() => openDiffMode()}
+            onOpenEvals={() => {
+              setMode("evals");
+              setActionMode("run");
+            }}
+            onOpenHistory={() => setMode("history")}
             primaryEvalSetVersion={currentEvalSetVersion?.version_number}
             score={score}
             selectedDetail={selectedDetail}
@@ -1057,20 +1068,26 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 }
 
 function OverviewPane({
+  caseCount,
   defaultVariant,
   hasPersistedSkill,
   latestRun,
   onAction,
   onDiff,
+  onOpenEvals,
+  onOpenHistory,
   primaryEvalSetVersion,
   score,
   selectedDetail,
 }: {
+  caseCount: number;
   defaultVariant: VariantDetail | null;
   hasPersistedSkill: boolean;
   latestRun: EvalRunRecord | null;
   onAction: (mode: ActionMode) => void;
   onDiff: () => void;
+  onOpenEvals: () => void;
+  onOpenHistory: () => void;
   primaryEvalSetVersion?: number;
   score: number | null;
   selectedDetail: SkillDetail;
@@ -1132,6 +1149,16 @@ function OverviewPane({
         <Metric label="测评集版本" value={primaryEvalSetVersion ? `v${primaryEvalSetVersion}` : "暂无"} />
         <Metric label="最近分数" tone={latestRun ? (score === 100 ? "good" : "bad") : "neutral"} value={latestRun ? percent(score) : "未测"} />
       </div>
+
+      <VerificationStartPanel
+        bundleFileCount={bundleFiles.length}
+        caseCount={caseCount}
+        currentVersionNumber={currentVersion?.version_number}
+        latestRun={latestRun}
+        onAddCase={() => onAction("new-case")}
+        onOpenEvals={onOpenEvals}
+        onOpenHistory={onOpenHistory}
+      />
 
       <section className="linearSection bundleSection">
         <div className="linearSectionHeader">

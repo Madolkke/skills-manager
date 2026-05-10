@@ -1,0 +1,26 @@
+{
+  "id": "009",
+  "title": "导入后验证引导",
+  "status": "complete",
+  "goal": "导入标准 Skill bundle 后，用轻量验证清单把添加测试用例、手工测评和查看证据历史串成连续路径。",
+  "scope": [
+    "概览页显示导入后验证清单",
+    "清单主动作根据 case/run 状态切换",
+    "单条 case 创建后自动进入测评 tab",
+    "Playwright 覆盖首轮验证路径",
+    "更新 README、UX review、完成度审计和日志"
+  ],
+  "out_of_scope": [
+    "后端 workflow 状态",
+    "自动测评 runner",
+    "saved view 或 run matrix",
+    "权限系统"
+  ],
+  "verification": [
+    "cd apps/api && uv run pytest",
+    "cd apps/web && npm run typecheck",
+    "cd apps/web && npm run build",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e",
+    "git diff --check"
+  ]
+}

@@ -3132,6 +3132,128 @@ h2 {
   font-size: 22px;
 }
 
+.verificationStartPanel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: stretch;
+  border: 1px solid #dfe5ee;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, #ffffff, #f8fafc);
+  padding: 14px;
+}
+
+.verificationGuideCopy {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.verificationGuideCopy span {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.verificationGuideCopy strong {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.18;
+}
+
+.verificationGuideCopy p {
+  margin: 0;
+  color: #5f6b7a;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.verificationSteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.verificationStep {
+  display: grid;
+  gap: 8px;
+  min-height: 126px;
+  border: 1px solid #dfe6ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.verificationStepDone {
+  border-color: rgba(10, 122, 85, 0.22);
+  background: #f6fbf8;
+}
+
+.verificationStep div {
+  display: grid;
+  gap: 3px;
+}
+
+.verificationStep span {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.verificationStep strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.verificationStep p {
+  min-height: 34px;
+  margin: 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.verificationStep .badge {
+  justify-self: start;
+}
+
+.verificationGuideActions {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.verificationGuideActions button {
+  min-height: 36px;
+  border: 1px solid #111827;
+  border-radius: 7px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.verificationGuideActions button + button {
+  border-color: #cfd7e3;
+  background: #ffffff;
+  color: #334155;
+}
+
+.verificationGuideActions button:hover {
+  transform: translateY(-1px);
+}
+
 .linearSection {
   overflow: hidden;
   border-color: #dfe5ee;
@@ -5723,6 +5845,8 @@ body {
   .historyRunMain,
   .runCompareScoreGrid,
   .runCompareAcceptBar,
+  .verificationStartPanel,
+  .verificationSteps,
   .evalReviewGrid,
   .caseIOGrid,
   .inspectorStack {

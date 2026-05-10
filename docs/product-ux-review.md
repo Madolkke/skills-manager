@@ -9,6 +9,7 @@
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
+- `概览` 页新增导入后验证清单，用户导入 bundle 后可以直接补首批 case、进入手工测评、再查看证据历史。
 - 追加 candidate 版本后会自动进入候选版本测评上下文；测评页 banner 可以直接打开 `设为当前版本评审`。
 - 手工测评现在可以选择 `测评目标版本`，因此候选 `VariantVersion` 可以先被测评，再决定是否成为 current。
 - `变体` 页会列出每个 variant 的历史版本。current 版本显示 `Current`，非 current 版本提供 `设为当前版本评审`。
@@ -22,7 +23,7 @@
 - History mode 支持按 exact variant version、eval set version、strategy、status 过滤 eval run，并查看每个 run 的逐 case 结果。
 - History mode 支持把两次同 `EvalSetVersion` 的 run 标为对照/候选，直接查看通过率 delta、逐 case 修复/回退，并把候选 run 接受为当前验证依据。
 - 每个 eval case 可以在测评页内查看版本时间线，包括 input、expected output、notes，以及被哪些 eval set snapshot 包含。
-- Playwright 覆盖 folder/zip import、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
+- Playwright 覆盖 folder/zip import、导入后验证引导、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
 
 ## 借鉴的产品模式
 
@@ -38,6 +39,8 @@
 - **GitHub protected branch / release review:** “设为当前版本”不是普通字段更新，而是有证据的指针移动。promotion review 借鉴 release 前检查，把测试结果、diff、风险说明合在一起。
 - **Vercel Preview Promotion:** Vercel 的 preview promotion 强调 inspect、test、check logs、再 promote。SkillHub 适配为 candidate version 创建后立即进入 exact candidate 的测评上下文，再进入 promotion review。
 - **Netlify Deploy Preview:** Netlify 把 preview URL 和状态暴露到 PR，让团队先体验变化再发布。SkillHub 适配为测评页 candidate banner，明确当前测的是非 current 版本。
+- **Vercel Deployment Checks:** Vercel 把 safety checks 放在 release 前。SkillHub 适配为导入后验证清单：bundle 存在只是起点，只有 case 和 eval run 才能支撑可信分发。
+- **Linear Triage:** Linear 把外部进入的 issue 放入 triage inbox，先 review/update/prioritize 再进入正式 workflow。SkillHub 适配为新导入 skill 的轻量 triage：先补测评资产，再跑首轮验证。
 - **GitHub Actions / LangSmith:** eval run history 以状态、策略、分数、exact binding 为核心，先扫全局，再进入单个 run 的 case 结果；run-to-run comparison 借鉴实验对比视图，只允许同 eval set snapshot 比较，避免把测试集变化误判成 skill 提升。
 - **W&B / release gate:** accepted verification 借鉴 pinned baseline / release gate 思路，用一个明确指针说明“当前分发依据是哪次测评”，而不是让用户猜最新 run 是否可信。
 - **Sentry issue timeline:** case history 留在当前排查上下文中，避免用户跳走后丢失对当前测试集的理解。
@@ -54,11 +57,12 @@
 7. 以前扩充测评集只能逐条走右侧表单；现在可以在测评页直接单条快加或批量粘贴，批量写入也只生成一个 eval set snapshot。
 8. 以前记录 run 前要手动扫完整 case 列表；现在可以筛选未确认、结果后自动前进、批量通过未确认项，并用键盘连续确认。
 9. 以前追加 candidate 后要手动找目标版本；现在创建 candidate 会自动切到候选测评，并提供评审入口。
-10. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path、command menu path、batch case path、manual eval queue path、candidate handoff path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
+10. 以前导入后用户要自己推理下一步；现在概览页用验证清单把添加首批 case、打开手工测评、查看证据历史串起来。
+11. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path、command menu path、batch case path、manual eval queue path、candidate handoff path、first verification guide path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。新增 case、记录 run 和 candidate 验证已经更顺，但导入后引导仍可以继续压缩成更连续的维护流。
+1. 右侧 inspector 仍然偏表单化。导入后清单已经压缩首轮路径，但创建/编辑动作本身仍需要更成熟的内联编辑体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run history 还没有 saved view / 多维表格查询；现在能比较两条 run，但还不能保存筛选视图或批量分析。
 4. Case history 仍然是 read-only。用户可以查看旧版本，但不能一键 restore。
@@ -67,7 +71,7 @@
 
 ## 下一轮优化队列
 
-1. 优化导入后引导：把“导入 bundle -> 补 case -> 记录 run -> 进入历史/评审”做成更连续的维护流。
+1. 优化创建/编辑表单：把常用表单逐步迁入主内容区或内联抽屉，让 inspector 更像上下文工具而不是唯一操作区。
 2. 做 saved view / 多维 run matrix：让用户按 variant、eval set、case、strategy 自由查询。
 3. 把 accepted verification 接入 Hub 文案和权限模型：明确谁能接受、谁只能查看。
 4. 做 case restore：从 case history 恢复旧版本，但仍生成新的 case version。

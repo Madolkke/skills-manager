@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-10 16:48 CST - TASK-009 导入后验证引导
+
+- 在概览页新增 `验证清单`，把导入 bundle 后的下一步组织为补 case、记录首轮测评、查看证据历史。
+- 单条 case 创建成功后自动切到 `测评` tab 和 `记录测评` 上下文，减少从概览添加首条 case 后的断点。
+- 新增 Playwright 覆盖导入后首轮验证路径：导入 -> 添加首条 case -> 手工通过 -> 记录 run -> 查看历史。
+- 验证：`uv run pytest` 71 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 23 passed。
+- 视觉截图：`.agent/screenshots/TASK-009-1.png`。
+
 ### 2026-05-10 16:30 CST - TASK-008 候选版本验证交接
 
 - 追加 `make_current=false` 的候选版本后，工作台自动切到 `测评`，并选中新建 candidate 作为 exact 测评目标。

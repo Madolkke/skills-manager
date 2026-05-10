@@ -91,6 +91,38 @@ test("operator can import a zipped standard skill bundle", async ({ page }) => {
   }
 });
 
+test("imported skill is guided into its first verification run", async ({ page }) => {
+  await importSkillBundle(page, `first-verification-${Date.now()}`);
+
+  await expect(page.getByText("验证清单")).toBeVisible();
+  await expect(page.locator(".verificationStep").filter({ hasText: "补齐评测集" })).toContainText("待处理");
+
+  await page.getByRole("button", { name: "添加首批 case" }).click();
+  await page.getByPlaceholder("PR: 缺少 owner 校验").fill("PR: first verification path");
+  await page.getByPlaceholder("输入：代码 diff、上下文、用户请求...").fill("diff --git a/api.py b/api.py\n+return Project.all()");
+  await page.getByPlaceholder("期望输出：应该指出什么、避免什么...").fill("Must flag missing tenant scope.");
+  await page.getByPlaceholder("来源、bad case、维护说明").fill("Imported skill first verification.");
+  await page.getByRole("button", { name: "加入评测集" }).click();
+
+  await expect(page.getByRole("button", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
+  await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: first verification path" })).toBeVisible();
+  await expect(page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" })).toBeDisabled();
+
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: first verification path" })
+    .getByRole("button", { name: "通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
+
+  await page.getByRole("button", { name: "概览", exact: true }).click();
+  await expect(page.locator(".verificationStep").filter({ hasText: "记录首轮测评" })).toContainText("首轮测评完成");
+  await page.getByRole("button", { name: "查看证据历史" }).click();
+  await expect(page.getByRole("button", { name: "历史", exact: true })).toHaveClass(/linearTabActive/);
+  await expect(page.locator(".historyRunRow")).toHaveCount(1);
+});
+
 test("keyboard users can open primary inspector actions", async ({ page }) => {
   await page.goto("/skills");
 
