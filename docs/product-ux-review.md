@@ -1,42 +1,54 @@
-# SkillHub Product UX Review
+# SkillHub 产品体验评审
 
-Last updated: 2026-05-09
+更新时间：2026-05-10
 
-## Current Working Flow
+## 当前可用流程
 
-- `/skills` is a polished tri-pane workbench: catalog, focused workspace, contextual inspector. The main interaction model now follows a Linear-style selected-object workspace rather than a page of stacked forms.
-- Users can create a skill, import a standard skill folder or zip, create variants, add/edit/archive eval cases, and record manual pass/fail eval runs.
-- The API persists local data to `.data/skillhub.sqlite3` through `scripts/dev.sh`.
-- Empty databases show a real first-run state with import/new-skill actions instead of pretending sample data is persisted workspace data.
-- Archived skills are still addressable by id for audit/history, but they no longer appear in the active SkillHub list.
-- Manual eval runs require every case to be explicitly marked pass or fail before submission.
-- Standard bundle versions can be compared in a dedicated diff mode with version selectors, file status filters, a changed-file rail, and line-level text diff.
-- History is now a first-class workbench mode: operators can filter eval runs by exact variant version, eval set version, strategy, and status, then inspect case-level pass/fail for the selected run.
-- Each eval case can show its version timeline inline, including input, expected output, notes, and the eval set snapshots that included each case version.
-- Playwright browser tests cover invalid folder import, zipped bundle import, the critical happy path, keyboard activation for primary inspector actions, edit/archive case management, bundle version diff, run history, case version history, a mobile viewport width check, and visual screenshot regression for empty, imported overview, manual eval, and mobile states.
+- `/skills` 是一个正式的三栏工作台：左侧 catalog、中间 focused workspace、右侧 contextual inspector。它借鉴 Linear 的“选中对象 + 上下文操作”模型，避免把所有表单堆在一个页面里。
+- 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
+- 手工测评现在可以选择 `测评目标版本`，因此候选 `VariantVersion` 可以先被测评，再决定是否成为 current。
+- `变体` 页会列出每个 variant 的历史版本。current 版本显示 `Current`，非 current 版本提供 `设为当前版本评审`。
+- `差异` 页在 current -> candidate 比较时也提供 `设为当前版本评审` 入口。
+- Promotion review 页面把 readiness、exact binding、当前/候选分数、逐 case 修复/回退、bundle file diff 和决策说明放在同一视图中。
+- 如果 readiness 为 `ready`，用户可以直接 `设为当前版本`。如果 readiness 为 `risky`，必须填写说明后才能 `接受风险并设为当前版本`。
+- API 通过 `scripts/dev.sh` 持久化到 `.data/skillhub.sqlite3`。
+- 空数据库会展示真实 first-run 状态，用户可以直接导入 bundle 或新建 skill。
+- Archived skill 会保留历史审计能力，但不会出现在 active SkillHub 列表。
+- 标准 bundle version 可以在专门的 diff mode 里比较文件状态、筛选 changed/added/removed/binary，并查看行级 diff。
+- History mode 支持按 exact variant version、eval set version、strategy、status 过滤 eval run，并查看每个 run 的逐 case 结果。
+- 每个 eval case 可以在测评页内查看版本时间线，包括 input、expected output、notes，以及被哪些 eval set snapshot 包含。
+- Playwright 覆盖 folder/zip import、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、case history、键盘入口、移动端宽度和视觉回归。
 
-## Borrowed Product Patterns
+## 借鉴的产品模式
 
-- Linear-style workspace density: one selected object, a compact left catalog, and a right inspector for contextual operations.
-- GitHub-style import affordance: a bundle import has an explicit source, validates the contract, creates a versioned immutable artifact, and exposes bundle files through the read model.
-- GitHub/VS Code-style diff review: compare two immutable bundle snapshots through a file rail plus line-oriented additions/removals rather than hiding changes inside a metadata form.
-- GitHub Actions/LangSmith-style run history: compact historical rows keep status, strategy, score, and exact binding visible before drilling into details.
-- Sentry-style evidence timeline: case history stays in the current triage context and keeps prior inputs/expected outputs readable.
-- Claude Skills-style bundle contract: `SKILL.md` is the required root entry, and frontmatter supplies the product-facing name and description.
+- **Linear:** 左侧列表负责选择对象，中间主面板展示当前上下文，右侧 inspector 处理局部操作。适合 SkillHub 这种“对象多、动作也多”的维护工作台。
+- **GitHub / VS Code diff:** 版本变化用文件列表 + 行级 additions/removals 展示，而不是只给 change summary。Skill 本质上是文件夹，必须让用户看到真实文件变化。
+- **GitHub protected branch / release review:** “设为当前版本”不是普通字段更新，而是有证据的指针移动。promotion review 借鉴 release 前检查，把测试结果、diff、风险说明合在一起。
+- **GitHub Actions / LangSmith:** eval run history 以状态、策略、分数、exact binding 为核心，先扫全局，再进入单个 run 的 case 结果。
+- **Sentry issue timeline:** case history 留在当前排查上下文中，避免用户跳走后丢失对当前测试集的理解。
+- **Claude Skills bundle contract:** `SKILL.md` 是标准入口，frontmatter 提供产品展示需要的 name 和 description。
 
-## Friction Found
+## 已解决的关键摩擦
 
-1. The right inspector is now cleaner, but still relies on forms rather than a fully guided wizard. Frequent actions can still become more compressed once real users repeat the flow.
-2. Diff review is now first-class, but it does not yet show eval impact beside changed files.
-3. Run history is filterable, but does not yet support run-to-run comparison or saved views.
-4. Case version history is readable, but does not yet support restore/rollback.
-5. Import preview works for folders; zip preview still waits for backend validation because browser-side zip parsing is not implemented.
-6. Browser interaction coverage now includes screenshot regression, but still lacks richer accessibility assertions.
+1. 以前候选版本要么直接变 current，要么只能靠人工记忆判断；现在可以先测候选版本，再通过 promotion review 做证据化决策。
+2. 以前 diff 和 eval 是分离视图；现在 promotion review 把文件变化和逐 case 影响放到同一决策面。
+3. 以前手工 eval 只绑定默认 current version；现在可以选择任意 `VariantVersion`，支持 candidate eval。
+4. 以前 risky promotion 没有前端约束；现在发现回退或仍失败时必须填写说明。
+5. 以前只有手工测试主路径；现在 happy path 和 risky path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
 
-## Next Optimization Queue
+## 仍然存在的摩擦
 
-1. Add a guided case/eval flow: collapse advanced fields further, keep pass/fail confirmation central, and reduce inspector form density after real usage feedback.
-2. Connect bundle diff to eval impact: show which eval set/run should be reviewed before promotion.
-3. Add run-to-run comparison and regression markers.
-4. Add case restore/rollback after the read-only history model has real user validation.
-5. Expand browser-level interaction tests with richer accessibility assertions and more run-history states.
+1. 右侧 inspector 仍然偏表单化。高频操作可以继续压缩成更短路径，例如 inline quick-add、命令面板或批量 case 操作。
+2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
+3. Run history 仍然是 read-only。用户还不能比较两个 run、保存查询视图，或标记某个 run 为 accepted verification。
+4. Case history 仍然是 read-only。用户可以查看旧版本，但不能一键 restore。
+5. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
+6. Accessibility 覆盖仍偏浅。现在有键盘 smoke 和标签，但还需要系统化验证 focus order、screen reader label、reduced motion。
+
+## 下一轮优化队列
+
+1. 优化 inspector：把“新增 case / 记录 eval / 追加版本”做成更短、更连续的维护流。
+2. 做 run-to-run comparison：直接显示两个版本在同一 eval set 上的提升、回退和未覆盖项。
+3. 做 saved view / accepted verification：让团队知道哪个 run 是当前分发依据。
+4. 做 case restore：从 case history 恢复旧版本，但仍生成新的 case version。
+5. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。

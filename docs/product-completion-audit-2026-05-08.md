@@ -1,123 +1,98 @@
-# SkillHub Product Completion Audit
+# SkillHub 产品完成度审计
 
-Date: 2026-05-09
+日期：2026-05-10
 
-Status: not complete. The current product has a stronger runnable vertical slice with bundle diff, run history, and case version history implemented, but several explicit maturity requirements remain before calling it mature.
+状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：标准 Skill bundle 导入、variant/version、eval set version、manual eval、历史查看、bundle diff、candidate promotion review 都能闭环。但距离成熟产品还缺少更完整的操作效率、权限、多用户协作、自动测评策略和更深的可访问性验证。
 
-## Objective Restated As Success Criteria
+## 目标拆解
 
-The project should become a mature SkillHub product, not just a prototype. Concretely:
+项目目标可以拆成以下成功标准：
 
-1. One-command local startup without polluting the global Python environment.
-2. A polished frontend informed by strong product patterns, with good layout, typography, color, responsive behavior, and smooth user operation.
-3. Standard skill folder and zip import.
-4. Skill and variant creation/edit/archive flows.
-5. Eval case create/edit/archive flows.
-6. Manual experiment flow where each case is marked pass/fail and persisted as an exact eval run.
-7. Versioned model correctness: `Skill -> Variant -> VariantVersion`, shared versioned eval sets, exact `VariantVersion + EvalSetVersion` binding.
-8. More mature operations beyond the minimum, especially artifact/file visibility, version history, bundle diff, run history, and case history.
-9. README and docs that explain how to run and verify the product.
-10. Regression coverage proving the user flows and visual quality do not silently regress.
-11. Before major UX changes, research strong existing products, adapt their ideas, document the reasoning, then implement.
+1. 一键本地启动，并且不污染全局 Python 环境。
+2. 前端不是原型堆叠表单，而是有清晰信息架构、布局、字体、颜色、交互反馈和视觉回归保护的产品工作台。
+3. 支持标准 Skill 文件夹和 zip 导入。
+4. 支持 skill、variant、variant version 的核心创建与维护。
+5. 支持 eval case 的新增、编辑成新版本、归档。
+6. 支持手工实验：每个 case 只需要确认通过或不通过，并持久化为 exact eval run。
+7. 支持对候选 `VariantVersion` 单独测评，而不是只能测 current。
+8. 支持 promotion review：用户在设为 current 前看到文件 diff、逐 case 修复/回退、readiness 和风险说明。
+9. 版本模型严谨：`Skill -> Variant -> VariantVersion`，共享 versioned eval set，`EvalRun = VariantVersion + EvalSetVersion`。
+10. README 和文档说明如何运行、如何验证、如何走完整产品流程。
+11. 每次推送前跑完整后端测试、前端类型检查、前端构建、前端 E2E。
+12. 重要 UI 变化有视觉基线或截图，避免无声退化。
+13. 重大 UX 改动前要参考优秀产品模式，并说明如何适配 SkillHub。
 
 ## Prompt-To-Artifact Checklist
 
-| Requirement | Current evidence | Status |
+| 要求 | 当前证据 | 状态 |
 | --- | --- | --- |
-| One-command startup | `scripts/dev.sh` starts FastAPI and Next.js, creates `.data`, uses `uv`, installs web dependencies if missing; README documents `bash scripts/dev.sh`. | Complete for local dev |
-| Avoid global Python pollution | `scripts/dev.sh` uses `uv run`; README explicitly says it does not write to global Python environment. | Complete |
-| Standard folder import | `POST /api/skill-imports`; E2E `operator can import a skill...`; API test `test_import_skill_from_file_tree_uses_skill_md_frontmatter`. | Complete |
-| Standard zip import | E2E `operator can import a zipped standard skill bundle`; API test `test_import_skill_from_zip_uses_same_bundle_contract`. | Complete |
-| New skill flow | `POST /api/skills`; inspector `new-skill`; E2E keyboard opens `新建 skill`. | Mostly complete |
-| New variant flow | `POST /api/variants`; E2E creates `Strict reviewer`. | Complete |
-| Variant version flow | `POST /api/variant-versions`; backend tests cover current pointer behavior and candidate evaluation. Frontend `追加版本` accepts standard folders/zips and has E2E coverage. | Complete for standard bundle versions |
-| Eval case create | `POST /api/eval-cases`; E2E `addEvalCase`. | Complete |
-| Eval case edit/versioning | `PATCH /api/eval-cases/{case_id}`; E2E `operator can edit and archive eval cases`; backend tests verify new eval set snapshots. | Complete |
-| Eval case archive | `DELETE /api/eval-cases/{case_id}`; E2E archives a case. | Complete |
-| Manual pass/fail eval | E2E marks one case `通过` and records an eval run; backend tests record pass/fail exact versions. | Complete for manual MVP |
-| Exact version binding | Backend schema/tests enforce same-skill `VariantVersion + EvalSetVersion`; domain tests cover candidate version eval before promotion and cross-skill rejection. | Complete |
-| Active hub hides archived skill | Repository `list_skills` filters `lifecycle_status == active`; API command test checks archived skill no longer appears. | Complete |
-| Skill bundle file content visible | Workbench shows bundle file list and `SKILL.md`; visual snapshots include imported overview. | Complete for current bundle preview |
-| Bundle version diff | `GET /api/artifacts/diff`; backend tests cover changed/added/removed, binary, and cross-skill rejection. Workbench `比较版本` shows file rail and line diff; E2E covers imported skill with two bundle versions. | Complete for current/previous bundle review |
-| Run history table/filtering | `GET /api/skills/{skill_id}/eval-runs`; workbench `历史` mode filters by variant version, eval set version, strategy, and status; E2E `operator can review eval run history with filters`. | Complete for read-only history |
-| Inline case version history | `GET /api/eval-cases/{case_id}/versions`; each case row exposes `历史`; E2E `operator can inspect eval case version history`. | Complete for read-only history |
-| Mature frontend | `/skills` is a tri-pane workbench with visual regression snapshots; product review documents Linear/GitHub/Claude-inspired patterns. | Good but not complete |
-| Visual regression | `apps/web/e2e/visual-workbench.spec.ts` covers empty, imported overview, manual eval, mobile empty snapshots. | Complete baseline |
-| Accessibility depth | Keyboard activation test exists; product review flags richer accessibility assertions as missing. | Partial |
-| README run/verify docs | README includes one-command run, manual run, product flow, verification commands, docs links. | Complete |
-| Research before UX changes | Formal workbench spec and bundle diff spec cite/adapt GitHub, VS Code, Linear, Claude Skills-style contract. | Complete for current changes |
-| Every push runnable | Latest pushed commits were verified before push; this run/case history branch passed full API, web typecheck, web build, Playwright E2E, and `git diff --check` before push. | Complete for current branch |
+| 一键启动 | `scripts/dev.sh` 启动 FastAPI 和 Next.js，创建 `.data`，README 记录 `bash scripts/dev.sh`。 | 完成 |
+| 不污染全局 Python | `scripts/dev.sh` 使用 `uv run`；README 明确说明不会写入全局 Python 环境。 | 完成 |
+| 标准 folder import | `POST /api/skill-imports`；E2E 覆盖 folder import；API 测试覆盖 SKILL.md frontmatter。 | 完成 |
+| 标准 zip import | E2E `operator can import a zipped standard skill bundle`；API 测试覆盖 zip contract。 | 完成 |
+| 新建 skill | `POST /api/skills`；右侧 inspector `新建 skill`；键盘 smoke 能打开入口。 | 基础完成 |
+| 新建 variant | `POST /api/variants`；E2E 创建 `Strict reviewer`。 | 完成 |
+| 追加 candidate version | `POST /api/variant-versions` 支持 `make_current=false`；E2E 创建候选版本并保持 current 不变。 | 完成 |
+| Eval case 新增 | `POST /api/eval-cases`；E2E `addEvalCase`。 | 完成 |
+| Eval case 编辑/版本化 | `PATCH /api/eval-cases/{case_id}`；E2E 覆盖编辑；后端测试验证生成新 eval set snapshot。 | 完成 |
+| Eval case 归档 | `DELETE /api/eval-cases/{case_id}`；E2E 覆盖归档。 | 完成 |
+| 手工 pass/fail eval | E2E 覆盖 current 和 candidate version 的手工测评；后端测试覆盖 exact binding。 | 完成 |
+| Exact version binding | schema、repository、domain tests 约束同 skill 的 `VariantVersion + EvalSetVersion`；候选版本可在 promotion 前测评。 | 完成 |
+| Active hub 隐藏 archived skill | Repository `list_skills` 过滤 active；API 测试覆盖 archived skill 不再出现在列表。 | 完成 |
+| Skill bundle 文件可见 | Overview 显示文件列表和 `SKILL.md`；visual snapshot 覆盖导入后视图。 | 完成 |
+| Bundle diff | `GET /api/artifacts/diff`；前端 diff mode 有文件 rail、筛选和行级 diff；E2E 覆盖版本比较。 | 完成 |
+| Promotion review read model | `GET /api/variants/{variant_id}/promotion-review`；API contract 已记录；前端新增 `PromotionReviewPane`。 | 完成 |
+| Promotion command | `POST /api/variants/promotions` 要求 evidence run，写入 `promotion_decisions` 和 `audit_events`；API/Repository 测试覆盖。 | 完成 |
+| 无风险 promotion | E2E `operator can review a candidate version before promoting it` 覆盖修复 case 后直接设为 current。 | 完成 |
+| 风险 promotion | E2E `risky promotion requires a decision note before promoting` 覆盖回退时必须填写说明。 | 完成 |
+| Diff 区域 promotion 入口 | `DiffPane` 对 current -> candidate 提供 `设为当前版本评审`；E2E happy path 从 diff 入口进入评审。 | 完成 |
+| Run history | `GET /api/skills/{skill_id}/eval-runs`；前端 history mode 可过滤并查看 case result；E2E 覆盖。 | 完成 |
+| Case version history | `GET /api/eval-cases/{case_id}/versions`；E2E 覆盖 inline history。 | 完成 |
+| 视觉回归 | `apps/web/e2e/visual-workbench.spec.ts` 覆盖 empty、imported overview、manual eval、promotion review、mobile empty。 | 完成 |
+| README | README 已用中文补充一键启动、验证命令、标准 bundle、manual eval 和 promotion 流程。 | 完成 |
+| UX 复盘 | `docs/product-ux-review.md` 已更新，说明借鉴模式、已解决摩擦和下一轮优化。 | 完成 |
 
-## Actual Verification Assets
+## 本轮真实验证记录
 
-Frontend E2E:
+已执行并通过：
 
-- `apps/web/e2e/skills-workbench.spec.ts`
-  - invalid folder import blocks submission.
-  - folder import, new variant, new case, manual eval run.
-  - zipped standard bundle import.
-  - keyboard access to primary inspector actions.
-  - edit and archive eval cases.
-  - compare two standard bundle versions and inspect file-level diff.
-  - review eval run history with exact binding filters.
-  - inspect eval case version history inline from the eval surface.
-  - mobile viewport width.
-- `apps/web/e2e/visual-workbench.spec.ts`
-  - empty workbench screenshot.
-  - imported skill overview screenshot.
-  - manual eval review screenshot.
-  - mobile empty workbench screenshot.
+```bash
+cd apps/web && npm run typecheck
+cd apps/web && npm run build
+cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e
+cd apps/api && uv run pytest
+```
 
-Backend tests:
+结果：
 
-- `apps/api/tests/test_api_commands.py`
-- `apps/api/tests/test_api_persistence.py`
-- `apps/api/tests/test_domain_invariants.py`
-- `apps/api/tests/test_schema_contract.py`
-- `apps/api/tests/test_sql_repository.py`
-- `apps/api/tests/test_sqlalchemy_metadata.py`
+- Web typecheck：通过。
+- Web production build：通过。
+- Playwright E2E：15 passed。
+- API pytest：61 passed。
 
-Key API surface currently present:
+本轮新增视觉资产：
 
-- `GET /health`
-- `GET /api/skills`
-- `GET /api/skills/{skill_id}`
-- `GET /api/skills/{skill_id}/eval-runs`
-- `GET /api/eval-set-versions/{eval_set_version_id}`
-- `GET /api/eval-runs/{eval_run_id}`
-- `GET /api/eval-cases/{case_id}/versions`
-- `GET /api/artifacts/diff`
-- `POST /api/skills`
-- `POST /api/skill-imports`
-- `POST /api/variant-versions`
-- `POST /api/variants`
-- `POST /api/variants/promotions`
-- `PATCH /api/skills/{skill_id}`
-- `DELETE /api/skills/{skill_id}`
-- `POST /api/eval-cases`
-- `POST /api/eval-case-versions`
-- `PATCH /api/eval-cases/{case_id}`
-- `DELETE /api/eval-cases/{case_id}`
-- `POST /api/eval-runs`
+- `apps/web/e2e/visual-workbench.spec.ts-snapshots/promotion-review-ready-chromium-darwin.png`
+- `.agent/screenshots/promotion-review-ready-2026-05-10.png`
 
-## Gaps Blocking "Mature Product" Completion
+## 仍然阻塞“成熟产品完成”的风险
 
-1. **Inspector flow is still form-first.** It is cleaner than before, but repeated operations should become more guided and less verbose.
-2. **Diff scope is file-review only.** The workbench compares two bundle artifacts, but does not yet connect diff hunks to eval impact or promotion decisions.
-3. **Run history is read-only.** Users can filter historical runs, but cannot yet compare two runs, save a view, or mark a run as the accepted verification.
-4. **Case history is read-only.** Users can inspect prior case versions, but cannot yet restore an older version through the UI.
-5. **Accessibility coverage is shallow.** Keyboard smoke exists, but no deeper focus-order, label, or reduced-motion assertions.
-6. **Zip preview waits for backend validation.** Folder preview is richer than zip preview.
+1. **权限和多用户协作还没实现。** 当前仍是单用户工作台；没有 owner/maintainer/evaluator/viewer 的 scoped role enforcement。
+2. **Inspector 操作仍偏表单。** 功能闭环已通，但高频动作还可以更顺：例如批量 case、快捷命令、导入后自动引导测评。
+3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
+4. **Run-to-run comparison 还没做。** Promotion review 能比较 current/candidate 在同一 eval set 上的 case impact，但 history 页不能任意比较两个 run。
+5. **Case restore 还没做。** 可以查看 case 历史，但不能从旧版本一键生成恢复版本。
+6. **Accessibility 覆盖还浅。** 有键盘 smoke 和可见 label，但缺少系统化 focus order、screen reader、reduced-motion 验证。
+7. **Ralph Loop 未真正持续运行。** 配置已安装，但本地 Docker Sandboxes 需要 `sbx login` 授权；没有登录就不能让 Ralph 持续接管任务。
 
-## Next Concrete Step
+## 下一步建议
 
-Do not mark the goal complete.
+不要把总目标标记为完成。
 
-The next implementation step should be a promotion decision surface:
+下一轮最有价值的方向：
 
-1. Connect bundle diff, latest eval run, and relevant case changes in one review surface.
-2. Let operators compare two eval runs and highlight regressions/improvements case-by-case.
-3. Add an explicit accepted verification marker for a variant version on an eval set version.
-4. Expand accessibility and visual regression coverage around the new review surface.
-
-Until that ships, the product should be described as a strong formal vertical slice, not a completed mature SkillHub.
+1. 做 run-to-run comparison 和 accepted verification marker。
+2. 把 inspector 的高频流程改成更短路径。
+3. 开始权限模型和 scoped role assignment。
+4. 把 eval strategy / runner registry 产品化。
+5. 系统补 accessibility 和可用性测试。

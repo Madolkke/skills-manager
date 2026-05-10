@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { addEvalCase, hideVolatileUi, importSkillBundle } from "./helpers";
+import { addEvalCase, appendSkillBundleVersion, hideVolatileUi, importSkillBundle } from "./helpers";
 
 const API_BASE_URL = `http://127.0.0.1:${process.env.SKILLHUB_E2E_API_PORT ?? 8021}`;
 
@@ -38,6 +38,50 @@ test("visual baseline: imported skill overview and eval review", async ({ page }
   await hideVolatileUi(page);
 
   await expect(page.locator(".linearWorkbench")).toHaveScreenshot("manual-eval-review.png", {
+    animations: "disabled",
+  });
+});
+
+test("visual baseline: promotion review", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await importSkillBundle(page, "visual-promotion-reviewing");
+  await addEvalCase(page, "PR: promotion visual tenant guard");
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: promotion visual tenant guard" })
+    .getByRole("button", { name: "不通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
+
+  await appendSkillBundleVersion(page, "visual-promotion-reviewing", { makeCurrent: false });
+  await page.getByRole("button", { name: "测评", exact: true }).click();
+  const targetVersion = await page
+    .getByLabel("测评目标版本")
+    .locator("option")
+    .filter({ hasText: "v2" })
+    .first()
+    .getAttribute("value");
+  expect(targetVersion).toBeTruthy();
+  await page.getByLabel("测评目标版本").selectOption(targetVersion ?? "");
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: promotion visual tenant guard" })
+    .getByRole("button", { name: "通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
+
+  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page
+    .locator(".variantVersionRow")
+    .filter({ hasText: "v2" })
+    .getByRole("button", { name: "设为当前版本评审" })
+    .click();
+  await expect(page.getByRole("heading", { name: "设为当前版本评审" })).toBeVisible();
+  await hideVolatileUi(page);
+
+  await expect(page.locator(".linearWorkbench")).toHaveScreenshot("promotion-review-ready.png", {
     animations: "disabled",
   });
 });

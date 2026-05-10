@@ -10,14 +10,14 @@
     "id": "002",
     "title": "实现设为当前版本评审前端体验",
     "priority": 2,
-    "passes": false,
+    "passes": true,
     "spec": ".agent/tasks/TASK-002.json"
   },
   {
     "id": "003",
     "title": "补齐文档、审计和端到端回归",
     "priority": 3,
-    "passes": false,
+    "passes": true,
     "spec": ".agent/tasks/TASK-003.json"
   }
 ]

@@ -1,39 +1,40 @@
 # Skills Manager
 
-Eval-backed SkillHub product workspace for managing skill variants, versioned eval sets, manual eval runs, and standard skill bundle snapshots.
+这是一个带测评证据的 SkillHub 产品工作区，用来管理标准 Skill bundle、约束变体、不可变版本、评测集版本、手工测评结果，以及“是否设为当前版本”的证据化决策。
 
-## What This Demo Proves
+## 当前产品闭环
 
-- A `Skill` is a stable hub entry.
-- A `Variant` is the maintained best answer for a tag constraint set.
-- A `VariantVersion` is an immutable content snapshot.
-- An `EvalSetVersion` is a case snapshot.
-- An `EvalRun` records pass/fail results for one `VariantVersion + EvalSetVersion`.
-- External runners can import a standard eval result JSON and get the same `EvalRun + CaseResult` record.
-- Standard skill folders can be imported as `skill_bundle` artifacts, viewed by version, and compared with file-level bundle diff.
-- Run history and case version history are queryable inside the workbench, so previous experiments and test case edits remain explainable.
+- `Skill` 是 SkillHub 中稳定可搜索的入口。
+- `Variant` 是某组 tag 约束下人工维护的当前最优解。
+- `VariantVersion` 是不可变内容快照，可以是标准 Skill 文件夹或 zip 导入后的 `skill_bundle` artifact。
+- `EvalSetVersion` 是测试用例版本快照。
+- `EvalRun` 记录一次 exact `VariantVersion + EvalSetVersion` 的通过/不通过结果。
+- 候选 `VariantVersion` 可以先测评，但不立刻成为 current。
+- “设为当前版本评审”会把候选版本、当前版本、目标评测集版本、逐 case 修复/回退、文件 diff 和风险说明放到同一个决策页面。
+- 外部 runner 可以导入标准 eval result JSON，并得到同样的 `EvalRun + CaseResult` 记录。
+- 工作台内可以查看 bundle 文件内容、版本 diff、run 历史、case 版本历史和 promotion review。
 
-## Quick Start
+## 快速开始
 
-The formal product workspace lives under `apps/api` and `apps/web`.
+正式产品工作区位于 `apps/api` 和 `apps/web`。
 
-### One-command local run
+### 一键本地运行
 
 ```bash
 bash scripts/dev.sh
 ```
 
-This starts:
+这个命令会启动：
 
 - API: `http://127.0.0.1:8000`
 - Web: `http://127.0.0.1:3000/skills`
 
-The script uses `uv` for the Python API and installs `apps/web` npm dependencies when `node_modules` is missing. It does not write to your global Python environment.
-Local API data is persisted to `.data/skillhub.sqlite3` by default. Override with `SKILLHUB_DATABASE_URL` or `SKILLHUB_DATA_DIR`.
+脚本使用 `uv` 运行 Python API，并在 `apps/web/node_modules` 缺失时安装前端依赖；它不会污染全局 Python 环境。
+本地 API 数据默认持久化到 `.data/skillhub.sqlite3`。可以用 `SKILLHUB_DATABASE_URL` 或 `SKILLHUB_DATA_DIR` 覆盖。
 
-### Manual run
+### 手动运行
 
-Terminal 1:
+终端 1：
 
 ```bash
 cd apps/api
@@ -42,7 +43,7 @@ SKILLHUB_DATABASE_URL=sqlite:///$PWD/../../.data/skillhub.sqlite3 \
 uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Terminal 2:
+终端 2：
 
 ```bash
 cd apps/web
@@ -52,15 +53,15 @@ NEXT_PUBLIC_SKILLHUB_API_URL=http://127.0.0.1:8000 \
 npm run dev -- --hostname 127.0.0.1 --port 3000
 ```
 
-### Product flow to try
+### 建议试用路径
 
-1. Open `http://127.0.0.1:3000/skills`.
-2. Use the left catalog to switch skills.
-3. Use the right inspector to create a skill, import a standard skill bundle, create variants, add test cases, edit case versions, and record manual pass/fail eval runs.
-4. In `导入 bundle`, upload either:
-   - a folder containing root `SKILL.md`, or
-   - a zip whose root folder contains `SKILL.md`.
-5. `SKILL.md` must start with frontmatter:
+1. 打开 `http://127.0.0.1:3000/skills`。
+2. 用左侧 catalog 切换 skill。
+3. 用右侧 inspector 创建 skill、导入标准 Skill bundle、创建 variant、添加测试用例、编辑 case version，并记录手工通过/不通过测评。
+4. 在 `导入 bundle` 中上传以下任一来源：
+   - 根目录包含 `SKILL.md` 的文件夹，或
+   - 根目录文件夹包含 `SKILL.md` 的 zip。
+5. `SKILL.md` 必须以 frontmatter 开头：
 
 ```markdown
 ---
@@ -71,13 +72,22 @@ description: Review pull requests for auth and data access regressions.
 # Security Reviewing
 ```
 
-The imported bundle is stored as a `skill_bundle` artifact, and the created variant version points to that immutable artifact.
-After importing a second bundle version through `追加版本`, use `比较版本` to inspect changed, added, removed, and binary files between two exact `VariantVersion` snapshots.
-After recording multiple manual eval runs, open `历史` to filter runs by exact variant version, eval set version, strategy, and status. In `测评`, each case row has `历史` so you can inspect prior case versions, input, expected output, notes, and eval set snapshot membership.
+导入后的 bundle 会作为不可变 `skill_bundle` artifact 保存，创建出的 variant version 指向这个 artifact。
 
-### Verification Commands
+继续试完整 promotion 闭环：
 
-Run before pushing changes:
+1. 在 `测评` 中添加 case，并给当前版本记录一次通过/不通过结果。
+2. 在右侧 `追加版本` 中上传第二个标准 Skill bundle，取消 `设为 current`，让它成为候选版本。
+3. 回到 `测评`，用 `测评目标版本` 下拉框选择候选版本，记录候选版本的通过/不通过结果。
+4. 打开 `变体`，或在 `差异` 页选择 current -> candidate，然后点 `设为当前版本评审`。
+5. 在评审页查看 readiness、逐 case 修复/回退、bundle diff；如果有风险，需要填写说明后才能 `接受风险并设为当前版本`。
+6. 提交后，variant 历史列表会刷新，候选版本显示为 `Current`。
+
+记录多次手工测评后，打开 `历史` 可按 exact variant version、eval set version、strategy、status 过滤 run。在 `测评` 中，每个 case 行都有 `历史`，可以查看旧 case version 的 input、expected output、notes，以及它进入过哪些 eval set snapshot。
+
+### 验证命令
+
+推送前运行：
 
 ```bash
 cd apps/api
@@ -92,23 +102,23 @@ npx playwright install chromium
 npm run e2e
 ```
 
-Smoke-check the running app:
+运行中的应用可用下面命令冒烟检查：
 
 ```bash
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:3000/skills
 ```
 
-Formal API Alembic migrations live under `apps/api/migrations`; the first migration executes
-`apps/api/skillhub/infrastructure/db/schema.sql`.
+正式 API Alembic migration 位于 `apps/api/migrations`；第一版 migration 会执行
+`apps/api/skillhub/infrastructure/db/schema.sql`。
 
-### Legacy prototype
+### 旧原型
 
-The older proof-of-concept remains in `demo-backend`, `demo`, and `prototype` for reference. New product work should target `apps/api` and `apps/web`.
+早期 proof-of-concept 保留在 `demo-backend`、`demo` 和 `prototype` 中作为参考。新的产品开发应以 `apps/api` 和 `apps/web` 为准。
 
-### External Eval Import Smoke
+### 外部测评导入冒烟
 
-With the backend running:
+后端运行后：
 
 ```bash
 cd demo-backend
@@ -119,9 +129,9 @@ python -m skillhub_demo.external_runner \
   --fail-case-title-contains 仅重命名
 ```
 
-To connect a real local evaluator, use the `external_command` strategy. The command receives
-`{"eval_set": ...}` on stdin and prints `{ "results": { "<case_version_id>": true } }`.
-See [keyword_evaluator.py](examples/evaluators/keyword_evaluator.py) for a minimal evaluator script.
+如果要接入真实本地 evaluator，可以使用 `external_command` strategy。命令会从 stdin 接收
+`{"eval_set": ...}`，并输出 `{ "results": { "<case_version_id>": true } }`。
+[keyword_evaluator.py](examples/evaluators/keyword_evaluator.py) 是一个最小 evaluator 示例。
 
 ```bash
 python -m skillhub_demo.external_runner \
@@ -131,7 +141,7 @@ python -m skillhub_demo.external_runner \
   --external-command '../demo-backend/.venv/bin/python ../examples/evaluators/keyword_evaluator.py --keyword ownerId'
 ```
 
-## Main Docs
+## 主要文档
 
 - [MVP spec](docs/MVP_SPEC.md)
 - [API contract](docs/api-contract.md)
@@ -153,7 +163,7 @@ python -m skillhub_demo.external_runner \
 
 项目已安装 Ralph Loop 配置，任务定义在 `.agent/tasks.json` 和 `.agent/tasks/`。
 
-当前下一阶段任务是实现“设为当前版本评审”：后端契约、前端评审界面、文档和全量回归。
+当前 promotion review 的后端契约和前端评审体验已经接入；后续 Ralph 任务应继续围绕产品打磨、文档审计和回归覆盖推进。
 
 运行前需要 Docker Sandboxes 登录：
 

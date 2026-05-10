@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { passRate } from "@/lib/api";
 import { emptySkillDetail } from "@/lib/empty-state";
 import { percent, shortId } from "@/lib/format";
+import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import type {
   BundleDiff,
   BundleDiffFile,
@@ -16,6 +17,8 @@ import type {
   EvalRunDetail,
   EvalRunHistory,
   EvalSetVersionDetail,
+  PromotionDecision,
+  PromotionReview,
   SkillDetail,
   SkillSummary,
   VariantDetail,
@@ -31,7 +34,7 @@ type DecisionWorkbenchProps = {
   featuredSkill: SkillDetail;
 };
 
-type Mode = "overview" | "variants" | "evals" | "diff" | "history";
+type Mode = "overview" | "variants" | "evals" | "diff" | "history" | "promotion";
 type ActionMode =
   | "skill"
   | "new-skill"
@@ -97,6 +100,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [caseHistory, setCaseHistory] = useState<EvalCaseHistory | null>(null);
   const [caseHistoryCaseId, setCaseHistoryCaseId] = useState<string | null>(null);
   const [caseHistoryLoading, setCaseHistoryLoading] = useState(false);
+  const [evalTargetVersionId, setEvalTargetVersionId] = useState<string | null>(null);
+  const [promotionReview, setPromotionReview] = useState<PromotionReview | null>(null);
+  const [promotionLoading, setPromotionLoading] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
 
@@ -117,6 +123,23 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const currentEvalSetVersion = primaryEvalSet?.current_version ?? null;
   const latestRun = selectedDetail.latest_eval_runs[0] ?? selectedSummary.latest_accepted_eval_run;
   const score = latestRun ? passRate(latestRun) : null;
+  const variantVersionOptions = useMemo(
+    () =>
+      selectedDetail.variants.flatMap((variant) =>
+        sortedVersions(variant.versions).map((version) => ({
+          variant,
+          version,
+          label: `${variant.label} v${version.version_number}`,
+          isCurrent: variant.current_version?.id === version.id,
+        })),
+      ),
+    [selectedDetail.variants],
+  );
+  const evalTargetVersion =
+    variantVersionOptions.find((item) => item.version.id === evalTargetVersionId)?.version ??
+    defaultVariant?.current_version ??
+    variantVersionOptions[0]?.version ??
+    null;
   const cases = evalSetDetail?.cases ?? [];
   const selectedCase = cases.find((item) => item.case.id === selectedCaseId) ?? cases[0] ?? null;
   const passedDraft = cases.filter((item) => caseResults[item.case_version.id] === true).length;
@@ -136,8 +159,22 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     setSelectedRunDetail(null);
     setCaseHistory(null);
     setCaseHistoryCaseId(null);
+    setEvalTargetVersionId(null);
+    setPromotionReview(null);
+    setPromotionLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSkillId]);
+
+  useEffect(() => {
+    if (variantVersionOptions.length === 0) {
+      if (evalTargetVersionId) setEvalTargetVersionId(null);
+      return;
+    }
+    if (evalTargetVersionId && variantVersionOptions.some((item) => item.version.id === evalTargetVersionId)) {
+      return;
+    }
+    setEvalTargetVersionId(defaultVariant?.current_version?.id ?? variantVersionOptions[0].version.id);
+  }, [defaultVariant?.current_version?.id, evalTargetVersionId, variantVersionOptions]);
 
   useEffect(() => {
     if (!currentEvalSetVersion) {
@@ -319,6 +356,47 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     if (leftVariantVersionId && rightVariantVersionId && leftVariantVersionId !== rightVariantVersionId) {
       void loadBundleDiff(leftVariantVersionId, rightVariantVersionId);
     }
+  }
+
+  async function openPromotionReview(variantId: string, candidateVersionId: string) {
+    setMode("promotion");
+    setPromotionLoading(true);
+    setPromotionReview(null);
+    setNotice(null);
+    try {
+      const params = new URLSearchParams({ candidate_version_id: candidateVersionId });
+      if (currentEvalSetVersion?.id) params.set("eval_set_version_id", currentEvalSetVersion.id);
+      const review = await apiGet<PromotionReview>(`/api/variants/${variantId}/promotion-review?${params.toString()}`);
+      setPromotionReview(review);
+    } catch (error) {
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载设为当前版本评审失败" });
+    } finally {
+      setPromotionLoading(false);
+    }
+  }
+
+  async function promoteFromReview(decisionNote: string) {
+    if (!promotionReview?.candidate_run) {
+      setNotice({ tone: "bad", message: "候选版本还没有可用的测评证据。" });
+      return;
+    }
+    await runCommand("已设为当前版本。", async () => {
+      await apiSend<{ ok: boolean; promotion_decision: PromotionDecision }>("/api/variants/promotions", {
+        method: "POST",
+        body: {
+          variant_id: promotionReview.variant.id,
+          version_id: promotionReview.candidate_version.id,
+          evidence_eval_run_id: promotionReview.candidate_run?.id,
+          eval_set_version_id: promotionReview.eval_set_version.id,
+          decision_note: decisionNote || null,
+          accept_risk: promotionReview.readiness.status === "risky",
+          actor: ACTOR,
+        },
+      });
+      setPromotionReview(null);
+      setMode("variants");
+      return "已设为当前版本。";
+    });
   }
 
   async function runCommand(message: string, command: () => Promise<CommandResult>) {
@@ -587,7 +665,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   }
 
   async function recordEvalRun() {
-    if (!defaultVariant?.current_version || !currentEvalSetVersion) return;
+    if (!evalTargetVersion || !currentEvalSetVersion) return;
     const missing = cases.filter((item) => typeof caseResults[item.case_version.id] !== "boolean");
     if (missing.length > 0) {
       setNotice({ tone: "bad", message: `还有 ${missing.length} 条测试用例没有确认通过或不通过。` });
@@ -601,7 +679,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       const result = await apiSend<{ passed: number; total: number }>("/api/eval-runs", {
         method: "POST",
         body: {
-          variant_version_id: defaultVariant.current_version?.id,
+          variant_version_id: evalTargetVersion.id,
           eval_set_version_id: currentEvalSetVersion.id,
           strategy: "manual_pass_fail",
           results,
@@ -680,6 +758,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
             <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
             <button className={mode === "history" ? "linearTabActive" : ""} onClick={() => setMode("history")} type="button">历史</button>
+            {mode === "promotion" || promotionReview ? (
+              <button className={mode === "promotion" ? "linearTabActive" : ""} onClick={() => setMode("promotion")} type="button">评审</button>
+            ) : null}
           </nav>
         </header>
 
@@ -703,6 +784,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             defaultVariant={defaultVariant}
             onAction={chooseAction}
             onDiff={() => openDiffMode()}
+            onPromotionReview={openPromotionReview}
             variants={selectedDetail.variants}
           />
         ) : null}
@@ -714,6 +796,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             leftVersionId={diffLeftVersionId}
             loading={diffLoading}
             onPairChange={updateDiffPair}
+            onPromotionReview={openPromotionReview}
             onSelectFile={setSelectedDiffPath}
             onSetFilter={setDiffFilter}
             rightVersionId={diffRightVersionId}
@@ -737,6 +820,17 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           />
         ) : null}
 
+        {mode === "promotion" ? (
+          <PromotionReviewPane
+            busy={busy}
+            loading={promotionLoading}
+            onBack={() => setMode("variants")}
+            onOpenEvals={() => setMode("evals")}
+            onPromote={promoteFromReview}
+            review={promotionReview}
+          />
+        ) : null}
+
         {mode === "evals" ? (
           <EvalsPane
             busy={busy}
@@ -747,6 +841,8 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             cases={cases}
             confirmedDraft={confirmedDraft}
             currentEvalSetVersion={currentEvalSetVersion?.version_number}
+            evalTargetVersionId={evalTargetVersion?.id ?? ""}
+            evalTargetVersions={variantVersionOptions}
             failedDraft={failedDraft}
             onAction={chooseAction}
             onArchiveCase={archiveCase}
@@ -757,6 +853,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             onHistoryCase={loadCaseHistory}
             onRecord={recordEvalRun}
             onSelectCase={setSelectedCaseId}
+            onSelectEvalTargetVersion={setEvalTargetVersionId}
             onSetAll={setAllCases}
             onToggle={(caseVersionId, passed) => {
               setCaseResults((current) => ({ ...current, [caseVersionId]: passed }));
@@ -915,11 +1012,13 @@ function VariantsPane({
   defaultVariant,
   onAction,
   onDiff,
+  onPromotionReview,
   variants,
 }: {
   defaultVariant: VariantDetail | null;
   onAction: (mode: ActionMode) => void;
   onDiff: () => void;
+  onPromotionReview: (variantId: string, candidateVersionId: string) => void;
   variants: VariantDetail[];
 }) {
   const historyCount = variants.reduce((total, variant) => total + variant.versions.length, 0);
@@ -939,12 +1038,12 @@ function VariantsPane({
       </div>
       <div className="variantMapCanvas">
         {variants.map((variant) => (
-          <Link className={`variantMapCard ${variant.id === defaultVariant?.id ? "variantMapCardDefault" : ""}`} href={`/variants/${variant.id}`} key={variant.id}>
-            <div>
+          <article className={`variantMapCard ${variant.id === defaultVariant?.id ? "variantMapCardDefault" : ""}`} key={variant.id}>
+            <Link href={`/variants/${variant.id}`}>
               <span>{variant.id === defaultVariant?.id ? "Default variant" : "Variant"}</span>
               <strong>{variant.label}</strong>
               <p>{variant.summary}</p>
-            </div>
+            </Link>
             <div className="tagLine">
               {variant.tags.map((tag) => <Badge key={tag} tone="blue">{tag}</Badge>)}
             </div>
@@ -952,7 +1051,27 @@ function VariantsPane({
               <small>{variant.current_version ? `current v${variant.current_version.version_number}` : "no current version"}</small>
               <small>{variant.versions.length} versions</small>
             </div>
-          </Link>
+            <div className="variantVersionList" aria-label={`${variant.label} versions`}>
+              {sortedVersions(variant.versions).map((version) => {
+                const isCurrent = version.id === variant.current_version?.id;
+                return (
+                  <div className="variantVersionRow" key={version.id}>
+                    <span>
+                      <b>v{version.version_number}</b>
+                      <small>{version.change_summary}</small>
+                    </span>
+                    {isCurrent ? (
+                      <Badge tone="good">Current</Badge>
+                    ) : (
+                      <button onClick={() => onPromotionReview(variant.id, version.id)} type="button">
+                        设为当前版本评审
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </article>
         ))}
       </div>
     </div>
@@ -965,6 +1084,7 @@ function DiffPane({
   leftVersionId,
   loading,
   onPairChange,
+  onPromotionReview,
   onSelectFile,
   onSetFilter,
   rightVersionId,
@@ -976,6 +1096,7 @@ function DiffPane({
   leftVersionId: string | null;
   loading: boolean;
   onPairChange: (leftVariantVersionId: string, rightVariantVersionId: string) => void;
+  onPromotionReview: (variantId: string, candidateVersionId: string) => void;
   onSelectFile: (path: string) => void;
   onSetFilter: (filter: DiffFilter) => void;
   rightVersionId: string | null;
@@ -983,6 +1104,8 @@ function DiffPane({
   variant: VariantDetail | null;
 }) {
   const versions = sortedVersions(variant?.versions ?? []);
+  const rightVersion = versions.find((version) => version.id === rightVersionId) ?? null;
+  const canReviewRight = Boolean(variant && rightVersion && rightVersion.id !== variant.current_version?.id);
   const filteredFiles = filterDiffFiles(diff?.files ?? [], filter);
   const selectedFile = filteredFiles.find((file) => file.path === selectedPath) ?? filteredFiles[0] ?? null;
 
@@ -1034,6 +1157,15 @@ function DiffPane({
               ))}
             </select>
           </label>
+          <button
+            disabled={!canReviewRight}
+            onClick={() => {
+              if (variant && rightVersion) onPromotionReview(variant.id, rightVersion.id);
+            }}
+            type="button"
+          >
+            设为当前版本评审
+          </button>
         </div>
       </div>
 
@@ -1308,6 +1440,8 @@ function EvalsPane({
   cases,
   confirmedDraft,
   currentEvalSetVersion,
+  evalTargetVersionId,
+  evalTargetVersions,
   failedDraft,
   onAction,
   onArchiveCase,
@@ -1315,6 +1449,7 @@ function EvalsPane({
   onHistoryCase,
   onRecord,
   onSelectCase,
+  onSelectEvalTargetVersion,
   onSetAll,
   onToggle,
   passedDraft,
@@ -1328,6 +1463,13 @@ function EvalsPane({
   cases: EvalSetVersionDetail["cases"];
   confirmedDraft: number;
   currentEvalSetVersion?: number;
+  evalTargetVersionId: string;
+  evalTargetVersions: Array<{
+    variant: VariantDetail;
+    version: VariantVersion;
+    label: string;
+    isCurrent: boolean;
+  }>;
   failedDraft: number;
   onAction: (mode: ActionMode) => void;
   onArchiveCase: (caseId: string) => void;
@@ -1335,6 +1477,7 @@ function EvalsPane({
   onHistoryCase: (caseId: string) => void;
   onRecord: () => void;
   onSelectCase: (caseId: string) => void;
+  onSelectEvalTargetVersion: (versionId: string) => void;
   onSetAll: (passed: boolean) => void;
   onToggle: (caseVersionId: string, passed: boolean) => void;
   passedDraft: number;
@@ -1351,6 +1494,25 @@ function EvalsPane({
           <button onClick={() => onAction("new-case")} type="button">添加 case</button>
           <button disabled={cases.length === 0} onClick={() => onAction("edit-case")} type="button">编辑 case</button>
         </div>
+      </div>
+
+      <div className="evalTargetBar">
+        <label>
+          <span>测评目标版本</span>
+          <select
+            aria-label="测评目标版本"
+            disabled={evalTargetVersions.length === 0}
+            onChange={(event) => onSelectEvalTargetVersion(event.currentTarget.value)}
+            value={evalTargetVersionId}
+          >
+            {evalTargetVersions.map((item) => (
+              <option key={item.version.id} value={item.version.id}>
+                {item.label}{item.isCurrent ? " · current" : " · candidate"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span>测评结果会绑定到 exact VariantVersion，候选版本也可以先测再上架。</span>
       </div>
 
       <div className="evalRunBar" data-testid="eval-run-bar">
@@ -1773,8 +1935,11 @@ function sortedVersions(versions: VariantVersion[]) {
 function defaultDiffPair(variant: VariantDetail | null): { left: VariantVersion; right: VariantVersion } | null {
   const versions = sortedVersions(variant?.versions ?? []);
   if (versions.length < 2) return null;
-  const fallbackRight = versions[versions.length - 1];
-  const right = versions.find((version) => version.id === variant?.current_version?.id) ?? fallbackRight;
+  const currentIndex = versions.findIndex((version) => version.id === variant?.current_version?.id);
+  if (currentIndex >= 0 && currentIndex < versions.length - 1) {
+    return { left: versions[currentIndex], right: versions[currentIndex + 1] };
+  }
+  const right = currentIndex >= 0 ? versions[currentIndex] : versions[versions.length - 1];
   const rightIndex = versions.findIndex((version) => version.id === right.id);
   const left = versions[rightIndex - 1] ?? versions[versions.length - 2];
   if (!left || left.id === right.id) return null;

@@ -137,6 +137,106 @@ test("operator can compare standard bundle versions", async ({ page }) => {
   await expect(page.getByText("Prioritize missing tenant filters.")).toBeVisible();
 });
 
+test("operator can review a candidate version before promoting it", async ({ page }) => {
+  const skillName = `promotion-reviewing-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+  await addEvalCase(page, "PR: missing tenant scope");
+
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: missing tenant scope" })
+    .getByRole("button", { name: "不通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
+
+  await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
+
+  await page.getByRole("button", { name: "测评", exact: true }).click();
+  const targetVersion = await page
+    .getByLabel("测评目标版本")
+    .locator("option")
+    .filter({ hasText: "v2" })
+    .first()
+    .getAttribute("value");
+  expect(targetVersion).toBeTruthy();
+  await page.getByLabel("测评目标版本").selectOption(targetVersion ?? "");
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: missing tenant scope" })
+    .getByRole("button", { name: "通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
+
+  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await expect(
+    page.locator(".variantVersionRow").filter({ hasText: "v2" }).getByRole("button", { name: "设为当前版本评审" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "差异", exact: true }).click();
+  await expect(page.locator(".diffPane").getByText("v1 -> v2")).toBeVisible();
+  await page.locator(".diffSelectors").getByRole("button", { name: "设为当前版本评审" }).click();
+
+  await expect(page.getByRole("heading", { name: "设为当前版本评审" })).toBeVisible();
+  await expect(page.locator(".promotionReadiness").getByText("可设为当前版本")).toBeVisible();
+  await expect(page.locator(".promotionCaseList").getByText("修复", { exact: true })).toBeVisible();
+  await expect(page.locator(".promotionDiffPanel").getByText("SKILL.md")).toBeVisible();
+
+  await page.getByRole("button", { name: "设为当前版本", exact: true }).click();
+  await expect(page.getByText("已设为当前版本。")).toBeVisible();
+  await expect(page.locator(".variantVersionRow").filter({ hasText: "v2" }).getByText("Current")).toBeVisible();
+});
+
+test("risky promotion requires a decision note before promoting", async ({ page }) => {
+  const skillName = `risky-promotion-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+  await addEvalCase(page, "PR: tenant scope regresses");
+
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: tenant scope regresses" })
+    .getByRole("button", { name: "通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
+
+  await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
+
+  await page.getByRole("button", { name: "测评", exact: true }).click();
+  const targetVersion = await page
+    .getByLabel("测评目标版本")
+    .locator("option")
+    .filter({ hasText: "v2" })
+    .first()
+    .getAttribute("value");
+  expect(targetVersion).toBeTruthy();
+  await page.getByLabel("测评目标版本").selectOption(targetVersion ?? "");
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: tenant scope regresses" })
+    .getByRole("button", { name: "不通过", exact: true })
+    .click();
+  await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
+  await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
+
+  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page
+    .locator(".variantVersionRow")
+    .filter({ hasText: "v2" })
+    .getByRole("button", { name: "设为当前版本评审" })
+    .click();
+
+  await expect(page.locator(".promotionReadiness").getByText("有风险")).toBeVisible();
+  await expect(page.locator(".promotionCaseList").getByText("回退", { exact: true })).toBeVisible();
+  const promoteButton = page.getByRole("button", { name: "接受风险并设为当前版本" });
+  await expect(promoteButton).toBeDisabled();
+  await page.getByLabel("设为当前版本说明").fill("候选版本包含必要文件变更，先接受风险并补充后续 case。");
+  await expect(promoteButton).toBeEnabled();
+  await promoteButton.click();
+  await expect(page.getByText("已设为当前版本。")).toBeVisible();
+  await expect(page.locator(".variantVersionRow").filter({ hasText: "v2" }).getByText("Current")).toBeVisible();
+});
+
 test("operator can review eval run history with filters", async ({ page }) => {
   const skillName = `history-reviewing-${Date.now()}`;
   await importSkillBundle(page, skillName);

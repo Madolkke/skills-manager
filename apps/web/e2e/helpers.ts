@@ -51,7 +51,11 @@ export async function addEvalCase(page: Page, title: string) {
   await expect(page.locator(".caseReviewCard").filter({ hasText: title })).toBeVisible();
 }
 
-export async function appendSkillBundleVersion(page: Page, skillName: string) {
+export async function appendSkillBundleVersion(
+  page: Page,
+  skillName: string,
+  options: { makeCurrent?: boolean } = {},
+) {
   const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-version-bundle-"));
 
   await writeFile(
@@ -74,6 +78,9 @@ export async function appendSkillBundleVersion(page: Page, skillName: string) {
     await page.getByLabel("Inspector").getByRole("button", { name: "追加版本" }).click();
     await page.locator('input[name="version_folder_files"]').setInputFiles(bundleDir);
     await page.getByPlaceholder("这次更新的收益").fill("Add tenant filter guidance and replace the checklist.");
+    if (options.makeCurrent === false) {
+      await page.locator('input[name="make_current"]').uncheck();
+    }
     await page.getByRole("button", { name: "保存版本" }).click();
     await expect(page.getByText("Variant 版本已创建。")).toBeVisible();
   } finally {
@@ -92,6 +99,8 @@ export async function hideVolatileUi(page: Page) {
       "[data-nextjs-toast] { display: none !important; }",
       "nextjs-portal { display: none !important; }",
       ".bindingList b { visibility: hidden !important; }",
+      ".promotionScoreBox small { visibility: hidden !important; }",
+      ".promotionBindingList b { visibility: hidden !important; }",
     ].join("\n"),
   });
 }

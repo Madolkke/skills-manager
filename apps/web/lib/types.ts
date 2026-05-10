@@ -255,3 +255,56 @@ export type CaseResultDetail = {
   case: EvalSetCase["case"];
   case_version: EvalCaseVersionDetail;
 };
+
+export type PromotionReadiness = {
+  status: "ready" | "risky" | "unverified" | "blocked";
+  label: string;
+  reason: string;
+  requires_note: boolean;
+  risk_items: string[];
+  blocking_items: string[];
+  passing_items: string[];
+};
+
+export type PromotionCaseComparison = {
+  case_id: string;
+  case_title: string;
+  case_version_id: string;
+  change: "fixed" | "regressed" | "stable_pass" | "stable_fail" | "missing_baseline" | "missing_candidate";
+  change_label: string;
+  current_passed: boolean | null;
+  candidate_passed: boolean | null;
+  input_text: string | null;
+  expected_output_text: string | null;
+};
+
+export type PromotionReview = {
+  skill: SkillSummary["skill"];
+  variant: Omit<VariantDetail, "current_version" | "versions"> & { tags: string[] };
+  current_version: VariantVersion | null;
+  candidate_version: VariantVersion;
+  eval_set: Omit<EvalSetSummary, "current_version" | "versions">;
+  eval_set_version: EvalSetVersion;
+  candidate_run: EvalRunRecord | null;
+  current_run: EvalRunRecord | null;
+  readiness: PromotionReadiness;
+  comparison_summary: Record<PromotionCaseComparison["change"], number>;
+  case_comparisons: PromotionCaseComparison[];
+  bundle_diff: BundleDiff | null;
+};
+
+export type PromotionDecision = {
+  id: string;
+  skill_id: string;
+  variant_id: string;
+  from_version_id: string | null;
+  to_version_id: string;
+  eval_set_version_id: string;
+  evidence_eval_run_id: string;
+  baseline_eval_run_id: string | null;
+  readiness_status: PromotionReadiness["status"];
+  decision_note: string | null;
+  accepted_risk: boolean;
+  created_at?: string;
+  created_by: string;
+};
