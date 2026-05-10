@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-10 18:55 CST - TASK-010 Case 历史版本恢复
+
+- 已新增 `POST /api/eval-cases/{case_id}/restores`，恢复旧 `EvalCaseVersion` 时创建新的当前版本，不覆盖历史。
+- 已把 case history 面板抽到独立组件，并给非当前版本加 `恢复此版本`。
+- 修复恢复后通用刷新链路会清空 case history 的状态问题，eval set 刷新时只在当前 case 不再属于 snapshot 时关闭历史面板。
+- 已验证：`uv run pytest` 75 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 24 passed；`git diff --check` passed。
+
 ### 2026-05-10 16:48 CST - TASK-009 导入后验证引导
 
 - 在概览页新增 `验证清单`，把导入 bundle 后的下一步组织为补 case、记录首轮测评、查看证据历史。

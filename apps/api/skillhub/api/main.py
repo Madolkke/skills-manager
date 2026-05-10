@@ -117,6 +117,12 @@ class CreateEvalCaseVersionPayload(BaseModel):
     make_current: bool = True
 
 
+class RestoreEvalCaseVersionPayload(BaseModel):
+    source_case_version_id: str
+    actor: str = "system"
+    notes: str | None = None
+
+
 class RecordEvalRunPayload(BaseModel):
     variant_version_id: str
     eval_set_version_id: str
@@ -429,6 +435,21 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 actor=payload.actor,
                 notes=payload.notes,
                 make_current=payload.make_current,
+            )
+        )
+
+    @app.post("/api/eval-cases/{case_id}/restores")
+    def restore_eval_case_version(
+        case_id: str,
+        payload: RestoreEvalCaseVersionPayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.restore_eval_case_version(
+                case_id=case_id,
+                source_case_version_id=payload.source_case_version_id,
+                actor=payload.actor,
+                notes=payload.notes,
             )
         )
 

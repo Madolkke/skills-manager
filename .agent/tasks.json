@@ -61,5 +61,12 @@
     "priority": 9,
     "passes": true,
     "spec": ".agent/tasks/TASK-009.json"
+  },
+  {
+    "id": "010",
+    "title": "恢复测试用例历史版本",
+    "priority": 10,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-010.json"
   }
 ]

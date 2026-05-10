@@ -11,6 +11,7 @@ import { QuickAddCases, type QuickEvalCaseDraft } from "@/components/eval-cases/
 import { EvalReviewControls, type EvalReviewFilter } from "@/components/eval-cases/eval-review-controls";
 import { CandidateVerificationBanner } from "@/components/eval-cases/candidate-verification-banner";
 import { VerificationStartPanel } from "@/components/eval-cases/verification-start-panel";
+import { CaseHistoryPanel } from "@/components/eval-cases/case-history-panel";
 import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
@@ -323,10 +324,11 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   async function loadEvalSetVersion(evalSetVersionId: string) {
     try {
       const detail = await apiGet<EvalSetVersionDetail>(`/api/eval-set-versions/${evalSetVersionId}`);
+      const activeCaseIds = new Set(detail.cases.map((item) => item.case.id));
       setEvalSetDetail(detail);
       setCaseResults(Object.fromEntries(detail.cases.map((item) => [item.case_version.id, null])));
-      setCaseHistory(null);
-      setCaseHistoryCaseId(null);
+      setCaseHistory((current) => (current && activeCaseIds.has(current.case.id) ? current : null));
+      setCaseHistoryCaseId((current) => (current && activeCaseIds.has(current) ? current : null));
     } catch {
       setEvalSetDetail(null);
       setCaseResults({});
@@ -812,6 +814,22 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     });
   }
 
+  async function restoreCaseVersion(caseId: string, sourceCaseVersionId: string, sourceVersionNumber: number) {
+    await runCommand(`已从 case v${sourceVersionNumber} 恢复为新版本。`, async () => {
+      const result = await apiSend<{ eval_set_version_id: string }>(`/api/eval-cases/${caseId}/restores`, {
+        method: "POST",
+        body: {
+          source_case_version_id: sourceCaseVersionId,
+          notes: `Restored from case v${sourceVersionNumber}.`,
+          actor: ACTOR,
+        },
+      });
+      setSelectedCaseId(caseId);
+      await loadEvalSetVersion(result.eval_set_version_id);
+      await loadCaseHistory(caseId);
+    });
+  }
+
   async function recordEvalRun() {
     if (!evalTargetVersion || !currentEvalSetVersion) return;
     const missing = cases.filter((item) => typeof caseResults[item.case_version.id] !== "boolean");
@@ -1021,6 +1039,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             onHistoryCase={loadCaseHistory}
             onPromotionReview={openPromotionReview}
             onRecord={recordEvalRun}
+            onRestoreCaseVersion={restoreCaseVersion}
             onSelectCase={setSelectedCaseId}
             onSelectEvalTargetVersion={selectEvalTargetVersion}
             onToggle={(caseVersionId, passed) => {
@@ -1667,6 +1686,7 @@ function EvalsPane({
   onHistoryCase,
   onPromotionReview,
   onRecord,
+  onRestoreCaseVersion,
   onSelectCase,
   onSelectEvalTargetVersion,
   onToggle,
@@ -1703,6 +1723,7 @@ function EvalsPane({
   onHistoryCase: (caseId: string) => void;
   onPromotionReview: (variantId: string, candidateVersionId: string) => void;
   onRecord: () => void;
+  onRestoreCaseVersion: (caseId: string, caseVersionId: string, versionNumber: number) => void;
   onSelectCase: (caseId: string) => void;
   onSelectEvalTargetVersion: (versionId: string) => void;
   onToggle: (caseVersionId: string, passed: boolean) => void;
@@ -1914,7 +1935,13 @@ function EvalsPane({
 
         <section className="evalCaseDetail">
           {caseHistoryCaseId === selectedCaseId ? (
-            <CaseHistoryPanel history={caseHistory} loading={caseHistoryLoading} />
+            <CaseHistoryPanel
+              busy={busy}
+              currentCaseVersionId={cases.find((item) => item.case.id === caseHistoryCaseId)?.case_version.id ?? null}
+              history={caseHistory}
+              loading={caseHistoryLoading}
+              onRestoreVersion={onRestoreCaseVersion}
+            />
           ) : null}
           {cases.map((item) => {
             const isSelected = selectedCaseId === item.case.id || (!selectedCaseId && item.position === 0);
@@ -1955,65 +1982,6 @@ function isTextEntryTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   const tagName = target.tagName.toLowerCase();
   return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
-}
-
-function CaseHistoryPanel({ history, loading }: { history: EvalCaseHistory | null; loading: boolean }) {
-  if (loading) {
-    return (
-      <div className="evalCaseDetailEmpty">
-        <strong>Case version history</strong>
-        <span>正在加载这个 case 的历史版本...</span>
-      </div>
-    );
-  }
-  if (!history) {
-    return (
-      <div className="evalCaseDetailEmpty">
-        <strong>Case version history</strong>
-        <span>暂时没有可展示的历史记录。</span>
-      </div>
-    );
-  }
-  return (
-    <div className="caseHistoryPanel">
-      <div className="evalCaseDetailHead">
-        <span>Case version history</span>
-        <strong>{history.case.title}</strong>
-      </div>
-      <div className="caseHistoryTimeline">
-        {history.versions.map((item) => (
-          <article className="caseHistoryVersion" key={item.case_version.id}>
-            <div className="caseHistoryVersionHead">
-              <div>
-                <span>v{item.case_version.version_number}</span>
-                <strong>{item.case_version.notes || "No notes"}</strong>
-              </div>
-              <small>{formatDate(item.case_version.created_at)} · {item.case_version.created_by}</small>
-            </div>
-            <div className="caseIOGrid">
-              <div>
-                <span>Input</span>
-                <pre>{item.case_version.input_artifact.content_text ?? item.case_version.input_artifact.digest}</pre>
-              </div>
-              <div>
-                <span>Expected output</span>
-                <pre>{item.case_version.expected_output_artifact.content_text ?? item.case_version.expected_output_artifact.digest}</pre>
-              </div>
-            </div>
-            <div className="caseHistoryMembership">
-              {item.included_in_eval_set_versions.length > 0 ? (
-                item.included_in_eval_set_versions.map((membership) => (
-                  <Badge key={membership.id}>EvalSet v{membership.version_number} · position {membership.position + 1}</Badge>
-                ))
-              ) : (
-                <Badge>未进入 eval set snapshot</Badge>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function Inspector({

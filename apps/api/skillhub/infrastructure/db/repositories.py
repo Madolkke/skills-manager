@@ -794,6 +794,38 @@ class SqlSkillRepository:
             expected_output_artifact_id=expected_output_artifact_id,
         )
 
+    def restore_eval_case_version(
+        self,
+        *,
+        case_id: str,
+        source_case_version_id: str,
+        actor: str,
+        notes: str | None = None,
+    ) -> CreateEvalCaseResult:
+        with self.engine.connect() as connection:
+            eval_case = self._eval_case_row(connection, case_id)
+            if eval_case["lifecycle_status"] != "active":
+                raise InvariantError("Archived eval cases cannot be restored.")
+            source_case_version = self._eval_case_version_row(connection, source_case_version_id)
+            if source_case_version["case_id"] != case_id:
+                raise NotFoundError(f"EvalCaseVersion not found for case: {source_case_version_id}")
+            source_detail = self._case_version_detail(connection, source_case_version)
+
+        input_text = source_detail["input_artifact"].get("content_text")
+        expected_output = source_detail["expected_output_artifact"].get("content_text")
+        if input_text is None or expected_output is None:
+            raise InvariantError("Only text eval case versions can be restored.")
+
+        restore_notes = notes if notes is not None else f"Restored from case v{source_case_version['version_number']}."
+        return self.create_eval_case_version(
+            case_id=case_id,
+            input_text=input_text,
+            expected_output=expected_output,
+            actor=actor,
+            notes=restore_notes,
+            make_current=True,
+        )
+
     def record_eval_run(
         self,
         *,

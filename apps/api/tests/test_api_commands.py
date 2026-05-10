@@ -276,6 +276,109 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(history.json()["case"]["lifecycle_status"], "archived")
         self.assertEqual(history.json()["versions"][0]["case_version"]["version_number"], 1)
 
+    def test_restore_eval_case_version_from_history(self):
+        skill = self.create_skill("restore-case-history-reviewer")
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: restore old wording",
+                "input_text": "old input",
+                "expected_output": "old expectation",
+                "notes": "Original regression.",
+                "actor": "tester",
+            },
+        ).json()
+        self.client.patch(
+            f"/api/eval-cases/{case['eval_case_id']}",
+            json={
+                "case_id": case["eval_case_id"],
+                "input_text": "new input",
+                "expected_output": "new expectation",
+                "notes": "Bad edit.",
+                "actor": "tester",
+                "make_current": True,
+            },
+        )
+
+        restored = self.client.post(
+            f"/api/eval-cases/{case['eval_case_id']}/restores",
+            json={
+                "source_case_version_id": case["eval_case_version_id"],
+                "notes": "Restore old expectation.",
+                "actor": "tester",
+            },
+        )
+
+        self.assertEqual(restored.status_code, 200)
+        payload = restored.json()
+        self.assertNotEqual(payload["eval_case_version_id"], case["eval_case_version_id"])
+        history = self.client.get(f"/api/eval-cases/{case['eval_case_id']}/versions").json()
+        self.assertEqual([item["case_version"]["version_number"] for item in history["versions"]], [3, 2, 1])
+        self.assertEqual(history["versions"][0]["case_version"]["expected_output_artifact"]["content_text"], "old expectation")
+        current_eval_set = self.client.get(f"/api/eval-set-versions/{payload['eval_set_version_id']}").json()
+        self.assertEqual(current_eval_set["cases"][0]["case_version"]["id"], payload["eval_case_version_id"])
+        self.assertEqual(current_eval_set["cases"][0]["case_version"]["expected_output_artifact"]["content_text"], "old expectation")
+
+    def test_restore_eval_case_version_rejects_cross_case_source(self):
+        skill = self.create_skill("restore-cross-case-reviewer")
+        first = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "First",
+                "input_text": "first input",
+                "expected_output": "first expectation",
+                "actor": "tester",
+            },
+        ).json()
+        second = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "Second",
+                "input_text": "second input",
+                "expected_output": "second expectation",
+                "actor": "tester",
+            },
+        ).json()
+
+        restored = self.client.post(
+            f"/api/eval-cases/{first['eval_case_id']}/restores",
+            json={
+                "source_case_version_id": second["eval_case_version_id"],
+                "actor": "tester",
+            },
+        )
+
+        self.assertEqual(restored.status_code, 404)
+        self.assertIn("EvalCaseVersion not found", restored.json()["detail"])
+
+    def test_restore_eval_case_version_rejects_archived_case(self):
+        skill = self.create_skill("restore-archived-case-reviewer")
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "Archived",
+                "input_text": "input",
+                "expected_output": "expected",
+                "actor": "tester",
+            },
+        ).json()
+        self.client.delete(f"/api/eval-cases/{case['eval_case_id']}")
+
+        restored = self.client.post(
+            f"/api/eval-cases/{case['eval_case_id']}/restores",
+            json={
+                "source_case_version_id": case["eval_case_version_id"],
+                "actor": "tester",
+            },
+        )
+
+        self.assertEqual(restored.status_code, 400)
+        self.assertIn("Archived eval cases cannot be restored", restored.json()["detail"])
+
     def test_promote_rejects_other_variant_version(self):
         first = self.create_skill("code-reviewer")
         second = self.create_skill("security-reviewer", digest="digest-security")

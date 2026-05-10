@@ -55,6 +55,7 @@
 | Accepted verification | `POST /api/eval-runs/accepted-verifications` 写入 `(variant_id, eval_set_version_id)` 指针和 audit event；History row 显示 `Accepted`。 | 完成 |
 | 上下文命令菜单 | `Cmd/Ctrl+K` 和可见按钮可打开命令菜单；E2E 覆盖搜索 `添加 case` 并跳转表单。 | 完成 |
 | Case version history | `GET /api/eval-cases/{case_id}/versions`；E2E 覆盖 inline history。 | 完成 |
+| Case restore | `POST /api/eval-cases/{case_id}/restores`；E2E 覆盖从旧 case version 恢复为新的当前版本；后端测试覆盖跨 case source 拒绝和 archived case 拒绝。 | 完成 |
 | 视觉回归 | `apps/web/e2e/visual-workbench.spec.ts` 覆盖 empty、imported overview、manual eval、promotion review、mobile empty。 | 完成 |
 | README | README 已用中文补充一键启动、验证命令、标准 bundle、manual eval 和 promotion 流程。 | 完成 |
 | UX 复盘 | `docs/product-ux-review.md` 已更新，说明借鉴模式、已解决摩擦和下一轮优化。 | 完成 |
@@ -74,8 +75,8 @@ cd apps/web && npm run e2e
 
 - Web typecheck：通过。
 - Web production build：通过。
-- Playwright E2E：23 passed。
-- API pytest：71 passed。
+- Playwright E2E：24 passed。
+- API pytest：75 passed。
 
 本轮新增视觉资产：
 
@@ -96,9 +97,8 @@ cd apps/web && npm run e2e
 2. **部分操作仍偏表单。** 导入后清单、case 新增、记录 run 和 candidate 验证已更连续，但新建/编辑对象仍主要依赖 inspector 表单。
 3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
 4. **Run matrix / saved view 还没做。** 现在能比较两次 run，但不能把筛选保存成团队视图，也没有 case × variant/version 的多维矩阵。
-5. **Case restore 还没做。** 可以查看 case 历史，但不能从旧版本一键生成恢复版本。
-6. **Accessibility 覆盖还浅。** 有键盘 smoke 和可见 label，但缺少系统化 focus order、screen reader、reduced-motion 验证。
-7. **Ralph Loop 未真正持续运行。** 配置已安装，但本地 Docker Sandboxes 需要 `sbx login` 授权；没有登录就不能让 Ralph 持续接管任务。
+5. **Accessibility 覆盖还浅。** 有键盘 smoke 和可见 label，但缺少系统化 focus order、screen reader、reduced-motion 验证。
+6. **Ralph Loop 未真正持续运行。** 配置已安装，但本地 Docker Sandboxes 需要 `sbx login` 授权；没有登录就不能让 Ralph 持续接管任务。
 
 ## 下一步建议
 

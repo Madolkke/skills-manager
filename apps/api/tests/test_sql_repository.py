@@ -606,6 +606,58 @@ class SqlSkillRepositoryTest(unittest.TestCase):
         self.assertEqual(eval_set["current_version_id"], first.eval_set_version_id)
         self.assertEqual(candidate.eval_set_version_id, first.eval_set_version_id)
 
+    def test_restore_eval_case_version_creates_new_current_version(self):
+        skill = self.create_skill()
+        first = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: old expected output",
+            input_text="old input",
+            expected_output="old expectation",
+            actor="tester",
+            notes="original",
+        )
+        second = self.repository.create_eval_case_version(
+            case_id=first.eval_case_id,
+            input_text="new input",
+            expected_output="new expectation",
+            actor="tester",
+            notes="bad edit",
+        )
+
+        restored = self.repository.restore_eval_case_version(
+            case_id=first.eval_case_id,
+            source_case_version_id=first.eval_case_version_id,
+            actor="tester",
+            notes="Restored original expectation.",
+        )
+
+        with self.engine.connect() as connection:
+            eval_case = connection.execute(select(eval_cases).where(eval_cases.c.id == first.eval_case_id)).mappings().one()
+            restored_version = connection.execute(
+                select(eval_case_versions).where(eval_case_versions.c.id == restored.eval_case_version_id)
+            ).mappings().one()
+            restored_detail = self.repository._case_version_detail(connection, restored_version)
+            old_membership = connection.execute(
+                select(eval_set_case_versions.c.case_version_id).where(
+                    eval_set_case_versions.c.eval_set_version_id == first.eval_set_version_id
+                )
+            ).scalars().all()
+            latest_membership = connection.execute(
+                select(eval_set_case_versions.c.case_version_id).where(
+                    eval_set_case_versions.c.eval_set_version_id == restored.eval_set_version_id
+                )
+            ).scalars().all()
+
+        self.assertNotEqual(restored.eval_case_version_id, first.eval_case_version_id)
+        self.assertNotEqual(restored.eval_case_version_id, second.eval_case_version_id)
+        self.assertEqual(restored_version["version_number"], 3)
+        self.assertEqual(eval_case["current_version_id"], restored.eval_case_version_id)
+        self.assertEqual(restored_detail["input_artifact"]["content_text"], "old input")
+        self.assertEqual(restored_detail["expected_output_artifact"]["content_text"], "old expectation")
+        self.assertEqual(restored_detail["notes"], "Restored original expectation.")
+        self.assertEqual(old_membership, [first.eval_case_version_id])
+        self.assertEqual(latest_membership, [restored.eval_case_version_id])
+
     def test_create_eval_case_requires_existing_skill_eval_set(self):
         with self.assertRaisesRegex(NotFoundError, "Primary EvalSet not found"):
             self.repository.create_eval_case(

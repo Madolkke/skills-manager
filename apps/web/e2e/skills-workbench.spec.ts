@@ -477,6 +477,36 @@ test("operator can inspect eval case version history", async ({ page }) => {
   await expect(page.locator(".caseHistoryVersion").filter({ hasText: "Must flag missing tenant scope." })).toBeVisible();
 });
 
+test("operator can restore an older eval case version", async ({ page }) => {
+  await importSkillBundle(page, `case-restore-${Date.now()}`);
+  await addEvalCase(page, "PR: restore case wording");
+  await page.getByLabel("Inspector").getByRole("button", { name: "编辑 case" }).click();
+  await page.getByPlaceholder("新标题").fill("PR: restore case wording");
+  await page.getByPlaceholder("新的 input").fill("diff --git a/service.py b/service.py\n+return Project.find_many({})");
+  await page.getByPlaceholder("新的 expected output").fill("Bad edited expectation.");
+  await page.getByPlaceholder("为什么更新").fill("Accidental edit.");
+  await page.getByRole("button", { name: "保存 case version" }).click();
+
+  await page
+    .locator(".caseReviewCard")
+    .filter({ hasText: "PR: restore case wording" })
+    .getByRole("button", { name: "历史" })
+    .click();
+  await expect(page.locator(".caseHistoryVersion")).toHaveCount(2);
+  await page
+    .locator(".caseHistoryVersion")
+    .filter({ hasText: "Must flag missing owner_id filter as a P1 issue." })
+    .getByRole("button", { name: "恢复此版本" })
+    .click();
+
+  await expect(page.getByText("已从 case v1 恢复为新版本。")).toBeVisible();
+  await expect(page.locator(".caseHistoryVersion")).toHaveCount(3);
+  await expect(page.locator(".caseHistoryVersion").first()).toContainText("Must flag missing owner_id filter as a P1 issue.");
+  const currentVersion = page.locator(".caseHistoryVersion").filter({ hasText: "当前版本" });
+  await expect(currentVersion).toHaveCount(1);
+  await expect(currentVersion).toContainText("Must flag missing owner_id filter as a P1 issue.");
+});
+
 test("workbench keeps the primary content within a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/skills");

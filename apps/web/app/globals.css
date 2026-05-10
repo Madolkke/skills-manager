@@ -5043,6 +5043,35 @@ body {
   font-weight: 850;
 }
 
+.caseHistoryVersionActions {
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+}
+
+.caseHistoryVersionActions button {
+  min-height: 30px;
+  border: 1px solid #cfd7e3;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 0 10px;
+}
+
+.caseHistoryVersionActions button:hover:not(:disabled) {
+  border-color: #111827;
+  color: #111827;
+}
+
+.caseHistoryVersionActions button:disabled {
+  background: #eef2f7;
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
 .caseHistoryMembership {
   display: flex;
   flex-wrap: wrap;
