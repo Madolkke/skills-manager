@@ -9,6 +9,7 @@
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
+- `测评` 页的 case 详情面板支持内联编辑，用户可以在当前测评上下文中修改 title、input、expected output、notes，并保存为新的 case version。
 - `概览` 页新增导入后验证清单，用户导入 bundle 后可以直接补首批 case、进入手工测评、再查看证据历史。
 - 追加 candidate 版本后会自动进入候选版本测评上下文；测评页 banner 可以直接打开 `设为当前版本评审`。
 - 手工测评现在可以选择 `测评目标版本`，因此候选 `VariantVersion` 可以先被测评，再决定是否成为 current。
@@ -38,6 +39,8 @@
 - **TestRail hotkeys:** TestRail 为 run/test 导航和结果提交提供快捷键。SkillHub 适配为 `p/f` 标记当前 case、`j/k` 或方向键移动；快捷键不会在输入框中触发。
 - **Airtable 多行粘贴:** 表格型产品允许复制多行记录并一次粘贴创建。SkillHub 借鉴这个批量输入体验，用 tab 或 `|` 分隔的文本把已有 PR/backlog 表格转成多个 eval case。
 - **Airtable record filtering:** Airtable 的表格体验强调在大量记录中筛选和移动。SkillHub 适配为全部/未确认/通过/不通过四种状态筛选，让测评执行从“扫整页”变成“处理队列”。
+- **Airtable record detail sidesheet:** Airtable 让用户从表格选中记录后在详情中直接编辑字段。SkillHub 适配为测评 case 详情内联编辑，保持“左侧选择、右侧/主区编辑”的连续工作流。
+- **Linear Peek / inline issue fields:** Linear 的 Peek 和 issue detail 让用户不离开列表上下文就能改标题/描述等字段。SkillHub 适配为选中 case 后直接编辑 input 和 expected output，但保存仍显式生成新版本。
 - **GitHub / VS Code diff:** 版本变化用文件列表 + 行级 additions/removals 展示，而不是只给 change summary。Skill 本质上是文件夹，必须让用户看到真实文件变化。
 - **GitHub protected branch / release review:** “设为当前版本”不是普通字段更新，而是有证据的指针移动。promotion review 借鉴 release 前检查，把测试结果、diff、风险说明合在一起。
 - **Vercel Preview Promotion:** Vercel 的 preview promotion 强调 inspect、test、check logs、再 promote。SkillHub 适配为 candidate version 创建后立即进入 exact candidate 的测评上下文，再进入 promotion review。
@@ -72,10 +75,11 @@
 13. 以前多次 run 只能列表浏览或两两比较；现在 history 页有 run matrix，可以按当前筛选直接看多 run 在每个 case 上的覆盖和结果。
 14. 以前常用历史筛选只能手动重建；现在可以保存为命名视图，一键恢复 run 列表和矩阵的同一组筛选。
 15. 以前矩阵只展示原始 pass/fail；现在选择对照/候选后，每个 case 行直接标出修复、回退或稳定状态。
+16. 以前编辑 case 主要依赖右侧 inspector；现在可在测评详情面板内直接编辑并保存为新版本，减少测评执行中的上下文跳转。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。导入后清单已经压缩首轮路径，但创建/编辑动作本身仍需要更成熟的内联编辑体验。
+1. 右侧 inspector 仍然偏表单化。case 编辑已经迁入测评详情，但 skill、variant 和版本追加仍需要更成熟的主区或内联抽屉体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图和对照/候选 impact，但还没有列配置和分组。
 4. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。

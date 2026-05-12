@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-10 20:55 CST - TASK-014 测评 case 详情内联编辑
+
+- 新增 `EvalCaseDetailPanel`，在手工测评详情面板中直接查看并编辑当前 case 的 title、input、expected output 和 notes。
+- 编辑保存复用现有 `PATCH /api/eval-cases/{case_id}`，继续生成新的 case version 和 EvalSetVersion，旧 inspector 编辑入口保持可用。
+- 新增 E2E 覆盖不经过 inspector 的 inline edit 路径，并更新手工测评视觉基线。
+- 已验证：`uv run pytest` 80 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 27 passed。
+
 ### 2026-05-10 20:10 CST - TASK-013 Run matrix 逐 case 影响态
 
 - 在 History mode 的 Run matrix 中接入现有 `对照` / `候选` run 选择。

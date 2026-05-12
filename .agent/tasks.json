@@ -89,5 +89,12 @@
     "priority": 13,
     "passes": true,
     "spec": ".agent/tasks/TASK-013.json"
+  },
+  {
+    "id": "014",
+    "title": "实现测评 case 详情内联编辑",
+    "priority": 14,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-014.json"
   }
 ]

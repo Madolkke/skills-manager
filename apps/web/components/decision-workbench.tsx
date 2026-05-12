@@ -11,7 +11,7 @@ import { QuickAddCases, type QuickEvalCaseDraft } from "@/components/eval-cases/
 import { EvalReviewControls, type EvalReviewFilter } from "@/components/eval-cases/eval-review-controls";
 import { CandidateVerificationBanner } from "@/components/eval-cases/candidate-verification-banner";
 import { VerificationStartPanel } from "@/components/eval-cases/verification-start-panel";
-import { CaseHistoryPanel } from "@/components/eval-cases/case-history-panel";
+import { EvalCaseDetailPanel, type EvalCaseUpdateDraft } from "@/components/eval-cases/eval-case-detail-panel";
 import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
@@ -897,23 +897,33 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     });
   }
 
-  async function updateCase(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await runCommand("测试用例新版本已保存。", async () => {
-      await apiSend(`/api/eval-cases/${textValue(form, "case_id")}`, {
+  async function updateCaseDraft(draft: EvalCaseUpdateDraft) {
+    return runCommand("测试用例新版本已保存。", async () => {
+      await apiSend(`/api/eval-cases/${draft.caseId}`, {
         method: "PATCH",
         body: {
-          case_id: textValue(form, "case_id"),
-          title: textValue(form, "title"),
-          input_text: textValue(form, "input_text"),
-          expected_output: textValue(form, "expected_output"),
-          notes: textValue(form, "notes"),
+          case_id: draft.caseId,
+          title: draft.title,
+          input_text: draft.inputText,
+          expected_output: draft.expectedOutput,
+          notes: draft.notes,
           actor: ACTOR,
           make_current: true,
         },
       });
-      setSelectedCaseId(textValue(form, "case_id"));
+      setSelectedCaseId(draft.caseId);
+    });
+  }
+
+  async function updateCase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await updateCaseDraft({
+      caseId: textValue(form, "case_id"),
+      title: textValue(form, "title"),
+      inputText: textValue(form, "input_text"),
+      expectedOutput: textValue(form, "expected_output"),
+      notes: textValue(form, "notes"),
     });
   }
 
@@ -1151,6 +1161,10 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             onCreateCases={createCases}
             onAction={chooseAction}
             onArchiveCase={archiveCase}
+            onCloseCaseHistory={() => {
+              setCaseHistory(null);
+              setCaseHistoryCaseId(null);
+            }}
             onClearDraft={clearCaseResults}
             onEditCase={(caseId) => {
               setSelectedCaseId(caseId);
@@ -1166,6 +1180,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
               setCaseResults((current) => ({ ...current, [caseVersionId]: passed }));
               setActionMode("run");
             }}
+            onUpdateCase={updateCaseDraft}
             passedDraft={passedDraft}
             selectedCaseId={selectedCase?.case.id ?? null}
           />
@@ -1840,6 +1855,7 @@ function EvalsPane({
   failedDraft,
   onAction,
   onArchiveCase,
+  onCloseCaseHistory,
   onClearDraft,
   onCreateCases,
   onEditCase,
@@ -1850,6 +1866,7 @@ function EvalsPane({
   onSelectCase,
   onSelectEvalTargetVersion,
   onToggle,
+  onUpdateCase,
   passedDraft,
   selectedCaseId,
 }: {
@@ -1877,6 +1894,7 @@ function EvalsPane({
   failedDraft: number;
   onAction: (mode: ActionMode) => void;
   onArchiveCase: (caseId: string) => void;
+  onCloseCaseHistory: () => void;
   onClearDraft: () => void;
   onCreateCases: (cases: QuickEvalCaseDraft[]) => Promise<boolean>;
   onEditCase: (caseId: string) => void;
@@ -1887,6 +1905,7 @@ function EvalsPane({
   onSelectCase: (caseId: string) => void;
   onSelectEvalTargetVersion: (versionId: string) => void;
   onToggle: (caseVersionId: string, passed: boolean) => void;
+  onUpdateCase: (draft: EvalCaseUpdateDraft) => Promise<boolean>;
   passedDraft: number;
   selectedCaseId: string | null;
 }) {
@@ -1942,6 +1961,9 @@ function EvalsPane({
     for (const item of pendingCases) onToggle(item.case_version.id, true);
     if (pendingCases[0]) onSelectCase(pendingCases[0].case.id);
   }
+
+  const selectedItem = cases.find((item) => item.case.id === selectedCaseId) ?? cases[0] ?? null;
+  const historyVisible = Boolean(selectedItem && caseHistoryCaseId === selectedItem.case.id);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -2094,44 +2116,18 @@ function EvalsPane({
         </section>
 
         <section className="evalCaseDetail">
-          {caseHistoryCaseId === selectedCaseId ? (
-            <CaseHistoryPanel
-              busy={busy}
-              currentCaseVersionId={cases.find((item) => item.case.id === caseHistoryCaseId)?.case_version.id ?? null}
-              history={caseHistory}
-              loading={caseHistoryLoading}
-              onRestoreVersion={onRestoreCaseVersion}
-            />
-          ) : null}
-          {cases.map((item) => {
-            const isSelected = selectedCaseId === item.case.id || (!selectedCaseId && item.position === 0);
-            if (caseHistoryCaseId === selectedCaseId) return null;
-            if (!isSelected) return null;
-            return (
-              <div key={item.case_version.id}>
-                <div className="evalCaseDetailHead">
-                  <span>Selected case</span>
-                  <strong>{item.case.title}</strong>
-                </div>
-                <div className="caseIOGrid">
-                  <div>
-                    <span>Input</span>
-                    <pre>{item.case_version.input_artifact.content_text ?? item.case_version.input_artifact.digest}</pre>
-                  </div>
-                  <div>
-                    <span>Expected output</span>
-                    <pre>{item.case_version.expected_output_artifact.content_text ?? item.case_version.expected_output_artifact.digest}</pre>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {cases.length === 0 ? (
-            <div className="evalCaseDetailEmpty">
-              <strong>等待 case</strong>
-              <span>添加测试用例后，这里会固定展示 input 和 expected output，左侧只负责快速确认通过/不通过。</span>
-            </div>
-          ) : null}
+          <EvalCaseDetailPanel
+            busy={busy}
+            currentHistory={caseHistory}
+            historyLoading={caseHistoryLoading}
+            historyVisible={historyVisible}
+            item={selectedItem}
+            onArchiveCase={onArchiveCase}
+            onCloseHistory={onCloseCaseHistory}
+            onHistoryCase={onHistoryCase}
+            onRestoreCaseVersion={onRestoreCaseVersion}
+            onUpdateCase={onUpdateCase}
+          />
         </section>
       </div>
     </div>

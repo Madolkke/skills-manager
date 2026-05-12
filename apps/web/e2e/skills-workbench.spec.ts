@@ -247,6 +247,22 @@ test("operator can edit and archive eval cases", async ({ page }) => {
   await expect(page.getByText("还没有测试用例。先从右侧添加一个 case。")).toBeVisible();
 });
 
+test("operator can edit the selected eval case inline", async ({ page }) => {
+  await importSkillBundle(page, `inline-case-editing-${Date.now()}`);
+  await addEvalCase(page, "PR: stale inline title");
+
+  await page.locator(".evalCaseDetailPanel").getByRole("button", { name: "编辑" }).click();
+  await page.getByLabel("详情内标题").fill("PR: inline edited owner filter");
+  await page.getByLabel("详情内 input").fill("diff --git a/service.py b/service.py\n+return Project.find_many()");
+  await page.getByLabel("详情内 expected output").fill("Must flag missing tenant or owner scope.");
+  await page.getByLabel("详情内 notes").fill("Inline edit keeps the operator in review context.");
+  await page.getByRole("button", { name: "保存为新版本" }).click();
+
+  await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: inline edited owner filter" })).toBeVisible();
+  await expect(page.locator(".evalCaseDetailPanel")).toContainText("diff --git a/service.py b/service.py");
+  await expect(page.locator(".evalCaseDetailPanel")).toContainText("Must flag missing tenant or owner scope.");
+});
+
 test("operator can compare standard bundle versions", async ({ page }) => {
   const skillName = `diff-reviewing-${Date.now()}`;
   await importSkillBundle(page, skillName);
@@ -552,6 +568,10 @@ test("operator can inspect eval case version history", async ({ page }) => {
   await expect(page.locator(".caseHistoryVersion")).toHaveCount(2);
   await expect(page.locator(".caseHistoryVersion").filter({ hasText: "Clarified tenant-scope expected result." })).toBeVisible();
   await expect(page.locator(".caseHistoryVersion").filter({ hasText: "Must flag missing tenant scope." })).toBeVisible();
+
+  await page.locator(".evalCaseDetailPanel").getByRole("button", { name: "查看当前" }).click();
+  await expect(page.locator(".evalCaseDetailPanel")).toContainText("diff --git a/service.py b/service.py");
+  await expect(page.locator(".evalCaseDetailPanel")).toContainText("Must flag missing tenant scope.");
 });
 
 test("operator can restore an older eval case version", async ({ page }) => {

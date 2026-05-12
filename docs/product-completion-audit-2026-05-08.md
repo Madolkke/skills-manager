@@ -38,6 +38,7 @@
 | Eval case 新增 | `POST /api/eval-cases`；E2E `addEvalCase`。 | 完成 |
 | Eval case 批量新增 | `POST /api/eval-cases/batch`；Repository/API 测试验证一次批量只生成一个 `EvalSetVersion`；E2E 覆盖批量粘贴后记录 run。 | 完成 |
 | Eval case 编辑/版本化 | `PATCH /api/eval-cases/{case_id}`；E2E 覆盖编辑；后端测试验证生成新 eval set snapshot。 | 完成 |
+| Eval case 详情内联编辑 | `EvalCaseDetailPanel` 在测评详情中直接编辑 title/input/expected/notes；E2E 覆盖不经过 inspector 的 inline edit 路径。 | 完成 |
 | Eval case 归档 | `DELETE /api/eval-cases/{case_id}`；E2E 覆盖归档。 | 完成 |
 | 手工 pass/fail eval | E2E 覆盖 current 和 candidate version 的手工测评；后端测试覆盖 exact binding。 | 完成 |
 | 手工测评执行队列 | E2E 覆盖未确认筛选、结果后自动前进、未确认批量标为通过、键盘 `p/f` 连续确认。 | 完成 |
@@ -77,7 +78,7 @@ cd apps/web && npm run e2e
 
 - Web typecheck：通过。
 - Web production build：通过。
-- Playwright E2E：26 passed。
+- Playwright E2E：27 passed。
 - API pytest：80 passed。
 
 本轮新增视觉资产：
@@ -96,7 +97,7 @@ cd apps/web && npm run e2e
 ## 仍然阻塞“成熟产品完成”的风险
 
 1. **权限和多用户协作还没实现。** 当前仍是单用户工作台；没有 owner/maintainer/evaluator/viewer 的 scoped role enforcement。
-2. **部分操作仍偏表单。** 导入后清单、case 新增、记录 run 和 candidate 验证已更连续，但新建/编辑对象仍主要依赖 inspector 表单。
+2. **部分操作仍偏表单。** 导入后清单、case 新增、case 详情内联编辑、记录 run 和 candidate 验证已更连续，但 skill、variant 和版本追加仍主要依赖 inspector 表单。
 3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
 4. **Run matrix 还不是完整多维表格。** 现在能保存筛选视图、看 case x run pass/fail，并高亮对照/候选的修复和回退，但还不能配置列或分组。
 5. **Accessibility 覆盖还浅。** 有键盘 smoke 和可见 label，但缺少系统化 focus order、screen reader、reduced-motion 验证。
@@ -108,7 +109,7 @@ cd apps/web && npm run e2e
 
 下一轮最有价值的方向：
 
-1. 把创建/编辑体验继续从 inspector 表单迁到主内容区或内联抽屉，减少上下文跳转。
+1. 把 skill、variant 和版本追加体验继续从 inspector 表单迁到主内容区或内联抽屉，减少上下文跳转。
 2. 开始权限模型和 scoped role assignment，尤其是 accepted verification / promotion 权限。
 3. 把 run matrix 升级为多维表格：支持列配置、分组和更多指标列。
 4. 把 eval strategy / runner registry 产品化。

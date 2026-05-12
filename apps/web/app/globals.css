@@ -4152,6 +4152,12 @@ body {
   padding: 12px;
 }
 
+.evalCaseDetailHead > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .evalCaseRailHead strong,
 .evalCaseDetailHead strong {
   color: #111827;
@@ -4214,8 +4220,111 @@ body {
   overflow: hidden;
 }
 
+.evalCaseDetailPanel {
+  min-height: 100%;
+}
+
+.evalCaseDetailActions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.evalCaseDetailActions button,
+.evalCaseDetailHead > button {
+  min-height: 32px;
+  padding-inline: 10px;
+  border: 1px solid #d6dde8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  font-weight: 700;
+}
+
+.evalCaseDetailActions button:hover,
+.evalCaseDetailHead > button:hover {
+  border-color: #111827;
+  color: #111827;
+}
+
+.evalCaseMetaStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #edf1f6;
+  padding: 10px 12px;
+}
+
+.evalCaseMetaStrip span {
+  border: 1px solid #dce2ea;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 8px;
+}
+
 .evalCaseDetail .caseIOGrid {
   padding: 12px;
+}
+
+.evalCaseInlineForm {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.evalCaseInlineForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.evalCaseInlineForm label span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.evalCaseInlineForm input,
+.evalCaseInlineForm textarea {
+  width: 100%;
+  border: 1px solid #dce2ea;
+  border-radius: 10px;
+  background: #fbfcfd;
+  color: #111827;
+  font: inherit;
+  padding: 10px 11px;
+}
+
+.evalCaseInlineForm textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.evalCaseInlineForm input:focus,
+.evalCaseInlineForm textarea:focus {
+  border-color: #111827;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+  outline: none;
+}
+
+.evalCaseInlineForm button {
+  min-height: 40px;
+  border: 1px solid #111827;
+  border-radius: 10px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.evalCaseInlineForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .evalCaseDetailEmpty {
