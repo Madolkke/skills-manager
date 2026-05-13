@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-13 23:19 CST - TASK-029 Workbench Modes Tablist 键盘语义
+
+- 将工作区 mode switcher 从普通按钮组抽成 `WorkbenchTabs`，按 APG Tabs Pattern 暴露 `tablist/tab/tabpanel`、`aria-selected`、`aria-controls` 和 roving `tabIndex`。
+- 支持 Left/Right/Home/End 在 `概览 / 变体 / 测评 / 差异 / 历史` 中移动并自动激活当前 panel；`差异` tab 保留既有 diff 预加载逻辑。
+- 新增 accessibility E2E 覆盖 tablist 语义、tabpanel 关联、roving tabIndex 和方向键切换。
+- 更新 README、UX 复盘和产品完成度审计，明确 Workbench mode tablist 已闭环，剩余 accessibility 深水区集中在更广的全路径焦点巡检和人工读屏验收。
+- 已验证：`uv run pytest` 90 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 50 passed；`git diff --check` passed。
+
 ### 2026-05-14 00:18 CST - TASK-028 Inspector Action 焦点交接
 
 - 在 `DecisionWorkbench` 中增加 `inspectorFocusRequest`，用户触发 action 时请求一次 Inspector 表单焦点交接；初始空数据加载和普通 skill 切换不会抢焦点。

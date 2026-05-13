@@ -43,7 +43,7 @@ export async function importSkillBundle(page: Page, skillName: string) {
 }
 
 export async function addEvalCase(page: Page, title: string) {
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   await page.getByRole("button", { name: "添加 case" }).click();
   const form = page.getByLabel("Inspector").locator(".inspectorForm");
   await expect(form.locator('input[name="title"]')).toBeFocused();
@@ -95,6 +95,12 @@ export async function appendSkillBundleVersion(
 }
 
 export async function hideVolatileUi(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator(".linearMain").evaluateAll((elements) => {
+    for (const element of elements) {
+      element.scrollTop = 0;
+    }
+  });
   await page.addStyleTag({
     content: [
       '[aria-label="Open Next.js Dev Tools"] { display: none !important; }',

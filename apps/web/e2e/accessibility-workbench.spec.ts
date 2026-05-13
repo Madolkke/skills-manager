@@ -107,6 +107,36 @@ test("command menu action moves focus into the inspector form", async ({ page })
   await expect(page.getByLabel("Inspector").locator('input[name="title"]')).toBeFocused();
 });
 
+test("workbench modes use tablist keyboard navigation", async ({ page }) => {
+  await importSkillBundle(page, `tabs-${Date.now()}`);
+
+  const tablist = page.getByRole("tablist", { name: "Workbench modes" });
+  const overviewTab = tablist.getByRole("tab", { name: "概览" });
+  const variantsTab = tablist.getByRole("tab", { name: "变体" });
+  const historyTab = tablist.getByRole("tab", { name: "历史" });
+
+  await expect(overviewTab).toHaveAttribute("aria-selected", "true");
+  await expect(overviewTab).toHaveAttribute("tabindex", "0");
+  await expect(variantsTab).toHaveAttribute("aria-selected", "false");
+  await expect(variantsTab).toHaveAttribute("tabindex", "-1");
+  await expect(page.getByRole("tabpanel", { name: "概览" })).toBeVisible();
+
+  await overviewTab.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(variantsTab).toBeFocused();
+  await expect(variantsTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel", { name: "变体" })).toBeVisible();
+
+  await page.keyboard.press("End");
+  await expect(historyTab).toBeFocused();
+  await expect(historyTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel", { name: "历史" })).toBeVisible();
+
+  await page.keyboard.press("Home");
+  await expect(overviewTab).toBeFocused();
+  await expect(overviewTab).toHaveAttribute("aria-selected", "true");
+});
+
 async function maxTransitionDurationMs(locator: Locator) {
   return locator.evaluate((element) => {
     function toMs(duration: string) {

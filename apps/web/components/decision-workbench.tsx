@@ -25,6 +25,13 @@ import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
 import { SkillSettingsPanel } from "@/components/skills/skill-settings-panel";
 import { VariantCreationComposer } from "@/components/variants/variant-creation-composer";
 import { WorkspaceVersionComposer } from "@/components/variants/workspace-version-composer";
+import {
+  WorkbenchTabs,
+  type WorkbenchMode,
+  type WorkbenchTabItem,
+  workbenchPanelId,
+  workbenchTabId,
+} from "@/components/workbench-tabs";
 import type {
   BundleDiff,
   BundleDiffFile,
@@ -56,7 +63,7 @@ type DecisionWorkbenchProps = {
   featuredSkill: SkillDetail;
 };
 
-type Mode = "overview" | "variants" | "evals" | "diff" | "history" | "audit" | "promotion";
+type Mode = WorkbenchMode;
 type ActionMode =
   | "skill"
   | "new-skill"
@@ -1118,6 +1125,16 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     setCaseResults({});
   }
 
+  const workbenchTabs: WorkbenchTabItem[] = [
+    { label: "概览", mode: "overview" },
+    { label: "变体", mode: "variants" },
+    { label: "测评", mode: "evals" },
+    { label: "差异", mode: "diff", onActivate: () => openDiffMode() },
+    { label: "历史", mode: "history" },
+  ];
+  if (mode === "audit") workbenchTabs.push({ label: "审计", mode: "audit" });
+  if (mode === "promotion" || promotionReview) workbenchTabs.push({ label: "评审", mode: "promotion" });
+
   return (
     <div className="linearWorkbench">
       <CommandMenu commands={commandItems} scopeLabel={selectedDetail.skill.slug} />
@@ -1178,19 +1195,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             <h1>{selectedDetail.skill.slug}</h1>
           </div>
           <div className="linearHeaderActions">
-            <nav className="linearTabs" aria-label="Workbench modes">
-              <button className={mode === "overview" ? "linearTabActive" : ""} onClick={() => setMode("overview")} type="button">概览</button>
-              <button className={mode === "variants" ? "linearTabActive" : ""} onClick={() => setMode("variants")} type="button">变体</button>
-              <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
-              <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
-              <button className={mode === "history" ? "linearTabActive" : ""} onClick={() => setMode("history")} type="button">历史</button>
-              {mode === "audit" ? (
-                <button className="linearTabActive" onClick={() => setMode("audit")} type="button">审计</button>
-              ) : null}
-              {mode === "promotion" || promotionReview ? (
-                <button className={mode === "promotion" ? "linearTabActive" : ""} onClick={() => setMode("promotion")} type="button">评审</button>
-              ) : null}
-            </nav>
+            <WorkbenchTabs mode={mode} onModeChange={setMode} tabs={workbenchTabs} />
             <GlobalCommandButton />
           </div>
         </header>
@@ -1201,162 +1206,169 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           </div>
         ) : null}
 
-        {mode === "overview" ? (
-          <OverviewPane
-            actor={actor}
-            assignSkillRole={assignSkillRole}
-            busy={busy}
-            caseCount={cases.length}
-            createSkill={createSkill}
-            defaultVariant={defaultVariant}
-            hasPersistedSkill={hasPersistedSkill}
-            importPreview={importPreview}
-            importSkill={importSkill}
-            latestRun={latestRun}
-            onAction={chooseAction}
-            onDiff={() => openDiffMode()}
-            onOpenEvals={() => {
-              setMode("evals");
-              setActionMode("run");
-            }}
-            onOpenHistory={() => setMode("history")}
-            onArchiveSkill={archiveSkill}
-            onOpenAudit={() => setMode("audit")}
-            primaryEvalSetVersion={currentEvalSetVersion?.version_number}
-            refreshImportPreview={refreshImportPreview}
-            revokeSkillRole={revokeSkillRole}
-            score={score}
-            selectedDetail={selectedDetail}
-            updateSkill={updateSkill}
-          />
-        ) : null}
+        <section
+          aria-labelledby={workbenchTabId(mode)}
+          className="workbenchTabPanel"
+          id={workbenchPanelId(mode)}
+          role="tabpanel"
+        >
+          {mode === "overview" ? (
+            <OverviewPane
+              actor={actor}
+              assignSkillRole={assignSkillRole}
+              busy={busy}
+              caseCount={cases.length}
+              createSkill={createSkill}
+              defaultVariant={defaultVariant}
+              hasPersistedSkill={hasPersistedSkill}
+              importPreview={importPreview}
+              importSkill={importSkill}
+              latestRun={latestRun}
+              onAction={chooseAction}
+              onDiff={() => openDiffMode()}
+              onOpenEvals={() => {
+                setMode("evals");
+                setActionMode("run");
+              }}
+              onOpenHistory={() => setMode("history")}
+              onArchiveSkill={archiveSkill}
+              onOpenAudit={() => setMode("audit")}
+              primaryEvalSetVersion={currentEvalSetVersion?.version_number}
+              refreshImportPreview={refreshImportPreview}
+              revokeSkillRole={revokeSkillRole}
+              score={score}
+              selectedDetail={selectedDetail}
+              updateSkill={updateSkill}
+            />
+          ) : null}
 
-        {mode === "variants" ? (
-          <VariantsPane
-            busy={busy}
-            defaultVariant={defaultVariant}
-            onAction={chooseAction}
-            onCreateVariant={createVariant}
-            onCreateVersion={createVariantVersion}
-            onDiff={() => openDiffMode()}
-            onPromotionReview={openPromotionReview}
-            variants={selectedDetail.variants}
-          />
-        ) : null}
+          {mode === "variants" ? (
+            <VariantsPane
+              busy={busy}
+              defaultVariant={defaultVariant}
+              onAction={chooseAction}
+              onCreateVariant={createVariant}
+              onCreateVersion={createVariantVersion}
+              onDiff={() => openDiffMode()}
+              onPromotionReview={openPromotionReview}
+              variants={selectedDetail.variants}
+            />
+          ) : null}
 
-        {mode === "diff" ? (
-          <DiffPane
-            diff={bundleDiff}
-            filter={diffFilter}
-            leftVersionId={diffLeftVersionId}
-            loading={diffLoading}
-            onPairChange={updateDiffPair}
-            onPromotionReview={openPromotionReview}
-            onSelectFile={setSelectedDiffPath}
-            onSetFilter={setDiffFilter}
-            rightVersionId={diffRightVersionId}
-            selectedPath={selectedDiffPath}
-            variant={defaultVariant}
-          />
-        ) : null}
+          {mode === "diff" ? (
+            <DiffPane
+              diff={bundleDiff}
+              filter={diffFilter}
+              leftVersionId={diffLeftVersionId}
+              loading={diffLoading}
+              onPairChange={updateDiffPair}
+              onPromotionReview={openPromotionReview}
+              onSelectFile={setSelectedDiffPath}
+              onSetFilter={setDiffFilter}
+              rightVersionId={diffRightVersionId}
+              selectedPath={selectedDiffPath}
+              variant={defaultVariant}
+            />
+          ) : null}
 
-        {mode === "history" ? (
-          <HistoryPane
-            busy={busy}
-            compareBaselineRunId={compareBaselineRunId}
-            compareCandidateRunId={compareCandidateRunId}
-            evalSets={selectedDetail.eval_sets}
-            filters={runFilters}
-            loading={runHistoryLoading}
-            onAcceptComparison={acceptComparisonCandidate}
-            onAction={chooseAction}
-            onApplySavedView={applySavedView}
-            onChooseComparisonRun={chooseComparisonRun}
-            onDeleteSavedView={deleteSavedRunView}
-            onFilterChange={updateRunFilter}
-            onMatrixControlChange={updateRunMatrixControl}
-            onSaveView={createSavedRunView}
-            onSavedViewNameChange={setSavedViewName}
-            onSelectRun={setSelectedRunId}
-            runComparison={runComparison}
-            runComparisonLoading={runComparisonLoading}
-            runDetail={selectedRunDetail}
-            runHistory={runHistory}
-            runMatrix={runMatrix}
-            runMatrixControls={runMatrixControls}
-            runMatrixLoading={runMatrixLoading}
-            savedViewName={savedViewName}
-            savedViews={savedViews}
-            savedViewsLoading={savedViewsLoading}
-            selectedSavedViewId={selectedSavedViewId}
-            selectedRunId={selectedRunId}
-            variants={selectedDetail.variants}
-          />
-        ) : null}
+          {mode === "history" ? (
+            <HistoryPane
+              busy={busy}
+              compareBaselineRunId={compareBaselineRunId}
+              compareCandidateRunId={compareCandidateRunId}
+              evalSets={selectedDetail.eval_sets}
+              filters={runFilters}
+              loading={runHistoryLoading}
+              onAcceptComparison={acceptComparisonCandidate}
+              onAction={chooseAction}
+              onApplySavedView={applySavedView}
+              onChooseComparisonRun={chooseComparisonRun}
+              onDeleteSavedView={deleteSavedRunView}
+              onFilterChange={updateRunFilter}
+              onMatrixControlChange={updateRunMatrixControl}
+              onSaveView={createSavedRunView}
+              onSavedViewNameChange={setSavedViewName}
+              onSelectRun={setSelectedRunId}
+              runComparison={runComparison}
+              runComparisonLoading={runComparisonLoading}
+              runDetail={selectedRunDetail}
+              runHistory={runHistory}
+              runMatrix={runMatrix}
+              runMatrixControls={runMatrixControls}
+              runMatrixLoading={runMatrixLoading}
+              savedViewName={savedViewName}
+              savedViews={savedViews}
+              savedViewsLoading={savedViewsLoading}
+              selectedSavedViewId={selectedSavedViewId}
+              selectedRunId={selectedRunId}
+              variants={selectedDetail.variants}
+            />
+          ) : null}
 
-        {mode === "audit" ? (
-          <SkillAuditExplorer
-            events={auditEvents}
-            filters={auditFilters}
-            loading={auditLoading}
-            onClearFilters={clearAuditFilters}
-            onFilterChange={updateAuditFilter}
-            onOpenOverview={() => setMode("overview")}
-          />
-        ) : null}
+          {mode === "audit" ? (
+            <SkillAuditExplorer
+              events={auditEvents}
+              filters={auditFilters}
+              loading={auditLoading}
+              onClearFilters={clearAuditFilters}
+              onFilterChange={updateAuditFilter}
+              onOpenOverview={() => setMode("overview")}
+            />
+          ) : null}
 
-        {mode === "promotion" ? (
-          <PromotionReviewPane
-            busy={busy}
-            loading={promotionLoading}
-            onBack={() => setMode("variants")}
-            onOpenEvals={() => setMode("evals")}
-            onPromote={promoteFromReview}
-            review={promotionReview}
-          />
-        ) : null}
+          {mode === "promotion" ? (
+            <PromotionReviewPane
+              busy={busy}
+              loading={promotionLoading}
+              onBack={() => setMode("variants")}
+              onOpenEvals={() => setMode("evals")}
+              onPromote={promoteFromReview}
+              review={promotionReview}
+            />
+          ) : null}
 
-        {mode === "evals" ? (
-          <EvalsPane
-            busy={busy}
-            caseHistory={caseHistory}
-            caseHistoryCaseId={caseHistoryCaseId}
-            caseHistoryLoading={caseHistoryLoading}
-            caseResults={caseResults}
-            cases={cases}
-            confirmedDraft={confirmedDraft}
-            currentEvalSetVersion={currentEvalSetVersion?.version_number}
-            evalTargetVersionId={evalTargetVersion?.id ?? ""}
-            evalTargetOption={evalTargetOption}
-            evalTargetVersions={variantVersionOptions}
-            failedDraft={failedDraft}
-            onCreateCases={createCases}
-            onAction={chooseAction}
-            onArchiveCase={archiveCase}
-            onCloseCaseHistory={() => {
-              setCaseHistory(null);
-              setCaseHistoryCaseId(null);
-            }}
-            onClearDraft={clearCaseResults}
-            onEditCase={(caseId) => {
-              setSelectedCaseId(caseId);
-              chooseAction("edit-case");
-            }}
-            onHistoryCase={loadCaseHistory}
-            onPromotionReview={openPromotionReview}
-            onRecord={recordEvalRun}
-            onRestoreCaseVersion={restoreCaseVersion}
-            onSelectCase={setSelectedCaseId}
-            onSelectEvalTargetVersion={selectEvalTargetVersion}
-            onToggle={(caseVersionId, passed) => {
-              setCaseResults((current) => ({ ...current, [caseVersionId]: passed }));
-              setActionMode("run");
-            }}
-            onUpdateCase={updateCaseDraft}
-            passedDraft={passedDraft}
-            selectedCaseId={selectedCase?.case.id ?? null}
-          />
-        ) : null}
+          {mode === "evals" ? (
+            <EvalsPane
+              busy={busy}
+              caseHistory={caseHistory}
+              caseHistoryCaseId={caseHistoryCaseId}
+              caseHistoryLoading={caseHistoryLoading}
+              caseResults={caseResults}
+              cases={cases}
+              confirmedDraft={confirmedDraft}
+              currentEvalSetVersion={currentEvalSetVersion?.version_number}
+              evalTargetVersionId={evalTargetVersion?.id ?? ""}
+              evalTargetOption={evalTargetOption}
+              evalTargetVersions={variantVersionOptions}
+              failedDraft={failedDraft}
+              onCreateCases={createCases}
+              onAction={chooseAction}
+              onArchiveCase={archiveCase}
+              onCloseCaseHistory={() => {
+                setCaseHistory(null);
+                setCaseHistoryCaseId(null);
+              }}
+              onClearDraft={clearCaseResults}
+              onEditCase={(caseId) => {
+                setSelectedCaseId(caseId);
+                chooseAction("edit-case");
+              }}
+              onHistoryCase={loadCaseHistory}
+              onPromotionReview={openPromotionReview}
+              onRecord={recordEvalRun}
+              onRestoreCaseVersion={restoreCaseVersion}
+              onSelectCase={setSelectedCaseId}
+              onSelectEvalTargetVersion={selectEvalTargetVersion}
+              onToggle={(caseVersionId, passed) => {
+                setCaseResults((current) => ({ ...current, [caseVersionId]: passed }));
+                setActionMode("run");
+              }}
+              onUpdateCase={updateCaseDraft}
+              passedDraft={passedDraft}
+              selectedCaseId={selectedCase?.case.id ?? null}
+            />
+          ) : null}
+        </section>
       </main>
 
       <aside className="linearInspector" aria-label="Inspector">

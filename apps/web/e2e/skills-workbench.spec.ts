@@ -101,11 +101,13 @@ test("operator can import a skill, add a variant, add a case, and record manual 
   await importSkillBundle(page, skillName);
 
   await page.getByRole("button", { name: "新建 variant" }).click();
-  await page.getByPlaceholder("Codex + long-context").fill("Strict reviewer");
-  await page.getByPlaceholder("codex, long-context").fill("codex, strict");
-  await page.getByPlaceholder("这个约束下的最优解说明").fill("Use stricter review criteria for authorization-sensitive diffs.");
-  await page.getByPlaceholder("初始版本说明").fill("Add stricter variant for auth-sensitive reviews.");
-  await page.getByRole("button", { name: "创建 variant" }).click();
+  const variantForm = page.getByLabel("Inspector").locator(".inspectorForm");
+  await expect(variantForm.locator('input[name="label"]')).toBeFocused();
+  await variantForm.locator('input[name="label"]').fill("Strict reviewer");
+  await variantForm.locator('input[name="tags"]').fill("codex, strict");
+  await variantForm.locator('textarea[name="summary"]').fill("Use stricter review criteria for authorization-sensitive diffs.");
+  await variantForm.locator('textarea[name="change_summary"]').fill("Add stricter variant for auth-sensitive reviews.");
+  await variantForm.getByRole("button", { name: "创建 variant" }).click();
   await expect(page.locator(".variantMapCard").filter({ hasText: "Strict reviewer" })).toBeVisible();
 
   await addEvalCase(page, "PR: missing owner filter");
@@ -167,7 +169,7 @@ test("operator can create a variant from the variants workspace", async ({ page 
   const skillName = `workspace-variant-${Date.now()}`;
   await importSkillBundle(page, skillName);
 
-  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
 
   const composer = page.locator(".variantCreationComposer");
   await composer.getByRole("button", { name: "新建约束 variant" }).click();
@@ -187,7 +189,7 @@ test("operator can edit skill identity and default variant from workspace skill 
   const renamedSkill = `${skillName}-renamed`;
   await importSkillBundle(page, skillName);
 
-  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
   const composer = page.locator(".variantCreationComposer");
   await composer.getByRole("button", { name: "新建约束 variant" }).click();
   await composer.getByPlaceholder("Codex + stricter auth").fill("Workspace default reviewer");
@@ -196,7 +198,7 @@ test("operator can edit skill identity and default variant from workspace skill 
   await composer.getByPlaceholder("为什么要创建这个 variant").fill("Expose default variant switching from the skill workspace.");
   await composer.getByRole("button", { name: "创建约束 variant" }).click();
 
-  await page.getByRole("button", { name: "概览", exact: true }).click();
+  await page.getByRole("tab", { name: "概览", exact: true }).click();
   const settings = page.locator(".skillSettingsPanel");
   await settings.getByLabel("Skill ID").fill(renamedSkill);
   await settings.getByLabel("归属").fill("platform-review");
@@ -304,7 +306,7 @@ test("imported skill is guided into its first verification run", async ({ page }
   await page.getByPlaceholder("来源、bad case、维护说明").fill("Imported skill first verification.");
   await page.getByRole("button", { name: "加入评测集" }).click();
 
-  await expect(page.getByRole("button", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
+  await expect(page.getByRole("tab", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
   await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: first verification path" })).toBeVisible();
   await expect(page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" })).toBeDisabled();
 
@@ -316,23 +318,24 @@ test("imported skill is guided into its first verification run", async ({ page }
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
 
-  await page.getByRole("button", { name: "概览", exact: true }).click();
+  await page.getByRole("tab", { name: "概览", exact: true }).click();
   await expect(page.locator(".verificationStep").filter({ hasText: "记录首轮测评" })).toContainText("首轮测评完成");
   await page.getByRole("button", { name: "查看证据历史" }).click();
-  await expect(page.getByRole("button", { name: "历史", exact: true })).toHaveClass(/linearTabActive/);
+  await expect(page.getByRole("tab", { name: "历史", exact: true })).toHaveClass(/linearTabActive/);
   await expect(page.locator(".historyRunRow")).toHaveCount(1);
 });
 
 test("keyboard users can open primary inspector actions", async ({ page }) => {
   await page.goto("/skills");
+  const inspector = page.getByLabel("Inspector");
 
-  await page.getByRole("button", { name: "导入", exact: true }).focus();
+  await page.getByLabel("Skill catalog").getByRole("button", { name: "导入", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "导入标准 Skill" })).toBeVisible();
+  await expect(inspector.getByRole("heading", { name: "导入标准 Skill" })).toBeVisible();
 
-  await page.getByRole("button", { name: "新建 skill", exact: true }).focus();
+  await inspector.getByRole("button", { name: "新建 skill", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "添加 skill" })).toBeVisible();
+  await expect(inspector.getByRole("heading", { name: "添加 skill" })).toBeVisible();
 });
 
 test("operator can open command menu and jump to add case", async ({ page }) => {
@@ -351,7 +354,7 @@ test("operator can open command menu and jump to add case", async ({ page }) => 
 test("operator can batch paste eval cases and record a run", async ({ page }) => {
   await importSkillBundle(page, `batch-cases-${Date.now()}`);
 
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   await page.getByRole("button", { name: "批量", exact: true }).click();
   await page.getByLabel("批量 case 文本").fill(
     [
@@ -381,7 +384,7 @@ test("operator can batch paste eval cases and record a run", async ({ page }) =>
 test("manual eval queue filters unresolved cases and bulk-passes remaining cases", async ({ page }) => {
   await importSkillBundle(page, `manual-eval-queue-${Date.now()}`);
 
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   await page.getByRole("button", { name: "批量", exact: true }).click();
   await page.getByLabel("批量 case 文本").fill(
     [
@@ -408,7 +411,7 @@ test("manual eval queue filters unresolved cases and bulk-passes remaining cases
 test("manual eval queue supports keyboard pass and fail", async ({ page }) => {
   await importSkillBundle(page, `manual-eval-keyboard-${Date.now()}`);
 
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   await page.getByRole("button", { name: "批量", exact: true }).click();
   await page.getByLabel("批量 case 文本").fill(
     [
@@ -497,13 +500,13 @@ test("operator can append a candidate version from the variants workspace", asyn
   );
 
   try {
-    await page.getByRole("button", { name: "变体", exact: true }).click();
+    await page.getByRole("tab", { name: "变体", exact: true }).click();
     await page.locator(".workspaceVersionComposer").locator('input[name="version_folder_files"]').setInputFiles(bundleDir);
     await page.locator(".workspaceVersionComposer").getByPlaceholder("这次更新解决了什么").fill("Add tenant-first review guidance.");
     await page.locator(".workspaceVersionComposer").locator('input[name="make_current"]').uncheck();
     await page.locator(".workspaceVersionComposer").getByRole("button", { name: "追加候选版本" }).click();
 
-    await expect(page.getByRole("button", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
+    await expect(page.getByRole("tab", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
     await expect(page.locator(".candidateVerificationBanner")).toContainText("v2");
     await expect(page.getByLabel("测评目标版本")).toHaveValue(/varver_/);
   } finally {
@@ -526,7 +529,7 @@ test("candidate version handoff selects the new version for verification", async
 
   await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
 
-  await expect(page.getByRole("button", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
+  await expect(page.getByRole("tab", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
   await expect(page.getByLabel("测评目标版本")).toHaveValue(/varver_/);
   await expect(page.locator(".candidateVerificationBanner")).toContainText("v2");
   await expect(page.getByRole("button", { name: "进入设为当前版本评审" })).toBeVisible();
@@ -560,7 +563,7 @@ test("operator can review a candidate version before promoting it", async ({ pag
 
   await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
 
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   const targetVersion = await page
     .getByLabel("测评目标版本")
     .locator("option")
@@ -577,11 +580,11 @@ test("operator can review a candidate version before promoting it", async ({ pag
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
 
-  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
   await expect(
     page.locator(".variantVersionRow").filter({ hasText: "v2" }).getByRole("button", { name: "设为当前版本评审" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "差异", exact: true }).click();
+  await page.getByRole("tab", { name: "差异", exact: true }).click();
   await expect(page.locator(".diffPane").getByText("v1 -> v2")).toBeVisible();
   await page.locator(".diffSelectors").getByRole("button", { name: "设为当前版本评审" }).click();
 
@@ -610,7 +613,7 @@ test("risky promotion requires a decision note before promoting", async ({ page 
 
   await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
 
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   const targetVersion = await page
     .getByLabel("测评目标版本")
     .locator("option")
@@ -627,7 +630,7 @@ test("risky promotion requires a decision note before promoting", async ({ page 
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
 
-  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
   await page
     .locator(".variantVersionRow")
     .filter({ hasText: "v2" })
@@ -664,7 +667,7 @@ test("operator can review eval run history with filters", async ({ page }) => {
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
 
-  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+  await page.getByLabel("Workbench modes").getByRole("tab", { name: "历史" }).click();
 
   await expect(page.locator(".historyRunRow")).toHaveCount(2);
   await expect(page.locator(".historyRunRow").filter({ hasText: "0/1" })).toBeVisible();
@@ -677,7 +680,7 @@ test("operator can inspect run matrix across eval runs", async ({ page }) => {
   const skillName = `run-matrix-${Date.now()}`;
   await importSkillBundle(page, skillName);
 
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   await page.getByRole("button", { name: "批量", exact: true }).click();
   await page.getByLabel("批量 case 文本").fill(
     [
@@ -700,7 +703,7 @@ test("operator can inspect run matrix across eval runs", async ({ page }) => {
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 3/3 通过。")).toBeVisible();
 
-  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+  await page.getByLabel("Workbench modes").getByRole("tab", { name: "历史" }).click();
 
   await expect(page.getByTestId("run-matrix-panel")).toBeVisible();
   const matrixTable = page.getByRole("table", { name: "Run matrix results" });
@@ -752,7 +755,7 @@ test("operator can save and reapply an eval run history view", async ({ page }) 
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
 
-  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+  await page.getByLabel("Workbench modes").getByRole("tab", { name: "历史" }).click();
   await expect(page.locator(".historyRunRow")).toHaveCount(2);
 
   const variantFilter = page.getByLabel("Variant version filter");
@@ -800,7 +803,7 @@ test("operator can compare eval runs and accept a verification pointer", async (
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
 
-  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+  await page.getByLabel("Workbench modes").getByRole("tab", { name: "历史" }).click();
   await page.locator(".historyRunRow").filter({ hasText: "0/1" }).getByRole("button", { name: "对照" }).click();
   await page.locator(".historyRunRow").filter({ hasText: "1/1" }).getByRole("button", { name: "候选" }).click();
 

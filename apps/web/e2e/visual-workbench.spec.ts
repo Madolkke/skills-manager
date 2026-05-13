@@ -53,7 +53,7 @@ test("visual baseline: imported skill overview and eval review", async ({ page }
 test("visual baseline: variants workspace composers", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await importSkillBundle(page, "visual-variants-workspace");
-  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
   await hideVolatileUi(page);
 
   await expect(page.locator(".linearWorkbench")).toHaveScreenshot("variants-workspace-composers.png", {
@@ -125,7 +125,7 @@ test("visual baseline: promotion review", async ({ page }) => {
   await expect(page.getByText("已记录 0/1 通过。")).toBeVisible();
 
   await appendSkillBundleVersion(page, "visual-promotion-reviewing", { makeCurrent: false });
-  await page.getByRole("button", { name: "测评", exact: true }).click();
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
   const targetVersion = await page
     .getByLabel("测评目标版本")
     .locator("option")
@@ -142,7 +142,7 @@ test("visual baseline: promotion review", async ({ page }) => {
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
 
-  await page.getByRole("button", { name: "变体", exact: true }).click();
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
   await page
     .locator(".variantVersionRow")
     .filter({ hasText: "v2" })
@@ -176,7 +176,7 @@ test("visual baseline: run comparison", async ({ page }) => {
   await page.getByTestId("eval-run-bar").getByRole("button", { name: "记录本次测评" }).click();
   await expect(page.getByText("已记录 1/1 通过。")).toBeVisible();
 
-  await page.getByLabel("Workbench modes").getByRole("button", { name: "历史" }).click();
+  await page.getByLabel("Workbench modes").getByRole("tab", { name: "历史" }).click();
   await page.locator(".historyRunRow").filter({ hasText: "0/1" }).getByRole("button", { name: "对照" }).click();
   await page.locator(".historyRunRow").filter({ hasText: "1/1" }).getByRole("button", { name: "候选" }).click();
   await expect(page.getByTestId("run-comparison-panel")).toBeVisible();

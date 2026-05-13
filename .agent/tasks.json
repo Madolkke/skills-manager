@@ -194,5 +194,12 @@
     "priority": 28,
     "passes": true,
     "spec": ".agent/tasks/TASK-028.json"
+  },
+  {
+    "id": "029",
+    "title": "补齐 Workbench Modes Tablist 键盘语义",
+    "priority": 29,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-029.json"
   }
 ]
