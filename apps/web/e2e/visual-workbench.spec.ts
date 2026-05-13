@@ -77,6 +77,22 @@ test("visual baseline: skill governance panel", async ({ page }) => {
   });
 });
 
+test("visual baseline: skill audit explorer", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await importSkillBundle(page, "visual-audit-explorer");
+  const accessPanel = page.locator(".skillAccessPanel");
+  await accessPanel.getByPlaceholder("qa-reviewer").fill("qa-reviewer");
+  await accessPanel.getByLabel("Access role").selectOption("evaluator");
+  await accessPanel.getByRole("button", { name: "添加成员" }).click();
+  await page.locator(".skillGovernancePanel").getByRole("button", { name: "查看全部审计" }).click();
+  await page.locator(".auditExplorerEvent").filter({ hasText: "product-operator -> owner" }).click();
+  await hideVolatileUi(page);
+
+  await expect(page.locator(".skillAuditExplorer")).toHaveScreenshot("skill-audit-explorer.png", {
+    animations: "disabled",
+  });
+});
+
 test("visual baseline: promotion review", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await importSkillBundle(page, "visual-promotion-reviewing");

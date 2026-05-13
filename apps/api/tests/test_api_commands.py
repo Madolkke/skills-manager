@@ -882,6 +882,105 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual([event["action"] for event in response.json()[:2]], ["role.revoked", "role.assigned"])
         self.assertEqual(response.json()[0]["payload"]["subject_id"], "qa-reviewer")
 
+    def test_skill_audit_events_include_related_resources_and_filters(self):
+        imported = self.import_standard_skill_bundle("audit-related-api")
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        variant = detail["summary"]["default_variant"]
+        current_version = variant["current_version"]
+        candidate = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": variant["id"],
+                "source": {
+                    "kind": "files",
+                    "name": "audit-related-api",
+                    "files": [
+                        {
+                            "path": "audit-related-api/SKILL.md",
+                            "content_text": (
+                                "---\n"
+                                "name: audit-related-api\n"
+                                "description: Review pull requests for audit related regressions.\n"
+                                "---\n"
+                                "# Audit Reviewing\n"
+                                "Flag auth regressions and tenant leaks first.\n"
+                            ),
+                        },
+                        {
+                            "path": "audit-related-api/references/checklist.md",
+                            "content_text": "Check owner filters and tenant filters.\n",
+                        },
+                    ],
+                },
+                "change_summary": "Candidate version.",
+                "make_current": False,
+            },
+        ).json()
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": imported["skill_id"],
+                "title": "PR: audit tenant scope",
+                "input_text": "Project.all()",
+                "expected_output": "Flag missing tenant scope.",
+            },
+        ).json()
+        self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": current_version["id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: False},
+            },
+        )
+        candidate_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": candidate["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: True},
+            },
+        ).json()
+        promoted = self.client.post(
+            "/api/variants/promotions",
+            json={
+                "variant_id": variant["id"],
+                "version_id": candidate["variant_version_id"],
+                "evidence_eval_run_id": candidate_run["eval_run_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "decision_note": "Candidate fixes audit case.",
+                "accept_risk": False,
+            },
+        )
+        self.assertEqual(promoted.status_code, 200)
+        self.client.post(
+            "/api/eval-runs/accepted-verifications",
+            json={"eval_run_id": candidate_run["eval_run_id"], "note": "Accepted after promotion."},
+        )
+
+        all_events = self.client.get(f"/api/skills/{imported['skill_id']}/audit-events", params={"limit": 20}).json()
+        promoted_events = self.client.get(
+            f"/api/skills/{imported['skill_id']}/audit-events",
+            params={"action": "variant.promoted"},
+        ).json()
+        eval_run_events = self.client.get(
+            f"/api/skills/{imported['skill_id']}/audit-events",
+            params={"resource_type": "eval_run"},
+        ).json()
+        actor_events = self.client.get(
+            f"/api/skills/{imported['skill_id']}/audit-events",
+            params={"actor": "tester", "action": "variant.promoted"},
+        ).json()
+
+        self.assertIn("variant.promoted", [event["action"] for event in all_events])
+        self.assertIn("eval_run.accepted_verification_set", [event["action"] for event in all_events])
+        self.assertEqual([event["action"] for event in promoted_events], ["variant.promoted"])
+        self.assertEqual(promoted_events[0]["resource_type"], "variant")
+        self.assertEqual([event["resource_type"] for event in eval_run_events], ["eval_run"])
+        self.assertEqual([event["actor_ref"] for event in actor_events], ["tester"])
+
     def test_viewer_cannot_promote_variant_version(self):
         skill = self.create_skill("promotion-permission-api")
         candidate = self.client.post(

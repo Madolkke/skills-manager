@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 
+import { auditPayloadSummary, formatAuditDate } from "@/components/skills/audit-event-format";
 import type { AuditEvent, RoleAssignment, SkillDetail } from "@/lib/types";
 
 type SkillGovernancePanelProps = {
   busy: boolean;
   onArchiveSkill: () => void;
+  onOpenAudit: () => void;
   selectedDetail: SkillDetail;
 };
 
-export function SkillGovernancePanel({ busy, onArchiveSkill, selectedDetail }: SkillGovernancePanelProps) {
+export function SkillGovernancePanel({ busy, onArchiveSkill, onOpenAudit, selectedDetail }: SkillGovernancePanelProps) {
   const [confirmation, setConfirmation] = useState("");
   const skill = selectedDetail.skill;
   const auditEvents = selectedDetail.audit_events.slice(0, 5);
@@ -40,6 +42,7 @@ export function SkillGovernancePanel({ busy, onArchiveSkill, selectedDetail }: S
         <div className="auditTrailTitle">
           <strong>Audit trail</strong>
           <span>{auditEvents.length} recent events</span>
+          <button onClick={onOpenAudit} type="button">查看全部审计</button>
         </div>
         {auditEvents.length > 0 ? (
           auditEvents.map((event) => <AuditEventRow event={event} key={event.id} />)
@@ -85,7 +88,7 @@ function AuditEventRow({ event }: { event: AuditEvent }) {
     <article className="auditTrailRow">
       <div>
         <strong>{event.action}</strong>
-        <span>{payloadSummary(event)}</span>
+        <span>{auditPayloadSummary(event)}</span>
       </div>
       <small>{event.actor_ref}</small>
       <time>{formatDate(event.created_at)}</time>
@@ -97,21 +100,6 @@ function roleCount(assignments: RoleAssignment[], role: RoleAssignment["role"]) 
   return assignments.filter((assignment) => assignment.role === role).length;
 }
 
-function payloadSummary(event: AuditEvent) {
-  const payload = event.payload;
-  const subject = typeof payload.subject_id === "string" ? payload.subject_id : null;
-  const role = typeof payload.role === "string" ? payload.role : null;
-  if (subject && role) return `${subject} -> ${role}`;
-  if (event.action === "skill.archived") return "Skill hidden from catalog";
-  return event.resource_id;
-}
-
 function formatDate(value?: string) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return formatAuditDate(value);
 }

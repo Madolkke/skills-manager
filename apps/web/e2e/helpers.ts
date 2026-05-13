@@ -106,6 +106,7 @@ export async function hideVolatileUi(page: Page) {
       ".promotionBindingList b { visibility: hidden !important; }",
       ".runCompareScoreBox small { visibility: hidden !important; }",
       ".auditTrailRow time { visibility: hidden !important; }",
+      ".auditExplorerEvent time { visibility: hidden !important; }",
     ].join("\n"),
   });
 }

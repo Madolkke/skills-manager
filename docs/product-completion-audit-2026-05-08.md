@@ -2,7 +2,7 @@
 
 日期：2026-05-13
 
-状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：主工作区 Skill Launchpad、主工作区 Skill 设置、Skill 作用域访问控制、Skill 治理与审计面板、标准 Skill bundle 导入、导入后验证清单、variant/version、candidate verification handoff、eval set version、manual eval review queue、历史查看、run matrix 多维控制、保存历史筛选视图、run-to-run comparison、accepted verification、bundle diff、candidate promotion review、上下文命令菜单和快速添加 case 都能闭环。但距离成熟产品还缺少真实认证、多用户协作、自动测评策略和更深的可访问性验证。
+状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：主工作区 Skill Launchpad、主工作区 Skill 设置、Skill 作用域访问控制、Skill 治理与审计面板、Skill 审计 Explorer、标准 Skill bundle 导入、导入后验证清单、variant/version、candidate verification handoff、eval set version、manual eval review queue、历史查看、run matrix 多维控制、保存历史筛选视图、run-to-run comparison、accepted verification、bundle diff、candidate promotion review、上下文命令菜单和快速添加 case 都能闭环。但距离成熟产品还缺少真实认证、多用户协作、自动测评策略和更深的可访问性验证。
 
 ## 目标拆解
 
@@ -37,6 +37,7 @@
 | Skill 作用域访问控制 | 创建 skill 自动授予 actor `owner`；`GET/POST /api/skills/{skill_id}/role-assignments` 和 `DELETE /api/role-assignments/{id}` 支持查看、授予、撤销角色；概览页 `SkillAccessPanel` 覆盖添加/移除 evaluator。 | 完成 |
 | 请求级 ActorContext | Mutation endpoint 从 `X-SkillHub-Actor` 请求头获取本地 actor；前端 `apiSend` 统一发送 header，JSON body 中的 actor 被忽略。 | 完成 |
 | Skill 治理与审计 | `GET /api/skills/{skill_id}/audit-events` 和 skill detail 返回最近审计事件；`DELETE /api/skills/{skill_id}` 需要 owner 权限、写入 `skill.archived`；概览页 `SkillGovernancePanel` 展示治理摘要、审计时间线和 slug 确认危险区。 | 完成 |
+| Skill 审计 Explorer | `GET /api/skills/{skill_id}/audit-events` 支持 actor/action/resource_type filters，并纳入当前 skill 关联的 variant/eval_run audit events；前端 `SkillAuditExplorer` 支持过滤、事件列表和 payload 检查。 | 完成 |
 | 新建 variant | `POST /api/variants`；E2E 创建 `Strict reviewer`。 | 完成 |
 | 主工作区创建 variant | `VariantCreationComposer` 在 `变体` 主面板直接创建 tags 约束 variant；E2E 覆盖创建后 variant map 出现新卡片和 v1。 | 完成 |
 | 追加 candidate version | `POST /api/variant-versions` 支持 `make_current=false`；E2E 创建候选版本并保持 current 不变。 | 完成 |
@@ -66,7 +67,7 @@
 | 上下文命令菜单 | `Cmd/Ctrl+K` 和可见按钮可打开命令菜单；E2E 覆盖搜索 `添加 case` 并跳转表单。 | 完成 |
 | Case version history | `GET /api/eval-cases/{case_id}/versions`；E2E 覆盖 inline history。 | 完成 |
 | Case restore | `POST /api/eval-cases/{case_id}/restores`；E2E 覆盖从旧 case version 恢复为新的当前版本；后端测试覆盖跨 case source 拒绝和 archived case 拒绝。 | 完成 |
-| 视觉回归 | `apps/web/e2e/visual-workbench.spec.ts` 覆盖 empty launchpad、imported overview、manual eval、skill access panel、skill governance panel、promotion review、run comparison、mobile empty。 | 完成 |
+| 视觉回归 | `apps/web/e2e/visual-workbench.spec.ts` 覆盖 empty launchpad、imported overview、manual eval、skill access panel、skill governance panel、skill audit explorer、promotion review、run comparison、mobile empty。 | 完成 |
 | README | README 已用中文补充一键启动、验证命令、标准 bundle、manual eval 和 promotion 流程。 | 完成 |
 | UX 复盘 | `docs/product-ux-review.md` 已更新，说明借鉴模式、已解决摩擦和下一轮优化。 | 完成 |
 
@@ -85,8 +86,8 @@ cd apps/web && npm run e2e
 
 - Web typecheck：通过。
 - Web production build：通过。
-- Playwright E2E：37 passed。
-- API pytest：87 passed。
+- Playwright E2E：39 passed。
+- API pytest：88 passed。
 
 本轮新增视觉资产：
 
@@ -96,6 +97,7 @@ cd apps/web && npm run e2e
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/variants-workspace-composers-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/skill-access-panel-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/skill-governance-panel-chromium-darwin.png`
+- `apps/web/e2e/visual-workbench.spec.ts-snapshots/skill-audit-explorer-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/promotion-review-ready-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/run-comparison-ready-chromium-darwin.png`
 - `apps/web/e2e/visual-workbench.spec.ts-snapshots/mobile-empty-workbench-chromium-darwin.png`
@@ -126,6 +128,6 @@ cd apps/web && npm run e2e
 
 1. 接入真实认证：actor 从 session/token 来，前端只展示 capability，不再声明本地开发 actor。
 2. 把 run matrix 升级为多维表格：支持列配置、更多指标列、导出，并评估是否保存对照/候选 run 指针。
-3. 把 audit events 升级为可搜索、可过滤、可导出的审计 explorer。
+3. 把 audit events 升级为跨 skill/组织级查询、可导出、可配置保留策略的审计系统。
 4. 把 eval strategy / runner registry 产品化。
 5. 系统补 accessibility 和可用性测试。

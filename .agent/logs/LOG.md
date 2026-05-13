@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-13 21:58 CST - TASK-023 Skill 审计事件 Explorer
+
+- 扩展 `GET /api/skills/{skill_id}/audit-events`：支持 `actor`、`action`、`resource_type` filter，并把当前 skill 关联的 `variant` / `eval_run` audit events 纳入同一时间线。
+- 新增 `SkillAuditExplorer`，支持事件摘要、actor/action/resource type 过滤、事件列表和 payload 检查；治理面板新增 `查看全部审计` 入口。
+- 将审计入口保持为低频路径：通过治理面板或 `Cmd/Ctrl+K` 打开，只有在审计模式中显示 `审计` tab，避免挤压主导航。
+- 新增 API、E2E、视觉基线覆盖，并更新 README、API contract、UX 复盘、产品完成度审计和 Superpowers 规格/计划。
+- 已验证：`uv run pytest` 88 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 39 passed；`git diff --check` passed。
+
 ### 2026-05-13 21:32 CST - TASK-022 Skill 治理与审计面板
 
 - 新增 skill 级 audit read model：`GET /api/skills/{skill_id}/audit-events`，并让 skill detail 返回最近 `audit_events`。

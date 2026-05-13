@@ -225,6 +225,28 @@ test("operator can manage skill access roles from overview", async ({ page }) =>
   await expect(panel.locator(".skillAccessRow").filter({ hasText: "qa-reviewer" })).toHaveCount(0);
 });
 
+test("operator can filter skill audit events in the explorer", async ({ page }) => {
+  await importSkillBundle(page, `audit-explorer-${Date.now()}`);
+
+  const accessPanel = page.locator(".skillAccessPanel");
+  await accessPanel.getByPlaceholder("qa-reviewer").fill("qa-reviewer");
+  await accessPanel.getByLabel("Access role").selectOption("evaluator");
+  await accessPanel.getByRole("button", { name: "添加成员" }).click();
+  await expect(accessPanel.locator(".skillAccessRow").filter({ hasText: "qa-reviewer" })).toContainText("Evaluator");
+
+  await page.locator(".skillGovernancePanel").getByRole("button", { name: "查看全部审计" }).click();
+
+  const explorer = page.locator(".skillAuditExplorer");
+  await expect(explorer.getByRole("heading", { name: "审计 Explorer" })).toBeVisible();
+  await expect(explorer).toContainText("role.assigned");
+
+  await explorer.getByLabel("Action filter").fill("role.assigned");
+  await expect(explorer.locator(".auditExplorerEvent")).toHaveCount(2);
+
+  await explorer.locator(".auditExplorerEvent").filter({ hasText: "qa-reviewer" }).click();
+  await expect(explorer.locator(".auditPayloadPanel")).toContainText('"subject_id": "qa-reviewer"');
+});
+
 test("operator can archive a skill from the governance danger zone", async ({ page, request }) => {
   await clearSkillCatalog(request);
   const skillName = `governance-${Date.now()}`;

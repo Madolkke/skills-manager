@@ -180,10 +180,21 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/api/skills/{skill_id}/audit-events")
     def skill_audit_events(
         skill_id: str,
-        limit: int = 10,
+        limit: int = 50,
+        actor: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.list_skill_audit_events(skill_id=skill_id, limit=limit))
+        return result_payload(
+            repository.list_skill_audit_events(
+                skill_id=skill_id,
+                limit=max(1, min(limit, 200)),
+                actor=actor,
+                action=action,
+                resource_type=resource_type,
+            )
+        )
 
     @app.post("/api/skills/{skill_id}/role-assignments")
     def assign_skill_role(

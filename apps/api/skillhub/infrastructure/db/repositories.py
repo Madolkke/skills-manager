@@ -6,7 +6,7 @@ from difflib import SequenceMatcher
 import json
 from typing import Any
 
-from sqlalchemy import Engine, delete, desc, insert, select, update
+from sqlalchemy import Engine, and_, delete, desc, insert, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.application.promotion_review import build_promotion_case_comparisons, build_promotion_readiness
@@ -1081,10 +1081,25 @@ class SqlSkillRepository:
             )
         return {"ok": True}
 
-    def list_skill_audit_events(self, *, skill_id: str, limit: int = 10) -> list[dict[str, Any]]:
+    def list_skill_audit_events(
+        self,
+        *,
+        skill_id: str,
+        limit: int = 50,
+        actor: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+    ) -> list[dict[str, Any]]:
         with self.engine.connect() as connection:
             self._skill_row(connection, skill_id)
-            return self._skill_audit_events(connection, skill_id, limit=limit)
+            return self._skill_audit_events(
+                connection,
+                skill_id,
+                limit=limit,
+                actor=actor,
+                action=action,
+                resource_type=resource_type,
+            )
 
     def eval_set_version_detail(self, eval_set_version_id: str) -> EvalSetVersionDetail:
         with self.engine.connect() as connection:
@@ -1892,14 +1907,44 @@ class SqlSkillRepository:
         )
         return [self._row_dict(row) for row in rows]
 
-    def _skill_audit_events(self, connection, skill_id: str, *, limit: int) -> list[dict[str, Any]]:
+    def _skill_audit_events(
+        self,
+        connection,
+        skill_id: str,
+        *,
+        limit: int,
+        actor: str | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        variant_ids = select(tables.variants.c.id).where(tables.variants.c.skill_id == skill_id)
+        eval_run_ids = select(tables.eval_runs.c.id).where(tables.eval_runs.c.skill_id == skill_id)
+        conditions = [
+            or_(
+                and_(tables.audit_events.c.resource_type == "skill", tables.audit_events.c.resource_id == skill_id),
+                and_(
+                    tables.audit_events.c.resource_type == "variant",
+                    tables.audit_events.c.resource_id.in_(variant_ids),
+                ),
+                and_(
+                    tables.audit_events.c.resource_type == "eval_run",
+                    tables.audit_events.c.resource_id.in_(eval_run_ids),
+                ),
+            )
+        ]
+        if actor:
+            conditions.append(tables.audit_events.c.actor_ref == actor)
+        if action:
+            conditions.append(tables.audit_events.c.action == action)
+        if resource_type:
+            conditions.append(tables.audit_events.c.resource_type == resource_type)
+
         rows = (
             connection.execute(
                 select(tables.audit_events)
-                .where(tables.audit_events.c.resource_type == "skill")
-                .where(tables.audit_events.c.resource_id == skill_id)
+                .where(*conditions)
                 .order_by(desc(tables.audit_events.c.created_at), desc(tables.audit_events.c.id))
-                .limit(limit)
+                .limit(max(1, min(limit, 200)))
             )
             .mappings()
             .all()

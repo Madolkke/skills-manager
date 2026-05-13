@@ -10,7 +10,7 @@
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `概览` 页现在提供 `身份与默认分发` 设置面板，用户可以直接修改 skill ID、归属，并选择默认分发 variant。
 - `概览` 页现在提供 `访问控制` 面板，用户可以查看 skill 作用域角色，并添加或移除 owner/maintainer/evaluator/viewer。
-- `概览` 页现在提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档放进需要输入当前 skill ID 的危险区。
+- `概览` 页现在提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档放进需要输入当前 skill ID 的危险区；用户也可以进入 `审计 Explorer`，按 actor/action/resource type 过滤事件并查看 payload。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
 - `测评` 页的 case 详情面板支持内联编辑，用户可以在当前测评上下文中修改 title、input、expected output、notes，并保存为新的 case version。
@@ -35,7 +35,7 @@
 - History mode 支持把两次同 `EvalSetVersion` 的 run 标为对照/候选，直接查看通过率 delta、逐 case 修复/回退，并把候选 run 接受为当前验证依据。
 - `promotion` 和 `accepted verification` 已有后端角色门禁：只有 skill 的 owner/maintainer 能移动可信分发或验证指针。
 - 每个 eval case 可以在测评页内查看版本时间线，包括 input、expected output、notes，以及被哪些 eval set snapshot 包含；也可以从旧版本一键恢复为新的当前版本，历史不会被覆盖。
-- Playwright 覆盖 folder/zip import、导入后验证引导、访问控制、治理归档、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
+- Playwright 覆盖 folder/zip import、导入后验证引导、访问控制、治理归档、审计 Explorer、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
 
 ## 借鉴的产品模式
 
@@ -50,6 +50,7 @@
 - **Vercel project roles:** Vercel 用 team role + project role 控制项目级操作。SkillHub 适配为 skill 作用域 role assignment，先保护当前分发和验证指针。
 - **Linear members and roles:** Linear 把成员管理集中到清晰的 administration surface，并限制危险操作。SkillHub 适配为概览页 `访问控制`，让权限状态靠近 skill 身份设置。
 - **Linear audit log:** Linear 的 audit log 把成员、权限和关键管理动作放到可追溯时间线中。SkillHub 适配为 skill 详情里的最近 audit events，先服务当前对象的治理理解，再考虑全局审计搜索。
+- **GitHub Enterprise Audit Log:** GitHub 用 actor、action、repo、created 等结构化限定符查询审计事件。SkillHub 适配为当前 skill 的 actor/action/resource_type 过滤，避免无边界全文搜索。
 - **GitHub Danger Zone:** GitHub 把危险操作放到 repository settings 底部，并要求明确确认。SkillHub 适配为 `治理与审计` 面板中的危险区，输入当前 skill ID 才能归档。
 - **Stripe request logs:** Stripe 把关键请求用时间、actor/action 和 payload 摘要组织为可追踪事件。SkillHub 适配为短 audit event row，展示 actor、action、时间和 payload 摘要。
 - **GitHub Command Palette:** 命令菜单兼具导航、搜索和运行命令能力；SkillHub 借鉴其 scope 思路，把菜单限定在当前 skill 工作区，避免全局搜索过早膨胀。
@@ -108,10 +109,11 @@
 22. 以前 role assignment 表只是 schema 占位；现在创建 skill 会自动授予 owner，概览页可管理 skill 作用域角色，promotion 和 accepted verification 已有 owner/maintainer 门禁。
 23. 以前 mutation payload 里还能传 `actor`，权限判断和业务输入混在一起；现在前端统一通过 `X-SkillHub-Actor` 进入后端 ActorContext，body actor 会被忽略。
 24. 以前归档 skill 是 inspector 里的普通按钮，缺少权限和确认语义；现在归档需要 owner 权限、输入当前 skill ID，并写入 `skill.archived` audit event。
+25. 以前治理面板只能看最近几条 skill 级事件；现在 `审计 Explorer` 能读取当前 skill 关联的 skill、variant、eval_run 事件，并按 actor、action、resource type 过滤后检查 payload。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建、基础 skill 设置、访问控制和 skill 归档已经迁入主区，但部分低频设置仍需要更成熟的主区或内联抽屉体验。
+1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建、基础 skill 设置、访问控制、skill 归档和审计查看已经迁入主区，但部分低频设置仍需要更成熟的主区或内联抽屉体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
 4. 权限还没有真实认证来源。当前 actor 已从请求体收敛到 `X-SkillHub-Actor` 开发 header，但仍不是真正的服务端 session/token。
@@ -120,7 +122,7 @@
 
 ## 下一轮优化队列
 
-1. 做审计事件搜索和过滤：当前治理面板只展示最近事件，后续可扩展为跨 skill、跨 actor、跨 action 的 audit explorer。
+1. 扩展审计能力：当前已支持 skill-scoped filter 和 payload inspect，后续可做跨 skill/组织级查询、导出、保留策略和 webhook。
 2. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。
 3. 接入真实认证：actor 从 session/token 来，前端只负责展示 capability，不再声明本地开发 actor。
 4. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。

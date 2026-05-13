@@ -55,7 +55,7 @@
 
 ### AuditEvent
 
-`AuditEvent` 是不可变审计事实。产品详情页只读取最近事件，用于让用户理解 skill 的治理状态；完整审计检索、导出和组织级日志属于后续版本。
+`AuditEvent` 是不可变审计事实。产品详情页只读取最近事件，用于让用户理解 skill 的治理状态；审计 Explorer 可以读取当前 skill 关联的 skill、variant 和 eval_run 事件。导出、保留策略和组织级日志属于后续版本。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -573,10 +573,23 @@ X-SkillHub-Actor: product-operator
 ### Skill Audit Events
 
 ```http
-GET /api/skills/{skill_id}/audit-events?limit=10
+GET /api/skills/{skill_id}/audit-events?limit=50&actor=product-operator&action=role.assigned&resource_type=skill
 ```
 
-返回最近 skill 级治理事件，按 `created_at desc, id desc` 排序：
+返回当前 skill 作用域内的治理事件，按 `created_at desc, id desc` 排序。当前 skill 作用域包含：
+
+- `resource_type=skill` 且 `resource_id={skill_id}`。
+- `resource_type=variant` 且 `resource_id` 属于该 skill 的 variant。
+- `resource_type=eval_run` 且 `resource_id` 属于该 skill 的 eval run。
+
+查询参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `limit` | 默认 50，服务端限制在 1..200。 |
+| `actor` | 可选，精确匹配 `actor_ref`。 |
+| `action` | 可选，精确匹配 `action`。 |
+| `resource_type` | 可选，精确匹配 `skill`、`variant`、`eval_run` 等资源类型。 |
 
 ```json
 [
@@ -592,7 +605,7 @@ GET /api/skills/{skill_id}/audit-events?limit=10
 ]
 ```
 
-这个 endpoint 只读审计事实，不负责权限变更；角色授权和撤销仍通过 role assignment endpoint 完成。
+这个 endpoint 只读审计事实，不负责权限变更；角色授权和撤销仍通过 role assignment endpoint 完成。`GET /api/skills/{skill_id}` 仍只内嵌最近 10 条，供概览治理面板快速展示。
 
 ### Promotion Review
 

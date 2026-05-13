@@ -18,6 +18,7 @@ import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-p
 import { RunMatrixPanel, type RunMatrixControls } from "@/components/run-matrix/run-matrix-panel";
 import { SavedRunViews } from "@/components/saved-views/saved-run-views";
 import { SkillAccessPanel } from "@/components/skills/skill-access-panel";
+import { SkillAuditExplorer, type AuditExplorerFilters } from "@/components/skills/skill-audit-explorer";
 import { SkillGovernancePanel } from "@/components/skills/skill-governance-panel";
 import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
 import { SkillSettingsPanel } from "@/components/skills/skill-settings-panel";
@@ -38,6 +39,7 @@ import type {
   PromotionDecision,
   PromotionReview,
   SavedView,
+  AuditEvent,
   SkillDetail,
   SkillSummary,
   VariantDetail,
@@ -53,7 +55,7 @@ type DecisionWorkbenchProps = {
   featuredSkill: SkillDetail;
 };
 
-type Mode = "overview" | "variants" | "evals" | "diff" | "history" | "promotion";
+type Mode = "overview" | "variants" | "evals" | "diff" | "history" | "audit" | "promotion";
 type ActionMode =
   | "skill"
   | "new-skill"
@@ -94,6 +96,11 @@ const DEFAULT_RUN_MATRIX_CONTROLS: RunMatrixControls = {
   matrix_impact: "all",
   matrix_show_score: "true",
 };
+const DEFAULT_AUDIT_FILTERS: AuditExplorerFilters = {
+  actor: "",
+  action: "",
+  resource_type: "all",
+};
 type BundleSource =
   | { kind: "zip"; name: string; zip_base64: string }
   | {
@@ -131,6 +138,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   const [savedViewsLoading, setSavedViewsLoading] = useState(false);
   const [selectedSavedViewId, setSelectedSavedViewId] = useState("adhoc");
   const [savedViewName, setSavedViewName] = useState("");
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>(featuredSkill.audit_events);
+  const [auditFilters, setAuditFilters] = useState<AuditExplorerFilters>(DEFAULT_AUDIT_FILTERS);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRunDetail, setSelectedRunDetail] = useState<EvalRunDetail | null>(null);
   const [compareBaselineRunId, setCompareBaselineRunId] = useState<string | null>(null);
@@ -197,6 +207,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
       command("nav-variants", "打开变体", "导航", "查看 variant map 和历史版本。", () => setMode("variants"), "G V", !canUseSkill, "先创建或导入一个 skill。"),
       command("nav-evals", "打开测评", "导航", "管理测试用例并记录手工测评。", () => setMode("evals"), "G E", !canUseSkill, "先创建或导入一个 skill。"),
       command("nav-history", "打开历史", "导航", "查看 run history、比较 run 和 accepted verification。", () => setMode("history"), "G H", !canUseSkill, "先创建或导入一个 skill。"),
+      command("nav-audit", "打开审计", "导航", "过滤当前 skill 的治理和发布事件。", () => setMode("audit"), "G A", !canUseSkill, "先创建或导入一个 skill。"),
       command("nav-diff", "打开差异", "导航", "比较当前 variant 的两个 bundle version。", () => openDiffMode(), "G D", !canCompareVersions, "当前 variant 至少需要两个版本。"),
       command("import-skill", "导入标准 Skill bundle", "创建", "上传包含 SKILL.md 的文件夹或 zip。", () => chooseAction("import-skill"), "I"),
       command("new-skill", "新建 skill", "创建", "创建一个空白 skill 和默认 variant。", () => chooseAction("new-skill"), "N"),
@@ -222,6 +233,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     setSavedViewsLoading(false);
     setSelectedSavedViewId("adhoc");
     setSavedViewName("");
+    setAuditEvents([]);
+    setAuditFilters(DEFAULT_AUDIT_FILTERS);
+    setAuditLoading(false);
     setSelectedRunId(null);
     setSelectedRunDetail(null);
     setCompareBaselineRunId(null);
@@ -285,6 +299,19 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   }, [mode, hasPersistedSkill, selectedDetail.skill.id]);
 
   useEffect(() => {
+    if (mode !== "audit" || !hasPersistedSkill) return;
+    void loadAuditEvents(selectedDetail.skill.id, auditFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    hasPersistedSkill,
+    selectedDetail.skill.id,
+    auditFilters.actor,
+    auditFilters.action,
+    auditFilters.resource_type,
+  ]);
+
+  useEffect(() => {
     if (mode !== "history" || !selectedRunId) {
       setSelectedRunDetail(null);
       return;
@@ -332,6 +359,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     if (nextSkills.length === 0) {
       setSelectedSkillId(emptySkillDetail.skill.id);
       setSelectedDetail(emptySkillDetail);
+      setAuditEvents([]);
       setEvalSetDetail(null);
       setCaseResults({});
       chooseAction("import-skill");
@@ -347,12 +375,18 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
   async function loadSkill(skillId: string) {
     if (skillId === emptySkillDetail.skill.id) {
       setSelectedDetail(emptySkillDetail);
+      setAuditEvents([]);
       return;
     }
     try {
-      setSelectedDetail(await apiGet<SkillDetail>(`/api/skills/${skillId}`));
+      const detail = await apiGet<SkillDetail>(`/api/skills/${skillId}`);
+      setSelectedDetail(detail);
+      setAuditEvents(detail.audit_events);
     } catch {
-      if (skillId === featuredSkill.skill.id) setSelectedDetail(featuredSkill);
+      if (skillId === featuredSkill.skill.id) {
+        setSelectedDetail(featuredSkill);
+        setAuditEvents(featuredSkill.audit_events);
+      }
     }
   }
 
@@ -429,9 +463,33 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     }
   }
 
+  async function loadAuditEvents(skillId: string, filters: AuditExplorerFilters) {
+    setAuditLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "100" });
+      if (filters.actor.trim()) params.set("actor", filters.actor.trim());
+      if (filters.action.trim()) params.set("action", filters.action.trim());
+      if (filters.resource_type !== "all") params.set("resource_type", filters.resource_type);
+      setAuditEvents(await apiGet<AuditEvent[]>(`/api/skills/${skillId}/audit-events?${params.toString()}`));
+    } catch (error) {
+      setAuditEvents([]);
+      setNotice({ tone: "bad", message: error instanceof Error ? error.message : "加载审计事件失败" });
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   function updateRunFilter(key: keyof RunFilters, value: string) {
     setSelectedSavedViewId("adhoc");
     setRunFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateAuditFilter(key: keyof AuditExplorerFilters, value: string) {
+    setAuditFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function clearAuditFilters() {
+    setAuditFilters(DEFAULT_AUDIT_FILTERS);
   }
 
   function updateRunMatrixControl<Key extends keyof RunMatrixControls>(key: Key, value: RunMatrixControls[Key]) {
@@ -1087,6 +1145,9 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
               <button className={mode === "evals" ? "linearTabActive" : ""} onClick={() => setMode("evals")} type="button">测评</button>
               <button className={mode === "diff" ? "linearTabActive" : ""} onClick={() => openDiffMode()} type="button">差异</button>
               <button className={mode === "history" ? "linearTabActive" : ""} onClick={() => setMode("history")} type="button">历史</button>
+              {mode === "audit" ? (
+                <button className="linearTabActive" onClick={() => setMode("audit")} type="button">审计</button>
+              ) : null}
               {mode === "promotion" || promotionReview ? (
                 <button className={mode === "promotion" ? "linearTabActive" : ""} onClick={() => setMode("promotion")} type="button">评审</button>
               ) : null}
@@ -1117,6 +1178,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             }}
             onOpenHistory={() => setMode("history")}
             onArchiveSkill={archiveSkill}
+            onOpenAudit={() => setMode("audit")}
             primaryEvalSetVersion={currentEvalSetVersion?.version_number}
             refreshImportPreview={refreshImportPreview}
             revokeSkillRole={revokeSkillRole}
@@ -1186,6 +1248,17 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             selectedSavedViewId={selectedSavedViewId}
             selectedRunId={selectedRunId}
             variants={selectedDetail.variants}
+          />
+        ) : null}
+
+        {mode === "audit" ? (
+          <SkillAuditExplorer
+            events={auditEvents}
+            filters={auditFilters}
+            loading={auditLoading}
+            onClearFilters={clearAuditFilters}
+            onFilterChange={updateAuditFilter}
+            onOpenOverview={() => setMode("overview")}
           />
         ) : null}
 
@@ -1292,6 +1365,7 @@ function OverviewPane({
   onDiff,
   onOpenEvals,
   onOpenHistory,
+  onOpenAudit,
   primaryEvalSetVersion,
   refreshImportPreview,
   revokeSkillRole,
@@ -1314,6 +1388,7 @@ function OverviewPane({
   onDiff: () => void;
   onOpenEvals: () => void;
   onOpenHistory: () => void;
+  onOpenAudit: () => void;
   primaryEvalSetVersion?: number;
   refreshImportPreview: (event: FormEvent<HTMLFormElement>) => void;
   revokeSkillRole: (roleAssignmentId: string) => void;
@@ -1383,6 +1458,7 @@ function OverviewPane({
       <SkillGovernancePanel
         busy={busy}
         onArchiveSkill={onArchiveSkill}
+        onOpenAudit={onOpenAudit}
         selectedDetail={selectedDetail}
       />
 
