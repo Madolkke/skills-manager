@@ -185,14 +185,41 @@ export function DecisionWorkbench({
   const confirmedDraft = passedDraft + failedDraft;
   const hasPersistedSkill = selectedDetail.skill.lifecycle_status !== "empty";
   const selectedSkillUrlKey = hasPersistedSkill ? selectedSummary.skill.slug || selectedSkillId : "";
+  const selectedRunRow = selectedRunId
+    ? runHistory?.runs.find((row) => row.eval_run.id === selectedRunId) ?? null
+    : null;
+  const commandSelection = useMemo(
+    () => ({
+      selectedCase: selectedCase ? { id: selectedCase.case.id, title: selectedCase.case.title } : null,
+      selectedRun: selectedRunRow
+        ? {
+            id: selectedRunRow.eval_run.id,
+            label: `${selectedRunRow.variant.label} v${selectedRunRow.variant_version.version_number}`,
+            scoreLabel: `${selectedRunRow.eval_run.summary.passed ?? 0}/${selectedRunRow.eval_run.summary.total ?? 0} passed`,
+          }
+        : null,
+    }),
+    [
+      selectedCase?.case.id,
+      selectedCase?.case.title,
+      selectedRunRow?.eval_run.id,
+      selectedRunRow?.eval_run.summary.passed,
+      selectedRunRow?.eval_run.summary.total,
+      selectedRunRow?.variant.label,
+      selectedRunRow?.variant_version.version_number,
+    ],
+  );
   const commandItems = useWorkbenchCommands({
     canCompareVersions: Boolean(defaultVariant && defaultDiffPair(defaultVariant)),
     casesCount: cases.length,
     currentMode: mode,
     hasPersistedSkill,
     onAction: chooseAction,
+    onChooseComparisonRun: chooseComparisonRun,
+    onHistoryCase: loadCaseHistory,
     onOpenDiff: openDiffMode,
     onSetMode: setMode,
+    selection: commandSelection,
   });
 
   useEffect(() => {

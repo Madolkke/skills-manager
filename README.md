@@ -20,7 +20,7 @@
 - 工作台内可以查看 bundle 文件内容、在主工作区编辑 skill 身份和默认分发 variant、管理 skill 作用域角色、创建约束 variant、追加候选版本、版本 diff、run 历史、run matrix、保存历史筛选视图、run-to-run 比较、accepted verification、case 详情内联编辑、case 版本历史、case 历史版本恢复和 promotion review。
 - 创建或导入 skill 的本地 actor 会自动成为该 skill 的 `owner`；`promotion` 和 `accepted verification` 需要 `owner` 或 `maintainer`。前端本地开发身份来自后端签名的 HttpOnly cookie session，JSON body 中不再传 actor；直接调 API 的脚本仍可用 `X-SkillHub-Actor` 作为兼容 fallback。
 - `概览` 页提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档收进需要输入当前 skill ID 的危险区；归档需要 `owner` 权限并写入 `skill.archived` audit event。治理面板也能打开 `审计 Explorer`，用 action quick filters、actor/action/resource_type 过滤、可读时间线和结构化详情追踪当前 skill 的治理、发布和验证事件，Raw payload 默认折叠在下钻区。
-- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，可搜索并执行导入、创建、测评、历史、差异等高频动作；菜单使用 `dialog + combobox + listbox` 语义，方向键移动 active option，Tab 会限制在弹层内，关闭后焦点回到触发按钮。菜单会根据当前 mode 排序：空工作台优先导入/新建，测评页优先 run/case，变体页优先 variant/version/diff。
+- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，可搜索并执行导入、创建、测评、历史、差异等高频动作；菜单使用 `dialog + combobox + listbox` 语义，方向键移动 active option，Tab 会限制在弹层内，关闭后焦点回到触发按钮。菜单会根据当前 mode、最近使用和当前 selection 排序：空工作台优先导入/新建，测评页可直接查看当前 case 历史，历史页可把当前 run 设为对照或候选；右侧 preview 会展示命令作用对象、scope 和禁用原因。
 - `/skills` 支持第二阶段 URL state：可以直达某个 skill 的 `概览 / 变体 / 测评 / 差异 / 历史 / 审计 / 评审`，并恢复 diff pair/file/filter、eval target/case、history filters、selected run、run comparison、matrix controls、audit filters 和 promotion review context；刷新、复制链接和浏览器 Back/Forward 都能还原这些证据上下文。
 - 工作台有基础 accessibility 护栏：键盘用户可用 skip link 直接进入主内容；全局 focus ring 更醒目；`prefers-reduced-motion` 会压低非必要动效；操作结果通过 `role=status` 暴露给读屏软件；命令菜单、Workbench mode tabs、Run matrix 和 Inspector action 焦点交接已有 E2E 回归。
 - 表单字段基础件已覆盖主要工作台表单：`SkillLaunchpad`、`WorkbenchInspector`、快速添加 case、case 详情内联编辑、skill 设置、访问控制、危险区确认、保存历史视图、history filters、run matrix controls 和 diff selectors 都使用共享字段壳层；业务 text/textarea 默认显式 `autocomplete="off"`，字段级 error/`aria-invalid` 接口已预留。
@@ -74,7 +74,7 @@ npm run dev -- --hostname 127.0.0.1 --port 3000
 1. 打开 `http://127.0.0.1:3000/skills`。
 2. 用左侧 catalog 切换 skill。
 3. 右侧 inspector 顶部的 `Local session` 显示当前本地 actor。需要模拟另一个维护者时，输入如 `release-manager` 并点击 `切换 actor`，之后创建、导入、授权、promotion 和审计都会使用这个 actor。
-4. 空工作台会在主内容区显示 `SkillLaunchpad`：可以直接导入标准 Skill bundle，也可以先创建空白 skill。移动端 first-run 默认不再重复展示右侧 inspector 的第二份导入表单；需要低频入口时，点左侧 catalog 或 `Cmd/Ctrl+K` 命令菜单即可展开 inspector 表单并把焦点送过去。已有 skill 时，也可以继续用右侧 inspector 或命令菜单触发同类动作。顶部工作区模式按 tablist 建模，聚焦当前模式后可用左右方向键、Home、End 在 `概览 / 变体 / 测评 / 差异 / 历史` 间移动；切换 skill、mode、diff pair、history filters、selected run 或 promotion review 后，地址栏会同步为可分享链接；中等桌面宽度下进入 `差异 / 历史 / 审计 / 评审` 时，右侧会自动收成 verification rail，方便扫读证据。
+4. 空工作台会在主内容区显示 `SkillLaunchpad`：可以直接导入标准 Skill bundle，也可以先创建空白 skill。移动端 first-run 默认不再重复展示右侧 inspector 的第二份导入表单；需要低频入口时，点左侧 catalog 或 `Cmd/Ctrl+K` 命令菜单即可展开 inspector 表单并把焦点送过去。已有 skill 时，也可以继续用右侧 inspector 或命令菜单触发同类动作。命令菜单会记住最近执行的 5 个命令，并在右侧 preview 中说明当前命令作用对象；选中 case 后可从菜单进入 case 历史，选中 run 后可从菜单设置 run comparison。顶部工作区模式按 tablist 建模，聚焦当前模式后可用左右方向键、Home、End 在 `概览 / 变体 / 测评 / 差异 / 历史` 间移动；切换 skill、mode、diff pair、history filters、selected run 或 promotion review 后，地址栏会同步为可分享链接；中等桌面宽度下进入 `差异 / 历史 / 审计 / 评审` 时，右侧会自动收成 verification rail，方便扫读证据。
 5. 导入 bundle 后先看 `概览` 里的 `验证清单`：没有 case 时点击 `添加首批 case`；有 case 但没有 run 时点击 `打开手工测评`；完成 run 后点击 `查看证据历史`。
 6. 在 `概览` 页的 `身份与默认分发` 中可直接修改 skill ID、归属，并选择哪个 variant 作为默认分发入口。
 7. 在 `概览` 页的 `访问控制` 中可查看当前 skill 的 owner/maintainer/evaluator/viewer，并添加或移除成员角色。

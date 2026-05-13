@@ -315,7 +315,7 @@ a:focus-visible {
 }
 
 .commandMenuPanel {
-  width: min(720px, 100%);
+  width: min(920px, 100%);
   overflow: hidden;
   border: 1px solid rgba(15, 23, 42, 0.2);
   border-radius: 14px;
@@ -403,10 +403,17 @@ a:focus-visible {
   box-shadow: 0 0 0 3px rgba(49, 92, 143, 0.12);
 }
 
+.commandMenuBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 0.42fr);
+  min-height: 320px;
+}
+
 .commandMenuList {
   display: grid;
   max-height: min(52vh, 460px);
   overflow: auto;
+  border-right: 1px solid #e4eaf2;
   padding: 8px;
 }
 
@@ -502,6 +509,82 @@ a:focus-visible {
   color: #111827;
 }
 
+.commandMenuPreview {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  background: #f8fafc;
+  color: #475569;
+  padding: 16px;
+}
+
+.commandMenuPreview > span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.commandMenuPreview strong {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.commandMenuPreview p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.5;
+}
+
+.commandMenuPreview dl {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 0;
+}
+
+.commandMenuPreview dl div {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+}
+
+.commandMenuPreview dt {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.commandMenuPreview dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 880;
+  line-height: 1.35;
+}
+
+.commandMenuPreview kbd {
+  justify-self: start;
+  border: 1px solid #cbd5e1;
+  border-bottom-width: 2px;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #334155;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 4px 7px;
+}
+
 .commandMenuTrigger {
   display: inline-flex;
   align-items: center;
@@ -532,6 +615,22 @@ a:focus-visible {
 .commandMenuTrigger:focus-visible {
   outline: 3px solid rgba(49, 92, 143, 0.22);
   outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .commandMenuBody {
+    grid-template-columns: 1fr;
+  }
+
+  .commandMenuList {
+    max-height: 42vh;
+    border-right: 0;
+    border-bottom: 1px solid #e4eaf2;
+  }
+
+  .commandMenuPreview {
+    display: none;
+  }
 }
 
 .workbenchField {

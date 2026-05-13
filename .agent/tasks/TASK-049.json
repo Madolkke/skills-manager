@@ -1,0 +1,37 @@
+{
+  "id": "049",
+  "title": "Command menu 第二阶段",
+  "status": "completed",
+  "goal": "让命令菜单支持最近使用排序、当前 selection 命令和命令 preview，减少熟手操作路径。",
+  "scope": [
+    "抽出 CommandMenuItem 类型并新增 preview 元数据",
+    "新增最近命令 helper，支持本地记录、去重、限长和排序",
+    "新增 selected case / selected run 感知命令",
+    "在 CommandMenu 中接入最近排序和 preview 面板",
+    "在 DecisionWorkbench 中传入当前 case 和 run selection",
+    "新增 Vitest 和 Playwright E2E 覆盖最近命令、selection-aware 命令和 preview",
+    "更新 README、产品体验评审、完成度审计、摩擦审计、任务日志和本任务规格/计划"
+  ],
+  "out_of_scope": [
+    "服务器端个性化排序",
+    "AI 推荐或语义搜索",
+    "跨 skill 全局资源搜索",
+    "快捷键自定义",
+    "命令菜单整体视觉换肤",
+    "真实认证和组织级权限"
+  ],
+  "verification": [
+    "Red: cd apps/web && npm run test:unit -> failed as expected because command-menu-recents module was missing and selected-case/run commands did not exist",
+    "Red: cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npx playwright test e2e/skills-workbench.spec.ts --project=chromium -g \"command menu\" -> failed as expected because .commandMenuPreview did not exist",
+    "Green: cd apps/web && npm run test:unit -> 2 files / 11 tests passed",
+    "Green: cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npx playwright test e2e/skills-workbench.spec.ts --project=chromium -g \"command menu\" -> 3 passed",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities",
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 60 passed",
+    "git diff --check -> passed",
+    "jq empty .agent/tasks.json .agent/tasks/TASK-049.json -> passed",
+    "wc -l apps/web/components/command-menu/command-menu.tsx apps/web/components/command-menu/command-menu-recents.ts apps/web/components/command-menu/command-menu-preview.tsx apps/web/components/command-menu/workbench-command-config.ts -> 258 / 66 / 36 / 184"
+  ]
+}

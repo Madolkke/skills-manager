@@ -3,21 +3,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
-export type CommandMenuItem = {
-  id: string;
-  title: string;
-  group: string;
-  detail: string;
-  shortcut?: string;
-  disabled?: boolean;
-  disabledReason?: string;
-  run: () => void;
-};
+import { loadRecentCommandIds, rankCommandsForMenu, rememberRecentCommandId, saveRecentCommandIds } from "@/components/command-menu/command-menu-recents";
+import { CommandMenuPreview } from "@/components/command-menu/command-menu-preview";
+import type { CommandMenuItem } from "@/components/command-menu/command-menu-types";
 
 export function CommandMenu({ commands, scopeLabel }: { commands: CommandMenuItem[]; scopeLabel: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [recentCommandIds, setRecentCommandIds] = useState<string[]>([]);
   const menuId = sanitizeDomId(useId());
   const inputRef = useRef<HTMLInputElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -27,14 +21,8 @@ export function CommandMenu({ commands, scopeLabel }: { commands: CommandMenuIte
   const listboxId = `${menuId}-listbox`;
 
   const filteredCommands = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const filtered = normalizedQuery
-      ? commands.filter((command) =>
-          `${command.title} ${command.group} ${command.detail}`.toLowerCase().includes(normalizedQuery),
-        )
-      : commands;
-    return [...filtered].sort((left, right) => Number(Boolean(left.disabled)) - Number(Boolean(right.disabled)));
-  }, [commands, query]);
+    return rankCommandsForMenu(commands, { query, recentCommandIds });
+  }, [commands, query, recentCommandIds]);
 
   const activeCommand = filteredCommands[activeIndex];
   const activeOptionId = activeCommand ? commandOptionId(menuId, activeCommand.id) : undefined;
@@ -55,6 +43,10 @@ export function CommandMenu({ commands, scopeLabel }: { commands: CommandMenuIte
     if (!opener) return;
     window.requestAnimationFrame(() => opener.focus());
   }
+
+  useEffect(() => {
+    setRecentCommandIds(loadRecentCommandIds());
+  }, []);
 
   useEffect(() => {
     function handleGlobalKeydown(event: KeyboardEvent) {
@@ -93,6 +85,11 @@ export function CommandMenu({ commands, scopeLabel }: { commands: CommandMenuIte
 
   function runCommand(command: CommandMenuItem | undefined) {
     if (!command || command.disabled) return;
+    setRecentCommandIds((current) => {
+      const next = rememberRecentCommandId(current, command.id);
+      saveRecentCommandIds(next);
+      return next;
+    });
     command.run();
     closeCommandMenu(false);
   }
@@ -188,40 +185,43 @@ export function CommandMenu({ commands, scopeLabel }: { commands: CommandMenuIte
             value={query}
           />
         </label>
-        <div className="commandMenuList" id={listboxId} role="listbox">
-          {filteredCommands.map((command, index) => {
-            const active = index === activeIndex;
-            return (
-              <button
-                aria-disabled={command.disabled ? "true" : undefined}
-                aria-selected={active}
-                className={`commandMenuItem ${active ? "commandMenuItemActive" : ""}`}
-                id={commandOptionId(menuId, command.id)}
-                key={command.id}
-                onClick={() => runCommand(command)}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setActiveIndex(index)}
-                role="option"
-                tabIndex={-1}
-                type="button"
-              >
-                <span className="commandMenuItemMain">
-                  <b>{command.title}</b>
-                  <small>{command.disabled ? command.disabledReason : command.detail}</small>
-                </span>
-                <span className="commandMenuMeta">
-                  <i>{command.group}</i>
-                  {command.shortcut ? <kbd>{command.shortcut}</kbd> : null}
-                </span>
-              </button>
-            );
-          })}
-          {filteredCommands.length === 0 ? (
-            <div className="commandMenuEmpty">
-              <strong>没有匹配命令</strong>
-              <span>换一个关键词，例如“测评”“历史”或“导入”。</span>
-            </div>
-          ) : null}
+        <div className="commandMenuBody">
+          <div className="commandMenuList" id={listboxId} role="listbox">
+            {filteredCommands.map((command, index) => {
+              const active = index === activeIndex;
+              return (
+                <button
+                  aria-disabled={command.disabled ? "true" : undefined}
+                  aria-selected={active}
+                  className={`commandMenuItem ${active ? "commandMenuItemActive" : ""}`}
+                  id={commandOptionId(menuId, command.id)}
+                  key={command.id}
+                  onClick={() => runCommand(command)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  role="option"
+                  tabIndex={-1}
+                  type="button"
+                >
+                  <span className="commandMenuItemMain">
+                    <b>{command.title}</b>
+                    <small>{command.disabled ? command.disabledReason : command.detail}</small>
+                  </span>
+                  <span className="commandMenuMeta">
+                    <i>{command.group}</i>
+                    {command.shortcut ? <kbd>{command.shortcut}</kbd> : null}
+                  </span>
+                </button>
+              );
+            })}
+            {filteredCommands.length === 0 ? (
+              <div className="commandMenuEmpty">
+                <strong>没有匹配命令</strong>
+                <span>换一个关键词，例如“测评”“历史”或“导入”。</span>
+              </div>
+            ) : null}
+          </div>
+          <CommandMenuPreview command={activeCommand} />
         </div>
       </section>
     </div>

@@ -10,8 +10,11 @@ export function useWorkbenchCommands({
   currentMode,
   hasPersistedSkill,
   onAction,
+  onChooseComparisonRun,
+  onHistoryCase,
   onOpenDiff,
   onSetMode,
+  selection,
 }: WorkbenchCommandOptions) {
   return useMemo(
     () => buildWorkbenchCommands({
@@ -20,9 +23,23 @@ export function useWorkbenchCommands({
       currentMode,
       hasPersistedSkill,
       onAction,
+      onChooseComparisonRun,
+      onHistoryCase,
       onOpenDiff,
       onSetMode,
+      selection,
     }),
-    [canCompareVersions, casesCount, currentMode, hasPersistedSkill, onAction, onOpenDiff, onSetMode],
+    [
+      canCompareVersions,
+      casesCount,
+      currentMode,
+      hasPersistedSkill,
+      onAction,
+      onChooseComparisonRun,
+      onHistoryCase,
+      onOpenDiff,
+      onSetMode,
+      selection,
+    ],
   );
 }

@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-14 03:31 CST - TASK-049 Command menu 第二阶段
+
+- 新增 `docs/superpowers/specs/2026-05-14-command-menu-second-stage-design.md` 和执行计划，记录借鉴 GitHub Command Palette、VS Code context key 和 Raycast command metadata 后的 SkillHub 适配方案。
+- 抽出 `command-menu-types.ts`，新增 command `preview` 元数据；新增 `command-menu-recents.ts`，负责本地最近命令记录、去重、限长和排序。
+- `buildWorkbenchCommands` 新增 selected case/run 感知命令：可从菜单直接打开当前 case 历史，或把当前 run 设置为 comparison baseline/candidate。
+- `CommandMenu` 接入最近使用排序和右侧 preview 面板；preview 不进入 Tab 序列，保留原有 dialog、combobox、listbox 和 Tab trap 模型。
+- `DecisionWorkbench` 传入当前 case/run selection；README、产品体验评审、完成度审计、摩擦审计和 TASK-049 任务记录已更新。
+- 已验证：红灯 unit 先失败于 recents helper 和 selection commands 缺失；红灯 E2E 先失败于 `.commandMenuPreview` 缺失；绿色后目标 E2E 3 passed；`npm run test:unit` 2 files/11 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`uv run pytest` 90 passed；`npm run e2e` 60 passed；`git diff --check` passed；任务 JSON 结构检查 passed；关键文件行数 258/66/36/184。
+
 ### 2026-05-14 03:25 CST - TASK-048 表单字段基础件第二阶段
 
 - 新增 `docs/superpowers/specs/2026-05-14-form-field-foundation-stage-2-design.md` 和执行计划，记录 Vercel、GOV.UK、USWDS、Material 表单实践对 SkillHub 的适配方案。

@@ -2,8 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildWorkbenchCommands } from "./workbench-command-config";
 
-function createCommands(overrides: Partial<Parameters<typeof buildWorkbenchCommands>[0]> = {}) {
+type CommandTestOverrides = Partial<Parameters<typeof buildWorkbenchCommands>[0]> & {
+  onChooseComparisonRun?: ReturnType<typeof vi.fn>;
+  onHistoryCase?: ReturnType<typeof vi.fn>;
+  selection?: {
+    selectedCase?: { id: string; title: string } | null;
+    selectedRun?: { id: string; label: string; scoreLabel?: string } | null;
+  };
+};
+
+function createCommands(overrides: CommandTestOverrides = {}) {
   const onAction = vi.fn();
+  const onChooseComparisonRun = vi.fn();
+  const onHistoryCase = vi.fn();
   const onOpenDiff = vi.fn();
   const onSetMode = vi.fn();
   const commands = buildWorkbenchCommands({
@@ -12,11 +23,13 @@ function createCommands(overrides: Partial<Parameters<typeof buildWorkbenchComma
     currentMode: "overview",
     hasPersistedSkill: true,
     onAction,
+    onChooseComparisonRun,
+    onHistoryCase,
     onOpenDiff,
     onSetMode,
     ...overrides,
-  });
-  return { commands, onAction, onOpenDiff, onSetMode };
+  } as Parameters<typeof buildWorkbenchCommands>[0]);
+  return { commands, onAction, onChooseComparisonRun, onHistoryCase, onOpenDiff, onSetMode };
 }
 
 describe("buildWorkbenchCommands", () => {
@@ -121,5 +134,59 @@ describe("buildWorkbenchCommands", () => {
     expect(onSetMode).toHaveBeenCalledWith("evals");
     expect(onAction).toHaveBeenCalledWith("new-case");
     expect(onOpenDiff).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds a selected case command that opens the case history", () => {
+    const { commands, onHistoryCase } = createCommands({
+      currentMode: "evals",
+      selection: {
+        selectedCase: { id: "case-123", title: "PR: missing owner filter" },
+      },
+    });
+
+    const historyCommand = commands.find((command) => command.id === "selected-case-history");
+
+    expect(commands.slice(0, 4).map((command) => command.id)).toContain("selected-case-history");
+    expect(historyCommand).toMatchObject({
+      title: "查看当前 case 历史",
+      group: "当前选择",
+      preview: {
+        facts: expect.arrayContaining([{ label: "对象", value: "PR: missing owner filter" }]),
+      },
+    });
+
+    historyCommand?.run();
+    expect(onHistoryCase).toHaveBeenCalledWith("case-123");
+  });
+
+  it("adds selected run commands for run comparison setup", () => {
+    const { commands, onChooseComparisonRun } = createCommands({
+      currentMode: "history",
+      selection: {
+        selectedRun: { id: "run-456", label: "Strict reviewer v2", scoreLabel: "3/4 passed" },
+      },
+    });
+
+    const baselineCommand = commands.find((command) => command.id === "selected-run-baseline");
+    const candidateCommand = commands.find((command) => command.id === "selected-run-candidate");
+
+    expect(commands.slice(0, 4).map((command) => command.id)).toEqual([
+      "selected-run-baseline",
+      "selected-run-candidate",
+      "nav-history",
+      "compare-version",
+    ]);
+    expect(baselineCommand).toMatchObject({
+      title: "设为对照 run",
+      preview: {
+        facts: expect.arrayContaining([{ label: "对象", value: "Strict reviewer v2" }]),
+      },
+    });
+
+    baselineCommand?.run();
+    candidateCommand?.run();
+
+    expect(onChooseComparisonRun).toHaveBeenCalledWith("baseline", "run-456");
+    expect(onChooseComparisonRun).toHaveBeenCalledWith("candidate", "run-456");
   });
 });

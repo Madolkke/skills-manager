@@ -334,5 +334,12 @@
     "priority": 48,
     "passes": true,
     "spec": ".agent/tasks/TASK-048.json"
+  },
+  {
+    "id": "049",
+    "title": "Command menu 第二阶段",
+    "priority": 49,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-049.json"
   }
 ]

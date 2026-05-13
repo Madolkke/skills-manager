@@ -9,7 +9,7 @@
 - 空工作台现在在主内容区展示 `SkillLaunchpad`，用户可以直接导入标准 Skill bundle 或创建空白 skill，不需要先理解右侧 inspector。
 - 移动端 first-run 默认折叠 inspector action menu/form，只保留主区 `SkillLaunchpad` 作为导入/创建主路径；用户从 catalog 或命令菜单显式触发 action 后，inspector 表单会重新展开并接收焦点。
 - 中等桌面宽度下，`差异 / 历史 / 审计 / 评审` 会把 inspector 折成 compact verification rail，主证据面板获得更多横向空间；`概览 / 变体 / 测评` 仍保留完整 inspector。
-- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。命令菜单现在按 `dialog + combobox + listbox` 建模，搜索框保留焦点，方向键移动 active option，Tab 在弹层内循环，并会根据当前 workbench mode 把最相关动作排在第一屏。
+- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。命令菜单现在按 `dialog + combobox + listbox` 建模，搜索框保留焦点，方向键移动 active option，Tab 在弹层内循环；排序会结合当前 workbench mode、最近使用和当前 selection，选中 case 时可直接查看 case 历史，选中 run 时可设置 run comparison，并用右侧 preview 说明命令作用对象和禁用原因。
 - 中间工作区的 `概览 / 变体 / 测评 / 差异 / 历史` 已按 APG Tabs Pattern 建模：Tab 只进入当前 mode tab，左右方向键、Home、End 在同组模式中移动并激活对应 panel，减少键盘用户重复 Tab 的成本。
 - 从 catalog button 或命令菜单触发 `导入 bundle`、`新建 skill`、`添加 case` 等 Inspector action 后，焦点会进入对应表单的第一个可操作控件，键盘用户不用从旧触发点一路 Tab 到右侧面板。
 - `SkillLaunchpad` 和 `WorkbenchInspector` 高频写入表单已迁移到共享字段基础件：label、hint、`aria-describedby`、业务字段 `autocomplete="off"` 和局部 `:focus-visible` 行为保持一致。
@@ -53,8 +53,10 @@
 - **移动端 first-run 单主路径:** 借鉴 Vercel/Linear 在移动端优先呈现当前任务、把低频设置后置的方式。SkillHub 适配为：空工作台移动端先让用户完成导入或创建，inspector 的低频 action 只有在用户显式请求时展开。
 - **Vercel project settings:** Vercel 的 General Settings 把项目名、构建配置和项目 ID 放在同一个项目设置上下文中。SkillHub 适配为 `身份与默认分发`：只编辑 skill 入口指针和归属，不把 bundle 内容改写混进来。
 - **Linear project overview:** Linear 允许在 Project overview 直接编辑项目属性、名称和描述，也保留详情侧栏。SkillHub 适配为主区设置面板加 inspector 双入口。
-- **Linear Command Menu:** 同一动作可以通过按钮、快捷键、上下文菜单和命令菜单触发，并且 command menu 会优先显示当前 view/selection 相关动作。SkillHub 适配为：空工作台优先导入/新建，测评页优先记录 run、添加 case、批量 case，变体页优先新建 variant、追加版本和 diff。
-- **GitHub / GitKraken command palette:** GitHub 会按当前 UI 位置确定 scope；GitKraken 说明命令可用性依赖当前 repo state 和 open repo context。SkillHub 适配为 mode-aware command ordering，但暂不做最近使用或个性化排序。
+- **Linear Command Menu:** 同一动作可以通过按钮、快捷键、上下文菜单和命令菜单触发，并且 command menu 会优先显示当前 view/selection 相关动作。SkillHub 适配为：空工作台优先导入/新建，测评页优先当前 case 历史、记录 run、添加 case，变体页优先新建 variant、追加版本和 diff，历史页优先当前 run 的 comparison setup。
+- **GitHub / GitKraken command palette:** GitHub 会按当前 UI 位置确定 scope，并使用当前上下文和最近资源辅助建议；GitKraken 说明命令可用性依赖当前 repo state 和 open repo context。SkillHub 适配为 mode-aware command ordering、本地最近命令排序和 selection-aware 命令，但暂不做服务器端个性化或跨 skill 全局搜索。
+- **VS Code Command Palette / keybinding context:** VS Code 的命令和快捷键可以受当前 `when` 上下文影响。SkillHub 适配为只有存在当前 case 或当前 run 时才出现对应命令，避免把不可执行对象动作塞进全局列表。
+- **Raycast Script Commands:** Raycast 把脚本工作流变成可搜索命令，并依靠 title/description 元数据帮助用户判断。SkillHub 适配为命令 preview，展示 scope、对象、快捷键和禁用原因。
 - **Vercel Web Interface Guidelines / GitHub query views:** 可分享的工作状态应进入 URL，例如 GitHub issues/PR 的 query、labels、page，或 Vercel guidelines 对 tabs、filters、pagination、expanded panel URL state 的建议。SkillHub 先把 selected skill 和 mode 写进 URL；第二阶段继续把 diff、eval、history、audit 和 promotion 的证据上下文写成 query params，但不保存本地草稿。
 - **GitHub new repository:** GitHub 新建仓库把 owner、name 和初始化选项收束在一个短表单。SkillHub 适配为主区空白 skill 创建，只要求 skill ID、归属、初始变体、tags、简介和版本说明。
 - **GitHub repository topics:** GitHub 把 topics 展示在仓库主页的 About 区域，用于发现和分类。SkillHub 适配为在 skill 概览展示默认 variant 的 tags，并允许切换默认分发。
@@ -144,10 +146,11 @@
 36. 以前 diff/promotion review 中用户只能靠记忆判断哪些文件已经看过；现在可以逐文件勾选已查看，并在 summary/header 中看到 `Reviewed x/y`。
 37. 以前用户只能分享粗粒度 mode；现在可以分享具体 diff pair、selected diff file、candidate eval target、selected case、history filters、selected run、run comparison、matrix controls、audit filters 和 promotion review permalink。
 38. 以前剩余表单仍各自手写 label/input/select；现在 QuickAddCases、EvalCaseDetailPanel、SkillSettingsPanel、SkillAccessPanel、SkillGovernancePanel、SavedRunViews、history filters、run matrix controls 和 diff selectors 都接入共享字段基础件。
+39. 以前命令菜单只会根据 mode 估计意图；现在会记住本地最近使用命令，并在选中 case/run 时展示可执行的 selection-aware 命令和 preview。
 
 ## 仍然存在的摩擦
 
-1. Command menu 已根据当前 mode 做第一阶段上下文化排序；还没有最近使用、个人化排序、selection-aware 命令或右侧 preview。
+1. Command menu 已完成第二阶段：支持 mode-aware 排序、本地最近使用、selected case/run 命令和右侧 preview；还没有服务器端个性化、跨 skill 全局搜索或快捷键自定义。
 2. 表单字段基础件已覆盖主要工作台表单，但还没有错误 summary、提交后聚焦第一个错误、后端字段错误映射和完整 validation copy。
 3. Promotion review 已经展示 case impact、diff 和会话级文件 reviewed progress，但 viewed state 还没有服务端持久化，也没有把具体 diff hunk 关联到具体 eval case。
 4. URL state 已覆盖核心证据上下文，但还没有短链接、权限感知分享提示，也没有保存未提交草稿。
@@ -157,10 +160,10 @@
 
 ## 下一轮优化队列
 
-1. Command menu 第二阶段：增加最近使用/selection-aware 排序和命令 preview，避免只靠 mode 估计意图。
-2. 表单验证第二阶段：错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
+1. 表单验证第二阶段：错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
+2. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，前端只展示 capability，不再允许自由切换开发身份。
 3. Diff / Promotion review 第二阶段：评估是否服务端持久化 viewed state、自动折叠已查看文件，或把 diff hunk 关联到 eval case。
 4. URL state 第三阶段：增加短链接、权限感知分享提示，并评估是否保存草稿到本地 session storage 而不是 URL。
 5. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。
-6. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，前端只展示 capability，不再允许自由切换开发身份。
+6. Command menu 第三阶段：服务器端个性化、跨 skill 全局搜索、快捷键自定义和命令别名。
 7. 扩展 accessibility E2E：继续覆盖更广的全路径焦点巡检和人工读屏验收。

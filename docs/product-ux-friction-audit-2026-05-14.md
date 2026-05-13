@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、Command menu mode-aware 排序和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
+状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
 
 ## 审计输入
 
@@ -126,23 +126,27 @@
 - 下一轮表单方向应聚焦验证体验：错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
 - 不建议为了“更像表单系统”而改成全受控输入；SkillHub 的长文本 case input/expected output 仍适合原生 form + FormData。
 
-### 已解决第一阶段 / 仍需后续 - Command menu 已可用，但还不够智能
+### 已解决第二阶段 / 仍需后续 - Command menu 已成为工作台操作入口层
 
 证据：
 
 - TASK-045 已让 `buildWorkbenchCommands` 接收 `currentMode`，并用 mode priority list 稳定提前相关命令。
 - 空 skill 状态优先导入/新建；`evals` mode 优先 `record-run/new-case/batch-case/nav-history`；`variants` mode 优先 `new-variant/new-version/compare-version/nav-evals`。
 - Vitest 覆盖 evals、variants、empty skill 排序；E2E 覆盖测评页打开 command menu 时第一条是 `记录本次测评`。
+- TASK-049 新增本地最近命令排序，执行命令后保留最近 5 条，空搜索时优先展示但仍让 disabled 命令下沉。
+- TASK-049 新增 selection-aware 命令：当前 case 可直接打开 case history，当前 run 可设为 comparison baseline/candidate。
+- TASK-049 新增右侧 command preview，展示命令说明、作用对象、case/run id、快捷键和禁用原因；preview 不进入 Tab 序列，不破坏现有 combobox/listbox 模型。
 
 影响：
 
-- 用户在测评页和变体页不输入搜索也能先看到当前工作最相关动作，熟手路径更贴手。
-- 仍未解决最近使用、selection-aware 命令、命令 preview 和用户级个性化排序。
+- 用户在测评页和变体页不输入搜索也能先看到当前工作最相关动作，熟手路径更贴手；重复动作会被最近使用排序提前。
+- 当前 case/run 的上下文动作不再散落在局部按钮里，键盘用户可以从同一个入口完成查看历史和设置 comparison。
+- 仍未解决服务器端个性化、跨 skill 全局搜索、命令别名和快捷键自定义。
 
 建议：
 
-- 第二阶段引入 recently-used ranking，但必须保持 deterministic fallback，避免自动学习排序让 E2E 和用户肌肉记忆漂移。
-- 后续 selection-aware 命令可以基于 selected case/run/variant 追加，例如“恢复此 case 旧版本”“接受当前候选 run”。
+- 第三阶段如果做个性化，必须保留 deterministic fallback 和可清除最近记录，否则会损害用户肌肉记忆。
+- 后续 selection-aware 命令可以继续扩到 selected variant / selected diff file，但需要先确认它们是高频动作。
 
 ### 已解决第一阶段 / 仍需后续 - Diff / Promotion review 缺少 review progress
 
@@ -180,8 +184,8 @@
 
 ## 下一轮任务排序
 
-1. **Command menu 第二阶段。** 增加最近使用/selection-aware 排序和命令 preview。
-2. **表单验证第二阶段。** 错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
+1. **表单验证第二阶段。** 错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
+2. **接入真实认证。** 用真实登录 session/token 替换本地 actor cookie，并把 capability 反映到 UI。
 3. **组织级 Audit Explorer。** 跨 skill 查询、日期范围、分页、导出和保留策略。
 4. **Diff / Promotion reviewed progress 第二阶段。** 决定是否服务端持久化、自动折叠已查看文件或纳入 promotion checklist。
 5. **URL state 第三阶段。** 短链接、权限感知分享提示和草稿恢复策略。
@@ -189,5 +193,5 @@
 ## 不建议马上做的事
 
 - 不建议先大改颜色、字体或动画。当前更大的问题是空间分配和操作优先级，不是装饰不足。
-- 不建议马上做复杂多维表格，除非先解决表单基础件第二阶段和 command menu selection-aware 操作。
+- 不建议马上做复杂多维表格，除非先解决真实认证和表单验证第二阶段。
 - 不建议继续在 inspector 里堆新表单。新动作如果是高频主路径，应优先进入对应主 pane 或 drawer。

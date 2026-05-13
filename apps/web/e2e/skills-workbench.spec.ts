@@ -349,6 +349,7 @@ test("operator can open command menu and jump to add case", async ({ page }) => 
 
   await page.getByRole("button", { name: "Open command menu" }).click();
   await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
+  await expect(page.getByRole("listbox").getByRole("option").first()).toContainText("添加 case");
 });
 
 test("command menu prioritizes actions for the current workbench mode", async ({ page }) => {
@@ -357,7 +358,20 @@ test("command menu prioritizes actions for the current workbench mode", async ({
 
   await page.getByRole("button", { name: "Open command menu" }).click();
   const firstOption = page.getByRole("listbox").getByRole("option").first();
-  await expect(firstOption).toContainText("记录本次测评");
+  await expect(firstOption).toContainText("查看当前 case 历史");
+  await expect(page.getByRole("listbox")).toContainText("记录本次测评");
+});
+
+test("command menu exposes selected case history with preview", async ({ page }) => {
+  await importSkillBundle(page, `case-history-command-${Date.now()}`);
+  await addEvalCase(page, "PR: command menu selected case");
+
+  await page.getByRole("button", { name: "Open command menu" }).click();
+  await expect(page.locator(".commandMenuPreview")).toContainText("PR: command menu selected case");
+  await page.getByPlaceholder("搜索命令、页面或动作").fill("当前 case");
+  await page.keyboard.press("Enter");
+
+  await expect(page.locator(".caseHistoryPanel")).toContainText("PR: command menu selected case");
 });
 
 test("operator can batch paste eval cases and record a run", async ({ page }) => {
