@@ -1,0 +1,31 @@
+{
+  "id": "037",
+  "title": "抽离 Workbench Command 配置",
+  "status": "complete",
+  "goal": "把主工作台的 command menu 配置从 DecisionWorkbench 中抽离为专用 hook，降低主组件复杂度，并保持命令标题、分组、快捷键、禁用逻辑和执行行为不变。",
+  "scope": [
+    "新增 apps/web/components/command-menu/use-workbench-commands.ts",
+    "迁移 command list 和 command factory",
+    "DecisionWorkbench 继续持有 mode、action、diff 和业务状态，只向 hook 传入状态与回调",
+    "保留现有命令 id、title、group、detail、shortcut、disabled 和 disabledReason",
+    "记录中文规格、执行计划和任务日志"
+  ],
+  "out_of_scope": [
+    "重做 CommandMenu 视觉设计",
+    "新增或删除命令",
+    "改变快捷键、ARIA 语义、筛选逻辑或焦点恢复行为",
+    "调整业务 API、数据库模型或 E2E 语义"
+  ],
+  "verification": [
+    "test -f apps/web/components/command-menu/use-workbench-commands.ts -> failed before implementation, confirming missing hook boundary",
+    "rg -n \"const commandItems = useMemo|function command\\\\(\" apps/web/components/decision-workbench.tsx -> found old inline command configuration before implementation",
+    "wc -l apps/web/components/decision-workbench.tsx -> 1519 before, 1486 after extraction",
+    "wc -l apps/web/components/command-menu/use-workbench-commands.ts -> 67 lines",
+    "rg -n \"const commandItems = useMemo|function command\\\\(|CommandMenuItem\" apps/web/components/decision-workbench.tsx apps/web/components/command-menu/use-workbench-commands.ts -> command factory and CommandMenuItem only in new hook",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 50 passed",
+    "git diff --check -> passed"
+  ]
+}

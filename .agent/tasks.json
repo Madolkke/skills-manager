@@ -250,5 +250,12 @@
     "priority": 36,
     "passes": true,
     "spec": ".agent/tasks/TASK-036.json"
+  },
+  {
+    "id": "037",
+    "title": "抽离 Workbench Command 配置",
+    "priority": 37,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-037.json"
   }
 ]

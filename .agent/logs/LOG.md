@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-14 00:41 CST - TASK-037 Workbench Command 配置抽离
+
+- 新增 `useWorkbenchCommands`，把 command menu 的导航、创建、测评和证据命令配置从 `DecisionWorkbench` 抽离。
+- 主工作台继续持有 mode、Inspector action、diff 和业务状态；新 hook 只接收必要状态与回调并返回 `CommandMenuItem[]`。
+- 保留命令 id、标题、分组、详情文案、快捷键、禁用态、禁用原因和执行行为。
+- 主文件从 1519 行降到 1486 行，新 command hook 67 行。
+- 已验证：`npm run typecheck` passed；`npm run build` passed；`uv run pytest` 90 passed；`npm run e2e` 50 passed；`git diff --check` passed。
+
 ### 2026-05-14 00:36 CST - TASK-036 Workbench Variants Pane 组件抽离
 
 - 新增 `WorkbenchVariantsPane`，把变体页 toolbar、创建 composer、版本 composer、variant map cards 和 version rows 从 `DecisionWorkbench` 抽离。
