@@ -17,6 +17,7 @@ import { PromotionReviewPane } from "@/components/promotion-review/promotion-rev
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
 import { RunMatrixPanel } from "@/components/run-matrix/run-matrix-panel";
 import { SavedRunViews } from "@/components/saved-views/saved-run-views";
+import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
 import { VariantCreationComposer } from "@/components/variants/variant-creation-composer";
 import { WorkspaceVersionComposer } from "@/components/variants/workspace-version-composer";
 import type {
@@ -1064,9 +1065,13 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
         {mode === "overview" ? (
           <OverviewPane
+            busy={busy}
             caseCount={cases.length}
+            createSkill={createSkill}
             defaultVariant={defaultVariant}
             hasPersistedSkill={hasPersistedSkill}
+            importPreview={importPreview}
+            importSkill={importSkill}
             latestRun={latestRun}
             onAction={chooseAction}
             onDiff={() => openDiffMode()}
@@ -1076,6 +1081,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             }}
             onOpenHistory={() => setMode("history")}
             primaryEvalSetVersion={currentEvalSetVersion?.version_number}
+            refreshImportPreview={refreshImportPreview}
             score={score}
             selectedDetail={selectedDetail}
           />
@@ -1231,27 +1237,37 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 }
 
 function OverviewPane({
+  busy,
   caseCount,
+  createSkill,
   defaultVariant,
   hasPersistedSkill,
+  importPreview,
+  importSkill,
   latestRun,
   onAction,
   onDiff,
   onOpenEvals,
   onOpenHistory,
   primaryEvalSetVersion,
+  refreshImportPreview,
   score,
   selectedDetail,
 }: {
+  busy: boolean;
   caseCount: number;
+  createSkill: (event: FormEvent<HTMLFormElement>) => void;
   defaultVariant: VariantDetail | null;
   hasPersistedSkill: boolean;
+  importPreview: ImportPreview;
+  importSkill: (event: FormEvent<HTMLFormElement>) => void;
   latestRun: EvalRunRecord | null;
   onAction: (mode: ActionMode) => void;
   onDiff: () => void;
   onOpenEvals: () => void;
   onOpenHistory: () => void;
   primaryEvalSetVersion?: number;
+  refreshImportPreview: (event: FormEvent<HTMLFormElement>) => void;
   score: number | null;
   selectedDetail: SkillDetail;
 }) {
@@ -1263,27 +1279,13 @@ function OverviewPane({
   if (!hasPersistedSkill) {
     return (
       <div className="linearPane overviewPane">
-        <section className="emptySkillStudio">
-          <div>
-            <span>First run</span>
-            <h2>把第一个标准 Skill 接进来</h2>
-            <p>
-              正式版首页仍然是普通 SkillHub 的入口；工作台只在选中 skill 后展开。现在先导入包含 SKILL.md 的 bundle，
-              或创建一个草稿 skill，然后补 variant、case 和手工测评结果。
-            </p>
-            <div className="emptyStudioActions">
-              <button aria-label="从空状态导入 bundle" onClick={() => onAction("import-skill")} type="button">导入 bundle</button>
-              <button aria-label="从空状态新建 skill" onClick={() => onAction("new-skill")} type="button">新建 skill</button>
-            </div>
-          </div>
-          <div className="emptyStudioChecklist">
-            <strong>闭环路径</strong>
-            <span>1. Skill = default variant 引用</span>
-            <span>2. Variant = current version 引用</span>
-            <span>3. EvalSetVersion = case version 快照</span>
-            <span>4. EvalRun = exact variant version + exact eval set version</span>
-          </div>
-        </section>
+        <SkillLaunchpad
+          busy={busy}
+          importPreview={importPreview}
+          onCreateSkill={createSkill}
+          onImportSkill={importSkill}
+          onRefreshImportPreview={refreshImportPreview}
+        />
       </div>
     );
   }

@@ -1,10 +1,11 @@
 # SkillHub 产品体验评审
 
-更新时间：2026-05-10
+更新时间：2026-05-13
 
 ## 当前可用流程
 
 - `/skills` 是一个正式的三栏工作台：左侧 catalog、中间 focused workspace、右侧 contextual inspector。它借鉴 Linear 的“选中对象 + 上下文操作”模型，避免把所有表单堆在一个页面里。
+- 空工作台现在在主内容区展示 `SkillLaunchpad`，用户可以直接导入标准 Skill bundle 或创建空白 skill，不需要先理解右侧 inspector。
 - 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。
@@ -34,7 +35,9 @@
 ## 借鉴的产品模式
 
 - **Linear:** 左侧列表负责选择对象，中间主面板展示当前上下文，右侧 inspector 处理局部操作。适合 SkillHub 这种“对象多、动作也多”的维护工作台。
+- **Vercel import flow:** Vercel 把新项目导入放在主工作区，而不是藏在设置面板。SkillHub 适配为 first-run `SkillLaunchpad`，让导入标准 bundle 成为用户看到的第一条主路径。
 - **Linear Command Menu:** 同一动作可以通过按钮、快捷键、上下文菜单和命令菜单触发；SkillHub 第一版把“导入/创建/测评/历史/差异”收进 `Cmd/Ctrl+K`，让新手可发现、熟手少移动鼠标。
+- **GitHub new repository:** GitHub 新建仓库把 owner、name 和初始化选项收束在一个短表单。SkillHub 适配为主区空白 skill 创建，只要求 skill ID、归属、初始变体、tags、简介和版本说明。
 - **GitHub Command Palette:** 命令菜单兼具导航、搜索和运行命令能力；SkillHub 借鉴其 scope 思路，把菜单限定在当前 skill 工作区，避免全局搜索过早膨胀。
 - **TestRail quick outline:** 测试用例管理工具会区分完整表单和快速 outline。SkillHub 借鉴“快速进入测试集”的速度，但不允许只填标题，仍要求 `input + expected output`，保证测评资产质量。
 - **TestRail Pass & Next / bulk result:** TestRail 在三栏执行视图里提供快速通过并进入下一条，也支持批量提交相同结果。SkillHub 适配为“通过/不通过后自动前进”和“仅把未确认项标为通过”，避免覆盖已发现的失败。
@@ -47,6 +50,7 @@
 - **Figma variants:** Figma 用属性和值组织同一 component set 的不同 variant，强调每个 variant 是唯一属性组合。SkillHub 适配为在创建 variant 时突出 tags，让用户把 tags 理解为约束组合，而不是 Git 分支血缘。
 - **Airtable record detail actions:** Airtable 在 record detail 中放字段、历史和按钮动作。SkillHub 适配为在 variant map 附近直接创建 variant，创建后立刻在当前空间看到新增卡片。
 - **Vercel project import:** Vercel 的导入流程把选择来源、配置项目和生成 preview 串在一起。SkillHub 适配为“选择 variant -> 上传 bundle -> 生成候选版本 -> 自动进入测评”。
+- **Raycast extension bootstrap:** Raycast 创建扩展后立刻给出下一步开发动作。SkillHub 适配为 launchpad 右侧 checklist：导入或创建后继续补 case、记录首轮 run、沉淀验证依据。
 - **GitHub / VS Code diff:** 版本变化用文件列表 + 行级 additions/removals 展示，而不是只给 change summary。Skill 本质上是文件夹，必须让用户看到真实文件变化。
 - **GitHub protected branch / release review:** “设为当前版本”不是普通字段更新，而是有证据的指针移动。promotion review 借鉴 release 前检查，把测试结果、diff、风险说明合在一起。
 - **Vercel Preview Promotion:** Vercel 的 preview promotion 强调 inspect、test、check logs、再 promote。SkillHub 适配为 candidate version 创建后立即进入 exact candidate 的测评上下文，再进入 promotion review。
@@ -84,10 +88,11 @@
 16. 以前编辑 case 主要依赖右侧 inspector；现在可在测评详情面板内直接编辑并保存为新版本，减少测评执行中的上下文跳转。
 17. 以前追加版本主要依赖右侧 inspector；现在变体主面板有候选版本 composer，版本维护动作更靠近 variant map 和历史版本列表。
 18. 以前创建 variant 主要依赖右侧 inspector；现在变体主面板有约束 variant composer，并默认复用当前版本作为 v1 基线。
+19. 以前空工作台只给两个跳转按钮，用户要理解 inspector 才能开始；现在 first-run 主区可以直接完成导入或创建，创建后立刻进入同一个 skill 概览和验证清单。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建和候选版本追加已经迁入主区，但 skill 创建和部分设置仍需要更成熟的主区或内联抽屉体验。
+1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加和 first-run skill 创建已经迁入主区，但后续 skill 设置仍需要更成熟的主区或内联抽屉体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图和对照/候选 impact，但还没有列配置和分组。
 4. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
@@ -95,7 +100,7 @@
 
 ## 下一轮优化队列
 
-1. 优化创建/编辑表单：把常用表单逐步迁入主内容区或内联抽屉，让 inspector 更像上下文工具而不是唯一操作区。
+1. 优化 skill 设置和编辑表单：把常用表单逐步迁入主内容区或内联抽屉，让 inspector 更像上下文工具而不是唯一操作区。
 2. 做 run matrix 多维表格：支持隐藏列、分组并突出 regression/improvement。
 3. 把 accepted verification 接入 Hub 文案和权限模型：明确谁能接受、谁只能查看。
 4. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。

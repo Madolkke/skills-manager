@@ -13,6 +13,7 @@
 - 候选 `VariantVersion` 可以先测评，但不立刻成为 current。
 - “设为当前版本评审”会把候选版本、当前版本、目标评测集版本、逐 case 修复/回退、文件 diff 和风险说明放到同一个决策页面。
 - 外部 runner 可以导入标准 eval result JSON，并得到同样的 `EvalRun + CaseResult` 记录。
+- 空工作台主内容区提供 `SkillLaunchpad`，可直接导入标准 Skill bundle 或创建空白 skill，不需要先进入右侧 inspector。
 - 工作台内可以查看 bundle 文件内容、在主工作区创建约束 variant、追加候选版本、版本 diff、run 历史、run matrix、保存历史筛选视图、run-to-run 比较、accepted verification、case 详情内联编辑、case 版本历史、case 历史版本恢复和 promotion review。
 - 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，可搜索并执行导入、创建、测评、历史、差异等高频动作。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入会生成一个新的 `EvalSetVersion`，避免逐条添加制造版本噪音。
@@ -63,7 +64,7 @@ npm run dev -- --hostname 127.0.0.1 --port 3000
 
 1. 打开 `http://127.0.0.1:3000/skills`。
 2. 用左侧 catalog 切换 skill。
-3. 用右侧 inspector 或 `Cmd/Ctrl+K` 命令菜单创建 skill、导入标准 Skill bundle、创建 variant、添加测试用例，并记录手工通过/不通过测评。
+3. 空工作台会在主内容区显示 `SkillLaunchpad`：可以直接导入标准 Skill bundle，也可以先创建空白 skill。已有 skill 时，也可以继续用右侧 inspector 或 `Cmd/Ctrl+K` 命令菜单触发同类动作。
 4. 导入 bundle 后先看 `概览` 里的 `验证清单`：没有 case 时点击 `添加首批 case`；有 case 但没有 run 时点击 `打开手工测评`；完成 run 后点击 `查看证据历史`。
 5. 在 `测评` 页可以直接用快速添加面板录入单条 case，或切到 `批量` 后粘贴多行 `title | input | expected output | notes`。
 6. 在 `变体` 页可直接用 `新建约束 variant` 创建新的 tags 组合；默认会从当前 default variant 的 current version 复制基线，创建后在同一张 variant map 中出现。

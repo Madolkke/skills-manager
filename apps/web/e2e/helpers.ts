@@ -24,13 +24,14 @@ export async function importSkillBundle(page: Page, skillName: string) {
 
   try {
     await page.goto("/skills");
-    await page.getByRole("button", { name: "导入 bundle", exact: true }).click();
+    const inspector = page.getByLabel("Inspector");
+    await inspector.getByRole("button", { name: "导入 bundle", exact: true }).click();
 
-    await page.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
-    await page.getByPlaceholder("codex, gpt5.4").fill("codex, e2e");
-    await page.locator('input[name="folder_files"]').setInputFiles(bundleDir);
-    await expect(page.getByText(skillName)).toBeVisible();
-    await page.getByRole("button", { name: "导入并创建 skill" }).click();
+    await inspector.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
+    await inspector.getByPlaceholder("codex, gpt5.4").fill("codex, e2e");
+    await inspector.locator('input[name="folder_files"]').setInputFiles(bundleDir);
+    await expect(inspector.getByText(skillName)).toBeVisible();
+    await inspector.getByRole("button", { name: "导入并创建 skill" }).click();
 
     await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
     await expect(page.getByText("Review pull requests for authorization and data access regressions.", { exact: true })).toBeVisible();

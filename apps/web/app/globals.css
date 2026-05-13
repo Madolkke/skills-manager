@@ -4198,6 +4198,182 @@ body {
   text-transform: none;
 }
 
+.skillLaunchpad {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.46fr);
+  gap: 14px;
+  min-height: 500px;
+  align-items: stretch;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(33, 93, 72, 0.08), transparent 45%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbf9 100%);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.06);
+  padding: 16px;
+}
+
+.skillLaunchpadIntro,
+.skillLaunchpadForm,
+.skillLaunchpadChecklist {
+  min-width: 0;
+}
+
+.skillLaunchpadIntro {
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 8px 4px 8px 2px;
+}
+
+.skillLaunchpadForm {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.skillLaunchpadIntro span,
+.skillLaunchpadForm label span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.skillLaunchpadIntro h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 31px;
+  line-height: 1.05;
+}
+
+.skillLaunchpadIntro p {
+  margin: 0;
+  color: #536176;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.skillLaunchpadSegments {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  width: min(100%, 230px);
+  border: 1px solid #dce3ee;
+  border-radius: 10px;
+  background: #eef2f7;
+  padding: 4px;
+}
+
+.skillLaunchpadSegments button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5b6678;
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 10px;
+}
+
+.skillLaunchpadSegments .skillLaunchpadSegmentActive {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.skillLaunchpadForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 10px;
+}
+
+.skillLaunchpadForm label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skillLaunchpadForm input:not([type="file"]),
+.skillLaunchpadForm textarea {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #dce2ea;
+  border-radius: 10px;
+  background: #fbfcfd;
+  color: #111827;
+  font: inherit;
+  padding: 9px 10px;
+}
+
+.skillLaunchpadForm textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.skillLaunchpadFull,
+.skillLaunchpadForm .importPreview {
+  grid-column: 1 / -1;
+}
+
+.skillLaunchpadDrop {
+  min-height: 78px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.skillLaunchpadDrop input {
+  max-width: 100%;
+  color: #475467;
+  font-size: 12px;
+}
+
+.skillLaunchpadForm button[type="submit"] {
+  align-self: start;
+  justify-self: start;
+  min-height: 40px;
+  border: 1px solid #111827;
+  border-radius: 10px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.skillLaunchpadForm button[type="submit"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.skillLaunchpadChecklist {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  border: 1px solid #dde7df;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.skillLaunchpadChecklist strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.skillLaunchpadChecklist span {
+  color: #536176;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .productHero,
 .linearMetric,
 .linearSection,
@@ -6422,9 +6598,18 @@ body {
 @media (max-width: 1180px) {
   .variantCreationComposer,
   .variantCreationComposerGrid,
+  .skillLaunchpad,
+  .skillLaunchpadForm,
   .workspaceVersionComposer,
   .workspaceVersionComposerGrid {
     grid-template-columns: 1fr;
+  }
+
+  .skillLaunchpadIntro,
+  .skillLaunchpadForm,
+  .skillLaunchpadChecklist {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .linearWorkbench {
@@ -6452,6 +6637,8 @@ body {
 
   .linearWorkbench,
   .emptySkillStudio,
+  .skillLaunchpad,
+  .skillLaunchpadForm,
   .productHero,
   .linearMetrics,
   .promotionHero,
@@ -6493,8 +6680,16 @@ body {
     min-height: 0;
   }
 
+  .skillLaunchpad {
+    min-height: 0;
+  }
+
   .emptySkillStudio h2 {
     font-size: 34px;
+  }
+
+  .skillLaunchpadIntro h2 {
+    font-size: 30px;
   }
 
   .diffFileRail {

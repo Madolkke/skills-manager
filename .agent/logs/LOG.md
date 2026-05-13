@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-13 19:56 CST - TASK-017 主工作区 Skill Launchpad
+
+- 在空工作台概览主区新增 `SkillLaunchpad`，可直接导入标准 Skill bundle 或创建空白 skill；右侧 inspector 路径继续保留。
+- 新增 `SkillLaunchpad` 组件并复用现有 `POST /api/skill-imports`、`POST /api/skills` 数据流，导入 preview、folder/zip 上传和创建默认 variant 仍由后端落库。
+- 新增 E2E 覆盖主区导入和主区新建 skill，并收窄旧导入 helper 到 inspector，避免主区和 inspector 的同名按钮冲突。
+- 更新 empty/mobile empty 视觉基线和产品文档，记录 Vercel、GitHub、Linear、Raycast 的 first-run/创建流程借鉴。
+- 已验证：`uv run pytest` 80 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 32 passed；`git diff --check` passed。
+- 截图：`.agent/screenshots/TASK-017-1.png`。
+
 ### 2026-05-13 19:31 CST - TASK-016 主工作区创建 Variant
 
 - 在 `变体` 主工作区新增 `VariantCreationComposer`，可直接填写 label、tags、summary、change summary，并选择是否设为 default。

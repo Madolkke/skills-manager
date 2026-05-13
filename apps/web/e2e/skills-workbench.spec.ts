@@ -1,8 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { addEvalCase, appendSkillBundleVersion, createStoredZip, importSkillBundle } from "./helpers";
+
+const API_BASE_URL = `http://127.0.0.1:${process.env.SKILLHUB_E2E_API_PORT ?? 8021}`;
+
+async function clearSkillCatalog(request: APIRequestContext) {
+  const response = await request.get(`${API_BASE_URL}/api/skills`);
+  const skills = (await response.json()) as Array<{ skill: { id: string } }>;
+  await Promise.all(skills.map((summary) => request.delete(`${API_BASE_URL}/api/skills/${summary.skill.id}`)));
+}
 
 test("invalid skill folders show a blocking import preview", async ({ page }) => {
   const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-invalid-bundle-"));
@@ -11,16 +19,72 @@ test("invalid skill folders show a blocking import preview", async ({ page }) =>
 
   try {
     await page.goto("/skills");
-    await page.getByRole("button", { name: "导入 bundle", exact: true }).click();
-    await page.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
-    await page.getByPlaceholder("codex, gpt5.4").fill("codex, e2e");
-    await page.locator('input[name="folder_files"]').setInputFiles(bundleDir);
+    const inspector = page.getByLabel("Inspector");
+    await inspector.getByRole("button", { name: "导入 bundle", exact: true }).click();
+    await inspector.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
+    await inspector.getByPlaceholder("codex, gpt5.4").fill("codex, e2e");
+    await inspector.locator('input[name="folder_files"]').setInputFiles(bundleDir);
 
-    await expect(page.getByText("缺少 SKILL.md")).toBeVisible();
-    await expect(page.getByRole("button", { name: "导入并创建 skill" })).toBeDisabled();
+    await expect(inspector.getByText("缺少 SKILL.md")).toBeVisible();
+    await expect(inspector.getByRole("button", { name: "导入并创建 skill" })).toBeDisabled();
   } finally {
     await rm(bundleDir, { force: true, recursive: true });
   }
+});
+
+test("operator can import a skill from the workspace launchpad", async ({ page, request }) => {
+  await clearSkillCatalog(request);
+  const skillName = `launchpad-import-${Date.now()}`;
+  const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-launchpad-import-"));
+
+  await writeFile(
+    join(bundleDir, "SKILL.md"),
+    [
+      "---",
+      `name: ${skillName}`,
+      "description: Review pull requests from the first-run launchpad.",
+      "---",
+      "",
+      "# Launchpad Reviewing",
+      "Flag missing tenant filters before style comments.",
+      "",
+    ].join("\n"),
+  );
+
+  try {
+    await page.goto("/skills");
+    const launchpad = page.locator(".skillLaunchpad");
+    await launchpad.getByPlaceholder("skillhub-lab").fill("skillhub-launchpad");
+    await launchpad.getByPlaceholder("codex, gpt5.4").fill("codex, launchpad");
+    await launchpad.locator('input[name="folder_files"]').setInputFiles(bundleDir);
+
+    await expect(launchpad).toContainText(skillName);
+    await launchpad.getByRole("button", { name: "导入并创建 skill" }).click();
+
+    await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
+    await expect(page.getByText("Review pull requests from the first-run launchpad.", { exact: true })).toBeVisible();
+  } finally {
+    await rm(bundleDir, { force: true, recursive: true });
+  }
+});
+
+test("operator can create a blank skill from the workspace launchpad", async ({ page, request }) => {
+  await clearSkillCatalog(request);
+  const slug = `launchpad-blank-${Date.now()}`;
+
+  await page.goto("/skills");
+  const launchpad = page.locator(".skillLaunchpad");
+  await launchpad.getByRole("button", { name: "新建 skill" }).click();
+  await launchpad.getByPlaceholder("security-reviewer").fill(slug);
+  await launchpad.getByPlaceholder("skillhub-lab").fill("skillhub-launchpad");
+  await launchpad.getByPlaceholder("Baseline").fill("Launchpad baseline");
+  await launchpad.getByPlaceholder("codex, gpt5.4").fill("codex, launchpad");
+  await launchpad.getByPlaceholder("这个 skill 解决什么问题").fill("Create a draft skill directly from the workspace.");
+  await launchpad.getByPlaceholder("初始版本说明").fill("Create the first workspace-managed baseline.");
+  await launchpad.getByRole("button", { name: "创建 skill" }).click();
+
+  await expect(page.getByRole("heading", { name: slug })).toBeVisible();
+  await expect(page.locator(".productHero")).toContainText("Launchpad baseline");
 });
 
 test("operator can import a skill, add a variant, add a case, and record manual eval", async ({ page }) => {
