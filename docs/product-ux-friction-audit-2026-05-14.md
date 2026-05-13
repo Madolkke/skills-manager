@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
+状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要第一阶段、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
 
 ## 审计输入
 
@@ -105,7 +105,7 @@
 
 - 将来做组织级审计时，沿用这套信息架构，并补日期范围、分页、导出和保留策略。
 
-### 已解决第二阶段 / 仍需后续 - 表单字段语义已统一，验证体验还需深化
+### 已解决错误摘要第一阶段 / 仍需后续 - 表单字段语义已统一，验证体验还需深化
 
 证据：
 
@@ -115,15 +115,18 @@
 - TASK-048 已把 `QuickAddCases`、`EvalCaseDetailPanel`、`SkillSettingsPanel`、`SkillAccessPanel`、`SkillGovernancePanel`、`SavedRunViews`、history filters、run matrix controls 和 diff selectors 迁移到共享字段基础件。
 - `WorkbenchField` 已预留字段级 `error`、`aria-invalid` 和错误文案 `aria-describedby` 接口；`CheckboxField` 覆盖 run matrix score toggle。
 - `accessibility-workbench.spec.ts` 覆盖主要表单字段语义，红灯先失败于 `quick_title` 缺少 autocomplete/shared shell，绿色后 11 条 accessibility 回归通过。
+- TASK-050 新增 `ValidatedForm`，高频写入表单提交缺少 required 字段时会展示 error summary、聚焦 summary、用摘要链接回字段，并在字段旁显示同一条错误文案。
+- 新增 E2E 覆盖 Launchpad 新建 skill 和 QuickAddCases 空提交的 summary focus、summary link focus 和 `aria-invalid`。
 
 影响：
 
 - 主要工作台表单已经减少浏览器自动填充误填、焦点规则分叉和字段语义漂移。
+- 用户不再被浏览器原生 required 气泡挡住，错误文案和视觉可以统一，键盘用户也能从摘要恢复到具体字段。
 - 后续新增表单应该优先复用 `WorkbenchField`，而不是在 pane 内继续手写 label/control。
 
 建议：
 
-- 下一轮表单方向应聚焦验证体验：错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
+- 下一轮表单方向应聚焦后端字段错误映射、长度/格式/唯一性校验、批量 case 行级错误和错误统计。
 - 不建议为了“更像表单系统”而改成全受控输入；SkillHub 的长文本 case input/expected output 仍适合原生 form + FormData。
 
 ### 已解决第二阶段 / 仍需后续 - Command menu 已成为工作台操作入口层
@@ -184,7 +187,7 @@
 
 ## 下一轮任务排序
 
-1. **表单验证第二阶段。** 错误 summary、提交后聚焦第一个错误、后端字段错误映射和统一 validation copy。
+1. **表单验证第二阶段剩余部分。** 后端字段错误映射、长度/格式/唯一性校验、批量 case 行级错误和错误统计。
 2. **接入真实认证。** 用真实登录 session/token 替换本地 actor cookie，并把 capability 反映到 UI。
 3. **组织级 Audit Explorer。** 跨 skill 查询、日期范围、分页、导出和保留策略。
 4. **Diff / Promotion reviewed progress 第二阶段。** 决定是否服务端持久化、自动折叠已查看文件或纳入 promotion checklist。
@@ -193,5 +196,5 @@
 ## 不建议马上做的事
 
 - 不建议先大改颜色、字体或动画。当前更大的问题是空间分配和操作优先级，不是装饰不足。
-- 不建议马上做复杂多维表格，除非先解决真实认证和表单验证第二阶段。
+- 不建议马上做复杂多维表格，除非先解决真实认证和表单验证剩余部分。
 - 不建议继续在 inspector 里堆新表单。新动作如果是高频主路径，应优先进入对应主 pane 或 drawer。

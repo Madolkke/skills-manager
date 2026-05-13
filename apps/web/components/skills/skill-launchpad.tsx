@@ -3,6 +3,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 
+import { ValidatedForm } from "@/components/forms/form-validation";
 import { FileField, TextAreaField, TextField } from "@/components/forms/workbench-field";
 
 type ImportPreview = {
@@ -53,7 +54,7 @@ export function SkillLaunchpad({
       </div>
 
       {mode === "import" ? (
-        <form className="skillLaunchpadForm" onChange={onRefreshImportPreview} onSubmit={onImportSkill}>
+        <ValidatedForm className="skillLaunchpadForm" onChange={onRefreshImportPreview} onValidSubmit={onImportSkill}>
           <TextField label="归属" name="owner_ref" placeholder="skillhub-lab" required />
           <TextField label="约束标签" name="tags" placeholder="codex, gpt5.4" required />
           <TextField defaultValue="Imported" label="变体名称" name="variant_label" placeholder="Imported" />
@@ -68,9 +69,9 @@ export function SkillLaunchpad({
           <button disabled={busy || importPreview?.tone === "bad"} type="submit">
             导入并创建 skill
           </button>
-        </form>
+        </ValidatedForm>
       ) : (
-        <form className="skillLaunchpadForm" onSubmit={onCreateSkill}>
+        <ValidatedForm className="skillLaunchpadForm" onValidSubmit={onCreateSkill}>
           <TextField label="Skill ID" name="slug" placeholder="security-reviewer" required />
           <TextField label="归属" name="owner_ref" placeholder="skillhub-lab" required />
           <TextField label="初始变体" name="variant_label" placeholder="Baseline" required />
@@ -80,7 +81,7 @@ export function SkillLaunchpad({
           <button disabled={busy} type="submit">
             创建 skill
           </button>
-        </form>
+        </ValidatedForm>
       )}
 
       <div className="skillLaunchpadChecklist">

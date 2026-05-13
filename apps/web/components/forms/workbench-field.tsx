@@ -3,6 +3,8 @@
 import { useId } from "react";
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
+import { useFormFieldError } from "@/components/forms/form-validation";
+
 type FieldBaseProps = {
   className?: string;
   error?: ReactNode;
@@ -20,16 +22,17 @@ type FileFieldProps = FieldBaseProps & InputHTMLAttributes<HTMLInputElement> & {
 };
 
 export function TextField({ className, error, hint, label, ...props }: TextFieldProps) {
+  const resolvedError = error ?? useFormFieldError(props.name);
   const { controlId, describedBy, errorNode, hintNode, invalid } = useFieldDescription(
     props.id,
     props["aria-describedby"],
     hint,
-    error,
+    resolvedError,
     props["aria-invalid"],
   );
   return (
-    <label className={fieldClassName(className)}>
-      <span>{label}</span>
+    <label className={fieldClassName(className)} data-field-root="true">
+      <span data-field-label="true">{label}</span>
       <input
         {...props}
         aria-describedby={describedBy}
@@ -44,16 +47,17 @@ export function TextField({ className, error, hint, label, ...props }: TextField
 }
 
 export function TextAreaField({ className, error, hint, label, ...props }: TextAreaFieldProps) {
+  const resolvedError = error ?? useFormFieldError(props.name);
   const { controlId, describedBy, errorNode, hintNode, invalid } = useFieldDescription(
     props.id,
     props["aria-describedby"],
     hint,
-    error,
+    resolvedError,
     props["aria-invalid"],
   );
   return (
-    <label className={fieldClassName(className)}>
-      <span>{label}</span>
+    <label className={fieldClassName(className)} data-field-root="true">
+      <span data-field-label="true">{label}</span>
       <textarea
         {...props}
         aria-describedby={describedBy}
@@ -68,16 +72,17 @@ export function TextAreaField({ className, error, hint, label, ...props }: TextA
 }
 
 export function SelectField({ children, className, error, hint, label, ...props }: SelectFieldProps) {
+  const resolvedError = error ?? useFormFieldError(props.name);
   const { controlId, describedBy, errorNode, hintNode, invalid } = useFieldDescription(
     props.id,
     props["aria-describedby"],
     hint,
-    error,
+    resolvedError,
     props["aria-invalid"],
   );
   return (
-    <label className={fieldClassName(className)}>
-      <span>{label}</span>
+    <label className={fieldClassName(className)} data-field-root="true">
+      <span data-field-label="true">{label}</span>
       <select {...props} aria-describedby={describedBy} aria-invalid={invalid} id={controlId}>
         {children}
       </select>
@@ -88,16 +93,17 @@ export function SelectField({ children, className, error, hint, label, ...props 
 }
 
 export function FileField({ className, error, hint, label, ...props }: FileFieldProps) {
+  const resolvedError = error ?? useFormFieldError(props.name);
   const { controlId, describedBy, errorNode, hintNode, invalid } = useFieldDescription(
     props.id,
     props["aria-describedby"],
     hint,
-    error,
+    resolvedError,
     props["aria-invalid"],
   );
   return (
-    <label className={fieldClassName(className)}>
-      <span>{label}</span>
+    <label className={fieldClassName(className)} data-field-root="true">
+      <span data-field-label="true">{label}</span>
       <input {...props} aria-describedby={describedBy} aria-invalid={invalid} id={controlId} />
       {hintNode}
       {errorNode}
@@ -106,15 +112,16 @@ export function FileField({ className, error, hint, label, ...props }: FileField
 }
 
 export function CheckboxField({ className, error, hint, label, ...props }: CheckboxFieldProps) {
+  const resolvedError = error ?? useFormFieldError(props.name);
   const { controlId, describedBy, errorNode, hintNode, invalid } = useFieldDescription(
     props.id,
     props["aria-describedby"],
     hint,
-    error,
+    resolvedError,
     props["aria-invalid"],
   );
   return (
-    <label className={["workbenchCheckboxField", className].filter(Boolean).join(" ")}>
+    <label className={["workbenchCheckboxField", className].filter(Boolean).join(" ")} data-field-root="true">
       <input
         {...props}
         aria-describedby={describedBy}
@@ -122,7 +129,7 @@ export function CheckboxField({ className, error, hint, label, ...props }: Check
         id={controlId}
         type={props.type ?? "checkbox"}
       />
-      <span>{label}</span>
+      <span data-field-label="true">{label}</span>
       {hintNode}
       {errorNode}
     </label>

@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-14 03:41 CST - TASK-050 表单验证错误摘要第一阶段
+
+- 新增 `docs/superpowers/specs/2026-05-14-form-validation-summary-design.md` 和执行计划，记录借鉴 GOV.UK、MOJ、Vercel 和 MDN 表单验证实践后的 SkillHub 适配方案。
+- 新增 `ValidatedForm`，在 submit 时做 required 字段校验，展示 `formErrorSummary`，把焦点移到摘要，并让摘要链接回具体字段。
+- `WorkbenchField` 接入表单验证 context，字段旁显示和摘要一致的错误文案，并自动设置 `aria-invalid` / `aria-describedby`。
+- `SkillLaunchpad`、`WorkbenchInspector` 写入表单和 `QuickAddCases` 单条快速添加接入 `ValidatedForm`；批量 case 行级错误和后端字段错误映射留给下一轮。
+- README、产品体验评审、完成度审计、摩擦审计和 TASK-050 任务记录已更新。
+- 已验证：红灯 unit 先失败于 `form-validation` 模块缺失；红灯 E2E 先失败于 `.formErrorSummary` 缺失；绿色后目标 E2E 2 passed；`npm run test:unit` 3 files/14 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`uv run pytest` 90 passed；`npm run e2e` 62 passed；`git diff --check` passed；任务 JSON 结构检查 passed；关键文件行数 142/162/96/283/122。
+
 ### 2026-05-14 03:31 CST - TASK-049 Command menu 第二阶段
 
 - 新增 `docs/superpowers/specs/2026-05-14-command-menu-second-stage-design.md` 和执行计划，记录借鉴 GitHub Command Palette、VS Code context key 和 Raycast command metadata 后的 SkillHub 适配方案。

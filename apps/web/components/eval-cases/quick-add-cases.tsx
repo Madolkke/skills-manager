@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { ValidatedForm } from "@/components/forms/form-validation";
 import { TextAreaField, TextField } from "@/components/forms/workbench-field";
 
 export type QuickEvalCaseDraft = {
@@ -62,13 +63,13 @@ export function QuickAddCases({
       </div>
 
       {mode === "single" ? (
-        <form className="quickCaseGrid" onSubmit={submitSingle}>
+        <ValidatedForm className="quickCaseGrid" onValidSubmit={submitSingle}>
           <TextField className="quickCaseTitleField" label="标题" name="quick_title" placeholder="PR: 缺少 tenant scope" required />
           <TextAreaField className="quickCaseInputField" label="Input" name="quick_input_text" placeholder="代码 diff、用户请求、上下文" required />
           <TextAreaField className="quickCaseExpectedField" label="Expected output" name="quick_expected_output" placeholder="应该指出什么" required />
           <TextField className="quickCaseNotesField" label="Notes" name="quick_notes" placeholder="来源或维护说明，可选" />
           <button disabled={busy} type="submit">快速加入</button>
-        </form>
+        </ValidatedForm>
       ) : (
         <form className="quickCaseBatch" onSubmit={submitBatch}>
           <TextAreaField

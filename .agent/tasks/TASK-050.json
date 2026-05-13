@@ -1,0 +1,38 @@
+{
+  "id": "050",
+  "title": "表单验证错误摘要第一阶段",
+  "status": "completed",
+  "goal": "为高频写入表单加入统一 required 错误摘要、字段旁错误和首个错误聚焦，替换浏览器原生校验气泡。",
+  "scope": [
+    "新增 ValidatedForm 表单基础件",
+    "新增 required 字段错误文案 helper",
+    "让 WorkbenchField 从表单验证 context 获取字段错误",
+    "接入 SkillLaunchpad 导入和新建表单",
+    "接入 WorkbenchInspector 高频写入表单",
+    "接入 QuickAddCases 单条快速添加表单",
+    "新增 Vitest 和 Playwright E2E 覆盖错误摘要、字段旁错误、aria-invalid 和摘要链接聚焦",
+    "更新 README、产品体验评审、完成度审计、摩擦审计、任务日志和本任务规格/计划"
+  ],
+  "out_of_scope": [
+    "后端字段级错误 contract",
+    "API detail 到具体字段的映射",
+    "长度、格式、唯一性等复杂校验",
+    "批量 case 行级错误摘要",
+    "表单视觉大改版",
+    "真实认证和组织级权限"
+  ],
+  "verification": [
+    "Red: cd apps/web && npm run test:unit -> failed as expected because ./form-validation module did not exist",
+    "Red: cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npx playwright test e2e/accessibility-workbench.spec.ts --project=chromium -g \"error summary\" -> failed as expected because .formErrorSummary did not exist",
+    "Green: cd apps/web && npm run test:unit -> 3 files / 14 tests passed",
+    "Green: cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npx playwright test e2e/accessibility-workbench.spec.ts --project=chromium -g \"error summary\" -> 2 passed",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities",
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 62 passed",
+    "git diff --check -> passed",
+    "jq empty .agent/tasks.json .agent/tasks/TASK-050.json -> passed",
+    "wc -l apps/web/components/forms/form-validation.tsx apps/web/components/forms/workbench-field.tsx apps/web/components/skills/skill-launchpad.tsx apps/web/components/inspector/workbench-inspector.tsx apps/web/components/eval-cases/quick-add-cases.tsx -> 142 / 162 / 96 / 283 / 122"
+  ]
+}

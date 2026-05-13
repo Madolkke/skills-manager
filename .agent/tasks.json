@@ -341,5 +341,12 @@
     "priority": 49,
     "passes": true,
     "spec": ".agent/tasks/TASK-049.json"
+  },
+  {
+    "id": "050",
+    "title": "表单验证错误摘要第一阶段",
+    "priority": 50,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-050.json"
   }
 ]

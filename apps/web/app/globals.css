@@ -676,6 +676,55 @@ a:focus-visible {
   box-shadow: 0 0 0 3px rgba(217, 45, 32, 0.08);
 }
 
+.formErrorSummary {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid #f1b8b0;
+  border-left: 4px solid #d92d20;
+  border-radius: 8px;
+  background: #fff7f5;
+  color: #7a271a;
+  padding: 12px 13px;
+}
+
+.formErrorSummary:focus-visible {
+  outline: 3px solid rgba(217, 45, 32, 0.24);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(217, 45, 32, 0.1);
+}
+
+.formErrorSummary strong {
+  color: #7a271a;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.formErrorSummary p {
+  margin: 0;
+  color: #9f2f24;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.formErrorSummary ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.formErrorSummary a {
+  color: #7a271a;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 .workbenchCheckboxField {
   display: inline-flex;
   align-items: center;
