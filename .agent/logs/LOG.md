@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-14 00:35 CST - TASK-033 Workbench Evals Pane 组件抽离
+
+- 新增 `WorkbenchEvalsPane`，把测评页目标版本选择、candidate banner、快速添加 case、review controls、case queue、快捷键和 case 详情从 `DecisionWorkbench` 抽离。
+- `DecisionWorkbench` 继续保留 caseResults、selectedCaseId、evalTargetVersionId 和 API mutation；Evals pane 只负责测评页派生状态和局部交互。
+- 保留 `p/f/j/k`、ArrowUp/ArrowDown 快捷键、文本输入保护、case pass/fail 自动前进和候选版本验证交接行为。
+- 主文件从 2391 行降到 2090 行，新 Evals 文件 295 行。
+- 已验证：`npm run typecheck` passed；`npm run build` passed；`uv run pytest` 90 passed；`npm run e2e` 50 passed；`git diff --check` passed。
+
 ### 2026-05-14 00:15 CST - TASK-032 Workbench Overview Pane 组件抽离
 
 - 新增 `WorkbenchOverviewPane`，把概览页的空态 launchpad、product hero、metrics、设置、权限、治理、验证引导和 bundle preview 从 `DecisionWorkbench` 抽离。

@@ -1,0 +1,30 @@
+{
+  "id": "033",
+  "title": "抽离 Workbench Evals Pane",
+  "status": "complete",
+  "goal": "把主工作区测评页从 DecisionWorkbench 中抽离为独立组件，降低主工作台文件体积，并保持手工测评用户行为不变。",
+  "scope": [
+    "新增 apps/web/components/evals/workbench-evals-pane.tsx",
+    "迁移测评页目标版本选择、候选版本提示、快速添加 case、review controls、case queue、快捷键和 case 详情",
+    "保留 p/f/j/k、ArrowUp/ArrowDown 快捷键和文本输入保护逻辑",
+    "DecisionWorkbench 只向 Evals pane 传入状态和动作回调",
+    "记录中文规格、执行计划和任务日志"
+  ],
+  "out_of_scope": [
+    "重做测评页视觉设计",
+    "改变测评队列交互、快捷键或文案",
+    "拆分 History/Diff/Variants pane",
+    "调整 API、数据库模型、权限策略或 E2E 语义"
+  ],
+  "verification": [
+    "test -f apps/web/components/evals/workbench-evals-pane.tsx -> failed before implementation, confirming missing component boundary",
+    "rg -n \"function EvalsPane\\\\(\" apps/web/components/decision-workbench.tsx -> found old inline EvalsPane before implementation",
+    "wc -l apps/web/components/decision-workbench.tsx -> 2391 before, 2090 after extraction",
+    "wc -l apps/web/components/evals/workbench-evals-pane.tsx -> 295 lines",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 50 passed",
+    "git diff --check -> passed"
+  ]
+}

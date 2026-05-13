@@ -222,5 +222,12 @@
     "priority": 32,
     "passes": true,
     "spec": ".agent/tasks/TASK-032.json"
+  },
+  {
+    "id": "033",
+    "title": "抽离 Workbench Evals Pane",
+    "priority": 33,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-033.json"
   }
 ]
