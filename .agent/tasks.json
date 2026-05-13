@@ -131,5 +131,12 @@
     "priority": 19,
     "passes": true,
     "spec": ".agent/tasks/TASK-019.json"
+  },
+  {
+    "id": "020",
+    "title": "实现 Skill 作用域访问控制",
+    "priority": 20,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-020.json"
   }
 ]

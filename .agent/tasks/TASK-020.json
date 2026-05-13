@@ -1,0 +1,29 @@
+{
+  "id": "020",
+  "title": "实现 Skill 作用域访问控制",
+  "status": "complete",
+  "goal": "让 skill 创建者自动成为 owner，支持 skill 作用域角色管理，并保护 promotion 与 accepted verification。",
+  "scope": [
+    "创建 skill 时自动授予 actor owner 角色",
+    "提供 skill role assignment 的列表、授予、撤销 API",
+    "promotion 需要 owner 或 maintainer",
+    "accepted verification 需要 owner 或 maintainer",
+    "概览页新增访问控制面板，可添加和移除成员角色",
+    "新增 API 和 E2E 覆盖权限路径",
+    "更新中文 README、UX 复盘和完成度审计"
+  ],
+  "out_of_scope": [
+    "真实登录认证",
+    "组织级角色继承",
+    "邀请邮件和 SCIM",
+    "fork/PR 审批流",
+    "全部写操作门禁"
+  ],
+  "verification": [
+    "cd apps/api && uv run pytest",
+    "cd apps/web && npm run typecheck",
+    "cd apps/web && npm run build",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e",
+    "git diff --check"
+  ]
+}

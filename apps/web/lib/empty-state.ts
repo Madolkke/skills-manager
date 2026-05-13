@@ -16,6 +16,7 @@ export const emptySkillDetail: SkillDetail = {
   variants: [],
   eval_sets: [],
   latest_eval_runs: [],
+  role_assignments: [],
 };
 
 emptySkillDetail.summary = {

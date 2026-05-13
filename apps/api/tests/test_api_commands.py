@@ -793,6 +793,154 @@ class ApiCommandTest(unittest.TestCase):
         history = self.client.get(f"/api/skills/{skill['skill_id']}/eval-runs").json()
         self.assertEqual(history["runs"][0]["accepted_verification"]["eval_run_id"], run["eval_run_id"])
 
+    def test_skill_role_assignments_can_be_listed_granted_and_revoked(self):
+        skill = self.create_skill("access-api")
+
+        listed = self.client.get(f"/api/skills/{skill['skill_id']}/role-assignments")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json()[0]["subject_id"], "tester")
+        self.assertEqual(listed.json()[0]["role"], "owner")
+
+        granted = self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            json={
+                "subject_id": "qa-reviewer",
+                "role": "evaluator",
+                "actor": "tester",
+            },
+        )
+
+        self.assertEqual(granted.status_code, 200)
+        self.assertEqual(granted.json()["subject_id"], "qa-reviewer")
+        self.assertEqual(granted.json()["role"], "evaluator")
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+        self.assertIn("qa-reviewer", [item["subject_id"] for item in detail["role_assignments"]])
+
+        revoked = self.client.delete(f"/api/role-assignments/{granted.json()['id']}", params={"actor": "tester"})
+        listed_after = self.client.get(f"/api/skills/{skill['skill_id']}/role-assignments")
+
+        self.assertEqual(revoked.status_code, 200)
+        self.assertNotIn("qa-reviewer", [item["subject_id"] for item in listed_after.json()])
+
+    def test_viewer_cannot_promote_variant_version(self):
+        skill = self.create_skill("promotion-permission-api")
+        candidate = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": skill["variant_id"],
+                "content_ref": {
+                    "kind": "skill_bundle",
+                    "locator": "memory:promotion-permission-api-v2",
+                    "digest": "digest-permission-v2",
+                },
+                "change_summary": "Candidate version.",
+                "make_current": False,
+                "actor": "tester",
+            },
+        ).json()
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            json={"subject_id": "readonly-user", "role": "viewer", "actor": "tester"},
+        )
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: tenant leak",
+                "input_text": "Project.all()",
+                "expected_output": "Flag tenant leak.",
+                "actor": "tester",
+            },
+        ).json()
+        self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": skill["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: False},
+                "actor": "tester",
+            },
+        )
+        candidate_run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": candidate["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: True},
+                "actor": "tester",
+            },
+        ).json()
+
+        response = self.client.post(
+            "/api/variants/promotions",
+            json={
+                "variant_id": skill["variant_id"],
+                "version_id": candidate["variant_version_id"],
+                "evidence_eval_run_id": candidate_run["eval_run_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "decision_note": "Candidate fixes the tenant leak.",
+                "actor": "readonly-user",
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("requires owner or maintainer", response.json()["detail"])
+
+    def test_accepted_verification_requires_maintainer_or_owner(self):
+        skill = self.create_skill("accepted-permission-api")
+        case = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "PR: owner scope",
+                "input_text": "Project.all()",
+                "expected_output": "Flag owner scope.",
+                "actor": "tester",
+            },
+        ).json()
+        run = self.client.post(
+            "/api/eval-runs",
+            json={
+                "variant_version_id": skill["variant_version_id"],
+                "eval_set_version_id": case["eval_set_version_id"],
+                "strategy": "manual_pass_fail",
+                "results": {case["eval_case_version_id"]: True},
+                "actor": "tester",
+            },
+        ).json()
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            json={"subject_id": "readonly-user", "role": "viewer", "actor": "tester"},
+        )
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            json={"subject_id": "release-manager", "role": "maintainer", "actor": "tester"},
+        )
+
+        viewer_response = self.client.post(
+            "/api/eval-runs/accepted-verifications",
+            json={
+                "eval_run_id": run["eval_run_id"],
+                "note": "Viewer should not be able to accept.",
+                "actor": "readonly-user",
+            },
+        )
+        maintainer_response = self.client.post(
+            "/api/eval-runs/accepted-verifications",
+            json={
+                "eval_run_id": run["eval_run_id"],
+                "note": "Maintainer accepts Primary evidence.",
+                "actor": "release-manager",
+            },
+        )
+
+        self.assertEqual(viewer_response.status_code, 403)
+        self.assertIn("requires owner or maintainer", viewer_response.json()["detail"])
+        self.assertEqual(maintainer_response.status_code, 200)
+        self.assertEqual(maintainer_response.json()["accepted_verification"]["created_by"], "release-manager")
+
     def test_missing_variant_returns_404(self):
         response = self.client.post(
             "/api/variant-versions",

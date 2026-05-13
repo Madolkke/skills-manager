@@ -6,13 +6,14 @@ from difflib import SequenceMatcher
 import json
 from typing import Any
 
-from sqlalchemy import Engine, desc, insert, select, update
+from sqlalchemy import Engine, delete, desc, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.application.promotion_review import build_promotion_case_comparisons, build_promotion_readiness
 from skillhub.application.run_comparison import build_run_case_comparisons, build_run_comparison_summary
-from skillhub.domain.errors import InvariantError, NotFoundError
+from skillhub.domain.errors import InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.domain.models import ContentRef, digest_text, new_id, normalize_tags, utc_now
+from skillhub.domain.permissions import VALID_ROLES, permission_label, role_allows
 from skillhub.infrastructure.db import tables
 
 
@@ -206,6 +207,14 @@ class SqlSkillRepository:
                     .where(tables.skills.c.id == skill_id)
                     .values(default_variant_id=variant_id, updated_at=created_at)
                 )
+                self._grant_skill_role(
+                    connection,
+                    skill_id=skill_id,
+                    subject_id=actor,
+                    role="owner",
+                    actor=actor,
+                    created_at=created_at,
+                )
         except IntegrityError as exc:
             raise InvariantError(f"Skill slug already exists: {slug}") from exc
 
@@ -277,6 +286,7 @@ class SqlSkillRepository:
             version = self._variant_version_row(connection, version_id)
             if version["variant_id"] != variant_id:
                 raise InvariantError("Variant current_version_id must point to its own version.")
+            self._require_skill_permission(connection, skill_id=variant["skill_id"], actor=actor, permission="variant.promote")
             if evidence_eval_run_id is None or eval_set_version_id is None:
                 raise InvariantError("Promotion requires evidence eval run and eval set version.")
 
@@ -955,6 +965,7 @@ class SqlSkillRepository:
             ]
 
             summary = self._skill_summary(connection, skill)
+            role_assignments = self._skill_role_assignments(connection, skill_id)
 
         return {
             "skill": self._row_dict(skill),
@@ -962,7 +973,83 @@ class SqlSkillRepository:
             "variants": variants,
             "eval_sets": eval_sets,
             "latest_eval_runs": latest_runs,
+            "role_assignments": role_assignments,
         }
+
+    def list_skill_role_assignments(self, *, skill_id: str) -> list[dict[str, Any]]:
+        with self.engine.connect() as connection:
+            self._skill_row(connection, skill_id)
+            return self._skill_role_assignments(connection, skill_id)
+
+    def assign_skill_role(
+        self,
+        *,
+        skill_id: str,
+        subject_id: str,
+        role: str,
+        actor: str,
+        subject_type: str = "user",
+    ) -> dict[str, Any]:
+        created_at = utc_now()
+        with self.engine.begin() as connection:
+            self._skill_row(connection, skill_id)
+            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="role.manage")
+            assignment = self._grant_skill_role(
+                connection,
+                skill_id=skill_id,
+                subject_id=subject_id,
+                role=role,
+                actor=actor,
+                created_at=created_at,
+                subject_type=subject_type,
+            )
+            connection.execute(
+                insert(tables.audit_events).values(
+                    id=new_id("audit"),
+                    actor_ref=actor,
+                    action="role.assigned",
+                    resource_type="skill",
+                    resource_id=skill_id,
+                    payload={
+                        "role_assignment_id": assignment["id"],
+                        "subject_type": assignment["subject_type"],
+                        "subject_id": assignment["subject_id"],
+                        "role": assignment["role"],
+                    },
+                    created_at=created_at,
+                )
+            )
+        return assignment
+
+    def revoke_role_assignment(self, *, role_assignment_id: str, actor: str) -> dict[str, bool]:
+        revoked_at = utc_now()
+        with self.engine.begin() as connection:
+            assignment = self._role_assignment_row(connection, role_assignment_id)
+            if assignment["resource_type"] != "skill":
+                raise InvariantError("Only skill role assignments can be revoked.")
+            skill_id = assignment["resource_id"]
+            self._skill_row(connection, skill_id)
+            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="role.manage")
+            if assignment["role"] == "owner" and self._skill_owner_count(connection, skill_id) <= 1:
+                raise InvariantError("Cannot revoke the last owner for a skill.")
+            connection.execute(delete(tables.role_assignments).where(tables.role_assignments.c.id == role_assignment_id))
+            connection.execute(
+                insert(tables.audit_events).values(
+                    id=new_id("audit"),
+                    actor_ref=actor,
+                    action="role.revoked",
+                    resource_type="skill",
+                    resource_id=skill_id,
+                    payload={
+                        "role_assignment_id": role_assignment_id,
+                        "subject_type": assignment["subject_type"],
+                        "subject_id": assignment["subject_id"],
+                        "role": assignment["role"],
+                    },
+                    created_at=revoked_at,
+                )
+            )
+        return {"ok": True}
 
     def eval_set_version_detail(self, eval_set_version_id: str) -> EvalSetVersionDetail:
         with self.engine.connect() as connection:
@@ -1228,6 +1315,7 @@ class SqlSkillRepository:
             eval_run = self._eval_run_row(connection, eval_run_id)
             if eval_run["status"] != "finished":
                 raise InvariantError("Accepted verification requires a finished eval run.")
+            self._require_skill_permission(connection, skill_id=eval_run["skill_id"], actor=actor, permission="verification.accept")
             variant_version = self._variant_version_row(connection, eval_run["variant_version_id"])
             variant = self._variant_row(connection, variant_version["variant_id"])
             eval_set_version = self._eval_set_version_row(connection, eval_run["eval_set_version_id"])
@@ -1745,6 +1833,103 @@ class SqlSkillRepository:
             .one_or_none()
         )
         return self._row_dict(row) if row is not None else None
+
+    def _role_assignment_row(self, connection, role_assignment_id: str):
+        row = (
+            connection.execute(select(tables.role_assignments).where(tables.role_assignments.c.id == role_assignment_id))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise NotFoundError(f"RoleAssignment not found: {role_assignment_id}")
+        return row
+
+    def _skill_role_assignments(self, connection, skill_id: str) -> list[dict[str, Any]]:
+        rows = (
+            connection.execute(
+                select(tables.role_assignments)
+                .where(tables.role_assignments.c.resource_type == "skill")
+                .where(tables.role_assignments.c.resource_id == skill_id)
+                .order_by(tables.role_assignments.c.role, tables.role_assignments.c.subject_id)
+            )
+            .mappings()
+            .all()
+        )
+        return [self._row_dict(row) for row in rows]
+
+    def _grant_skill_role(
+        self,
+        connection,
+        *,
+        skill_id: str,
+        subject_id: str,
+        role: str,
+        actor: str,
+        created_at: datetime,
+        subject_type: str = "user",
+    ) -> dict[str, Any]:
+        clean_subject_id = subject_id.strip()
+        clean_subject_type = subject_type.strip() or "user"
+        if not clean_subject_id:
+            raise InvariantError("Role subject_id is required.")
+        if role not in VALID_ROLES:
+            raise InvariantError(f"Unsupported role: {role}")
+        existing = (
+            connection.execute(
+                select(tables.role_assignments)
+                .where(tables.role_assignments.c.subject_type == clean_subject_type)
+                .where(tables.role_assignments.c.subject_id == clean_subject_id)
+                .where(tables.role_assignments.c.resource_type == "skill")
+                .where(tables.role_assignments.c.resource_id == skill_id)
+                .where(tables.role_assignments.c.role == role)
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if existing is not None:
+            return self._row_dict(existing)
+        role_assignment_id = new_id("role")
+        row = {
+            "id": role_assignment_id,
+            "subject_type": clean_subject_type,
+            "subject_id": clean_subject_id,
+            "resource_type": "skill",
+            "resource_id": skill_id,
+            "role": role,
+            "created_at": created_at,
+            "created_by": actor,
+        }
+        connection.execute(insert(tables.role_assignments).values(**row))
+        return row
+
+    def _actor_skill_roles(self, connection, *, skill_id: str, actor: str) -> set[str]:
+        return set(
+            connection.execute(
+                select(tables.role_assignments.c.role)
+                .where(tables.role_assignments.c.subject_type == "user")
+                .where(tables.role_assignments.c.subject_id == actor)
+                .where(tables.role_assignments.c.resource_type == "skill")
+                .where(tables.role_assignments.c.resource_id == skill_id)
+            ).scalars()
+        )
+
+    def _require_skill_permission(self, connection, *, skill_id: str, actor: str, permission: str) -> None:
+        roles = self._actor_skill_roles(connection, skill_id=skill_id, actor=actor)
+        if any(role_allows(role, permission) for role in roles):
+            return
+        raise PermissionDeniedError(f"{permission} requires {permission_label(permission)} for this skill.")
+
+    def _skill_owner_count(self, connection, skill_id: str) -> int:
+        return len(
+            list(
+                connection.execute(
+                    select(tables.role_assignments.c.id)
+                    .where(tables.role_assignments.c.resource_type == "skill")
+                    .where(tables.role_assignments.c.resource_id == skill_id)
+                    .where(tables.role_assignments.c.role == "owner")
+                ).scalars()
+            )
+        )
 
     def _next_variant_version_number(self, connection, variant_id: str) -> int:
         version_numbers = connection.execute(

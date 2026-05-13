@@ -9,6 +9,7 @@
 - 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `概览` 页现在提供 `身份与默认分发` 设置面板，用户可以直接修改 skill ID、归属，并选择默认分发 variant。
+- `概览` 页现在提供 `访问控制` 面板，用户可以查看 skill 作用域角色，并添加或移除 owner/maintainer/evaluator/viewer。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
 - `测评` 页的 case 详情面板支持内联编辑，用户可以在当前测评上下文中修改 title、input、expected output、notes，并保存为新的 case version。
@@ -31,8 +32,9 @@
 - 选择 `对照` 和 `候选` run 后，Run matrix 每个 case 行会显示 `修复`、`回退`、`稳定通过`、`仍未通过` 或 `缺失`，把样本级变化直接放到表格里。
 - Run matrix 支持按 impact 过滤 case、按 impact 分组、隐藏 run header 分数，并且这些矩阵控制项会随命名视图一起保存和恢复。
 - History mode 支持把两次同 `EvalSetVersion` 的 run 标为对照/候选，直接查看通过率 delta、逐 case 修复/回退，并把候选 run 接受为当前验证依据。
+- `promotion` 和 `accepted verification` 已有后端角色门禁：只有 skill 的 owner/maintainer 能移动可信分发或验证指针。
 - 每个 eval case 可以在测评页内查看版本时间线，包括 input、expected output、notes，以及被哪些 eval set snapshot 包含；也可以从旧版本一键恢复为新的当前版本，历史不会被覆盖。
-- Playwright 覆盖 folder/zip import、导入后验证引导、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
+- Playwright 覆盖 folder/zip import、导入后验证引导、访问控制、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、移动端宽度和视觉回归。
 
 ## 借鉴的产品模式
 
@@ -44,6 +46,8 @@
 - **GitHub new repository:** GitHub 新建仓库把 owner、name 和初始化选项收束在一个短表单。SkillHub 适配为主区空白 skill 创建，只要求 skill ID、归属、初始变体、tags、简介和版本说明。
 - **GitHub repository topics:** GitHub 把 topics 展示在仓库主页的 About 区域，用于发现和分类。SkillHub 适配为在 skill 概览展示默认 variant 的 tags，并允许切换默认分发。
 - **Notion database properties:** Notion 既有集中属性管理，也允许直接点击单个属性编辑。SkillHub 适配为保留 inspector，同时把高频 skill 属性放在概览主区。
+- **Vercel project roles:** Vercel 用 team role + project role 控制项目级操作。SkillHub 适配为 skill 作用域 role assignment，先保护当前分发和验证指针。
+- **Linear members and roles:** Linear 把成员管理集中到清晰的 administration surface，并限制危险操作。SkillHub 适配为概览页 `访问控制`，让权限状态靠近 skill 身份设置。
 - **GitHub Command Palette:** 命令菜单兼具导航、搜索和运行命令能力；SkillHub 借鉴其 scope 思路，把菜单限定在当前 skill 工作区，避免全局搜索过早膨胀。
 - **TestRail quick outline:** 测试用例管理工具会区分完整表单和快速 outline。SkillHub 借鉴“快速进入测试集”的速度，但不允许只填标题，仍要求 `input + expected output`，保证测评资产质量。
 - **TestRail Pass & Next / bulk result:** TestRail 在三栏执行视图里提供快速通过并进入下一条，也支持批量提交相同结果。SkillHub 适配为“通过/不通过后自动前进”和“仅把未确认项标为通过”，避免覆盖已发现的失败。
@@ -86,7 +90,7 @@
 8. 以前记录 run 前要手动扫完整 case 列表；现在可以筛选未确认、结果后自动前进、批量通过未确认项，并用键盘连续确认。
 9. 以前追加 candidate 后要手动找目标版本；现在创建 candidate 会自动切到候选测评，并提供评审入口。
 10. 以前导入后用户要自己推理下一步；现在概览页用验证清单把添加首批 case、打开手工测评、查看证据历史串起来。
-11. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path、command menu path、batch case path、manual eval queue path、candidate handoff path、first verification guide path、case restore path 都有 E2E 覆盖，并新增 promotion review 视觉基线。
+11. 以前只有手工测试主路径；现在 happy path、risky path、run comparison path、command menu path、batch case path、manual eval queue path、candidate handoff path、first verification guide path、case restore path、access roles path 都有 E2E 覆盖，并新增 promotion review 和 access panel 视觉基线。
 12. 以前 case history 只能查看，错误编辑后要手工复制旧内容；现在可以从旧 case version 恢复，系统会生成新的当前版本和 eval set snapshot。
 13. 以前多次 run 只能列表浏览或两两比较；现在 history 页有 run matrix，可以按当前筛选直接看多 run 在每个 case 上的覆盖和结果。
 14. 以前常用历史筛选只能手动重建；现在可以保存为命名视图，一键恢复 run 列表和矩阵的同一组筛选。
@@ -97,18 +101,20 @@
 19. 以前空工作台只给两个跳转按钮，用户要理解 inspector 才能开始；现在 first-run 主区可以直接完成导入或创建，创建后立刻进入同一个 skill 概览和验证清单。
 20. 以前修改 skill ID、owner 或默认分发主要依赖右侧 inspector；现在概览主区可直接完成 identity/default variant 设置，保存后 catalog、header 和 hero 同步刷新。
 21. 以前矩阵只能看全部 case；现在可以把视图收窄到 `修复`、`回退`、`仍未通过` 等 impact，也可以按 impact 分组并把这个视图保存下来。
+22. 以前 role assignment 表只是 schema 占位；现在创建 skill 会自动授予 owner，概览页可管理 skill 作用域角色，promotion 和 accepted verification 已有 owner/maintainer 门禁。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建和基础 skill 设置已经迁入主区，但 destructive action 和部分低频设置仍需要更成熟的主区或内联抽屉体验。
+1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建、基础 skill 设置和访问控制已经迁入主区，但 destructive action 和部分低频设置仍需要更成熟的主区或内联抽屉体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
-4. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
-5. Accessibility 覆盖仍偏浅。现在有键盘 smoke 和标签，但还需要系统化验证 focus order、screen reader label、reduced motion。
+4. 权限还没有真实认证来源。当前 actor 仍来自本地前端常量或请求体，后续要改为服务端 session/token 注入。
+5. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
+6. Accessibility 覆盖仍偏浅。现在有键盘 smoke 和标签，但还需要系统化验证 focus order、screen reader label、reduced motion。
 
 ## 下一轮优化队列
 
-1. 优化低频设置和危险操作体验：把归档、权限和审计入口做成明确的设置分区，让 inspector 更像上下文工具而不是唯一操作区。
+1. 优化低频设置和危险操作体验：把归档和审计入口做成明确的设置分区，让 inspector 更像上下文工具而不是唯一操作区。
 2. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。
-3. 把 accepted verification 接入 Hub 文案和权限模型：明确谁能接受、谁只能查看。
+3. 接入真实认证：actor 从 session/token 来，前端只负责展示 capability，不再传 actor。
 4. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。

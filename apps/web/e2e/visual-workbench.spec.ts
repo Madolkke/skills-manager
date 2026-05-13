@@ -53,6 +53,18 @@ test("visual baseline: variants workspace composers", async ({ page }) => {
   });
 });
 
+test("visual baseline: skill access panel", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await importSkillBundle(page, "visual-access-control");
+  await hideVolatileUi(page);
+
+  const panel = page.locator(".skillAccessPanel");
+  await panel.scrollIntoViewIfNeeded();
+  await expect(panel).toHaveScreenshot("skill-access-panel.png", {
+    animations: "disabled",
+  });
+});
+
 test("visual baseline: promotion review", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await importSkillBundle(page, "visual-promotion-reviewing");

@@ -12,7 +12,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.pool import StaticPool
 
 from skillhub.application.skill_imports import parse_skill_import_source
-from skillhub.domain.errors import InvariantError, NotFoundError
+from skillhub.domain.errors import InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub.infrastructure.db.tables import metadata
@@ -80,6 +80,13 @@ class UpdateSkillPayload(BaseModel):
     slug: str
     owner_ref: str
     default_variant_id: str | None = None
+
+
+class AssignSkillRolePayload(BaseModel):
+    subject_id: str
+    role: str
+    subject_type: str = "user"
+    actor: str = "system"
 
 
 class ArchivePayload(BaseModel):
@@ -166,6 +173,10 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def invariant_handler(_request, exc: InvariantError):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
+    @app.exception_handler(PermissionDeniedError)
+    def permission_denied_handler(_request, exc: PermissionDeniedError):
+        return JSONResponse(status_code=403, content={"detail": str(exc)})
+
     @app.get("/health")
     def health() -> dict[str, bool]:
         return {"ok": True}
@@ -177,6 +188,34 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/api/skills/{skill_id}")
     def skill_detail(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.skill_detail(skill_id))
+
+    @app.get("/api/skills/{skill_id}/role-assignments")
+    def skill_role_assignments(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.list_skill_role_assignments(skill_id=skill_id))
+
+    @app.post("/api/skills/{skill_id}/role-assignments")
+    def assign_skill_role(
+        skill_id: str,
+        payload: AssignSkillRolePayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.assign_skill_role(
+                skill_id=skill_id,
+                subject_id=payload.subject_id,
+                role=payload.role,
+                subject_type=payload.subject_type,
+                actor=payload.actor,
+            )
+        )
+
+    @app.delete("/api/role-assignments/{role_assignment_id}")
+    def revoke_role_assignment(
+        role_assignment_id: str,
+        actor: str = "system",
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.revoke_role_assignment(role_assignment_id=role_assignment_id, actor=actor))
 
     @app.get("/api/skills/{skill_id}/eval-runs")
     def eval_run_history(

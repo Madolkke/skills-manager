@@ -193,6 +193,18 @@ export const codeReviewerDetail: SkillDetail = {
       created_by: "evaluator",
     },
   ],
+  role_assignments: [
+    {
+      id: "role-code-owner",
+      subject_type: "user",
+      subject_id: "product-operator",
+      resource_type: "skill",
+      resource_id: "skill-code-reviewer",
+      role: "owner",
+      created_at: now,
+      created_by: "system",
+    },
+  ],
 };
 
 codeReviewerDetail.variants[0].current_version = codeReviewerDetail.variants[0].versions[0];

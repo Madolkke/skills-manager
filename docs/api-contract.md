@@ -13,6 +13,7 @@
 - `EvalRun` 必须绑定 `VariantVersion + EvalSetVersion`。
 - `CaseResult` 是某个 case 在某次 run 中的最终 `pass/fail`。
 - `AcceptedVerification` 是验证指针，只指向一次不可变 `EvalRun`，用于说明当前 variant 在某个 eval set snapshot 上认可哪次测评。
+- `RoleAssignment` 是 skill 作用域授权，保护 promotion、accepted verification 和角色管理等高风险动作。
 
 ## 对象字段
 
@@ -24,9 +25,31 @@
 | --- | --- | --- |
 | `id` | string | 内部唯一 ID。 |
 | `slug` | string | hub 上展示和搜索用的稳定名称，例如 `code-reviewer`。 |
-| `owner_ref` | string | 所有者引用。demo 阶段只是占位，正式版接权限系统。 |
+| `owner_ref` | string | 所有者引用，用于展示和筛选；真实动作权限由 `RoleAssignment` 判定。 |
 | `default_variant_ref` | string | 默认入口指向的 `Variant.id`。 |
 | `created_at` | ISO datetime | 创建时间。 |
+
+### RoleAssignment
+
+`RoleAssignment` 显式绑定到某个 skill，不做组织级隐式继承。本地 demo 仍由请求体里的 `actor` 表示当前用户；正式认证接入后，actor 应由服务端 session/token 注入。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 内部唯一 ID。 |
+| `subject_type` | string | 当前支持 `user`。 |
+| `subject_id` | string | 用户或服务账号标识。 |
+| `resource_type` | string | 当前支持 `skill`。 |
+| `resource_id` | string | 所属 `Skill.id`。 |
+| `role` | enum | `owner`、`maintainer`、`evaluator`、`viewer`。 |
+| `created_by` | string | 授权人 actor。 |
+
+本轮权限：
+
+| 动作 | 需要角色 |
+| --- | --- |
+| 管理 skill role assignment | `owner` |
+| `POST /api/variants/promotions` | `owner` 或 `maintainer` |
+| `POST /api/eval-runs/accepted-verifications` | `owner` 或 `maintainer` |
 
 ### TagSet
 
@@ -137,6 +160,8 @@ MVP 约束：
 ### AcceptedVerification
 
 `AcceptedVerification` 不是新的测评结果，也不复制 case result。它只把 `(variant_id, eval_set_version_id)` 指向一个已经完成的 `EvalRun`，并写入 audit event。替换验证依据时更新同一指针，不改变旧 run。
+
+写入或替换 `AcceptedVerification` 需要操作者在目标 skill 上拥有 `owner` 或 `maintainer` 角色。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -452,6 +477,55 @@ Content-Type: application/json
 - 如果 `make_current=false` 或省略，新版本仍是可测评的不可变候选版本，但不会成为当前默认版本。
 - 旧版本和旧 run 保留。
 
+### Skill Role Assignments
+
+创建或导入 skill 时，创建动作的 `actor` 会自动获得该 skill 的 `owner` 角色。
+
+```http
+GET /api/skills/{skill_id}/role-assignments
+```
+
+返回：
+
+```json
+[
+  {
+    "id": "role-abc",
+    "subject_type": "user",
+    "subject_id": "product-operator",
+    "resource_type": "skill",
+    "resource_id": "skill-abc",
+    "role": "owner",
+    "created_by": "product-operator"
+  }
+]
+```
+
+授予角色：
+
+```http
+POST /api/skills/{skill_id}/role-assignments
+Content-Type: application/json
+
+{
+  "subject_id": "qa-reviewer",
+  "role": "evaluator",
+  "actor": "product-operator"
+}
+```
+
+撤销角色：
+
+```http
+DELETE /api/role-assignments/{role_assignment_id}?actor=product-operator
+```
+
+规则：
+
+- 授予和撤销需要 `owner`。
+- 删除最后一个 `owner` 会被拒绝。
+- 重复授予同一个 `subject + skill + role` 会返回已有记录。
+
 ### Promotion Review
 
 正式版后端新增“设为当前版本评审”读模型。它不移动指针，只把候选版本、当前版本、目标测评集版本、最新测评结果、逐 case 影响和文件 diff 汇总成一个决策视图。
@@ -510,6 +584,7 @@ GET /api/variants/{variant_id}/promotion-review?candidate_version_id=varver-v2&e
 ### Promote Variant Version
 
 设为当前版本必须带证据，不能只传 `variant_id + version_id`。命令成功后移动 `Variant.current_version_id`，并写入 `promotion_decisions` 和 `audit_events`。
+调用者必须在目标 skill 上拥有 `owner` 或 `maintainer` 角色。
 
 ```http
 POST /api/variants/promotions

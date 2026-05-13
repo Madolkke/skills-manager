@@ -209,6 +209,22 @@ test("operator can edit skill identity and default variant from workspace skill 
   await expect(page.locator(".productHero")).toContainText("Use stricter criteria as the default distribution.");
 });
 
+test("operator can manage skill access roles from overview", async ({ page }) => {
+  await importSkillBundle(page, `access-roles-${Date.now()}`);
+
+  const panel = page.locator(".skillAccessPanel");
+  await expect(panel).toContainText("product-operator");
+  await expect(panel).toContainText("Owner");
+
+  await panel.getByPlaceholder("qa-reviewer").fill("qa-reviewer");
+  await panel.getByLabel("Access role").selectOption("evaluator");
+  await panel.getByRole("button", { name: "添加成员" }).click();
+  await expect(panel.locator(".skillAccessRow").filter({ hasText: "qa-reviewer" })).toContainText("Evaluator");
+
+  await panel.locator(".skillAccessRow").filter({ hasText: "qa-reviewer" }).getByRole("button", { name: "移除" }).click();
+  await expect(panel.locator(".skillAccessRow").filter({ hasText: "qa-reviewer" })).toHaveCount(0);
+});
+
 test("imported skill is guided into its first verification run", async ({ page }) => {
   await importSkillBundle(page, `first-verification-${Date.now()}`);
 

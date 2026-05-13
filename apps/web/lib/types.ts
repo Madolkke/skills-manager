@@ -21,6 +21,18 @@ export type SkillDetail = {
   variants: VariantDetail[];
   eval_sets: EvalSetSummary[];
   latest_eval_runs: EvalRunRecord[];
+  role_assignments: RoleAssignment[];
+};
+
+export type RoleAssignment = {
+  id: string;
+  subject_type: string;
+  subject_id: string;
+  resource_type: "skill";
+  resource_id: string;
+  role: "owner" | "maintainer" | "evaluator" | "viewer";
+  created_at?: string;
+  created_by: string;
 };
 
 export type VariantDetail = {

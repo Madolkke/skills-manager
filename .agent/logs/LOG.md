@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-13 21:01 CST - TASK-020 Skill 作用域访问控制
+
+- 创建 skill 或导入 Skill bundle 时，后端会在同一事务内自动授予 actor 当前 skill 的 owner 角色。
+- 新增 skill role assignment 的列表、授予和撤销 API；概览主工作区新增 `SkillAccessPanel`，可查看当前角色、添加成员、移除非最后 owner。
+- `promotion` 和 `accepted verification` 已接入 skill 作用域权限门禁，仅 owner/maintainer 可移动当前分发指针或认可验证指针。
+- 新增 API 测试、E2E 路径和访问控制面板视觉基线；更新 README、API contract、UX 复盘、产品完成度审计和 Superpowers 规格/计划。
+- 已验证：`uv run pytest` 84 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 35 passed；`git diff --check` passed。
+- 截图：`.agent/screenshots/TASK-020-1.png`。
+
 ### 2026-05-13 20:45 CST - TASK-019 Run Matrix 多维控制
 
 - 在 History mode 的 `Run matrix` 增加 impact 过滤、按 impact 分组和隐藏 run header 分数控制。

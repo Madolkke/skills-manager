@@ -4499,6 +4499,140 @@ body {
   padding: 5px 8px;
 }
 
+.skillAccessPanel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #dde4ed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  padding: 14px;
+}
+
+.skillAccessHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.skillAccessHeader span,
+.skillAccessActor span,
+.skillAccessForm label span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.skillAccessHeader h3 {
+  margin: 3px 0 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+.skillAccessHeader p {
+  max-width: 420px;
+  margin: 0;
+  color: #536176;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.skillAccessActor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #e4eaf1;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.skillAccessActor strong {
+  color: #111827;
+  font-size: 13px;
+}
+
+.skillAccessRows {
+  display: grid;
+  gap: 8px;
+}
+
+.skillAccessRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px 120px auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #e1e7ef;
+  border-radius: 10px;
+  background: #fbfcfd;
+  padding: 10px;
+}
+
+.skillAccessRow strong,
+.skillAccessRow b {
+  color: #111827;
+  font-size: 13px;
+}
+
+.skillAccessRow span,
+.skillAccessRow small {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.skillAccessRow button,
+.skillAccessForm button {
+  min-height: 34px;
+  border: 1px solid #d6dde8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 11px;
+}
+
+.skillAccessRow button:disabled,
+.skillAccessForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.skillAccessForm {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.4fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.skillAccessForm label {
+  display: grid;
+  gap: 5px;
+}
+
+.skillAccessForm input,
+.skillAccessForm select {
+  min-height: 36px;
+  min-width: 0;
+  border: 1px solid #dce2ea;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: #111827;
+  font: inherit;
+  padding: 7px 9px;
+}
+
+.skillAccessForm button {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
 .productHero,
 .linearMetric,
 .linearSection,
@@ -6831,6 +6965,7 @@ body {
   .skillLaunchpadForm,
   .skillSettingsPanel,
   .skillSettingsForm,
+  .skillAccessForm,
   .workspaceVersionComposer,
   .workspaceVersionComposerGrid {
     grid-template-columns: 1fr;
@@ -6841,9 +6976,20 @@ body {
   .skillLaunchpadChecklist,
   .skillSettingsHeader,
   .skillSettingsForm,
-  .skillSettingsDistribution {
+  .skillSettingsDistribution,
+  .skillAccessHeader,
+  .skillAccessRow {
     grid-column: 1;
     grid-row: auto;
+  }
+
+  .skillAccessHeader,
+  .skillAccessActor {
+    display: grid;
+  }
+
+  .skillAccessRow {
+    grid-template-columns: 1fr;
   }
 
   .linearWorkbench {

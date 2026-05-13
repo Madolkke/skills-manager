@@ -17,6 +17,7 @@ import { PromotionReviewPane } from "@/components/promotion-review/promotion-rev
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
 import { RunMatrixPanel, type RunMatrixControls } from "@/components/run-matrix/run-matrix-panel";
 import { SavedRunViews } from "@/components/saved-views/saved-run-views";
+import { SkillAccessPanel } from "@/components/skills/skill-access-panel";
 import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
 import { SkillSettingsPanel } from "@/components/skills/skill-settings-panel";
 import { VariantCreationComposer } from "@/components/variants/variant-creation-composer";
@@ -788,6 +789,29 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     });
   }
 
+  async function assignSkillRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    await runCommand("成员角色已添加。", async () => {
+      await apiSend(`/api/skills/${selectedDetail.skill.id}/role-assignments`, {
+        method: "POST",
+        body: {
+          subject_id: textValue(form, "subject_id"),
+          role: textValue(form, "role"),
+          actor: ACTOR,
+        },
+      });
+      formElement.reset();
+    });
+  }
+
+  async function revokeSkillRole(roleAssignmentId: string) {
+    await runCommand("成员角色已移除。", async () => {
+      await apiSend(`/api/role-assignments/${roleAssignmentId}?actor=${encodeURIComponent(ACTOR)}`, { method: "DELETE" });
+    });
+  }
+
   async function archiveSkill() {
     await runCommand("Skill 已归档。", async () => {
       await apiSend(`/api/skills/${selectedDetail.skill.id}`, { method: "DELETE" });
@@ -1087,6 +1111,8 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
         {mode === "overview" ? (
           <OverviewPane
+            actor={ACTOR}
+            assignSkillRole={assignSkillRole}
             busy={busy}
             caseCount={cases.length}
             createSkill={createSkill}
@@ -1104,6 +1130,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             onOpenHistory={() => setMode("history")}
             primaryEvalSetVersion={currentEvalSetVersion?.version_number}
             refreshImportPreview={refreshImportPreview}
+            revokeSkillRole={revokeSkillRole}
             score={score}
             selectedDetail={selectedDetail}
             updateSkill={updateSkill}
@@ -1262,6 +1289,8 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 }
 
 function OverviewPane({
+  actor,
+  assignSkillRole,
   busy,
   caseCount,
   createSkill,
@@ -1276,10 +1305,13 @@ function OverviewPane({
   onOpenHistory,
   primaryEvalSetVersion,
   refreshImportPreview,
+  revokeSkillRole,
   score,
   selectedDetail,
   updateSkill,
 }: {
+  actor: string;
+  assignSkillRole: (event: FormEvent<HTMLFormElement>) => void;
   busy: boolean;
   caseCount: number;
   createSkill: (event: FormEvent<HTMLFormElement>) => void;
@@ -1294,6 +1326,7 @@ function OverviewPane({
   onOpenHistory: () => void;
   primaryEvalSetVersion?: number;
   refreshImportPreview: (event: FormEvent<HTMLFormElement>) => void;
+  revokeSkillRole: (roleAssignmentId: string) => void;
   score: number | null;
   selectedDetail: SkillDetail;
   updateSkill: (event: FormEvent<HTMLFormElement>) => void;
@@ -1349,6 +1382,13 @@ function OverviewPane({
         onUpdateSkill={updateSkill}
         score={score}
         selectedDetail={selectedDetail}
+      />
+      <SkillAccessPanel
+        actor={actor}
+        busy={busy}
+        onAssignRole={assignSkillRole}
+        onRevokeRole={revokeSkillRole}
+        roleAssignments={selectedDetail.role_assignments}
       />
 
       <VerificationStartPanel

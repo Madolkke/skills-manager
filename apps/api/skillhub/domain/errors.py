@@ -8,3 +8,7 @@ class NotFoundError(DomainError):
 
 class InvariantError(DomainError):
     """Raised when a command would violate a domain rule."""
+
+
+class PermissionDeniedError(DomainError):
+    """Raised when an actor lacks permission for a protected action."""
