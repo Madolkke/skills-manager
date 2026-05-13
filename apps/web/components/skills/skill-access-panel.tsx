@@ -35,11 +35,11 @@ export function SkillAccessPanel({
           <span>Access control</span>
           <h3>访问控制</h3>
         </div>
-        <p>受保护动作包括设为当前版本和接受验证依据；本地模式先用 actor 作为用户标识。</p>
+        <p>受保护动作包括设为当前版本和接受验证依据；本地开发身份来自请求 header，正式版会替换为 session/token。</p>
       </div>
 
       <div className="skillAccessActor">
-        <span>Current actor</span>
+        <span>Local actor</span>
         <strong>{actor}</strong>
       </div>
 

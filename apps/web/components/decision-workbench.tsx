@@ -463,7 +463,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           name,
           view_type: "run_history",
           config: { ...runFilterConfig(runFilters), ...runMatrixControlConfig(runMatrixControls) },
-          actor: ACTOR,
         },
       });
       await loadSavedViews(selectedDetail.skill.id);
@@ -537,7 +536,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
         body: {
           eval_run_id: runComparison.candidate.eval_run.id,
           note,
-          actor: ACTOR,
         },
       });
       await loadRunHistory(selectedDetail.skill.id, runFilters);
@@ -635,7 +633,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           eval_set_version_id: promotionReview.eval_set_version.id,
           decision_note: decisionNote || null,
           accept_risk: promotionReview.readiness.status === "risky",
-          actor: ACTOR,
         },
       });
       setPromotionReview(null);
@@ -687,7 +684,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             digest: await digestText(summary + slug),
           },
           change_summary: textValue(form, "change_summary"),
-          actor: ACTOR,
         },
       });
       setCatalogQuery("");
@@ -722,7 +718,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           tags: tagList(textValue(form, "tags")),
           variant_label: textValue(form, "variant_label") || "Imported",
           source,
-          actor: ACTOR,
         },
       });
       setCatalogQuery("");
@@ -799,7 +794,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
         body: {
           subject_id: textValue(form, "subject_id"),
           role: textValue(form, "role"),
-          actor: ACTOR,
         },
       });
       formElement.reset();
@@ -808,7 +802,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
 
   async function revokeSkillRole(roleAssignmentId: string) {
     await runCommand("成员角色已移除。", async () => {
-      await apiSend(`/api/role-assignments/${roleAssignmentId}?actor=${encodeURIComponent(ACTOR)}`, { method: "DELETE" });
+      await apiSend(`/api/role-assignments/${roleAssignmentId}`, { method: "DELETE" });
     });
   }
 
@@ -844,7 +838,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
                 digest: await digestText(summary + textValue(form, "tags")),
               },
           change_summary: textValue(form, "change_summary"),
-          actor: ACTOR,
           make_default: form.get("make_default") === "on",
         },
       });
@@ -890,7 +883,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
                 },
               }),
           change_summary: textValue(form, "change_summary"),
-          actor: ACTOR,
           make_current: makeCurrent,
         },
       });
@@ -919,7 +911,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           input_text: textValue(form, "input_text"),
           expected_output: textValue(form, "expected_output"),
           notes: textValue(form, "notes"),
-          actor: ACTOR,
         },
       });
       setSelectedCaseId(result.eval_case_id);
@@ -941,7 +932,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
         body: {
           skill_id: selectedDetail.skill.id,
           cases: drafts,
-          actor: ACTOR,
         },
       });
       const lastCase = result.created.at(-1);
@@ -960,7 +950,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           input_text: draft.inputText,
           expected_output: draft.expectedOutput,
           notes: draft.notes,
-          actor: ACTOR,
           make_current: true,
         },
       });
@@ -994,7 +983,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
         body: {
           source_case_version_id: sourceCaseVersionId,
           notes: `Restored from case v${sourceVersionNumber}.`,
-          actor: ACTOR,
         },
       });
       setSelectedCaseId(caseId);
@@ -1022,7 +1010,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           eval_set_version_id: currentEvalSetVersion.id,
           strategy: "manual_pass_fail",
           results,
-          actor: ACTOR,
         },
       });
       return `已记录 ${result.passed}/${result.total} 通过。`;
@@ -2754,7 +2741,7 @@ const versionFolderInputProps = {
 async function apiSend<T = unknown>(path: string, options: { method: string; body?: unknown }): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method,
-    headers: { "content-type": "application/json", accept: "application/json" },
+    headers: { "content-type": "application/json", accept: "application/json", "X-SkillHub-Actor": ACTOR },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
   if (!response.ok) throw new Error(await responseText(response));

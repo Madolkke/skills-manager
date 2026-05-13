@@ -138,5 +138,12 @@
     "priority": 20,
     "passes": true,
     "spec": ".agent/tasks/TASK-020.json"
+  },
+  {
+    "id": "021",
+    "title": "引入请求级 ActorContext",
+    "priority": 21,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-021.json"
   }
 ]

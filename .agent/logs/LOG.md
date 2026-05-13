@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-13 21:15 CST - TASK-021 请求级 ActorContext
+
+- 新增 FastAPI `ActorContext` dependency，从 `X-SkillHub-Actor` 读取本地开发 actor，缺省为 `product-operator`。
+- Mutation route 不再读取 payload 中的 `actor`；旧 body actor 会被忽略，审计和权限判断统一使用请求级 actor context。
+- 前端 `apiSend` 统一发送 `X-SkillHub-Actor`，并删除所有 mutation body 里的 `actor: ACTOR` 和 role revoke query actor。
+- 新增 API 测试覆盖 header actor 覆盖 body actor，以及 viewer/maintainer 受保护动作身份来源；更新 API contract、README、UX 复盘、产品完成度审计和 Superpowers 规格/计划。
+- 已验证：`uv run pytest` 85 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 35 passed；`git diff --check` passed。
+
 ### 2026-05-13 21:01 CST - TASK-020 Skill 作用域访问控制
 
 - 创建 skill 或导入 Skill bundle 时，后端会在同一事务内自动授予 actor 当前 skill 的 owner 角色。

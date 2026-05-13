@@ -31,7 +31,7 @@
 
 ### RoleAssignment
 
-`RoleAssignment` 显式绑定到某个 skill，不做组织级隐式继承。本地 demo 仍由请求体里的 `actor` 表示当前用户；正式认证接入后，actor 应由服务端 session/token 注入。
+`RoleAssignment` 显式绑定到某个 skill，不做组织级隐式继承。本地开发环境通过 `X-SkillHub-Actor` 请求头表示当前用户；正式认证接入后，这个 actor context 应由服务端 session/token 注入。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -50,6 +50,16 @@
 | 管理 skill role assignment | `owner` |
 | `POST /api/variants/promotions` | `owner` 或 `maintainer` |
 | `POST /api/eval-runs/accepted-verifications` | `owner` 或 `maintainer` |
+
+### Actor Context
+
+所有 mutation endpoint 的操作者身份来自请求级 actor context，而不是 JSON body：
+
+```http
+X-SkillHub-Actor: product-operator
+```
+
+本地开发缺省 actor 为 `product-operator`，方便 `bash scripts/dev.sh` 后直接试用。旧客户端如果继续在 body 中传 `actor`，后端会忽略；审计字段 `created_by`、`actor_ref` 和权限判断都以请求级 actor context 为准。正式认证版本应把这个 dependency 替换为 session、JWT 或 OIDC token 校验。
 
 ### TagSet
 
@@ -479,7 +489,7 @@ Content-Type: application/json
 
 ### Skill Role Assignments
 
-创建或导入 skill 时，创建动作的 `actor` 会自动获得该 skill 的 `owner` 角色。
+创建或导入 skill 时，请求级 actor 会自动获得该 skill 的 `owner` 角色。
 
 ```http
 GET /api/skills/{skill_id}/role-assignments
@@ -506,18 +516,19 @@ GET /api/skills/{skill_id}/role-assignments
 ```http
 POST /api/skills/{skill_id}/role-assignments
 Content-Type: application/json
+X-SkillHub-Actor: product-operator
 
 {
   "subject_id": "qa-reviewer",
-  "role": "evaluator",
-  "actor": "product-operator"
+  "role": "evaluator"
 }
 ```
 
 撤销角色：
 
 ```http
-DELETE /api/role-assignments/{role_assignment_id}?actor=product-operator
+DELETE /api/role-assignments/{role_assignment_id}
+X-SkillHub-Actor: product-operator
 ```
 
 规则：
@@ -589,6 +600,7 @@ GET /api/variants/{variant_id}/promotion-review?candidate_version_id=varver-v2&e
 ```http
 POST /api/variants/promotions
 Content-Type: application/json
+X-SkillHub-Actor: tester
 
 {
   "variant_id": "variant-a",
@@ -596,8 +608,7 @@ Content-Type: application/json
   "evidence_eval_run_id": "evalrun-candidate",
   "eval_set_version_id": "evalsetver-v3",
   "decision_note": "v2 修复 tenant scope 漏报。",
-  "accept_risk": false,
-  "actor": "tester"
+  "accept_risk": false
 }
 ```
 
@@ -670,10 +681,10 @@ Content-Type: application/json
 ```http
 POST /api/eval-cases/batch
 Content-Type: application/json
+X-SkillHub-Actor: tester
 
 {
   "skill_id": "skill-code-reviewer",
-  "actor": "tester",
   "cases": [
     {
       "title": "PR: missing tenant scope",

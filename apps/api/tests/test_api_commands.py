@@ -10,7 +10,7 @@ from skillhub.api.main import create_app, create_local_sqlite_engine
 
 class ApiCommandTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.client = TestClient(create_app(create_local_sqlite_engine()))
+        self.client = TestClient(create_app(create_local_sqlite_engine()), headers={"X-SkillHub-Actor": "tester"})
 
     def test_command_flow_records_eval_run(self):
         skill = self.create_skill("code-reviewer")
@@ -822,6 +822,32 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(revoked.status_code, 200)
         self.assertNotIn("qa-reviewer", [item["subject_id"] for item in listed_after.json()])
 
+    def test_request_actor_header_controls_created_owner(self):
+        response = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "header-owner"},
+            json={
+                "slug": "header-owner-skill",
+                "owner_ref": "skillhub-lab",
+                "variant_name": "Variant A",
+                "variant_label": "Baseline",
+                "variant_summary": "Baseline maintained answer.",
+                "tags": ["codex"],
+                "content_ref": {
+                    "kind": "skill_bundle",
+                    "locator": "memory:header-owner-skill",
+                    "digest": "digest-header-owner",
+                },
+                "change_summary": "Initial version.",
+                "actor": "body-attacker",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        assignments = self.client.get(f"/api/skills/{response.json()['skill_id']}/role-assignments").json()
+        self.assertEqual(assignments[0]["subject_id"], "header-owner")
+        self.assertNotEqual(assignments[0]["subject_id"], "body-attacker")
+
     def test_viewer_cannot_promote_variant_version(self):
         skill = self.create_skill("promotion-permission-api")
         candidate = self.client.post(
@@ -875,13 +901,14 @@ class ApiCommandTest(unittest.TestCase):
 
         response = self.client.post(
             "/api/variants/promotions",
+            headers={"X-SkillHub-Actor": "readonly-user"},
             json={
                 "variant_id": skill["variant_id"],
                 "version_id": candidate["variant_version_id"],
                 "evidence_eval_run_id": candidate_run["eval_run_id"],
                 "eval_set_version_id": case["eval_set_version_id"],
                 "decision_note": "Candidate fixes the tenant leak.",
-                "actor": "readonly-user",
+                "actor": "tester",
             },
         )
 
@@ -921,18 +948,20 @@ class ApiCommandTest(unittest.TestCase):
 
         viewer_response = self.client.post(
             "/api/eval-runs/accepted-verifications",
+            headers={"X-SkillHub-Actor": "readonly-user"},
             json={
                 "eval_run_id": run["eval_run_id"],
                 "note": "Viewer should not be able to accept.",
-                "actor": "readonly-user",
+                "actor": "tester",
             },
         )
         maintainer_response = self.client.post(
             "/api/eval-runs/accepted-verifications",
+            headers={"X-SkillHub-Actor": "release-manager"},
             json={
                 "eval_run_id": run["eval_run_id"],
                 "note": "Maintainer accepts Primary evidence.",
-                "actor": "release-manager",
+                "actor": "tester",
             },
         )
 

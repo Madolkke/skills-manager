@@ -45,7 +45,7 @@ SkillHub 当前已经能导入标准 Skill bundle、维护 variant/version、运
 
 - `GET /api/skills/{skill_id}/role-assignments` 返回当前 skill 的角色列表。
 - `POST /api/skills/{skill_id}/role-assignments` 接收 `subject_id`、`role`、可选 `subject_type`、`actor`，由 owner 授权。
-- `DELETE /api/role-assignments/{assignment_id}?actor=...` 删除角色，由 owner 授权。
+- `DELETE /api/role-assignments/{assignment_id}` 删除角色，由请求级 actor context 中的 owner 授权。
 
 删除最后一个 owner 应被拒绝，避免把 skill 锁死。
 

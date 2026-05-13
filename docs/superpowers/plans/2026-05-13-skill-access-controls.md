@@ -17,7 +17,7 @@
 
 - [x] **步骤 1：写角色列表和授予测试**
 
-新增测试：创建 skill 后 `GET /api/skills/{skill_id}/role-assignments` 应返回 `tester owner`；owner 通过 `POST /api/skills/{skill_id}/role-assignments` 授予 `qa-reviewer evaluator`；skill detail 也返回该 role assignment；`DELETE /api/role-assignments/{id}?actor=tester` 后列表不再包含 `qa-reviewer`。
+新增测试：创建 skill 后 `GET /api/skills/{skill_id}/role-assignments` 应返回 `tester owner`；owner 通过 `POST /api/skills/{skill_id}/role-assignments` 授予 `qa-reviewer evaluator`；skill detail 也返回该 role assignment；`DELETE /api/role-assignments/{id}` 使用请求级 actor 后列表不再包含 `qa-reviewer`。
 
 - [x] **步骤 2：写受保护动作测试**
 

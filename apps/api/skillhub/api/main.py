@@ -12,6 +12,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.pool import StaticPool
 
 from skillhub.application.skill_imports import parse_skill_import_source
+from skillhub.api.auth import ActorContext, actor_dependency
 from skillhub.domain.errors import InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
@@ -34,14 +35,12 @@ class CreateSkillPayload(BaseModel):
     tags: list[str] = Field(min_length=1)
     content_ref: ContentRefPayload
     change_summary: str
-    actor: str = "system"
 
 
 class ImportSkillPayload(BaseModel):
     owner_ref: str
     tags: list[str] = Field(min_length=1)
     source: dict[str, Any]
-    actor: str = "system"
     variant_label: str = "Imported"
 
 
@@ -50,7 +49,6 @@ class CreateVariantVersionPayload(BaseModel):
     content_ref: ContentRefPayload | None = None
     source: dict[str, Any] | None = None
     change_summary: str
-    actor: str = "system"
     make_current: bool = False
 
 
@@ -62,7 +60,6 @@ class CreateVariantPayload(BaseModel):
     tags: list[str] = Field(min_length=1)
     content_ref: ContentRefPayload
     change_summary: str
-    actor: str = "system"
     make_default: bool = False
 
 
@@ -73,7 +70,6 @@ class PromoteVariantVersionPayload(BaseModel):
     eval_set_version_id: str | None = None
     decision_note: str | None = None
     accept_risk: bool = False
-    actor: str = "system"
 
 
 class UpdateSkillPayload(BaseModel):
@@ -86,11 +82,6 @@ class AssignSkillRolePayload(BaseModel):
     subject_id: str
     role: str
     subject_type: str = "user"
-    actor: str = "system"
-
-
-class ArchivePayload(BaseModel):
-    actor: str = "system"
 
 
 class CreateEvalCasePayload(BaseModel):
@@ -98,7 +89,6 @@ class CreateEvalCasePayload(BaseModel):
     title: str
     input_text: str
     expected_output: str
-    actor: str = "system"
     notes: str | None = None
 
 
@@ -112,7 +102,6 @@ class CreateEvalCaseItemPayload(BaseModel):
 class CreateEvalCasesBatchPayload(BaseModel):
     skill_id: str
     cases: list[CreateEvalCaseItemPayload] = Field(min_length=1)
-    actor: str = "system"
 
 
 class CreateEvalCaseVersionPayload(BaseModel):
@@ -120,14 +109,12 @@ class CreateEvalCaseVersionPayload(BaseModel):
     title: str | None = None
     input_text: str
     expected_output: str
-    actor: str = "system"
     notes: str | None = None
     make_current: bool = True
 
 
 class RestoreEvalCaseVersionPayload(BaseModel):
     source_case_version_id: str
-    actor: str = "system"
     notes: str | None = None
 
 
@@ -136,13 +123,11 @@ class RecordEvalRunPayload(BaseModel):
     eval_set_version_id: str
     strategy: str = "manual_pass_fail"
     results: dict[str, bool]
-    actor: str = "system"
 
 
 class AcceptEvalRunVerificationPayload(BaseModel):
     eval_run_id: str
     note: str = ""
-    actor: str = "system"
 
 
 class CreateSavedViewPayload(BaseModel):
@@ -150,7 +135,6 @@ class CreateSavedViewPayload(BaseModel):
     name: str
     view_type: str = "run_history"
     config: dict[str, str] = Field(default_factory=dict)
-    actor: str = "system"
 
 
 def create_app(engine: Engine | None = None) -> FastAPI:
@@ -197,6 +181,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def assign_skill_role(
         skill_id: str,
         payload: AssignSkillRolePayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(
@@ -205,17 +190,17 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 subject_id=payload.subject_id,
                 role=payload.role,
                 subject_type=payload.subject_type,
-                actor=payload.actor,
+                actor=actor.id,
             )
         )
 
     @app.delete("/api/role-assignments/{role_assignment_id}")
     def revoke_role_assignment(
         role_assignment_id: str,
-        actor: str = "system",
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.revoke_role_assignment(role_assignment_id=role_assignment_id, actor=actor))
+        return result_payload(repository.revoke_role_assignment(role_assignment_id=role_assignment_id, actor=actor.id))
 
     @app.get("/api/skills/{skill_id}/eval-runs")
     def eval_run_history(
@@ -268,14 +253,18 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return result_payload(repository.list_saved_views(skill_id=skill_id, view_type=view_type))
 
     @app.post("/api/saved-views")
-    def create_saved_view(payload: CreateSavedViewPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+    def create_saved_view(
+        payload: CreateSavedViewPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
         return result_payload(
             repository.create_saved_view(
                 skill_id=payload.skill_id,
                 name=payload.name,
                 view_type=payload.view_type,
                 config=payload.config,
-                actor=payload.actor,
+                actor=actor.id,
             )
         )
 
@@ -340,7 +329,11 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         )
 
     @app.post("/api/skills")
-    def create_skill(payload: CreateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+    def create_skill(
+        payload: CreateSkillPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
         return result_payload(
             repository.create_skill(
                 slug=payload.slug,
@@ -351,18 +344,22 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 tags=payload.tags,
                 content_ref=content_ref(payload.content_ref),
                 change_summary=payload.change_summary,
-                actor=payload.actor,
+                actor=actor.id,
             )
         )
 
     @app.post("/api/skill-imports")
-    def import_skill(payload: ImportSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+    def import_skill(
+        payload: ImportSkillPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
         bundle = parse_skill_import_source(payload.source)
         artifact = repository.create_text_artifact(
             kind="skill_bundle",
             namespace=f"skill-import:{bundle.slug}",
             content=bundle.manifest_text,
-            actor=payload.actor,
+            actor=actor.id,
         )
         result = repository.create_skill(
             slug=bundle.slug,
@@ -378,7 +375,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 path=bundle.entry_path,
             ),
             change_summary=f"Imported standard skill bundle with {bundle.file_count} files.",
-            actor=payload.actor,
+            actor=actor.id,
         )
         return {
             **asdict(result),
@@ -393,6 +390,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.post("/api/variant-versions")
     def create_variant_version(
         payload: CreateVariantVersionPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         if payload.source is not None:
@@ -401,7 +399,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 kind="skill_bundle",
                 namespace=f"variant-version-import:{bundle.slug}",
                 content=bundle.manifest_text,
-                actor=payload.actor,
+                actor=actor.id,
             )
             content = ContentRef(
                 kind="artifact",
@@ -418,13 +416,17 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 variant_id=payload.variant_id,
                 content_ref=content,
                 change_summary=payload.change_summary,
-                actor=payload.actor,
+                actor=actor.id,
                 make_current=payload.make_current,
             )
         )
 
     @app.post("/api/variants")
-    def create_variant(payload: CreateVariantPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+    def create_variant(
+        payload: CreateVariantPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
         return result_payload(
             repository.create_variant(
                 skill_id=payload.skill_id,
@@ -434,7 +436,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 tags=payload.tags,
                 content_ref=content_ref(payload.content_ref),
                 change_summary=payload.change_summary,
-                actor=payload.actor,
+                actor=actor.id,
                 make_default=payload.make_default,
             )
         )
@@ -442,6 +444,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.post("/api/variants/promotions")
     def promote_variant_version(
         payload: PromoteVariantVersionPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         decision = repository.promote_variant_version(
@@ -451,7 +454,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             eval_set_version_id=payload.eval_set_version_id,
             decision_note=payload.decision_note,
             accept_risk=payload.accept_risk,
-            actor=payload.actor,
+            actor=actor.id,
         )
         return {"ok": True, "promotion_decision": decision}
 
@@ -476,14 +479,18 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return {"ok": True}
 
     @app.post("/api/eval-cases")
-    def create_eval_case(payload: CreateEvalCasePayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+    def create_eval_case(
+        payload: CreateEvalCasePayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
         return result_payload(
             repository.create_eval_case(
                 skill_id=payload.skill_id,
                 title=payload.title,
                 input_text=payload.input_text,
                 expected_output=payload.expected_output,
-                actor=payload.actor,
+                actor=actor.id,
                 notes=payload.notes,
             )
         )
@@ -491,19 +498,21 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.post("/api/eval-cases/batch")
     def create_eval_cases_batch(
         payload: CreateEvalCasesBatchPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(
             repository.create_eval_cases_batch(
                 skill_id=payload.skill_id,
                 cases=[case.model_dump() for case in payload.cases],
-                actor=payload.actor,
+                actor=actor.id,
             )
         )
 
     @app.post("/api/eval-case-versions")
     def create_eval_case_version(
         payload: CreateEvalCaseVersionPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         if payload.title is not None:
@@ -513,7 +522,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 case_id=payload.case_id,
                 input_text=payload.input_text,
                 expected_output=payload.expected_output,
-                actor=payload.actor,
+                actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
             )
@@ -523,6 +532,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def update_eval_case(
         case_id: str,
         payload: CreateEvalCaseVersionPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         if payload.title is not None:
@@ -532,7 +542,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 case_id=case_id,
                 input_text=payload.input_text,
                 expected_output=payload.expected_output,
-                actor=payload.actor,
+                actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
             )
@@ -542,13 +552,14 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def restore_eval_case_version(
         case_id: str,
         payload: RestoreEvalCaseVersionPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(
             repository.restore_eval_case_version(
                 case_id=case_id,
                 source_case_version_id=payload.source_case_version_id,
-                actor=payload.actor,
+                actor=actor.id,
                 notes=payload.notes,
             )
         )
@@ -556,32 +567,37 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.delete("/api/eval-cases/{case_id}")
     def archive_eval_case(
         case_id: str,
-        payload: ArchivePayload | None = None,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.archive_eval_case(case_id=case_id, actor=payload.actor if payload else "system"))
+        return result_payload(repository.archive_eval_case(case_id=case_id, actor=actor.id))
 
     @app.post("/api/eval-runs")
-    def record_eval_run(payload: RecordEvalRunPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+    def record_eval_run(
+        payload: RecordEvalRunPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
         return result_payload(
             repository.record_eval_run(
                 variant_version_id=payload.variant_version_id,
                 eval_set_version_id=payload.eval_set_version_id,
                 strategy=payload.strategy,
                 results=payload.results,
-                actor=payload.actor,
+                actor=actor.id,
             )
         )
 
     @app.post("/api/eval-runs/accepted-verifications")
     def accept_eval_run_verification(
         payload: AcceptEvalRunVerificationPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         accepted = repository.accept_eval_run_verification(
             eval_run_id=payload.eval_run_id,
             note=payload.note,
-            actor=payload.actor,
+            actor=actor.id,
         )
         return {"ok": True, "accepted_verification": accepted}
 

@@ -102,13 +102,14 @@
 20. 以前修改 skill ID、owner 或默认分发主要依赖右侧 inspector；现在概览主区可直接完成 identity/default variant 设置，保存后 catalog、header 和 hero 同步刷新。
 21. 以前矩阵只能看全部 case；现在可以把视图收窄到 `修复`、`回退`、`仍未通过` 等 impact，也可以按 impact 分组并把这个视图保存下来。
 22. 以前 role assignment 表只是 schema 占位；现在创建 skill 会自动授予 owner，概览页可管理 skill 作用域角色，promotion 和 accepted verification 已有 owner/maintainer 门禁。
+23. 以前 mutation payload 里还能传 `actor`，权限判断和业务输入混在一起；现在前端统一通过 `X-SkillHub-Actor` 进入后端 ActorContext，body actor 会被忽略。
 
 ## 仍然存在的摩擦
 
 1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建、基础 skill 设置和访问控制已经迁入主区，但 destructive action 和部分低频设置仍需要更成熟的主区或内联抽屉体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
-4. 权限还没有真实认证来源。当前 actor 仍来自本地前端常量或请求体，后续要改为服务端 session/token 注入。
+4. 权限还没有真实认证来源。当前 actor 已从请求体收敛到 `X-SkillHub-Actor` 开发 header，但仍不是真正的服务端 session/token。
 5. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
 6. Accessibility 覆盖仍偏浅。现在有键盘 smoke 和标签，但还需要系统化验证 focus order、screen reader label、reduced motion。
 
@@ -116,5 +117,5 @@
 
 1. 优化低频设置和危险操作体验：把归档和审计入口做成明确的设置分区，让 inspector 更像上下文工具而不是唯一操作区。
 2. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。
-3. 接入真实认证：actor 从 session/token 来，前端只负责展示 capability，不再传 actor。
+3. 接入真实认证：actor 从 session/token 来，前端只负责展示 capability，不再声明本地开发 actor。
 4. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。
