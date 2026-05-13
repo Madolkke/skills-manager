@@ -1,0 +1,33 @@
+{
+  "id": "039",
+  "title": "补齐产品操作摩擦审计",
+  "status": "complete",
+  "goal": "基于当前真实页面截图、E2E 覆盖、源码位置和外部优秀实践，审计 SkillHub 从导入到测评、版本评审、历史和治理的操作摩擦，并把下一轮优化收敛成可执行优先级。",
+  "scope": [
+    "读取最新 Vercel Web Interface Guidelines、NN/g 启发式、Linear command menu、GitHub PR review 和 Microsoft menu guidelines",
+    "查看当前视觉回归截图：empty、overview、manual eval、variants、promotion、run comparison、audit explorer、mobile",
+    "检查关键 CSS 和组件源码，给摩擦项绑定文件/行号证据",
+    "新增 docs/product-ux-friction-audit-2026-05-14.md",
+    "更新 docs/product-ux-review.md 的剩余摩擦和下一轮优化队列",
+    "记录中文任务日志"
+  ],
+  "out_of_scope": [
+    "直接改 UI 布局或 CSS",
+    "新增功能或调整 API",
+    "更新视觉基线截图",
+    "把总目标标记为完成"
+  ],
+  "verification": [
+    "Fetched https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md",
+    "Reviewed existing visual snapshots under apps/web/e2e/visual-workbench.spec.ts-snapshots",
+    "Inspected docs/product-ux-review.md and docs/product-completion-audit-2026-05-08.md",
+    "Inspected apps/web/app/globals.css, SkillLaunchpad, WorkbenchInspector, SkillAuditExplorer, DecisionWorkbench",
+    "cd apps/web && npm run test:unit -> 1 file passed, 3 tests passed",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities",
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 50 passed",
+    "git diff --check -> passed"
+  ]
+}

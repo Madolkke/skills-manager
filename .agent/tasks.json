@@ -264,5 +264,12 @@
     "priority": 38,
     "passes": true,
     "spec": ".agent/tasks/TASK-038.json"
+  },
+  {
+    "id": "039",
+    "title": "补齐产品操作摩擦审计",
+    "priority": 39,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-039.json"
   }
 ]

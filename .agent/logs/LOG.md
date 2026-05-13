@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-14 01:00 CST - TASK-039 产品操作摩擦审计
+
+- 新增 `docs/product-ux-friction-audit-2026-05-14.md`，把视觉截图、E2E 覆盖、源码行号和外部产品准则合并成当前操作摩擦审计。
+- 参考 Vercel Web Interface Guidelines、NN/g heuristics、Linear command menu、GitHub PR review 和 Microsoft menu guidelines，按 P1/P2/P3 标出移动端 first-run 重复入口、固定三栏证据视图偏窄、URL state、Audit Explorer、表单/focus、command menu 上下文化和 diff reviewed progress 等问题。
+- 更新 `docs/product-ux-review.md` 的剩余摩擦和下一轮优化队列，下一轮优先 TASK-040 移动端 first-run/inspector 去重。
+- 已验证：`npm run test:unit` 1 file/3 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`uv run pytest` 90 passed；`npm run e2e` 50 passed；`git diff --check` passed。
+
 ### 2026-05-14 00:51 CST - TASK-038 Workbench Command 单元测试
 
 - 引入最小 Vitest 单元测试 runner，新增 `npm run test:unit` 和 node 环境 `vitest.config.ts`，并排除 Playwright E2E spec。

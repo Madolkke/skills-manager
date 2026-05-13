@@ -1,6 +1,6 @@
 # SkillHub 产品体验评审
 
-更新时间：2026-05-13
+更新时间：2026-05-14
 
 ## 当前可用流程
 
@@ -127,16 +127,26 @@
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建、基础 skill 设置、访问控制、skill 归档和审计查看已经迁入主区，但部分低频设置仍需要更成熟的主区或内联抽屉体验。
-2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
-3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
-4. 权限还没有真实认证来源。当前 actor 已从请求体和前端硬编码 header 收敛到后端签名的本地 cookie session，但仍不是多用户登录、token rotation 或组织级身份系统。
-5. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
-6. Accessibility 仍未完整覆盖全路径。现在已有 skip link、focus ring、reduced-motion、status notice、command menu combobox/listbox、Workbench mode tablist、Run matrix 表格语义和 Inspector action focus handoff 回归，但更广的全路径焦点巡检和人工读屏验收还需要继续补。
+1. 移动端 first-run 同时展示 Launchpad 和完整 inspector 导入表单，同一主任务出现两份入口；应先做 mobile/first-run inspector 去重。
+2. 1280 宽桌面三栏固定宽度让主工作区在 promotion、diff、history、audit 等证据视图里偏窄；右侧 inspector 需要按 mode 折叠成 drawer 或 compact rail。
+3. `/skills` 的核心工作状态仍主要在本地 state 中，mode、diff pair、history filters、selected case/run 和 promotion 上下文还不能深链分享或刷新恢复。
+4. Audit Explorer 已有过滤和 payload inspect，但列表项过早截断、Raw JSON 默认占据右侧，扫读治理事件还不够快。
+5. 表单细节还未完全产品化：部分业务字段缺少显式 `autoComplete`，局部 focus 样式仍和全局 `:focus-visible` 策略不统一。
+6. Command menu 已有分组、快捷键和单元测试，但排序还没有根据当前 mode/焦点上下文化。
+7. Promotion review 已经展示 case impact 和 diff，但还没有文件 reviewed progress，也没有把具体 diff hunk 关联到具体 eval case。
+8. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
+9. 权限还没有真实认证来源。当前 actor 已从请求体和前端硬编码 header 收敛到后端签名的本地 cookie session，但仍不是多用户登录、token rotation 或组织级身份系统。
+10. Accessibility 仍未完整覆盖全路径。现在已有 skip link、focus ring、reduced-motion、status notice、command menu combobox/listbox、Workbench mode tablist、Run matrix 表格语义和 Inspector action focus handoff 回归，但更广的全路径焦点巡检和人工读屏验收还需要继续补。
 
 ## 下一轮优化队列
 
-1. 扩展审计能力：当前已支持 skill-scoped filter 和 payload inspect，后续可做跨 skill/组织级查询、导出、保留策略和 webhook。
-2. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。
-3. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，前端只展示 capability，不再允许自由切换开发身份。
-4. 扩展 accessibility E2E：继续覆盖更广的全路径焦点巡检和人工读屏验收。
+1. 移动端 first-run/inspector 去重：保留单一主路径，避免 Launchpad 和 inspector 重复表单。
+2. 工作台 inspector 响应式折叠：promotion/diff/history/audit 默认把证据视图放大，inspector 变 compact rail 或 drawer。
+3. URL state 同步第一阶段：支持 `mode`、selected skill、diff pair、history filters、selected case/run 深链。
+4. Audit Explorer 扫读重构：摘要优先，Raw JSON 后置，关键动作可快速过滤。
+5. 表单字段组件化：统一 label、`autoComplete`、placeholder、错误展示和 `:focus-visible`。
+6. Command menu 当前 mode 上下文化排序：测评页优先 case/run 命令，变体页优先 variant/version/diff 命令。
+7. Diff / Promotion review 文件 reviewed progress：按文件标记已查看，显示 x/y reviewed。
+8. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。
+9. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，前端只展示 capability，不再允许自由切换开发身份。
+10. 扩展 accessibility E2E：继续覆盖更广的全路径焦点巡检和人工读屏验收。
