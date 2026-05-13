@@ -179,7 +179,7 @@ MVP 约束：
 | 资源 | Create | Read | Update | Delete / Archive | MVP 结论 |
 | --- | --- | --- | --- | --- | --- |
 | `AppData` | seed / reset | `GET /api/state` | 不直接更新 | `POST /api/reset` 仅 demo 用 | 已覆盖 demo 同步 |
-| `Skill` | `POST /api/skills` | `GET /api/skills`、`GET /api/skill` | `PATCH /api/skills` | `PATCH lifecycle_status=archived` | 已覆盖 |
+| `Skill` | `POST /api/skills` | `GET /api/skills`、`GET /api/skills/{skill_id}` | `PATCH /api/skills/{skill_id}` | `DELETE /api/skills/{skill_id}` | 已覆盖 |
 | `Variant` | `POST /api/variants` | `GET /api/skill`、`GET /api/variant-page` | `PATCH /api/variants` | `PATCH lifecycle_status=archived` | 已覆盖 |
 | `VariantVersion` | `POST /api/variant-versions` | `GET /api/variant-page` | 不允许原地更新 | 不允许硬删 | 已覆盖 append-only |
 | `skill_bundle` artifact | `POST /api/skill-bundles` | `GET /api/skill-bundle` | 不允许原地更新 | 不允许硬删 | 已覆盖导入和读取 |
@@ -303,21 +303,20 @@ Content-Type: application/json
 ### Update Skill Metadata
 
 ```http
-PATCH /api/skills
+PATCH /api/skills/{skill_id}
 Content-Type: application/json
 
 {
-  "skill_id": "skill-code-reviewer",
   "slug": "code-reviewer-v2",
   "owner_ref": "skillhub-lab",
-  "default_variant_ref": "variant-b"
+  "default_variant_id": "variant-b"
 }
 ```
 
 行为：
 
 - 更新 skill 元数据。
-- 如果提供 `default_variant_ref`，必须指向同一个 skill 下的 variant。
+- 如果提供 `default_variant_id`，必须指向同一个 skill 下的 variant。
 - 不创建新版本，因为入口指针不是内容快照。
 
 ### Variant Page

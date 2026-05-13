@@ -117,5 +117,12 @@
     "priority": 17,
     "passes": true,
     "spec": ".agent/tasks/TASK-017.json"
+  },
+  {
+    "id": "018",
+    "title": "实现主工作区 Skill 设置",
+    "priority": 18,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-018.json"
   }
 ]

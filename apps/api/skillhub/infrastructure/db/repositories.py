@@ -440,14 +440,27 @@ class SqlSkillRepository:
             variant_version_id=variant_version_id,
         )
 
-    def update_skill(self, *, skill_id: str, slug: str, owner_ref: str) -> dict[str, Any]:
+    def update_skill(
+        self,
+        *,
+        skill_id: str,
+        slug: str,
+        owner_ref: str,
+        default_variant_id: str | None = None,
+    ) -> dict[str, Any]:
         updated_at = utc_now()
         with self.engine.begin() as connection:
             self._skill_row(connection, skill_id)
+            values: dict[str, Any] = {"slug": slug, "owner_ref": owner_ref, "updated_at": updated_at}
+            if default_variant_id is not None:
+                variant = self._variant_row(connection, default_variant_id)
+                if variant["skill_id"] != skill_id:
+                    raise InvariantError("Default variant must belong to the same skill.")
+                values["default_variant_id"] = default_variant_id
             connection.execute(
                 update(tables.skills)
                 .where(tables.skills.c.id == skill_id)
-                .values(slug=slug, owner_ref=owner_ref, updated_at=updated_at)
+                .values(**values)
             )
             return self._row_dict(self._skill_row(connection, skill_id))
 

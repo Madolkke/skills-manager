@@ -8,6 +8,7 @@
 - 空工作台现在在主内容区展示 `SkillLaunchpad`，用户可以直接导入标准 Skill bundle 或创建空白 skill，不需要先理解右侧 inspector。
 - 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
+- `概览` 页现在提供 `身份与默认分发` 设置面板，用户可以直接修改 skill ID、归属，并选择默认分发 variant。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
 - `测评` 页的 case 详情面板支持内联编辑，用户可以在当前测评上下文中修改 title、input、expected output、notes，并保存为新的 case version。
@@ -36,8 +37,12 @@
 
 - **Linear:** 左侧列表负责选择对象，中间主面板展示当前上下文，右侧 inspector 处理局部操作。适合 SkillHub 这种“对象多、动作也多”的维护工作台。
 - **Vercel import flow:** Vercel 把新项目导入放在主工作区，而不是藏在设置面板。SkillHub 适配为 first-run `SkillLaunchpad`，让导入标准 bundle 成为用户看到的第一条主路径。
+- **Vercel project settings:** Vercel 的 General Settings 把项目名、构建配置和项目 ID 放在同一个项目设置上下文中。SkillHub 适配为 `身份与默认分发`：只编辑 skill 入口指针和归属，不把 bundle 内容改写混进来。
+- **Linear project overview:** Linear 允许在 Project overview 直接编辑项目属性、名称和描述，也保留详情侧栏。SkillHub 适配为主区设置面板加 inspector 双入口。
 - **Linear Command Menu:** 同一动作可以通过按钮、快捷键、上下文菜单和命令菜单触发；SkillHub 第一版把“导入/创建/测评/历史/差异”收进 `Cmd/Ctrl+K`，让新手可发现、熟手少移动鼠标。
 - **GitHub new repository:** GitHub 新建仓库把 owner、name 和初始化选项收束在一个短表单。SkillHub 适配为主区空白 skill 创建，只要求 skill ID、归属、初始变体、tags、简介和版本说明。
+- **GitHub repository topics:** GitHub 把 topics 展示在仓库主页的 About 区域，用于发现和分类。SkillHub 适配为在 skill 概览展示默认 variant 的 tags，并允许切换默认分发。
+- **Notion database properties:** Notion 既有集中属性管理，也允许直接点击单个属性编辑。SkillHub 适配为保留 inspector，同时把高频 skill 属性放在概览主区。
 - **GitHub Command Palette:** 命令菜单兼具导航、搜索和运行命令能力；SkillHub 借鉴其 scope 思路，把菜单限定在当前 skill 工作区，避免全局搜索过早膨胀。
 - **TestRail quick outline:** 测试用例管理工具会区分完整表单和快速 outline。SkillHub 借鉴“快速进入测试集”的速度，但不允许只填标题，仍要求 `input + expected output`，保证测评资产质量。
 - **TestRail Pass & Next / bulk result:** TestRail 在三栏执行视图里提供快速通过并进入下一条，也支持批量提交相同结果。SkillHub 适配为“通过/不通过后自动前进”和“仅把未确认项标为通过”，避免覆盖已发现的失败。
@@ -89,10 +94,11 @@
 17. 以前追加版本主要依赖右侧 inspector；现在变体主面板有候选版本 composer，版本维护动作更靠近 variant map 和历史版本列表。
 18. 以前创建 variant 主要依赖右侧 inspector；现在变体主面板有约束 variant composer，并默认复用当前版本作为 v1 基线。
 19. 以前空工作台只给两个跳转按钮，用户要理解 inspector 才能开始；现在 first-run 主区可以直接完成导入或创建，创建后立刻进入同一个 skill 概览和验证清单。
+20. 以前修改 skill ID、owner 或默认分发主要依赖右侧 inspector；现在概览主区可直接完成 identity/default variant 设置，保存后 catalog、header 和 hero 同步刷新。
 
 ## 仍然存在的摩擦
 
-1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加和 first-run skill 创建已经迁入主区，但后续 skill 设置仍需要更成熟的主区或内联抽屉体验。
+1. 右侧 inspector 仍然偏表单化。case 编辑、variant 创建、候选版本追加、first-run skill 创建和基础 skill 设置已经迁入主区，但 destructive action 和部分低频设置仍需要更成熟的主区或内联抽屉体验。
 2. Promotion review 已经展示 case impact 和 diff，但还没有把具体 diff hunk 关联到具体 eval case。
 3. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图和对照/候选 impact，但还没有列配置和分组。
 4. Zip import 预览仍然依赖后端校验；folder import 的浏览器侧预览更丰富。
@@ -100,7 +106,7 @@
 
 ## 下一轮优化队列
 
-1. 优化 skill 设置和编辑表单：把常用表单逐步迁入主内容区或内联抽屉，让 inspector 更像上下文工具而不是唯一操作区。
+1. 优化低频设置和危险操作体验：把归档、权限和审计入口做成明确的设置分区，让 inspector 更像上下文工具而不是唯一操作区。
 2. 做 run matrix 多维表格：支持隐藏列、分组并突出 regression/improvement。
 3. 把 accepted verification 接入 Hub 文案和权限模型：明确谁能接受、谁只能查看。
 4. 扩展 accessibility E2E：覆盖焦点顺序、aria label、键盘完整路径和 reduced-motion。

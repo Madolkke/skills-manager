@@ -18,6 +18,7 @@ import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-p
 import { RunMatrixPanel } from "@/components/run-matrix/run-matrix-panel";
 import { SavedRunViews } from "@/components/saved-views/saved-run-views";
 import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
+import { SkillSettingsPanel } from "@/components/skills/skill-settings-panel";
 import { VariantCreationComposer } from "@/components/variants/variant-creation-composer";
 import { WorkspaceVersionComposer } from "@/components/variants/workspace-version-composer";
 import type {
@@ -759,9 +760,14 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     await runCommand("Skill 已更新。", async () => {
+      const defaultVariantId = textValue(form, "default_variant_id");
       await apiSend(`/api/skills/${selectedDetail.skill.id}`, {
         method: "PATCH",
-        body: { slug: textValue(form, "slug"), owner_ref: textValue(form, "owner_ref") },
+        body: {
+          slug: textValue(form, "slug"),
+          owner_ref: textValue(form, "owner_ref"),
+          ...(defaultVariantId ? { default_variant_id: defaultVariantId } : {}),
+        },
       });
     });
   }
@@ -1084,6 +1090,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
             refreshImportPreview={refreshImportPreview}
             score={score}
             selectedDetail={selectedDetail}
+            updateSkill={updateSkill}
           />
         ) : null}
 
@@ -1253,6 +1260,7 @@ function OverviewPane({
   refreshImportPreview,
   score,
   selectedDetail,
+  updateSkill,
 }: {
   busy: boolean;
   caseCount: number;
@@ -1270,6 +1278,7 @@ function OverviewPane({
   refreshImportPreview: (event: FormEvent<HTMLFormElement>) => void;
   score: number | null;
   selectedDetail: SkillDetail;
+  updateSkill: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const currentVersion = defaultVariant?.current_version ?? null;
   const bundleFiles = bundleFilesFromVariant(defaultVariant);
@@ -1314,6 +1323,15 @@ function OverviewPane({
         <Metric label="测评集版本" value={primaryEvalSetVersion ? `v${primaryEvalSetVersion}` : "暂无"} />
         <Metric label="最近分数" tone={latestRun ? (score === 100 ? "good" : "bad") : "neutral"} value={latestRun ? percent(score) : "未测"} />
       </div>
+
+      <SkillSettingsPanel
+        busy={busy}
+        defaultVariant={defaultVariant}
+        latestRun={latestRun}
+        onUpdateSkill={updateSkill}
+        score={score}
+        selectedDetail={selectedDetail}
+      />
 
       <VerificationStartPanel
         bundleFileCount={bundleFiles.length}

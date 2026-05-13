@@ -4374,6 +4374,131 @@ body {
   line-height: 1.35;
 }
 
+.skillSettingsPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.48fr);
+  gap: 14px;
+  align-items: stretch;
+  border: 1px solid #dde4ed;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.035), transparent 42%),
+    #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  padding: 14px;
+}
+
+.skillSettingsHeader {
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.skillSettingsHeader span,
+.skillSettingsForm label span,
+.skillSettingsDistribution > span {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.skillSettingsHeader h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+.skillSettingsHeader p,
+.skillSettingsDistribution p {
+  margin: 0;
+  color: #536176;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.skillSettingsForm {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.skillSettingsForm label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skillSettingsForm input,
+.skillSettingsForm select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #dce2ea;
+  border-radius: 9px;
+  background: #fbfcfd;
+  color: #111827;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.skillSettingsWide {
+  grid-column: 1 / -1;
+}
+
+.skillSettingsForm button {
+  justify-self: start;
+  min-height: 38px;
+  border: 1px solid #111827;
+  border-radius: 9px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 13px;
+}
+
+.skillSettingsForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.skillSettingsDistribution {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  border: 1px solid #dde7df;
+  border-radius: 10px;
+  background: #f9fbfa;
+  padding: 12px;
+}
+
+.skillSettingsDistribution strong {
+  color: #111827;
+  font-size: 17px;
+}
+
+.skillSettingsDistribution div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.skillSettingsDistribution small {
+  border: 1px solid #dce5df;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4d5a6c;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 5px 8px;
+}
+
 .productHero,
 .linearMetric,
 .linearSection,
@@ -6600,6 +6725,8 @@ body {
   .variantCreationComposerGrid,
   .skillLaunchpad,
   .skillLaunchpadForm,
+  .skillSettingsPanel,
+  .skillSettingsForm,
   .workspaceVersionComposer,
   .workspaceVersionComposerGrid {
     grid-template-columns: 1fr;
@@ -6607,7 +6734,10 @@ body {
 
   .skillLaunchpadIntro,
   .skillLaunchpadForm,
-  .skillLaunchpadChecklist {
+  .skillLaunchpadChecklist,
+  .skillSettingsHeader,
+  .skillSettingsForm,
+  .skillSettingsDistribution {
     grid-column: 1;
     grid-row: auto;
   }
@@ -6639,6 +6769,8 @@ body {
   .emptySkillStudio,
   .skillLaunchpad,
   .skillLaunchpadForm,
+  .skillSettingsPanel,
+  .skillSettingsForm,
   .productHero,
   .linearMetrics,
   .promotionHero,

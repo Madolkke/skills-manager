@@ -826,6 +826,17 @@ class ApiCommandTest(unittest.TestCase):
             },
         )
         self.assertEqual(variant.status_code, 200)
+        variant_id = variant.json()["variant_id"]
+
+        update_default = self.client.patch(
+            f"/api/skills/{skill['skill_id']}",
+            json={"slug": "reviewer-ops-v2", "owner_ref": "platform-team", "default_variant_id": variant_id},
+        )
+        self.assertEqual(update_default.status_code, 200)
+        self.assertEqual(update_default.json()["default_variant_id"], variant_id)
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+        self.assertEqual(detail["summary"]["default_variant"]["id"], variant_id)
+        self.assertEqual(detail["summary"]["default_variant"]["label"], "Long context")
 
         case = self.client.post(
             "/api/eval-cases",
@@ -863,6 +874,24 @@ class ApiCommandTest(unittest.TestCase):
         hub = self.client.get("/api/skills")
         self.assertEqual(hub.status_code, 200)
         self.assertEqual(hub.json(), [])
+
+    def test_update_skill_rejects_default_variant_from_another_skill(self):
+        skill = self.create_skill("reviewer-default-scope")
+        other_skill = self.create_skill("reviewer-other-scope", digest="digest-other-scope")
+        other_detail = self.client.get(f"/api/skills/{other_skill['skill_id']}").json()
+        other_variant_id = other_detail["summary"]["default_variant"]["id"]
+
+        response = self.client.patch(
+            f"/api/skills/{skill['skill_id']}",
+            json={
+                "slug": "reviewer-default-scope",
+                "owner_ref": "skillhub-lab",
+                "default_variant_id": other_variant_id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("same skill", response.json()["detail"])
 
     def test_import_skill_from_file_tree_uses_skill_md_frontmatter(self):
         response = self.client.post(

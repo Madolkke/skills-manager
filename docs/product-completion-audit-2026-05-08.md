@@ -2,7 +2,7 @@
 
 日期：2026-05-13
 
-状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：主工作区 Skill Launchpad、标准 Skill bundle 导入、导入后验证清单、variant/version、candidate verification handoff、eval set version、manual eval review queue、历史查看、run matrix、保存历史筛选视图、run-to-run comparison、accepted verification、bundle diff、candidate promotion review、上下文命令菜单和快速添加 case 都能闭环。但距离成熟产品还缺少更完整的权限、多用户协作、自动测评策略和更深的可访问性验证。
+状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：主工作区 Skill Launchpad、主工作区 Skill 设置、标准 Skill bundle 导入、导入后验证清单、variant/version、candidate verification handoff、eval set version、manual eval review queue、历史查看、run matrix、保存历史筛选视图、run-to-run comparison、accepted verification、bundle diff、candidate promotion review、上下文命令菜单和快速添加 case 都能闭环。但距离成熟产品还缺少更完整的权限、多用户协作、自动测评策略和更深的可访问性验证。
 
 ## 目标拆解
 
@@ -33,6 +33,7 @@
 | 导入后验证引导 | E2E `imported skill is guided into its first verification run` 覆盖导入后清单、添加首条 case、自动进入测评、记录 run 和查看历史。 | 完成 |
 | 新建 skill | `POST /api/skills`；右侧 inspector `新建 skill`；键盘 smoke 能打开入口。 | 完成 |
 | 主工作区 Skill Launchpad | 空工作台主内容区可直接导入 folder/zip 标准 Skill bundle 或创建空白 skill；E2E 覆盖两条 first-run 路径。 | 完成 |
+| 主工作区 Skill 设置 | `SkillSettingsPanel` 在概览主区编辑 skill ID、owner 和默认分发 variant；`PATCH /api/skills/{skill_id}` 校验 default variant 同 skill；API/E2E 覆盖。 | 完成 |
 | 新建 variant | `POST /api/variants`；E2E 创建 `Strict reviewer`。 | 完成 |
 | 主工作区创建 variant | `VariantCreationComposer` 在 `变体` 主面板直接创建 tags 约束 variant；E2E 覆盖创建后 variant map 出现新卡片和 v1。 | 完成 |
 | 追加 candidate version | `POST /api/variant-versions` 支持 `make_current=false`；E2E 创建候选版本并保持 current 不变。 | 完成 |
@@ -81,8 +82,8 @@ cd apps/web && npm run e2e
 
 - Web typecheck：通过。
 - Web production build：通过。
-- Playwright E2E：32 passed。
-- API pytest：80 passed。
+- Playwright E2E：33 passed。
+- API pytest：81 passed。
 
 本轮新增视觉资产：
 
@@ -99,11 +100,12 @@ cd apps/web && npm run e2e
 - `.agent/screenshots/TASK-009-1.png`
 - `.agent/screenshots/TASK-016-1.png`
 - `.agent/screenshots/TASK-017-1.png`
+- `.agent/screenshots/TASK-018-1.png`
 
 ## 仍然阻塞“成熟产品完成”的风险
 
 1. **权限和多用户协作还没实现。** 当前仍是单用户工作台；没有 owner/maintainer/evaluator/viewer 的 scoped role enforcement。
-2. **部分操作仍偏表单。** 导入后清单、case 新增、case 详情内联编辑、主区创建 variant、主区追加候选版本、主区创建 skill、记录 run 和 candidate 验证已更连续，但后续 skill 设置仍主要依赖 inspector 表单。
+2. **部分操作仍偏表单。** 导入后清单、case 新增、case 详情内联编辑、主区创建 variant、主区追加候选版本、主区创建 skill、主区 skill 设置、记录 run 和 candidate 验证已更连续，但归档、权限等低频/危险设置仍主要依赖 inspector 或尚未产品化。
 3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
 4. **Run matrix 还不是完整多维表格。** 现在能保存筛选视图、看 case x run pass/fail，并高亮对照/候选的修复和回退，但还不能配置列或分组。
 5. **Accessibility 覆盖还浅。** 有键盘 smoke 和可见 label，但缺少系统化 focus order、screen reader、reduced-motion 验证。
@@ -115,7 +117,7 @@ cd apps/web && npm run e2e
 
 下一轮最有价值的方向：
 
-1. 把 skill 设置体验继续从 inspector 表单迁到主内容区或内联抽屉，减少上下文跳转。
+1. 把归档、权限和审计类低频设置做成明确的设置分区，减少 inspector 承担所有管理动作。
 2. 开始权限模型和 scoped role assignment，尤其是 accepted verification / promotion 权限。
 3. 把 run matrix 升级为多维表格：支持列配置、分组和更多指标列。
 4. 把 eval strategy / runner registry 产品化。

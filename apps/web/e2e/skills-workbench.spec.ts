@@ -62,7 +62,7 @@ test("operator can import a skill from the workspace launchpad", async ({ page, 
     await launchpad.getByRole("button", { name: "导入并创建 skill" }).click();
 
     await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
-    await expect(page.getByText("Review pull requests from the first-run launchpad.", { exact: true })).toBeVisible();
+    await expect(page.locator(".productHero")).toContainText("Review pull requests from the first-run launchpad.");
   } finally {
     await rm(bundleDir, { force: true, recursive: true });
   }
@@ -149,7 +149,7 @@ test("operator can import a zipped standard skill bundle", async ({ page }) => {
     await page.getByRole("button", { name: "导入并创建 skill" }).click();
 
     await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
-    await expect(page.getByText("Review zipped skills through the same import path.", { exact: true })).toBeVisible();
+    await expect(page.locator(".productHero")).toContainText("Review zipped skills through the same import path.");
   } finally {
     await rm(bundleDir, { force: true, recursive: true });
   }
@@ -172,6 +172,41 @@ test("operator can create a variant from the variants workspace", async ({ page 
   const variantCard = page.locator(".variantMapCard").filter({ hasText: "Workspace reviewer" });
   await expect(variantCard).toBeVisible();
   await expect(variantCard).toContainText("v1");
+});
+
+test("operator can edit skill identity and default variant from workspace skill settings", async ({ page }) => {
+  const skillName = `workspace-settings-${Date.now()}`;
+  const renamedSkill = `${skillName}-renamed`;
+  await importSkillBundle(page, skillName);
+
+  await page.getByRole("button", { name: "变体", exact: true }).click();
+  const composer = page.locator(".variantCreationComposer");
+  await composer.getByRole("button", { name: "新建约束 variant" }).click();
+  await composer.getByPlaceholder("Codex + stricter auth").fill("Workspace default reviewer");
+  await composer.getByPlaceholder("codex, strict-auth").fill("codex, strict-default");
+  await composer.getByPlaceholder("这个约束组合下的最优解说明").fill("Use stricter criteria as the default distribution.");
+  await composer.getByPlaceholder("为什么要创建这个 variant").fill("Expose default variant switching from the skill workspace.");
+  await composer.getByRole("button", { name: "创建约束 variant" }).click();
+
+  await page.getByRole("button", { name: "概览", exact: true }).click();
+  const settings = page.locator(".skillSettingsPanel");
+  await settings.getByLabel("Skill ID").fill(renamedSkill);
+  await settings.getByLabel("归属").fill("platform-review");
+  const strictOption = await settings
+    .getByLabel("默认分发 variant")
+    .locator("option")
+    .filter({ hasText: "Workspace default reviewer" })
+    .getAttribute("value");
+  expect(strictOption).toBeTruthy();
+  await settings.getByLabel("默认分发 variant").selectOption(strictOption ?? "");
+  await settings.getByRole("button", { name: "保存 skill 设置" }).click();
+
+  await expect(page.getByRole("heading", { name: renamedSkill })).toBeVisible();
+  await expect(page.locator(".linearHeader")).toContainText("platform-review");
+  await expect(page.locator(".linearSkillItemActive")).toContainText("platform-review");
+  await expect(page.locator(".linearSkillItemActive")).toContainText("codex + strict-default");
+  await expect(page.locator(".productHero")).toContainText("Workspace default reviewer");
+  await expect(page.locator(".productHero")).toContainText("Use stricter criteria as the default distribution.");
 });
 
 test("imported skill is guided into its first verification run", async ({ page }) => {

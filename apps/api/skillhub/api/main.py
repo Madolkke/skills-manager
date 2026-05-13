@@ -79,6 +79,7 @@ class PromoteVariantVersionPayload(BaseModel):
 class UpdateSkillPayload(BaseModel):
     slug: str
     owner_ref: str
+    default_variant_id: str | None = None
 
 
 class ArchivePayload(BaseModel):
@@ -421,7 +422,14 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         payload: UpdateSkillPayload,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref))
+        return result_payload(
+            repository.update_skill(
+                skill_id=skill_id,
+                slug=payload.slug,
+                owner_ref=payload.owner_ref,
+                default_variant_id=payload.default_variant_id,
+            )
+        )
 
     @app.delete("/api/skills/{skill_id}")
     def archive_skill(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):

@@ -34,7 +34,7 @@ export async function importSkillBundle(page: Page, skillName: string) {
     await inspector.getByRole("button", { name: "导入并创建 skill" }).click();
 
     await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
-    await expect(page.getByText("Review pull requests for authorization and data access regressions.", { exact: true })).toBeVisible();
+    await expect(page.locator(".productHero")).toContainText("Review pull requests for authorization and data access regressions.");
   } finally {
     await rm(bundleDir, { force: true, recursive: true });
   }

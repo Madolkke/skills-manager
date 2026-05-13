@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-13 20:13 CST - TASK-018 主工作区 Skill 设置
+
+- 在概览主工作区新增 `SkillSettingsPanel`，可直接修改 skill ID、归属，并选择默认分发 variant。
+- 扩展 `PATCH /api/skills/{skill_id}` 支持 `default_variant_id`，repository 会拒绝跨 skill 的默认 variant 指针。
+- 新增 API 测试覆盖 default variant 切换和跨 skill 拒绝；新增 E2E 覆盖主区设置保存后 header、catalog、hero 同步刷新。
+- 更新 API contract、README、UX 复盘、产品完成度审计和 imported overview 视觉基线。
+- 已验证：`uv run pytest` 81 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 33 passed；`git diff --check` passed。
+- 截图：`.agent/screenshots/TASK-018-1.png`。
+
 ### 2026-05-13 19:56 CST - TASK-017 主工作区 Skill Launchpad
 
 - 在空工作台概览主区新增 `SkillLaunchpad`，可直接导入标准 Skill bundle 或创建空白 skill；右侧 inspector 路径继续保留。
