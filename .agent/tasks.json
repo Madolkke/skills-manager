@@ -306,5 +306,12 @@
     "priority": 44,
     "passes": true,
     "spec": ".agent/tasks/TASK-044.json"
+  },
+  {
+    "id": "045",
+    "title": "Command menu 当前 mode 上下文化排序",
+    "priority": 45,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-045.json"
   }
 ]

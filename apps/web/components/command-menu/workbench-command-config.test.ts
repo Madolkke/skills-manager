@@ -9,6 +9,7 @@ function createCommands(overrides: Partial<Parameters<typeof buildWorkbenchComma
   const commands = buildWorkbenchCommands({
     canCompareVersions: true,
     casesCount: 2,
+    currentMode: "overview",
     hasPersistedSkill: true,
     onAction,
     onOpenDiff,
@@ -19,19 +20,19 @@ function createCommands(overrides: Partial<Parameters<typeof buildWorkbenchComma
 }
 
 describe("buildWorkbenchCommands", () => {
-  it("preserves command order, labels, groups, and shortcuts", () => {
+  it("preserves command catalog labels, groups, shortcuts, and overview priority", () => {
     const { commands } = createCommands();
 
     expect(commands).toHaveLength(14);
     expect(commands.map((command) => command.id)).toEqual([
       "nav-overview",
-      "nav-variants",
+      "import-skill",
+      "new-skill",
       "nav-evals",
+      "nav-variants",
       "nav-history",
       "nav-audit",
       "nav-diff",
-      "import-skill",
-      "new-skill",
       "new-variant",
       "new-version",
       "new-case",
@@ -48,6 +49,43 @@ describe("buildWorkbenchCommands", () => {
       group: "证据",
       detail: "打开 bundle 文件级 diff。",
     });
+  });
+
+  it("prioritizes eval actions when the current mode is evals", () => {
+    const { commands } = createCommands({ currentMode: "evals" });
+
+    expect(commands.slice(0, 4).map((command) => command.id)).toEqual([
+      "record-run",
+      "new-case",
+      "batch-case",
+      "nav-history",
+    ]);
+  });
+
+  it("prioritizes variant maintenance when the current mode is variants", () => {
+    const { commands } = createCommands({ currentMode: "variants" });
+
+    expect(commands.slice(0, 4).map((command) => command.id)).toEqual([
+      "new-variant",
+      "new-version",
+      "compare-version",
+      "nav-evals",
+    ]);
+  });
+
+  it("prioritizes creation entry points before a skill exists", () => {
+    const { commands } = createCommands({
+      canCompareVersions: false,
+      casesCount: 0,
+      currentMode: "overview",
+      hasPersistedSkill: false,
+    });
+
+    expect(commands.slice(0, 3).map((command) => command.id)).toEqual([
+      "import-skill",
+      "new-skill",
+      "nav-overview",
+    ]);
   });
 
   it("disables skill-scoped commands before a skill exists and keeps creation entry points available", () => {

@@ -198,6 +198,7 @@ export function DecisionWorkbench({
   const commandItems = useWorkbenchCommands({
     canCompareVersions: Boolean(defaultVariant && defaultDiffPair(defaultVariant)),
     casesCount: cases.length,
+    currentMode: mode,
     hasPersistedSkill,
     onAction: chooseAction,
     onOpenDiff: openDiffMode,

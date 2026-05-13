@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-14 02:14 CST - TASK-045 Command menu 当前 mode 上下文化排序
+
+- 新增 `docs/superpowers/specs/2026-05-14-command-menu-contextual-priority-design.md` 和执行计划，记录借鉴 Linear、GitHub Command Palette 和 GitKraken Command Palette 后的 mode-aware 排序方案。
+- `buildWorkbenchCommands` 增加 `currentMode`，空 skill 优先导入/新建，`evals` 优先 run/case，`variants` 优先 variant/version/diff，其余命令稳定保留原相对顺序。
+- `DecisionWorkbench` 将当前 mode 传入 `useWorkbenchCommands`；`CommandMenu` 弹层、ARIA、搜索、Tab trap 和 disabled 下沉逻辑保持不变。
+- 新增 Vitest 红绿覆盖 evals/variants/empty skill 排序；新增 E2E 覆盖测评页打开 command menu 时第一条是 `记录本次测评`。
+- 更新 README、产品体验评审、完成度审计、摩擦审计和 TASK-045 任务记录；下一轮队列前移到 Diff/Promotion reviewed progress、URL state 第二阶段、表单字段第二阶段、Command menu 第二阶段。
+- 已验证：红灯单测先失败于静态顺序；红灯 E2E 先失败于第一项为 `打开概览`；绿色后目标 E2E 1 passed；`npm run test:unit` 1 file/6 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`uv run pytest` 90 passed；`npm run e2e` 56 passed。
+
 ### 2026-05-14 02:01 CST - TASK-044 表单字段基础件第一阶段
 
 - 新增 `WorkbenchField` 系列：`TextField`、`TextAreaField`、`SelectField`、`FileField`，统一 label/hint/aria-describedby，并让业务 text/textarea 默认 `autocomplete="off"`。

@@ -351,6 +351,15 @@ test("operator can open command menu and jump to add case", async ({ page }) => 
   await expect(page.getByRole("dialog", { name: "Command menu" })).toBeVisible();
 });
 
+test("command menu prioritizes actions for the current workbench mode", async ({ page }) => {
+  await importSkillBundle(page, `context-menu-${Date.now()}`);
+  await addEvalCase(page, "PR: command menu context priority");
+
+  await page.getByRole("button", { name: "Open command menu" }).click();
+  const firstOption = page.getByRole("listbox").getByRole("option").first();
+  await expect(firstOption).toContainText("记录本次测评");
+});
+
 test("operator can batch paste eval cases and record a run", async ({ page }) => {
   await importSkillBundle(page, `batch-cases-${Date.now()}`);
 

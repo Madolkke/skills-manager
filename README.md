@@ -19,7 +19,7 @@
 - 工作台内可以查看 bundle 文件内容、在主工作区编辑 skill 身份和默认分发 variant、管理 skill 作用域角色、创建约束 variant、追加候选版本、版本 diff、run 历史、run matrix、保存历史筛选视图、run-to-run 比较、accepted verification、case 详情内联编辑、case 版本历史、case 历史版本恢复和 promotion review。
 - 创建或导入 skill 的本地 actor 会自动成为该 skill 的 `owner`；`promotion` 和 `accepted verification` 需要 `owner` 或 `maintainer`。前端本地开发身份来自后端签名的 HttpOnly cookie session，JSON body 中不再传 actor；直接调 API 的脚本仍可用 `X-SkillHub-Actor` 作为兼容 fallback。
 - `概览` 页提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档收进需要输入当前 skill ID 的危险区；归档需要 `owner` 权限并写入 `skill.archived` audit event。治理面板也能打开 `审计 Explorer`，用 action quick filters、actor/action/resource_type 过滤、可读时间线和结构化详情追踪当前 skill 的治理、发布和验证事件，Raw payload 默认折叠在下钻区。
-- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，可搜索并执行导入、创建、测评、历史、差异等高频动作；菜单使用 `dialog + combobox + listbox` 语义，方向键移动 active option，Tab 会限制在弹层内，关闭后焦点回到触发按钮。
+- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，可搜索并执行导入、创建、测评、历史、差异等高频动作；菜单使用 `dialog + combobox + listbox` 语义，方向键移动 active option，Tab 会限制在弹层内，关闭后焦点回到触发按钮。菜单会根据当前 mode 排序：空工作台优先导入/新建，测评页优先 run/case，变体页优先 variant/version/diff。
 - `/skills?skill=<slug-or-id>&mode=<mode>` 支持第一阶段 URL state：可以直达某个 skill 的 `概览 / 变体 / 测评 / 差异 / 历史 / 审计` 视图，刷新和浏览器 Back/Forward 会恢复 selected skill 与 mode；更细的 diff pair、history filters、selected run/case 和 promotion context 留给下一阶段深链。
 - 工作台有基础 accessibility 护栏：键盘用户可用 skip link 直接进入主内容；全局 focus ring 更醒目；`prefers-reduced-motion` 会压低非必要动效；操作结果通过 `role=status` 暴露给读屏软件；命令菜单、Workbench mode tabs、Run matrix 和 Inspector action 焦点交接已有 E2E 回归。
 - 高频写入表单第一阶段已统一字段基础件：`SkillLaunchpad` 和 `WorkbenchInspector` 使用共享 `TextField/TextAreaField/SelectField/FileField`，业务 text/textarea 默认显式 `autocomplete="off"`，局部焦点样式收敛到 `:focus-visible`。

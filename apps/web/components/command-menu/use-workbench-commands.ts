@@ -7,6 +7,7 @@ import { buildWorkbenchCommands, type WorkbenchCommandOptions } from "@/componen
 export function useWorkbenchCommands({
   canCompareVersions,
   casesCount,
+  currentMode,
   hasPersistedSkill,
   onAction,
   onOpenDiff,
@@ -16,11 +17,12 @@ export function useWorkbenchCommands({
     () => buildWorkbenchCommands({
       canCompareVersions,
       casesCount,
+      currentMode,
       hasPersistedSkill,
       onAction,
       onOpenDiff,
       onSetMode,
     }),
-    [canCompareVersions, casesCount, hasPersistedSkill, onAction, onOpenDiff, onSetMode],
+    [canCompareVersions, casesCount, currentMode, hasPersistedSkill, onAction, onOpenDiff, onSetMode],
   );
 }

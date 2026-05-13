@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及部分表单/焦点/深层 URL 状态的产品级细节。移动端 first-run、证据视图 inspector 折叠、URL state 第一阶段、Audit Explorer 扫读重构和表单字段基础件第一阶段已经按本审计后续任务完成。
+状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及部分表单/焦点/深层 URL 状态的产品级细节。移动端 first-run、证据视图 inspector 折叠、URL state 第一阶段、Audit Explorer 扫读重构、表单字段基础件第一阶段和 Command menu mode-aware 排序已经按本审计后续任务完成。
 
 ## 审计输入
 
@@ -124,22 +124,23 @@
 - 第二阶段继续迁移 QuickAddCases、EvalCaseDetailPanel、SkillSettingsPanel、SkillAccessPanel、history filters、run matrix controls 和 diff selectors。
 - 字段基础件第二阶段再补错误态、验证文案和 submit disabled/loading 规范，不在第一阶段扩大视觉重做范围。
 
-### P2 - Command menu 已可用，但还不够上下文化
+### 已解决第一阶段 / 仍需后续 - Command menu 已可用，但还不够智能
 
 证据：
 
-- `useWorkbenchCommands` 已经锁住 14 个命令，但目前顺序基本静态。
-- Linear command menu 的优秀点是按当前视图/焦点优先展示相关命令。
+- TASK-045 已让 `buildWorkbenchCommands` 接收 `currentMode`，并用 mode priority list 稳定提前相关命令。
+- 空 skill 状态优先导入/新建；`evals` mode 优先 `record-run/new-case/batch-case/nav-history`；`variants` mode 优先 `new-variant/new-version/compare-version/nav-evals`。
+- Vitest 覆盖 evals、variants、empty skill 排序；E2E 覆盖测评页打开 command menu 时第一条是 `记录本次测评`。
 
 影响：
 
-- 在 `测评` 页打开 command menu 时，用户最可能需要 `添加 case`、`记录本次测评`、`批量添加 case`，但菜单仍先展示全局导航。
-- 熟手路径能用，但还没做到“越用越贴手”。
+- 用户在测评页和变体页不输入搜索也能先看到当前工作最相关动作，熟手路径更贴手。
+- 仍未解决最近使用、selection-aware 命令、命令 preview 和用户级个性化排序。
 
 建议：
 
-- `buildWorkbenchCommands` 增加 `currentMode`，按 mode 给命令排序或打 group priority。
-- 命令菜单顶部增加 “当前视图推荐动作”，但保留所有命令可搜索。
+- 第二阶段引入 recently-used ranking，但必须保持 deterministic fallback，避免自动学习排序让 E2E 和用户肌肉记忆漂移。
+- 后续 selection-aware 命令可以基于 selected case/run/variant 追加，例如“恢复此 case 旧版本”“接受当前候选 run”。
 
 ### P2 - Diff / Promotion review 缺少 review progress
 
@@ -176,10 +177,10 @@
 
 ## 下一轮任务排序
 
-1. **TASK-045：Command menu 当前 mode 上下文化排序。**
-2. **TASK-046：Diff / Promotion review file viewed progress。**
-3. **URL state 第二阶段。** 补齐 diff pair、history filters、selected case/run、run comparison、eval target version 和 promotion permalink。
-4. **表单字段基础件第二阶段。** 迁移 QuickAddCases、EvalCaseDetailPanel、SkillSettingsPanel、SkillAccessPanel、history filters、run matrix controls 和 diff selectors。
+1. **TASK-046：Diff / Promotion review file viewed progress。**
+2. **URL state 第二阶段。** 补齐 diff pair、history filters、selected case/run、run comparison、eval target version 和 promotion permalink。
+3. **表单字段基础件第二阶段。** 迁移 QuickAddCases、EvalCaseDetailPanel、SkillSettingsPanel、SkillAccessPanel、history filters、run matrix controls 和 diff selectors。
+4. **Command menu 第二阶段。** 增加最近使用/selection-aware 排序和命令 preview。
 5. **组织级 Audit Explorer。** 跨 skill 查询、日期范围、分页、导出和保留策略。
 
 ## 不建议马上做的事

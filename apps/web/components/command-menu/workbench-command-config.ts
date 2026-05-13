@@ -5,6 +5,7 @@ import type { WorkbenchMode } from "@/components/workbench-tabs";
 export type WorkbenchCommandOptions = {
   canCompareVersions: boolean;
   casesCount: number;
+  currentMode: WorkbenchMode;
   hasPersistedSkill: boolean;
   onAction: (mode: InspectorActionMode) => void;
   onOpenDiff: () => void;
@@ -14,13 +15,14 @@ export type WorkbenchCommandOptions = {
 export function buildWorkbenchCommands({
   canCompareVersions,
   casesCount,
+  currentMode,
   hasPersistedSkill,
   onAction,
   onOpenDiff,
   onSetMode,
 }: WorkbenchCommandOptions): CommandMenuItem[] {
   const canUseSkill = hasPersistedSkill;
-  return [
+  const commands = [
     command("nav-overview", "打开概览", "导航", "查看 skill 说明、当前验证和 bundle 文件。", () => onSetMode("overview"), "G O"),
     command("nav-variants", "打开变体", "导航", "查看 variant map 和历史版本。", () => onSetMode("variants"), "G V", !canUseSkill, "先创建或导入一个 skill。"),
     command("nav-evals", "打开测评", "导航", "管理测试用例并记录手工测评。", () => onSetMode("evals"), "G E", !canUseSkill, "先创建或导入一个 skill。"),
@@ -36,6 +38,36 @@ export function buildWorkbenchCommands({
     command("record-run", "记录本次测评", "测评", "进入 pass/fail 手工测评确认区。", () => onAction("run"), "R", !canUseSkill || casesCount === 0, casesCount === 0 ? "当前测试集还没有 case。" : "先创建或导入一个 skill。"),
     command("compare-version", "比较版本", "证据", "打开 bundle 文件级 diff。", onOpenDiff, "D", !canCompareVersions, "当前 variant 至少需要两个版本。"),
   ];
+  return prioritizeCommands(commands, { currentMode, hasPersistedSkill });
+}
+
+const modePriorities: Record<WorkbenchMode, string[]> = {
+  audit: ["nav-audit", "nav-history", "nav-overview", "new-case"],
+  diff: ["compare-version", "nav-diff", "new-version", "nav-variants", "nav-evals"],
+  evals: ["record-run", "new-case", "batch-case", "nav-history"],
+  history: ["nav-history", "compare-version", "record-run", "nav-evals"],
+  overview: ["nav-overview", "import-skill", "new-skill", "nav-evals"],
+  promotion: ["compare-version", "nav-diff", "record-run", "nav-evals", "nav-variants"],
+  variants: ["new-variant", "new-version", "compare-version", "nav-evals"],
+};
+
+function prioritizeCommands(
+  commands: CommandMenuItem[],
+  options: { currentMode: WorkbenchMode; hasPersistedSkill: boolean },
+) {
+  const priorityIds = options.hasPersistedSkill
+    ? modePriorities[options.currentMode]
+    : ["import-skill", "new-skill", "nav-overview"];
+  const priorityRank = new Map(priorityIds.map((id, index) => [id, index]));
+  return commands
+    .map((command, index) => ({ command, index }))
+    .sort((left, right) => {
+      const leftRank = priorityRank.get(left.command.id) ?? Number.POSITIVE_INFINITY;
+      const rightRank = priorityRank.get(right.command.id) ?? Number.POSITIVE_INFINITY;
+      if (leftRank !== rightRank) return leftRank - rightRank;
+      return left.index - right.index;
+    })
+    .map(({ command }) => command);
 }
 
 function command(
