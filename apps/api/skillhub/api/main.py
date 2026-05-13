@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from os import environ
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -27,6 +27,13 @@ from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub.infrastructure.db.tables import metadata
 
 
+SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
+TAG_PATTERN = r"^[A-Za-z0-9._-]+$"
+SkillSlug = Annotated[str, Field(min_length=1, max_length=64, pattern=SLUG_PATTERN)]
+TagValue = Annotated[str, Field(min_length=1, max_length=64, pattern=TAG_PATTERN)]
+TagsPayload = Annotated[list[TagValue], Field(min_length=1)]
+
+
 class ContentRefPayload(BaseModel):
     kind: str
     locator: str
@@ -35,19 +42,19 @@ class ContentRefPayload(BaseModel):
 
 
 class CreateSkillPayload(BaseModel):
-    slug: str
+    slug: SkillSlug
     owner_ref: str
     variant_name: str
     variant_label: str
     variant_summary: str
-    tags: list[str] = Field(min_length=1)
+    tags: TagsPayload
     content_ref: ContentRefPayload
     change_summary: str
 
 
 class ImportSkillPayload(BaseModel):
     owner_ref: str
-    tags: list[str] = Field(min_length=1)
+    tags: TagsPayload
     source: dict[str, Any]
     variant_label: str = "Imported"
 
@@ -65,7 +72,7 @@ class CreateVariantPayload(BaseModel):
     name: str
     label: str
     summary: str
-    tags: list[str] = Field(min_length=1)
+    tags: TagsPayload
     content_ref: ContentRefPayload
     change_summary: str
     make_default: bool = False
@@ -81,7 +88,7 @@ class PromoteVariantVersionPayload(BaseModel):
 
 
 class UpdateSkillPayload(BaseModel):
-    slug: str
+    slug: SkillSlug
     owner_ref: str
     default_variant_id: str | None = None
 
@@ -724,7 +731,7 @@ def request_validation_field_errors(errors: list[dict[str, Any]]) -> list[dict[s
 
 
 def request_body_field(location: Any) -> str:
-    parts = [str(part) for part in location if part != "body"]
+    parts = [str(part) for part in location if part != "body" and not isinstance(part, int)]
     return ".".join(parts)
 
 
@@ -732,6 +739,12 @@ def request_validation_message(field: str, error_type: str) -> str:
     label = API_FIELD_LABELS.get(field, field)
     if error_type == "missing":
         return f"填写 {label}"
+    if field == "slug" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
+        return "Skill ID 只能使用小写字母、数字和连字符，且必须以字母或数字开头，最多 64 个字符。"
+    if field == "tags" and error_type == "too_short":
+        return "至少填写一个约束标签。"
+    if field == "tags" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
+        return "约束标签只能使用字母、数字、点、下划线和连字符，每个最多 64 个字符。"
     return f"{label} 格式不正确。"
 
 

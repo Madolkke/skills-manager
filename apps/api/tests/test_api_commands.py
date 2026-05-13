@@ -69,6 +69,45 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response.json()["field_errors"][0]["field"], "slug")
 
+    def test_create_skill_rejects_invalid_slug_format(self):
+        response = self.client.post(
+            "/api/skills",
+            json=self.skill_payload("Bad Skill"),
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["field_errors"][0],
+            {
+                "field": "slug",
+                "message": "Skill ID 只能使用小写字母、数字和连字符，且必须以字母或数字开头，最多 64 个字符。",
+                "code": "request.string_pattern_mismatch",
+            },
+        )
+
+    def test_create_skill_rejects_invalid_tag_format(self):
+        payload = self.skill_payload("invalid-tag-format")
+        payload["tags"] = ["codex", "bad tag"]
+
+        response = self.client.post("/api/skills", json=payload)
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["field_errors"][0]["field"], "tags")
+        self.assertEqual(
+            response.json()["field_errors"][0]["message"],
+            "约束标签只能使用字母、数字、点、下划线和连字符，每个最多 64 个字符。",
+        )
+
+    def test_create_skill_rejects_empty_tags_with_tags_field_error(self):
+        payload = self.skill_payload("empty-tags-format")
+        payload["tags"] = []
+
+        response = self.client.post("/api/skills", json=payload)
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["field_errors"][0]["field"], "tags")
+        self.assertEqual(response.json()["field_errors"][0]["message"], "至少填写一个约束标签。")
+
     def test_command_flow_records_eval_run(self):
         skill = self.create_skill("code-reviewer")
         candidate = self.client.post(

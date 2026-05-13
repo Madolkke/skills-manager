@@ -1,0 +1,37 @@
+{
+  "id": "052",
+  "title": "基础格式校验第一阶段",
+  "status": "completed",
+  "goal": "在上一轮 field_errors 契约上补齐最常见的格式校验：Skill ID slug 规则和约束标签 tag 规则，并让前端表单继续把服务端错误回填到字段。",
+  "scope": [
+    "定义 Skill ID slug 的服务端格式规则，并通过 API field_errors 返回 slug 字段错误",
+    "定义 tags 的服务端格式规则，并把 tag item 错误映射回 tags 字段",
+    "让请求体校验错误文案对 slug、tags 的格式/长度/空值更清楚",
+    "新增 API 红绿测试覆盖非法 slug、非法 tag、空 tags",
+    "新增 Playwright E2E 覆盖新建 skill 非法 Skill ID 回填到字段",
+    "更新 README、API contract、产品体验评审、完成度审计、摩擦审计、任务日志和本任务规格"
+  ],
+  "out_of_scope": [
+    "导入 bundle frontmatter 字段错误",
+    "批量 case 行级错误",
+    "所有 text field 的长度上限",
+    "客户端预提交格式校验",
+    "完整 problem details 媒体类型迁移"
+  ],
+  "verification": [
+    "Red: cd apps/api && uv run pytest tests/test_api_commands.py -k \"invalid_slug_format or invalid_tag_format or empty_tags\" -> failed as expected because invalid slug/tag were accepted and empty tags message was generic",
+    "Red: cd apps/web && npm run e2e -- -g \"server format errors\" -> failed as expected because .formErrorSummary did not appear for invalid Skill ID",
+    "Green: cd apps/api && uv run pytest tests/test_api_commands.py -k \"invalid_slug_format or invalid_tag_format or empty_tags\" -> 3 passed",
+    "Green: cd apps/web && npm run e2e -- -g \"server format errors\" -> 1 passed",
+    "Refactor check: cd apps/web && npm run e2e -- e2e/accessibility-workbench.spec.ts e2e/form-errors.spec.ts -> 15 passed",
+    "cd apps/api && uv run pytest -> 96 passed",
+    "cd apps/web && npm run test:unit -> 4 files / 15 tests passed",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities",
+    "cd apps/web && npm run e2e -> 64 passed",
+    "git diff --check -> passed",
+    "jq empty .agent/tasks.json .agent/tasks/TASK-052.json -> passed",
+    "wc -l apps/api/skillhub/api/main.py apps/api/tests/test_api_commands.py apps/web/e2e/accessibility-workbench.spec.ts apps/web/e2e/form-errors.spec.ts docs/superpowers/specs/2026-05-14-format-validation-design.md docs/superpowers/plans/2026-05-14-format-validation.md -> 761 / 1692 / 242 / 82 / 52 / 27"
+  ]
+}

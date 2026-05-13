@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-14 04:17 CST - TASK-052 基础格式校验第一阶段
+
+- 新增 `docs/superpowers/specs/2026-05-14-format-validation-design.md` 和执行计划，记录 GOV.UK Error Summary、MDN 表单校验和标准 Skill bundle name 规则对本轮格式校验的适配。
+- 后端新增 `SkillSlug`、`TagValue` 和 `TagsPayload` Pydantic 类型，复用到 create skill、update skill、import skill 和 create variant payload。
+- `request_validation_field_errors` 会把 `tags[0]` 这类 item 错误回填到顶层 `tags` 字段，并为 slug/tag pattern、长度和空列表输出稳定中文文案。
+- 新增 API 红绿测试覆盖非法 Skill ID、非法 tag 和空 tags；新增 E2E 覆盖 Launchpad 非法 Skill ID 的错误摘要、summary focus 和 `aria-invalid`。
+- README、API contract、产品体验评审、完成度审计、摩擦审计和 TASK-052 任务记录已更新。
+- 已验证：红灯 API 先失败于非法 slug/tag 能创建成功、空 tags 文案太泛；红灯 E2E 先失败于非法 Skill ID 后没有 `.formErrorSummary`；绿色后目标 API 3 passed、目标 E2E 1 passed；拆分表单错误 E2E 后定点 15 passed；`npm run test:unit` 4 files/15 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`uv run pytest` 96 passed；`npm run e2e` 64 passed；`git diff --check` passed；任务 JSON 结构检查 passed；关键文件行数 761/1692/242/82/52/27。
+
 ### 2026-05-14 03:58 CST - TASK-051 后端字段错误映射第一阶段
 
 - 新增 `docs/superpowers/specs/2026-05-14-api-field-errors-design.md` 和执行计划，记录 RFC 9457、JSON:API error object、FastAPI exception handler 与 GOV.UK/MOJ 表单错误实践的 SkillHub 适配方案。

@@ -98,7 +98,14 @@
 
 - `POST /api/skills` 重复 `slug`：`400`，`field_errors[0].field = "slug"`。
 - `PATCH /api/skills/{skill_id}` 重复 `slug`：`400`，`field_errors[0].field = "slug"`。
-- FastAPI 请求体校验错误：`422`，按请求体字段生成 `field_errors`。
+- FastAPI 请求体校验错误：`422`，按请求体字段生成 `field_errors`；数组 item 错误会优先回填到顶层表单字段，例如 `tags[0]` 映射为 `tags`。
+
+当前基础格式规则：
+
+| 字段 | 规则 | 错误字段 |
+| --- | --- | --- |
+| `slug` | `^[a-z0-9][a-z0-9-]{0,63}$`，小写字母、数字、连字符，必须以字母或数字开头，最多 64 字符。 | `slug` |
+| `tags[]` | 每个 tag 1-64 字符，只能使用字母、数字、`.`、`_`、`-`。 | `tags` |
 
 后续如果要支持嵌套 bundle frontmatter 或批量 case 行级错误，可以在保持 `field` 的同时增加 JSON Pointer，但不能破坏 `detail + field_errors` 的兼容契约。
 

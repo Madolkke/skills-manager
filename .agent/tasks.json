@@ -355,5 +355,12 @@
     "priority": 51,
     "passes": true,
     "spec": ".agent/tasks/TASK-051.json"
+  },
+  {
+    "id": "052",
+    "title": "基础格式校验第一阶段",
+    "priority": 52,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-052.json"
   }
 ]
