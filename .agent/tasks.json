@@ -257,5 +257,12 @@
     "priority": 37,
     "passes": true,
     "spec": ".agent/tasks/TASK-037.json"
+  },
+  {
+    "id": "038",
+    "title": "补齐 Workbench Command 单元测试",
+    "priority": 38,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-038.json"
   }
 ]

@@ -1,0 +1,33 @@
+{
+  "id": "038",
+  "title": "补齐 Workbench Command 单元测试",
+  "status": "complete",
+  "goal": "为 workbench command 配置建立最小单元测试护栏，锁住命令数量、顺序、禁用逻辑和关键回调行为，并把单元测试和生产依赖 audit 纳入 README 验证命令。",
+  "scope": [
+    "引入 Vitest 作为 apps/web 的最小 node 单元测试 runner",
+    "新增 apps/web/vitest.config.ts 和 npm run test:unit",
+    "抽出 apps/web/components/command-menu/workbench-command-config.ts 纯 command builder",
+    "新增 apps/web/components/command-menu/workbench-command-config.test.ts",
+    "将 useWorkbenchCommands 改为 useMemo 包装纯 builder",
+    "将 Next.js 安全补丁下限提升到 ^15.5.18，并确认 npm audit --omit=dev 清零",
+    "更新 README 验证命令"
+  ],
+  "out_of_scope": [
+    "引入 React Testing Library 或 jsdom",
+    "重写 CommandMenu 组件交互",
+    "新增或删除 command menu 命令",
+    "改变命令标题、快捷键、禁用原因或执行行为",
+    "调整后端 API、数据库模型或 E2E 语义"
+  ],
+  "verification": [
+    "npm run test:unit -- components/command-menu/workbench-command-config.test.ts -> failed before implementation because ./workbench-command-config was missing",
+    "npm run test:unit -- components/command-menu/workbench-command-config.test.ts -> 3 passed after extracting buildWorkbenchCommands",
+    "npm audit --omit=dev -> found 0 vulnerabilities after Next.js 15.5.18 update",
+    "cd apps/web && npm run test:unit -> 1 file passed, 3 tests passed",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed with Next.js 15.5.18",
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 50 passed",
+    "git diff --check -> passed"
+  ]
+}

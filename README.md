@@ -117,7 +117,9 @@ uv run pytest
 ```bash
 cd apps/web
 npm run typecheck
+npm run test:unit
 npm run build
+npm audit --omit=dev
 npx playwright install chromium
 npm run e2e
 ```

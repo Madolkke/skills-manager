@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-14 00:51 CST - TASK-038 Workbench Command 单元测试
+
+- 引入最小 Vitest 单元测试 runner，新增 `npm run test:unit` 和 node 环境 `vitest.config.ts`，并排除 Playwright E2E spec。
+- 新增纯 `buildWorkbenchCommands`，`useWorkbenchCommands` 只负责 `useMemo` 包装，命令配置可单元测试。
+- 新增 command config 单元测试，覆盖 14 个命令的顺序、关键文案/分组/快捷键、空 skill/无 case/不可 diff 禁用原因和回调派发。
+- 升级 Next.js 到 `15.5.18`，`npm audit --omit=dev` 已清零；README 验证命令加入 `npm run test:unit` 和 `npm audit --omit=dev`。
+- 已验证：红灯测试缺少 `./workbench-command-config` 时失败；`npm run test:unit` 1 file/3 tests passed；`npm run typecheck` passed；`npm run build` passed；`uv run pytest` 90 passed；`npm run e2e` 50 passed；`git diff --check` passed。
+
 ### 2026-05-14 00:41 CST - TASK-037 Workbench Command 配置抽离
 
 - 新增 `useWorkbenchCommands`，把 command menu 的导航、创建、测评和证据命令配置从 `DecisionWorkbench` 抽离。
