@@ -5,12 +5,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { passRate } from "@/lib/api";
 import { emptySkillDetail } from "@/lib/empty-state";
-import { percent, shortId } from "@/lib/format";
+import { formatBytes, percent, shortId } from "@/lib/format";
 import { CommandMenu, type CommandMenuItem } from "@/components/command-menu/command-menu";
 import { QuickAddCases, type QuickEvalCaseDraft } from "@/components/eval-cases/quick-add-cases";
 import { EvalReviewControls, type EvalReviewFilter } from "@/components/eval-cases/eval-review-controls";
 import { CandidateVerificationBanner } from "@/components/eval-cases/candidate-verification-banner";
-import { VerificationStartPanel } from "@/components/eval-cases/verification-start-panel";
 import { EvalCaseDetailPanel, type EvalCaseUpdateDraft } from "@/components/eval-cases/eval-case-detail-panel";
 import { GlobalCommandButton } from "@/components/command-menu/global-command-button";
 import {
@@ -18,18 +17,16 @@ import {
   type InspectorActionMode as ActionMode,
   type InspectorImportPreview as ImportPreview,
 } from "@/components/inspector/workbench-inspector";
+import { WorkbenchOverviewPane } from "@/components/overview/workbench-overview-pane";
 import { PromotionReviewPane } from "@/components/promotion-review/promotion-review-pane";
 import { RunComparisonPanel } from "@/components/run-comparison/run-comparison-panel";
 import { RunMatrixPanel, type RunMatrixControls } from "@/components/run-matrix/run-matrix-panel";
 import { SavedRunViews } from "@/components/saved-views/saved-run-views";
-import { SkillAccessPanel } from "@/components/skills/skill-access-panel";
 import { SkillAuditExplorer, type AuditExplorerFilters } from "@/components/skills/skill-audit-explorer";
 import { SkillCatalog } from "@/components/skills/skill-catalog";
-import { SkillGovernancePanel } from "@/components/skills/skill-governance-panel";
-import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
-import { SkillSettingsPanel } from "@/components/skills/skill-settings-panel";
 import { VariantCreationComposer } from "@/components/variants/variant-creation-composer";
 import { WorkspaceVersionComposer } from "@/components/variants/workspace-version-composer";
+import { Metric } from "@/components/workbench-metric";
 import {
   WorkbenchTabs,
   type WorkbenchMode,
@@ -41,7 +38,6 @@ import type {
   BundleDiff,
   BundleDiffFile,
   BundleDiffStatus,
-  BundleFile,
   EvalCaseHistory,
   EvalRunComparison,
   EvalRunRecord,
@@ -1169,7 +1165,7 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           role="tabpanel"
         >
           {mode === "overview" ? (
-            <OverviewPane
+            <WorkbenchOverviewPane
               actor={actor}
               assignSkillRole={assignSkillRole}
               busy={busy}
@@ -1359,161 +1355,6 @@ export function DecisionWorkbench({ skills: initialSkills, featuredSkill }: Deci
           switchActor={switchActor}
         />
       </aside>
-    </div>
-  );
-}
-
-function OverviewPane({
-  actor,
-  assignSkillRole,
-  busy,
-  caseCount,
-  createSkill,
-  defaultVariant,
-  hasPersistedSkill,
-  importPreview,
-  importSkill,
-  latestRun,
-  onAction,
-  onArchiveSkill,
-  onDiff,
-  onOpenEvals,
-  onOpenHistory,
-  onOpenAudit,
-  primaryEvalSetVersion,
-  refreshImportPreview,
-  revokeSkillRole,
-  score,
-  selectedDetail,
-  updateSkill,
-}: {
-  actor: string;
-  assignSkillRole: (event: FormEvent<HTMLFormElement>) => void;
-  busy: boolean;
-  caseCount: number;
-  createSkill: (event: FormEvent<HTMLFormElement>) => void;
-  defaultVariant: VariantDetail | null;
-  hasPersistedSkill: boolean;
-  importPreview: ImportPreview;
-  importSkill: (event: FormEvent<HTMLFormElement>) => void;
-  latestRun: EvalRunRecord | null;
-  onAction: (mode: ActionMode) => void;
-  onArchiveSkill: () => void;
-  onDiff: () => void;
-  onOpenEvals: () => void;
-  onOpenHistory: () => void;
-  onOpenAudit: () => void;
-  primaryEvalSetVersion?: number;
-  refreshImportPreview: (event: FormEvent<HTMLFormElement>) => void;
-  revokeSkillRole: (roleAssignmentId: string) => void;
-  score: number | null;
-  selectedDetail: SkillDetail;
-  updateSkill: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  const currentVersion = defaultVariant?.current_version ?? null;
-  const bundleFiles = bundleFilesFromVariant(defaultVariant);
-  const skillMd = fileContent(bundleFiles, "SKILL.md") ?? formatBundlePreview(defaultVariant);
-  const tags = defaultVariant?.tags ?? [];
-
-  if (!hasPersistedSkill) {
-    return (
-      <div className="linearPane overviewPane">
-        <SkillLaunchpad
-          busy={busy}
-          importPreview={importPreview}
-          onCreateSkill={createSkill}
-          onImportSkill={importSkill}
-          onRefreshImportPreview={refreshImportPreview}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="linearPane overviewPane">
-      <section className="productHero">
-        <div className="productHeroCopy">
-          <span>Default distribution</span>
-          <h2>{defaultVariant?.label ?? "暂无默认 variant"}</h2>
-          <p>{defaultVariant?.summary ?? "这个 skill 还没有默认 variant。先创建或导入一个标准 Skill bundle。"}</p>
-          <div className="tagLine">
-            {tags.length > 0 ? tags.map((tag) => <Badge key={tag} tone="blue">{tag}</Badge>) : <Badge>draft</Badge>}
-          </div>
-        </div>
-        <div className="heroScore">
-          <span>Verified score</span>
-          <strong>{latestRun ? percent(score) : "未测"}</strong>
-          <small>{latestRun ? `${latestRun.summary.passed ?? 0}/${latestRun.summary.total ?? 0} cases passed` : "等待第一次手工测评"}</small>
-        </div>
-      </section>
-
-      <div className="linearMetrics">
-        <Metric label="变体数" value={String(selectedDetail.variants.length)} />
-        <Metric label="当前版本" value={currentVersion ? `v${currentVersion.version_number}` : "暂无"} />
-        <Metric label="测评集版本" value={primaryEvalSetVersion ? `v${primaryEvalSetVersion}` : "暂无"} />
-        <Metric label="最近分数" tone={latestRun ? (score === 100 ? "good" : "bad") : "neutral"} value={latestRun ? percent(score) : "未测"} />
-      </div>
-
-      <SkillSettingsPanel
-        busy={busy}
-        defaultVariant={defaultVariant}
-        latestRun={latestRun}
-        onUpdateSkill={updateSkill}
-        score={score}
-        selectedDetail={selectedDetail}
-      />
-      <SkillAccessPanel
-        actor={actor}
-        busy={busy}
-        onAssignRole={assignSkillRole}
-        onRevokeRole={revokeSkillRole}
-        roleAssignments={selectedDetail.role_assignments}
-      />
-      <SkillGovernancePanel
-        busy={busy}
-        onArchiveSkill={onArchiveSkill}
-        onOpenAudit={onOpenAudit}
-        selectedDetail={selectedDetail}
-      />
-
-      <VerificationStartPanel
-        bundleFileCount={bundleFiles.length}
-        caseCount={caseCount}
-        currentVersionNumber={currentVersion?.version_number}
-        latestRun={latestRun}
-        onAddCase={() => onAction("new-case")}
-        onOpenEvals={onOpenEvals}
-        onOpenHistory={onOpenHistory}
-      />
-
-      <section className="linearSection bundleSection">
-        <div className="linearSectionHeader">
-          <div>
-            <h3>Skill bundle</h3>
-            <p>{bundleFiles.length > 0 ? `${bundleFiles.length} files · ${currentVersion?.content_digest ?? ""}` : currentVersion?.content_ref.locator}</p>
-          </div>
-          <div className="sectionActions">
-            <button onClick={() => onAction("new-version")} type="button">追加版本</button>
-            <button disabled={!defaultVariant || defaultVariant.versions.length < 2} onClick={onDiff} type="button">比较版本</button>
-            <Link href={defaultVariant ? `/variants/${defaultVariant.id}` : "#"}>打开详情</Link>
-          </div>
-        </div>
-        <div className="linearBundle">
-          <div className="bundleFileList">
-            {bundleFiles.length > 0 ? (
-              bundleFiles.map((file) => (
-                <span className={file.path === "SKILL.md" ? "bundleFileActive" : ""} key={file.path}>
-                  {file.path}
-                  {typeof file.size_bytes === "number" ? <small>{formatBytes(file.size_bytes)}</small> : null}
-                </span>
-              ))
-            ) : (
-              <span className="bundleFileActive">content_ref</span>
-            )}
-          </div>
-          <pre>{skillMd}</pre>
-        </div>
-      </section>
     </div>
   );
 }
@@ -2335,15 +2176,6 @@ function isTextEntryTarget(target: EventTarget | null) {
   return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
 }
 
-function Metric({ label, tone = "neutral", value }: { label: string; tone?: "neutral" | "good" | "bad"; value: string }) {
-  return (
-    <div className={`linearMetric linearMetric-${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 async function sourceFromSelectedBundle({
   folderFiles,
   zipFile,
@@ -2478,57 +2310,6 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-function formatBundlePreview(variant: VariantDetail | null): string {
-  if (!variant?.current_version) return "还没有 current version。";
-  const files = bundleFilesFromVariant(variant);
-  const importedSkill = fileContent(files, "SKILL.md") ?? skillMdFromBundleArtifact(variant.current_version.bundle_artifact?.content_text);
-  if (importedSkill) return importedSkill;
-  return [
-    `name: ${variant.label}`,
-    `tags: ${variant.tags.join(", ")}`,
-    `version: v${variant.current_version.version_number}`,
-    `locator: ${variant.current_version.content_ref.locator}`,
-    `digest: ${variant.current_version.content_digest}`,
-    "",
-    variant.current_version.change_summary,
-  ].join("\n");
-}
-
-function bundleFilesFromVariant(variant: VariantDetail | null): BundleFile[] {
-  const version = variant?.current_version;
-  if (!version) return [];
-  if (version.bundle_files?.length) return version.bundle_files;
-  return bundleFilesFromArtifact(version.bundle_artifact?.content_text);
-}
-
-function bundleFilesFromArtifact(contentText?: string | null): BundleFile[] {
-  if (!contentText) return [];
-  try {
-    const manifest = JSON.parse(contentText) as {
-      files?: BundleFile[];
-    };
-    return (manifest.files ?? []).filter((file) => typeof file.path === "string").sort((a, b) => a.path.localeCompare(b.path));
-  } catch {
-    return [];
-  }
-}
-
-function fileContent(files: BundleFile[], path: string): string | null {
-  return files.find((file) => file.path === path)?.content_text ?? null;
-}
-
-function skillMdFromBundleArtifact(contentText?: string | null): string | null {
-  if (!contentText) return null;
-  try {
-    const manifest = JSON.parse(contentText) as {
-      files?: Array<{ path?: string; content_text?: string }>;
-    };
-    return manifest.files?.find((file) => file.path === "SKILL.md")?.content_text ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function parseSkillMetadata(content: string) {
   const lines = content.split(/\r?\n/);
   const metadata: Record<string, string> = {};
@@ -2540,12 +2321,6 @@ function parseSkillMetadata(content: string) {
     metadata[line.slice(0, separator).trim()] = line.slice(separator + 1).trim().replace(/^["']|["']$/g, "");
   }
   return metadata;
-}
-
-function formatBytes(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function textValue(form: FormData, key: string) {

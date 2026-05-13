@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-14 00:15 CST - TASK-032 Workbench Overview Pane 组件抽离
+
+- 新增 `WorkbenchOverviewPane`，把概览页的空态 launchpad、product hero、metrics、设置、权限、治理、验证引导和 bundle preview 从 `DecisionWorkbench` 抽离。
+- 新增共享 `Metric` 组件，复用原 `linearMetric` class，供 Overview、Diff、History 使用，避免继续复制小 UI 单元。
+- 将 `formatBytes` 移入 `apps/web/lib/format.ts`，供导入预览、diff 和 overview bundle 文件列表共用。
+- 保留概览页 CSS class、文案、按钮入口和 handler 语义；主文件从 2616 行降到 2391 行，新 Overview 文件 223 行。
+- 已验证：`npm run typecheck` passed；`npm run build` passed；`uv run pytest` 90 passed；`npm run e2e` 50 passed；`git diff --check` passed。
+
 ### 2026-05-13 23:55 CST - TASK-031 Workbench Inspector 组件抽离
 
 - 新增 `WorkbenchInspector`，把右侧 Verification、Local Session、action menu 和 Inspector 表单从 `DecisionWorkbench` 抽离。
