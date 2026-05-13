@@ -173,5 +173,12 @@
     "priority": 25,
     "passes": true,
     "spec": ".agent/tasks/TASK-025.json"
+  },
+  {
+    "id": "026",
+    "title": "补齐 Command Menu ARIA 语义",
+    "priority": 26,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-026.json"
   }
 ]

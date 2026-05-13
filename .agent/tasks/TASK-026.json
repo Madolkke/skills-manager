@@ -1,0 +1,27 @@
+{
+  "id": "026",
+  "title": "补齐 Command Menu ARIA 语义",
+  "status": "complete",
+  "goal": "把 SkillHub command menu 升级成可测试的 dialog + editable combobox + listbox 模式。",
+  "scope": [
+    "搜索输入框使用 role=combobox 并暴露 aria-controls / aria-activedescendant",
+    "命令结果列表使用稳定 listbox / option 关系",
+    "modal dialog 内 Tab 循环，不让焦点跑到背景页面",
+    "新增可见关闭按钮并在关闭后恢复焦点",
+    "新增 Playwright accessibility 回归测试",
+    "更新中文 README、UX 复盘和完成度审计"
+  ],
+  "out_of_scope": [
+    "完整路由搜索",
+    "外部组件库",
+    "PageUp/PageDown 等复杂组合键",
+    "Run matrix ARIA 表格语义"
+  ],
+  "verification": [
+    "cd apps/api && uv run pytest -> 90 passed",
+    "cd apps/web && npm run typecheck -> passed",
+    "cd apps/web && npm run build -> passed",
+    "cd apps/web && UV_CACHE_DIR=/Users/xx/Documents/code/skills-manager/.uv-cache npm run e2e -> 47 passed",
+    "git diff --check -> passed"
+  ]
+}

@@ -41,6 +41,52 @@ test("async workbench notices are exposed as polite status updates", async ({ pa
   await expect(page.getByRole("status")).toContainText("Actor 已切换。");
 });
 
+test("command menu exposes combobox listbox semantics", async ({ page }) => {
+  await page.goto("/skills");
+
+  await page.getByRole("button", { name: "Open command menu" }).first().click();
+  const combobox = page.getByRole("combobox", { name: "Search" });
+  await expect(combobox).toBeFocused();
+
+  const listboxId = await combobox.getAttribute("aria-controls");
+  expect(listboxId).toBeTruthy();
+  await expect(page.locator(`#${listboxId}`)).toHaveAttribute("role", "listbox");
+
+  const initialActiveId = await combobox.getAttribute("aria-activedescendant");
+  expect(initialActiveId).toBeTruthy();
+  await expect(page.locator(`#${initialActiveId}`)).toHaveAttribute("role", "option");
+  await expect(page.locator(`#${initialActiveId}`)).toHaveAttribute("aria-selected", "true");
+
+  await page.keyboard.press("ArrowDown");
+  const nextActiveId = await combobox.getAttribute("aria-activedescendant");
+  expect(nextActiveId).toBeTruthy();
+  expect(nextActiveId).not.toBe(initialActiveId);
+  await expect(page.locator(`#${nextActiveId}`)).toHaveAttribute("aria-selected", "true");
+});
+
+test("command menu traps tab focus and restores focus on close", async ({ page }) => {
+  await page.goto("/skills");
+
+  const trigger = page.getByRole("button", { name: "Open command menu" }).first();
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+
+  const combobox = page.getByRole("combobox", { name: "Search" });
+  const closeButton = page.getByRole("button", { name: "关闭命令菜单" });
+  await expect(combobox).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect(closeButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(combobox).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(closeButton).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Command menu" })).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 async function maxTransitionDurationMs(locator: Locator) {
   return locator.evaluate((element) => {
     function toMs(duration: string) {

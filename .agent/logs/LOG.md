@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-13 23:42 CST - TASK-026 Command Menu ARIA 语义
+
+- 将 `CommandMenu` 收敛为 `dialog + editable combobox + listbox` 模式：搜索框暴露 `aria-controls` / `aria-activedescendant`，结果项暴露 `role=option` 和 `aria-selected`。
+- 新增可见关闭按钮，Tab 在搜索框和关闭按钮之间循环，Escape 或关闭按钮会关闭菜单并把焦点恢复到触发入口。
+- 新增 Playwright accessibility 回归，覆盖方向键更新 active option、listbox/option 关系、Tab trap 和关闭回焦点。
+- 更新 README、UX 复盘和产品完成度审计，明确 command menu ARIA 已闭环，剩余深水区集中在 run matrix 表格语义、完整焦点顺序和人工读屏验收。
+- 已验证：`uv run pytest` 90 passed；`npm run typecheck` passed；`npm run build` passed；`npm run e2e` 47 passed；`git diff --check` passed。
+
 ### 2026-05-13 23:15 CST - TASK-025 Accessibility 回归护栏
 
 - 新增 `apps/web/e2e/accessibility-workbench.spec.ts`，覆盖 skip link、可见焦点、reduced-motion 和 status notice 四条回归。
