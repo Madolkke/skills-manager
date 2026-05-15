@@ -376,5 +376,12 @@
     "priority": 54,
     "passes": true,
     "spec": ".agent/tasks/TASK-054.json"
+  },
+  {
+    "id": "055",
+    "title": "服务端批量 case 字段错误契约",
+    "priority": 55,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-055.json"
   }
 ]

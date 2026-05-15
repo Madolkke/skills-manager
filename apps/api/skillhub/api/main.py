@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from os import environ
+import re
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Request, Response
@@ -745,11 +746,22 @@ def request_validation_field_errors(errors: list[dict[str, Any]]) -> list[dict[s
 
 
 def request_body_field(location: Any) -> str:
-    parts = [str(part) for part in location if part != "body" and not isinstance(part, int)]
+    parts: list[str] = []
+    for part in location:
+        if part == "body":
+            continue
+        if isinstance(part, int):
+            if parts and parts[-1] == "cases":
+                parts[-1] = f"cases[{part}]"
+            continue
+        parts.append(str(part))
     return ".".join(parts)
 
 
 def request_validation_message(field: str, error_type: str) -> str:
+    batch_message = batch_case_validation_message(field, error_type)
+    if batch_message:
+        return batch_message
     label = API_FIELD_LABELS.get(field, field)
     if error_type == "missing":
         return f"填写 {label}"
@@ -760,6 +772,29 @@ def request_validation_message(field: str, error_type: str) -> str:
     if field == "tags" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
         return "约束标签只能使用字母、数字、点、下划线和连字符，每个最多 64 个字符。"
     return f"{label} 格式不正确。"
+
+
+BATCH_CASE_FIELD_LABELS = {
+    "title": "标题",
+    "input_text": "Input",
+    "expected_output": "Expected output",
+    "notes": "Notes",
+}
+
+
+def batch_case_validation_message(field: str, error_type: str) -> str | None:
+    match = re.fullmatch(r"cases\[(\d+)]\.(\w+)", field)
+    if not match:
+        return None
+    row_number = int(match.group(1)) + 1
+    label = BATCH_CASE_FIELD_LABELS.get(match.group(2), match.group(2))
+    if error_type in {"missing", "string_too_short"}:
+        return f"第 {row_number} 行填写{prefixed_label(label)}。"
+    return f"第 {row_number} 行 {label} 格式不正确。"
+
+
+def prefixed_label(label: str) -> str:
+    return f" {label}" if label.isascii() else label
 
 
 API_FIELD_LABELS = {

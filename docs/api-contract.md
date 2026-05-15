@@ -100,6 +100,7 @@
 - `PATCH /api/skills/{skill_id}` 重复 `slug`：`400`，`field_errors[0].field = "slug"`。
 - `POST /api/skill-imports` 解析标准 Skill bundle 失败：`400`，folder 导入回填 `folder_files`，zip 导入回填 `zip_file`。
 - FastAPI 请求体校验错误：`422`，按请求体字段生成 `field_errors`；数组 item 错误会优先回填到顶层表单字段，例如 `tags[0]` 映射为 `tags`。
+- `POST /api/eval-cases/batch` 的 `cases[]` 请求体错误保留行号，例如第 2 行缺少 `expected_output` 会返回 `field = "cases[1].expected_output"`。
 
 当前基础格式规则：
 
@@ -107,6 +108,15 @@
 | --- | --- | --- |
 | `slug` | `^[a-z0-9][a-z0-9-]{0,63}$`，小写字母、数字、连字符，必须以字母或数字开头，最多 64 字符。 | `slug` |
 | `tags[]` | 每个 tag 1-64 字符，只能使用字母、数字、`.`、`_`、`-`。 | `tags` |
+
+当前批量 case 字段错误：
+
+| 场景 | `field` | `message` | `code` |
+| --- | --- | --- | --- |
+| 第 1 行标题为空 | `cases[0].title` | `第 1 行填写标题。` | `request.string_too_short` |
+| 第 2 行缺少 Expected output | `cases[1].expected_output` | `第 2 行填写 Expected output。` | `request.missing` |
+
+`cases[n].title`、`cases[n].input_text` 和 `cases[n].expected_output` 是机器可读字段路径；`n` 是从 0 开始的请求数组索引，文案使用从 1 开始的用户行号。其他数组 item 错误仍按顶层字段回填，例如 `tags[0]` 映射为 `tags`。
 
 当前 bundle 导入字段错误：
 
@@ -121,7 +131,7 @@
 | frontmatter 缺少 `description` 或过长 | `folder_files` 或 `zip_file` | `skill_import.description_required` / `skill_import.description_too_long` |
 | zip 无法读取 | `zip_file` | `skill_import.zip_unreadable` |
 
-后续如果要支持嵌套字段或批量 case 行级错误，可以在保持 `field` 的同时增加 JSON Pointer，但不能破坏 `detail + field_errors` 的兼容契约。
+后续如果要支持更深嵌套字段，可以在保持 `field` 的同时增加 JSON Pointer，但不能破坏 `detail + field_errors` 的兼容契约。
 
 ### Local Session
 
@@ -866,6 +876,7 @@ X-SkillHub-Actor: tester
 - 为每条输入创建 input / expected artifacts。
 - 基于当前最新测评集创建一个新的 `EvalSetVersion`，包含旧 case versions 和本批新增 case versions。
 - 任一 case 缺少 title、input 或 expected output 时，整个请求失败，不写入部分数据。
+- 请求体校验失败时返回行级 `field_errors`，例如 `cases[0].title` 或 `cases[1].expected_output`；客户端可把这些错误回填到批量录入控件或表格行。
 
 ### Create Eval Case Version
 

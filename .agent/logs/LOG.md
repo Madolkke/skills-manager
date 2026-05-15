@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-15 10:22 CST - TASK-055 服务端批量 case 字段错误契约
+
+- 新增 `docs/superpowers/specs/2026-05-15-batch-case-api-field-errors-design.md` 和执行计划，记录 JSON:API、RFC 9457 与 GOV.UK Error Summary 对批量 API 字段定位的适配。
+- `request_body_field` 对 `cases[]` 保留索引，返回 `cases[n].field`；对其他数组 item 继续折叠到顶层字段，保持 `tags[0] -> tags` 兼容行为。
+- 新增批量 case 行级中文文案：缺少或填空 `title`、`input_text`、`expected_output` 时返回“第 n 行填写字段”。
+- 新增 API 红绿测试覆盖第 1 行标题为空和第 2 行缺少 Expected output，保证直连批量 API 不再只能得到泛化 `cases.field`。
+- README、API contract、产品体验评审、完成度审计、摩擦审计和 TASK-055 任务记录已更新。
+- 已验证：红灯 API 先失败于字段名缺少 `cases[n]` 行号和泛化文案；绿色后目标 API 2 passed；`UV_NO_CACHE=1 uv run pytest` 99 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run e2e` 66 passed；`git diff --check` passed；任务 JSON 结构检查 passed；关键文件行数 844/1778/1009/221/175/210/171/41/27/20/426。
+
 ### 2026-05-15 04:20 CST - TASK-054 批量 case 行级错误第一阶段
 
 - 新增 `docs/superpowers/specs/2026-05-15-batch-case-row-errors-design.md` 和执行计划，记录 GOV.UK Error Summary、Airtable 多行粘贴和 TestRail case import 对批量错误体验的适配。

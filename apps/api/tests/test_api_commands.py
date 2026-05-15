@@ -184,6 +184,44 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(skill_detail["eval_sets"][0]["current_version"]["id"], body["eval_set_version_id"])
         self.assertEqual(len(skill_detail["eval_sets"][0]["versions"]), 2)
 
+    def test_batch_eval_cases_endpoint_returns_row_field_errors(self):
+        skill = self.create_skill("batch-case-errors")
+
+        response = self.client.post(
+            "/api/eval-cases/batch",
+            json={
+                "skill_id": skill["skill_id"],
+                "cases": [
+                    {
+                        "title": "",
+                        "input_text": "Project.all()",
+                        "expected_output": "Flag missing tenant scope.",
+                    },
+                    {
+                        "title": "PR: token logging",
+                        "input_text": "console.log(token)",
+                    },
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["field_errors"],
+            [
+                {
+                    "field": "cases[0].title",
+                    "message": "第 1 行填写标题。",
+                    "code": "request.string_too_short",
+                },
+                {
+                    "field": "cases[1].expected_output",
+                    "message": "第 2 行填写 Expected output。",
+                    "code": "request.missing",
+                },
+            ],
+        )
+
     def test_read_flow_returns_hub_skill_eval_set_and_eval_run_details(self):
         skill = self.create_skill("security-reviewer", digest="digest-security")
         case = self.client.post(
