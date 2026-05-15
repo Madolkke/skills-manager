@@ -915,3 +915,30 @@ test("workbench keeps the primary content within a mobile viewport", async ({ pa
   const box = await workbench.boundingBox();
   expect(box?.width).toBeLessThanOrEqual(390);
 });
+
+test("batch case preview stacks and scrolls within a mobile viewport", async ({ page }) => {
+  await importSkillBundle(page, `mobile-batch-preview-${Date.now()}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+
+  await page.getByRole("tab", { name: "测评", exact: true }).click();
+  await page.getByRole("button", { name: "批量", exact: true }).click();
+  await page.getByLabel("批量 case 文本").fill(
+    [
+      "PR: missing tenant scope | Project.all() | Flag missing tenant scope.",
+      "PR: token logging | console.log(token)",
+    ].join("\n"),
+  );
+
+  const textAreaBox = await page.getByLabel("批量 case 文本").boundingBox();
+  const statsBox = await page.locator(".quickCaseBatchPreview").boundingBox();
+  expect(statsBox?.y).toBeGreaterThan((textAreaBox?.y ?? 0) + 80);
+
+  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(documentWidth).toBeLessThanOrEqual(390);
+  const tableScroll = await page.locator(".quickCaseBatchTableFrame").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(tableScroll.scrollWidth).toBeGreaterThan(tableScroll.clientWidth);
+});

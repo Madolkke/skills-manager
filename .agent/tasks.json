@@ -397,5 +397,12 @@
     "priority": 57,
     "passes": true,
     "spec": ".agent/tasks/TASK-057.json"
+  },
+  {
+    "id": "058",
+    "title": "批量 case 预览移动端护栏",
+    "priority": 58,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-058.json"
   }
 ]

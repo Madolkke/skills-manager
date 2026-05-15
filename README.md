@@ -24,7 +24,7 @@
 - `/skills` 支持第二阶段 URL state：可以直达某个 skill 的 `概览 / 变体 / 测评 / 差异 / 历史 / 审计 / 评审`，并恢复 diff pair/file/filter、eval target/case、history filters、selected run、run comparison、matrix controls、audit filters 和 promotion review context；刷新、复制链接和浏览器 Back/Forward 都能还原这些证据上下文。
 - 工作台有基础 accessibility 护栏：键盘用户可用 skip link 直接进入主内容；全局 focus ring 更醒目；`prefers-reduced-motion` 会压低非必要动效；操作结果通过 `role=status` 暴露给读屏软件；命令菜单、Workbench mode tabs、Run matrix 和 Inspector action 焦点交接已有 E2E 回归。
 - 表单字段基础件已覆盖主要工作台表单：`SkillLaunchpad`、`WorkbenchInspector`、快速添加 case、case 详情内联编辑、skill 设置、访问控制、危险区确认、保存历史视图、history filters、run matrix controls 和 diff selectors 都使用共享字段壳层；业务 text/textarea 默认显式 `autocomplete="off"`。高频写入表单现在使用 `ValidatedForm` 做 required 字段错误摘要、字段旁错误、`aria-invalid` 和摘要链接聚焦，不再依赖浏览器原生 required 气泡；后端唯一性和请求体校验错误会保留 `detail` 并返回 `field_errors`，新建/编辑 skill 时重复或格式错误的 Skill ID 会直接回填到 `Skill ID` 字段，非法 tag 会回填到 `约束标签` 字段，导入 bundle 的 `SKILL.md`、frontmatter 或 zip 解析错误会回填到对应的文件上传字段，直连 `POST /api/eval-cases/batch` 时缺字段也会返回 `cases[n].field` 行级错误。
-- `测评` 页支持单条快速添加和批量粘贴 case；批量写入会生成一个新的 `EvalSetVersion`，避免逐条添加制造版本噪音。批量粘贴会显示逐行导入预览表，提交前可以扫到每行状态、标题、Input、Expected output 和 Notes；缺少标题、Input 或 Expected output 时会显示行号和错误摘要，服务端也会用同样的行级字段契约拒绝不完整批量请求。
+- `测评` 页支持单条快速添加和批量粘贴 case；批量写入会生成一个新的 `EvalSetVersion`，避免逐条添加制造版本噪音。批量粘贴会显示逐行导入预览表，提交前可以扫到每行状态、标题、Input、Expected output 和 Notes；窄屏下 textarea、统计卡、预览表和提交按钮会纵向排布，预览表只在内部横向滚动；缺少标题、Input 或 Expected output 时会显示行号和错误摘要，服务端也会用同样的行级字段契约拒绝不完整批量请求。
 - Eval case 文本有服务端资产保护上限：标题最多 160 字符，Input 最多 20000 字符，Expected output 最多 10000 字符，Notes 最多 2000 字符；超限会回填到对应字段或 `cases[n].field`，不会自动截断。
 - `测评` 页的手工确认区是 review queue：可按全部/未确认/通过/不通过筛选，点击通过/不通过后自动前进到下一条未确认 case，并支持把未确认项批量标为通过。
 - 导入标准 Skill bundle 后，`概览` 会显示验证清单，引导用户补首批 case、记录首轮手工测评，再进入历史页沉淀证据。

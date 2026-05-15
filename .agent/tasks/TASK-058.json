@@ -1,0 +1,31 @@
+{
+  "id": "058",
+  "title": "批量 case 预览移动端护栏",
+  "status": "complete",
+  "goal": "确保批量 case 导入预览在移动端纵向排布，不把 textarea 和统计卡挤成难读的两栏。",
+  "scope": [
+    "新增移动端 E2E 保护批量预览布局",
+    "移动端让批量 textarea、统计卡、预览表和提交按钮纵向排布",
+    "保证页面整体不产生横向文档滚动",
+    "保留预览表内部横向滚动",
+    "更新任务记录和验证日志"
+  ],
+  "out_of_scope": [
+    "重新设计整个测评页移动端信息架构",
+    "表格内联编辑",
+    "CSV 高级解析"
+  ],
+  "verification": [
+    "红灯 E2E：npm run e2e -- skills-workbench.spec.ts -g \"batch case preview stacks\" -> failed，统计卡 y 坐标仍在 textarea 同行范围内。",
+    "绿色目标 E2E：npm run e2e -- skills-workbench.spec.ts -g \"batch case preview stacks\" -> 1 passed。",
+    "浏览器 QA：in-app Browser 当前 /skills 测评页显示批量 case 预览表，console error/warn 为 0，截图无可见框架错误覆盖层。",
+    "后端全量：cd apps/api && UV_NO_CACHE=1 uv run pytest -> 102 passed。",
+    "前端单元：cd apps/web && npm run test:unit -> 5 files / 16 tests passed。",
+    "前端类型：cd apps/web && npm run typecheck -> passed。",
+    "前端构建：cd apps/web && npm run build -> passed。",
+    "依赖审计：cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities。",
+    "E2E：cd apps/web && npm run e2e -> 67 passed。",
+    "结构检查：git diff --check -> passed；jq empty .agent/tasks.json .agent/tasks/TASK-058.json -> passed。",
+    "关键文件行数：944 / 8372 / 223 / 179 / 216 / 174 / 29 / 63 / 19 / 408 / 444。"
+  ]
+}

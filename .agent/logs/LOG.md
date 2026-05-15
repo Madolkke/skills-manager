@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-15 22:57 CST - TASK-058 批量 case 预览移动端护栏
+
+- 新增 `docs/superpowers/specs/2026-05-15-batch-case-preview-mobile-design.md` 和执行计划，记录批量 case 预览在窄屏下的响应式边界。
+- 新增移动端 E2E：导入标准 Skill bundle 后切换到 390px viewport，批量粘贴 case，断言统计卡位于 textarea 下方。
+- E2E 同时保护页面不出现文档级横向滚动，并确认预览表保留容器内部横向滚动。
+- `quickCaseHeader`、`quickCaseGrid` 和 `quickCaseBatch` 在 640px 以下改为单列，统计卡、表格容器和提交按钮填满可用宽度。
+- README、产品体验评审、完成度审计、摩擦审计和 TASK-058 任务记录已更新。
+- 已验证：红灯 E2E 先失败于统计卡仍在 textarea 同行范围内；绿色后目标 E2E 1 passed；in-app Browser 当前测评页显示批量预览表、console error/warn 为 0、截图无可见框架错误覆盖层；`UV_NO_CACHE=1 uv run pytest` 102 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run e2e` 67 passed；`git diff --check` passed；任务 JSON 结构检查 passed；关键文件行数 944/8372/223/179/216/174/29/63/19/408/444。
+
 ### 2026-05-15 22:25 CST - TASK-057 批量 case 导入预览表
 
 - 新增 `docs/superpowers/specs/2026-05-15-batch-case-import-preview-design.md` 和执行计划，记录 TestRail CSV preview/finalize、Airtable CSV import preview 和 GOV.UK Error Summary 对批量导入体验的适配。

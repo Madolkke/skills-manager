@@ -1021,6 +1021,42 @@ a:focus-visible {
   line-height: 1.7;
 }
 
+@media (max-width: 640px) {
+  .quickCaseHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quickCaseModeSwitch {
+    width: 100%;
+  }
+
+  .quickCaseModeSwitch button {
+    flex: 1;
+  }
+
+  .quickCaseGrid,
+  .quickCaseBatch {
+    grid-template-columns: 1fr;
+  }
+
+  .quickCaseNotesField,
+  .quickCaseBatchTableFrame,
+  .quickCaseBatchEmpty,
+  .quickCaseBatchErrors {
+    grid-column: 1;
+  }
+
+  .quickCaseBatchPreview,
+  .quickCaseBatch button {
+    width: 100%;
+  }
+
+  .quickCaseBatchTableFrame {
+    max-width: 100%;
+  }
+}
+
 .pageHeader,
 .hubOverview,
 .stack,

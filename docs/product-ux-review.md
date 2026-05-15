@@ -19,7 +19,7 @@
 - `概览` 页现在提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档放进需要输入当前 skill ID 的危险区；用户也可以进入 `审计 Explorer`，用 action quick filters、actor/action/resource type 过滤、可读时间线和结构化详情追踪事件，Raw payload 默认折叠。
 - 右侧 inspector 顶部新增 `Local session` 面板，显示当前本地 actor，并允许切换为 `release-manager` 等本地身份；后端用签名 HttpOnly cookie 承载 actor，前端 mutation 不再硬编码身份 header。
 - 工作台新增基础 accessibility 护栏：首个 Tab 可聚焦 `跳到主要内容`，焦点 ring 更高对比，reduced-motion 下非必要 transition 被压低，异步操作结果用 `role=status` 暴露。
-- `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。批量粘贴会标出缺字段的行号并阻止静默跳过无效行。
+- `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。批量粘贴会标出缺字段的行号并阻止静默跳过无效行；移动端会把批量 textarea、统计卡、预览表和提交按钮纵向排布，避免窄屏挤压。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
 - `测评` 页的 case 详情面板支持内联编辑，用户可以在当前测评上下文中修改 title、input、expected output、notes，并保存为新的 case version。
 - `概览` 页新增导入后验证清单，用户导入 bundle 后可以直接补首批 case、进入手工测评、再查看证据历史。
@@ -156,6 +156,7 @@
 40. 以前导入 bundle 时如果 `SKILL.md` frontmatter 或 zip 有问题，用户只能看到全局失败提示；现在错误摘要会指向文件夹或 zip 上传字段，并在字段旁显示同一条修正说明。
 41. 以前批量粘贴 case 会静默跳过无效行；现在会显示第几行缺少标题、Input 或 Expected output，并阻止只提交部分有效行。
 42. 以前批量粘贴前看不到解析结果；现在预览表会展示每行的状态、标题、Input、Expected output 和 Notes，用户提交前能发现串列或漏字段。
+43. 以前移动端批量预览沿用桌面两栏，textarea 和统计卡会挤在同一行；现在窄屏下批量输入、统计、预览表和提交按钮纵向排布，页面本身不横向滚动，只让表格容器内部滚动。
 
 ## 仍然存在的摩擦
 
