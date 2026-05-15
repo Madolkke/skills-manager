@@ -129,6 +129,8 @@ test("batch case row errors block submit and focus the batch field", async ({ pa
       "PR: token logging | console.log(token)",
     ].join("\n"),
   );
+  await expect(page.locator(".quickCaseBatchTable")).toContainText("PR: missing tenant scope");
+  await expect(page.locator(".quickCaseBatchTable")).toContainText("需修正");
   await page.getByRole("button", { name: "批量加入评测集" }).click();
 
   const summary = page.locator(".quickCaseBatch").locator(".formErrorSummary");

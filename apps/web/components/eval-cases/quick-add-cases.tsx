@@ -10,6 +10,7 @@ import {
 } from "@/components/eval-cases/quick-add-cases-parser";
 import { ValidatedForm, type FormFieldError } from "@/components/forms/form-validation";
 import { TextAreaField, TextField } from "@/components/forms/workbench-field";
+import { BatchCasePreviewTable } from "./batch-case-preview-table";
 
 export type { QuickEvalCaseDraft } from "@/components/eval-cases/quick-add-cases-parser";
 
@@ -96,6 +97,7 @@ export function QuickAddCases({
             <strong>可导入 {parsed.valid.length} 条</strong>
             <span>{parsed.invalidCount > 0 ? `发现 ${parsed.invalidCount} 行需要修正` : "空行自动忽略"}</span>
           </div>
+          <BatchCasePreviewTable rows={parsed.previewRows} />
           {parsed.invalidRows.length > 0 ? <BatchCaseErrors rows={parsed.invalidRows} /> : null}
           <button disabled={busy} type="submit">批量加入评测集</button>
         </ValidatedForm>

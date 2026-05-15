@@ -390,5 +390,12 @@
     "priority": 56,
     "passes": true,
     "spec": ".agent/tasks/TASK-056.json"
+  },
+  {
+    "id": "057",
+    "title": "批量 case 导入预览表",
+    "priority": 57,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-057.json"
   }
 ]

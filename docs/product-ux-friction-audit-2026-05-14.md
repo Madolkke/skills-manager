@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
+状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
 
 ## 审计输入
 
@@ -126,6 +126,7 @@
 - TASK-054 新增批量 case 行级错误第一阶段：前端 parser 返回 `invalidRows`，批量表单有无效行时阻止提交、聚焦错误摘要，并把错误回填到 `batch_cases` textarea。
 - TASK-055 新增服务端批量 case 字段错误契约：直连 `POST /api/eval-cases/batch` 时，缺字段或空字段返回 `cases[n].title`、`cases[n].expected_output` 这类行级 `field_errors`，同时保留 `tags[0] -> tags` 的旧映射。
 - TASK-056 新增 eval case 文本长度校验：标题、Input、Expected output 和 Notes 超限时返回字段级错误，避免测试资产被误用成无限长文本存储。
+- TASK-057 新增批量 case 导入预览表：粘贴后逐行展示可导入/需修正、标题、Input、Expected output 和 Notes，提交前就能发现串列。
 
 影响：
 
@@ -134,6 +135,7 @@
 - 导入 bundle 的结构错误不再被当成普通 toast；用户能直接知道该重新选择文件夹还是 zip。
 - 批量粘贴 case 不再静默跳过坏行；用户能看到第几行缺少标题、Input 或 Expected output。自动化脚本或外部导入工具直接调批量 API 时也能拿到同样的行级字段定位。
 - 过长 eval case 不再悄悄进入测评集；维护者会看到对应字段的上限说明，并明确知道内容没有被截断保存。
+- 批量粘贴不再是黑盒文本提交；用户可以在预览表中扫到解析结果，再决定是否提交。
 - 后续新增表单应该优先复用 `WorkbenchField`，而不是在 pane 内继续手写 label/control。
 
 建议：

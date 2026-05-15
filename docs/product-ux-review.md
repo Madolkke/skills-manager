@@ -81,8 +81,9 @@
 - **GitHub Command Palette:** 命令菜单兼具导航、搜索和运行命令能力；SkillHub 借鉴其 scope 思路，把菜单限定在当前 skill 工作区，避免全局搜索过早膨胀。
 - **TestRail quick outline:** 测试用例管理工具会区分完整表单和快速 outline。SkillHub 借鉴“快速进入测试集”的速度，但不允许只填标题，仍要求 `input + expected output`，保证测评资产质量。
 - **TestRail Pass & Next / bulk result:** TestRail 在三栏执行视图里提供快速通过并进入下一条，也支持批量提交相同结果。SkillHub 适配为“通过/不通过后自动前进”和“仅把未确认项标为通过”，避免覆盖已发现的失败。
+- **TestRail CSV import preview:** TestRail 的导入流程有 preview/finalize 步骤。SkillHub 适配为批量 case 预览表：先展示每行状态和解析字段，再允许一次性写入评测集。
 - **TestRail hotkeys:** TestRail 为 run/test 导航和结果提交提供快捷键。SkillHub 适配为 `p/f` 标记当前 case、`j/k` 或方向键移动；快捷键不会在输入框中触发。
-- **Airtable 多行粘贴:** 表格型产品允许复制多行记录并一次粘贴创建，同时让用户在导入前看到可修正的问题。SkillHub 借鉴这个批量输入体验，用 tab 或 `|` 分隔的文本把已有 PR/backlog 表格转成多个 eval case，并把无效行显示为行级错误。
+- **Airtable 多行粘贴 / CSV import preview:** 表格型产品允许复制多行记录并一次粘贴创建，同时让用户在导入前看到 sample records 和可修正问题。SkillHub 借鉴这个批量输入体验，用 tab 或 `|` 分隔的文本把已有 PR/backlog 表格转成多个 eval case，并在预览表中展示每行状态。
 - **Airtable record filtering:** Airtable 的表格体验强调在大量记录中筛选和移动。SkillHub 适配为全部/未确认/通过/不通过四种状态筛选，让测评执行从“扫整页”变成“处理队列”。
 - **Airtable record detail sidesheet:** Airtable 让用户从表格选中记录后在详情中直接编辑字段。SkillHub 适配为测评 case 详情内联编辑，保持“左侧选择、右侧/主区编辑”的连续工作流。
 - **Linear Peek / inline issue fields:** Linear 的 Peek 和 issue detail 让用户不离开列表上下文就能改标题/描述等字段。SkillHub 适配为选中 case 后直接编辑 input 和 expected output，但保存仍显式生成新版本。
@@ -119,7 +120,7 @@
 4. 以前 risky promotion 没有前端约束；现在发现回退或仍失败时必须填写说明。
 5. 以前 history 只能读单次 run；现在可以比较两次同快照 run，并把候选 run 接受为验证依据。
 6. 以前高频动作散落在 inspector 和 tab 中；现在 `Cmd/Ctrl+K` 可以直接跳到添加 case、导入 bundle、记录测评等动作。
-7. 以前扩充测评集只能逐条走右侧表单；现在可以在测评页直接单条快加或批量粘贴，批量写入也只生成一个 eval set snapshot。
+7. 以前扩充测评集只能逐条走右侧表单；现在可以在测评页直接单条快加或批量粘贴，批量模式会先显示逐行导入预览，批量写入也只生成一个 eval set snapshot。
 8. 以前记录 run 前要手动扫完整 case 列表；现在可以筛选未确认、结果后自动前进、批量通过未确认项，并用键盘连续确认。
 9. 以前追加 candidate 后要手动找目标版本；现在创建 candidate 会自动切到候选测评，并提供评审入口。
 10. 以前导入后用户要自己推理下一步；现在概览页用验证清单把添加首批 case、打开手工测评、查看证据历史串起来。
@@ -154,6 +155,7 @@
 39. 以前命令菜单只会根据 mode 估计意图；现在会记住本地最近使用命令，并在选中 case/run 时展示可执行的 selection-aware 命令和 preview。
 40. 以前导入 bundle 时如果 `SKILL.md` frontmatter 或 zip 有问题，用户只能看到全局失败提示；现在错误摘要会指向文件夹或 zip 上传字段，并在字段旁显示同一条修正说明。
 41. 以前批量粘贴 case 会静默跳过无效行；现在会显示第几行缺少标题、Input 或 Expected output，并阻止只提交部分有效行。
+42. 以前批量粘贴前看不到解析结果；现在预览表会展示每行的状态、标题、Input、Expected output 和 Notes，用户提交前能发现串列或漏字段。
 
 ## 仍然存在的摩擦
 

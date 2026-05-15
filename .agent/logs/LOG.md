@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-15 22:25 CST - TASK-057 批量 case 导入预览表
+
+- 新增 `docs/superpowers/specs/2026-05-15-batch-case-import-preview-design.md` 和执行计划，记录 TestRail CSV preview/finalize、Airtable CSV import preview 和 GOV.UK Error Summary 对批量导入体验的适配。
+- `parseBatchCases` 新增 `previewRows`，每条非空粘贴行都会给出行号、状态、解析字段和可选错误文案。
+- 新增 `BatchCasePreviewTable`，批量模式下显示语义化预览表，区分 `可导入` 与 `需修正`，并展示标题、Input、Expected output 和 Notes。
+- 预览表只负责提交前确认；修正仍回到 textarea，不在本阶段引入复杂内联编辑或 CSV mapping。
+- README、产品体验评审、完成度审计、摩擦审计和 TASK-057 任务记录已更新。
+- 已验证：红灯 unit 先失败于 `previewRows` 缺失；红灯 E2E 先失败于 `.quickCaseBatchTable` 不存在；绿色后目标 unit 1 passed、目标 E2E 2 passed；in-app Browser 桌面检查预览表可见、状态可读、console error/warn 为空；`UV_NO_CACHE=1 uv run pytest` 102 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run e2e` 66 passed；`git diff --check` passed；任务 JSON 结构检查 passed；关键文件行数 100/47/51/122/8336/142/917/223/178/214/173/45/70/35/444。
+
 ### 2026-05-15 10:55 CST - TASK-056 Eval case 文本长度校验
 
 - 新增 `docs/superpowers/specs/2026-05-15-eval-case-length-validation-design.md` 和执行计划，记录 GOV.UK/MOJ、MDN 以及 GitHub/Linear 类工作流产品对标题/正文边界的适配。

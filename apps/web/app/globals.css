@@ -899,7 +899,121 @@ a:focus-visible {
   font-weight: 760;
 }
 
+.quickCaseBatchTableFrame,
+.quickCaseBatchEmpty {
+  grid-column: 1 / -1;
+  overflow: auto;
+  border: 1px solid #dce4ee;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.quickCaseBatchEmpty {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+}
+
+.quickCaseBatchEmpty strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.quickCaseBatchEmpty span {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.quickCaseBatchTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.quickCaseBatchTable caption {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e3e9f2;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 950;
+  text-align: left;
+}
+
+.quickCaseBatchTable th,
+.quickCaseBatchTable td {
+  max-width: 220px;
+  border-bottom: 1px solid #eef2f7;
+  color: #334155;
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.quickCaseBatchTable thead th {
+  background: #f8fafc;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.quickCaseBatchTable tbody th {
+  width: 44px;
+  color: #64748b;
+  font-weight: 950;
+}
+
+.quickCaseBatchTable td span,
+.quickCaseBatchTable td em {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quickCaseBatchTable td em {
+  color: #98a2b3;
+  font-style: normal;
+}
+
+.quickCaseBatchStatus {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 3px 7px;
+}
+
+.quickCaseBatchStatus-valid {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.quickCaseBatchStatus-invalid {
+  background: #fff1f3;
+  color: #c01048;
+}
+
+.quickCaseBatchTable small {
+  display: block;
+  margin-top: 5px;
+  color: var(--danger-strong);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.quickCaseBatchRowInvalid td,
+.quickCaseBatchRowInvalid th {
+  background: #fffafa;
+}
+
 .quickCaseBatchErrors {
+  grid-column: 1 / -1;
   margin: 0;
   padding: 0 0 0 18px;
   color: var(--danger-strong);

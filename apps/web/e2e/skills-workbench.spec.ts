@@ -386,6 +386,8 @@ test("operator can batch paste eval cases and record a run", async ({ page }) =>
     ].join("\n"),
   );
   await expect(page.getByText("可导入 2 条")).toBeVisible();
+  await expect(page.locator(".quickCaseBatchTable")).toContainText("PR: token logging");
+  await expect(page.locator(".quickCaseBatchTable")).toContainText("可导入");
   await page.getByRole("button", { name: "批量加入评测集" }).click();
 
   await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: missing tenant scope" })).toBeVisible();
