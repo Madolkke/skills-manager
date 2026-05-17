@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及真实认证、多用户协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、批量 case 预览移动端护栏、保存视图名称字段级校验、accepted verification note 字段级校验、promotion decision note 字段级校验、Variant 写入字段校验、Skill capabilities 权限感知、本地登录门禁第一阶段、身份引用字段格式校验第一阶段、表单错误摘要统计、低频长文本字符计数、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
+状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及真实认证、多用户协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、批量 case 预览移动端护栏、保存视图名称字段级校验、accepted verification note 字段级校验、promotion decision note 字段级校验、Variant 写入字段校验、Skill capabilities 权限感知、本地登录门禁第一阶段、本地 session 退出控制、身份引用字段格式校验第一阶段、表单错误摘要统计、低频长文本字符计数、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
 
 ## 审计输入
 
@@ -154,6 +154,7 @@
 - TASK-063 新增 variant 写入字段校验：variant 名称最多 80 字符，variant 说明和版本说明最多 1000 字符；主工作区 `新建约束 variant` 和 `追加候选版本` 会显示错误摘要、字段旁错误和 `aria-invalid`。
 - TASK-066 新增表单错误摘要统计：`ValidatedForm` 的错误摘要会显示需要修正的字段数量，保留原有 summary focus、摘要链接和字段旁错误。
 - TASK-067 新增低频长文本字符计数：`TextAreaField.characterLimit` 会显示剩余/超出字符数，并把计数节点加入 `aria-describedby`；variant summary、change summary、verification note 和 promotion decision note 已接入 1000 字符提示。
+- TASK-068 新增本地 session 退出控制：`Local login` 面板提供 `退出登录`，调用 `DELETE /api/session` 清除 actor cookie，前端刷新 actor 和 capabilities，退出后创建/导入 skill 回到默认 owner。
 
 影响：
 

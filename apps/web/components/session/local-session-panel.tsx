@@ -8,10 +8,15 @@ import { TextField } from "@/components/forms/workbench-field";
 type LocalSessionPanelProps = {
   actor: string;
   busy: boolean;
+  onClearSession: () => void | Promise<void>;
   onSwitchActor: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-export function LocalSessionPanel({ actor, busy, onSwitchActor }: LocalSessionPanelProps) {
+const DEFAULT_ACTOR = "product-operator";
+
+export function LocalSessionPanel({ actor, busy, onClearSession, onSwitchActor }: LocalSessionPanelProps) {
+  const canClearSession = actor !== DEFAULT_ACTOR;
+
   return (
     <section className="localSessionPanel">
       <div className="localSessionHeader">
@@ -32,7 +37,18 @@ export function LocalSessionPanel({ actor, busy, onSwitchActor }: LocalSessionPa
           required
           type="password"
         />
-        <button disabled={busy} type="submit">登录 actor</button>
+        <div className="localSessionActions">
+          <button disabled={busy} type="submit">登录 actor</button>
+          <button
+            className="localSessionSecondaryButton"
+            disabled={busy || !canClearSession}
+            onClick={onClearSession}
+            title={canClearSession ? "清除本地 actor session。" : "当前已经是默认 actor。"}
+            type="button"
+          >
+            退出登录
+          </button>
+        </div>
       </ValidatedForm>
     </section>
   );

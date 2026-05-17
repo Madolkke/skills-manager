@@ -5065,7 +5065,7 @@ body {
 }
 
 .localSessionForm .formErrorSummary,
-.localSessionForm button {
+.localSessionActions {
   grid-column: 1 / -1;
 }
 
@@ -5085,6 +5085,12 @@ body {
   padding: 7px 9px;
 }
 
+.localSessionActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr);
+  gap: 8px;
+}
+
 .localSessionForm button {
   min-height: 36px;
   border: 1px solid #14532d;
@@ -5095,6 +5101,12 @@ body {
   font-weight: 900;
   padding: 0 11px;
   width: 100%;
+}
+
+.localSessionForm .localSessionSecondaryButton {
+  border-color: #d4dce8;
+  background: #ffffff;
+  color: #536176;
 }
 
 .localSessionForm button:disabled {

@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-17 17:43 CST - TASK-068 本地 session 退出控制
+
+- `LocalSessionPanel` 新增 `退出登录` 次级按钮，非默认 actor 时调用 `DELETE /api/session`，默认 actor `product-operator` 下按钮禁用并给出标题说明。
+- `DecisionWorkbench.clearSession` 复用现有 session API，把 actor 状态回写为后端返回值，并通过现有 skill/capabilities 加载链路刷新后续 owner 与权限判断。
+- E2E 新增本地 session 退出闭环：先登录为 `release-manager`，退出后回到 `product-operator`，再导入 skill 验证 owner 归属回到默认 actor。
+- README、产品体验评审、摩擦审计、完成度审计、Superpowers spec/plan 和 TASK-068 任务记录已更新；受 Local login 面板影响的桌面与移动端视觉基线已按意图更新。
+- 已验证：红灯 E2E 先失败于没有 `退出登录` 按钮；绿色后目标 E2E 1 passed；local session 视觉更新 1 passed；全量视觉更新 10 passed；`UV_NO_CACHE=1 uv run pytest` 109 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；完整 `npm run e2e` 74 passed。
+
 ### 2026-05-17 17:24 CST - TASK-067 低频长文本字符计数
 
 - 新增 `TextAreaField.characterLimit`，字段会显示 `还可输入 N 个字符` 或 `已超出 N 个字符`，并把计数节点加入 `aria-describedby`。

@@ -45,6 +45,7 @@ type WorkbenchInspectorProps = {
   importSkill: (event: FormEvent<HTMLFormElement>) => void;
   latestRun: EvalRunRecord | null;
   onAction: (mode: InspectorActionMode) => void;
+  onClearSession: () => void | Promise<void>;
   onSelectCase: (caseId: string) => void;
   passedDraft: number;
   recordEvalRun: () => void;
@@ -99,6 +100,7 @@ export function WorkbenchInspector({
   defaultVariant,
   latestRun,
   onAction,
+  onClearSession,
   onSelectCase,
   importPreview,
   failedDraft,
@@ -143,7 +145,7 @@ export function WorkbenchInspector({
         </div>
       </section>
 
-      <LocalSessionPanel actor={actor} busy={busy} onSwitchActor={switchActor} />
+      <LocalSessionPanel actor={actor} busy={busy} onClearSession={onClearSession} onSwitchActor={switchActor} />
 
       <div className="actionMenu">
         {actionItems.map(({ mode, label }) => (

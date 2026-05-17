@@ -271,6 +271,24 @@ test("operator can switch local session actor before importing a skill", async (
   await expect(accessPanel.locator(".skillAccessRow").filter({ hasText: "release-manager" })).toContainText("Owner");
 });
 
+test("operator can clear the local session actor", async ({ page, request }) => {
+  await clearSkillCatalog(request);
+  const sessionPanel = page.locator(".localSessionPanel");
+
+  await gotoSkills(page);
+  await sessionPanel.getByPlaceholder("release-manager").fill("release-manager");
+  await sessionPanel.getByPlaceholder("skillhub-dev").fill("skillhub-dev");
+  await sessionPanel.getByRole("button", { name: "登录 actor" }).click();
+  await expect(sessionPanel).toContainText("release-manager");
+
+  await sessionPanel.getByRole("button", { name: "退出登录" }).click();
+  await expect(sessionPanel).toContainText("product-operator");
+  await expect(sessionPanel.getByRole("button", { name: "退出登录" })).toBeDisabled();
+
+  await importSkillBundle(page, `session-clear-${Date.now()}`);
+  await expect(page.locator(".skillAccessPanel .skillAccessRow").filter({ hasText: "product-operator" })).toContainText("Owner");
+});
+
 test("operator can filter skill audit events in the explorer", async ({ page }) => {
   await importSkillBundle(page, `audit-explorer-${Date.now()}`);
 

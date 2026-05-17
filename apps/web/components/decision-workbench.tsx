@@ -855,6 +855,14 @@ export function DecisionWorkbench({
     });
   }
 
+  async function clearSession() {
+    await runCommand("已退出本地登录。", async () => {
+      const session = await apiSend<SessionResponse>("/api/session", { method: "DELETE" });
+      setActor(session.actor);
+      return "已退出本地登录。";
+    });
+  }
+
   async function createSkill(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -1479,6 +1487,7 @@ export function DecisionWorkbench({
           currentEvalSetVersionId={currentEvalSetVersion?.id}
           defaultVariant={defaultVariant}
           latestRun={latestRun}
+          onClearSession={clearSession}
           onAction={chooseAction}
           onSelectCase={setSelectedCaseId}
           importPreview={importPreview}

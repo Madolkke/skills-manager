@@ -467,5 +467,12 @@
     "priority": 67,
     "passes": true,
     "spec": ".agent/tasks/TASK-067.json"
+  },
+  {
+    "id": "068",
+    "title": "本地 session 退出控制",
+    "priority": 68,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-068.json"
   }
 ]

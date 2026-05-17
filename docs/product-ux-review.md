@@ -18,7 +18,7 @@
 - `概览` 页现在提供 `身份与默认分发` 设置面板，用户可以直接修改 skill ID、归属，并选择默认分发 variant；非法归属会回填到字段错误摘要和 `归属` 输入框。
 - `概览` 页现在提供 `访问控制` 面板，用户可以查看 skill 作用域角色、当前 actor 的后端权威 capabilities，并添加或移除 owner/maintainer/evaluator/viewer；权限不足时相关按钮会 disabled 并显示需要的角色，非法成员 identity ref 会回填到 `成员` 输入框。
 - `概览` 页现在提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档放进需要输入当前 skill ID 的危险区；用户也可以进入 `审计 Explorer`，用 action quick filters、actor/action/resource type 过滤、可读时间线和结构化详情追踪事件，Raw payload 默认折叠。
-- 右侧 inspector 顶部新增 `Local login` 面板，显示当前本地 actor；切换为 `release-manager` 等本地身份时必须填写本地登录码。后端用签名 HttpOnly cookie 承载 actor，前端 mutation 不再硬编码身份 header。
+- 右侧 inspector 顶部新增 `Local login` 面板，显示当前本地 actor；切换为 `release-manager` 等本地身份时必须填写本地登录码，也可以点击 `退出登录` 清除本地 actor session 并回到 `product-operator`。后端用签名 HttpOnly cookie 承载 actor，前端 mutation 不再硬编码身份 header。
 - 工作台新增基础 accessibility 护栏：首个 Tab 可聚焦 `跳到主要内容`，焦点 ring 更高对比，reduced-motion 下非必要 transition 被压低，异步操作结果用 `role=status` 暴露。
 - `测评` 页支持单条快速添加和批量粘贴 case；批量写入只产生一个新的 `EvalSetVersion`，不会把一次整理工作拆成多段版本噪音。批量粘贴会标出缺字段的行号并阻止静默跳过无效行；移动端会把批量 textarea、统计卡、预览表和提交按钮纵向排布，避免窄屏挤压。
 - `测评` 页的手工确认区已变成 review queue：支持按状态筛选、点击结果后自动前进、未确认项批量标为通过、清空本地草稿和键盘确认。
@@ -69,7 +69,7 @@
 - **GitHub Enterprise Audit Log:** GitHub 用 actor、action、repo、created 等结构化限定符查询审计事件。SkillHub 适配为当前 skill 的 actor/action/resource_type 过滤，避免无边界全文搜索。
 - **Stripe request logs:** Stripe Workbench 把常用过滤、时间/状态摘要和单条日志下钻分层，payload 是排障细节，不是第一视觉层。SkillHub 适配为 Audit Explorer 的 quick filters、readable timeline、结构化详情和 Raw payload disclosure。
 - **GitHub Danger Zone:** GitHub 把危险操作放到 repository settings 底部，并要求明确确认。SkillHub 适配为 `治理与审计` 面板中的危险区，输入当前 skill ID 才能归档。
-- **本地开发登录面板:** 参考很多开发者工具把环境身份、workspace 或 account switcher 放在固定侧栏的做法。SkillHub 适配为 inspector 顶部的 `Local login`，用户必须输入本地登录码才能更新 actor session；这比自由切换更接近真实账号登录，同时仍把 OIDC/JWT 留给下一阶段。
+- **本地开发登录面板:** 参考很多开发者工具把环境身份、workspace 或 account switcher 放在固定侧栏的做法。SkillHub 适配为 inspector 顶部的 `Local login`，用户必须输入本地登录码才能更新 actor session，也可以显式退出回默认 actor；这比自由切换更接近真实账号登录，同时仍把 OIDC/JWT 留给下一阶段。
 - **W3C WCAG / Vercel Web Interface Guidelines:** WCAG 强调可见焦点、焦点外观和 reduced-motion；Vercel guidelines 强调 skip link、`:focus-visible`、`aria-live` 和 icon/button label。SkillHub 适配为可测试的键盘和读屏护栏，而不是只写文档承诺。
 - **WAI-ARIA APG Combobox / Dialog:** APG 对 editable combobox 的建议是把 DOM focus 留在输入框，并用 `aria-activedescendant` 报告当前 option；modal dialog 要求 Tab 不离开弹层、Escape 可关闭、关闭后焦点回到触发点。SkillHub 适配为命令菜单搜索框控制 listbox，option 不进入 Tab 序列，关闭按钮提供明确出口。
 - **WAI-ARIA APG Tabs Pattern:** APG 建议 tablist 只把当前 tab 放进 Tab 顺序，方向键在 tablist 内移动，tabpanel 用 `aria-labelledby` 关联 active tab。SkillHub 适配为工作区 mode switcher，保留原生 button 和既有 click 行为，同时补齐 `role=tablist/tab/tabpanel`。
@@ -168,6 +168,7 @@
 49. 以前 `owner_ref` 和 role `subject_id` 可以写入带空格或不可查询符号的脏身份引用；现在两者共享 identity ref 规则，最多 120 字符，只允许字母、数字、点、下划线、`@` 和连字符，并在概览页回填到 `归属` / `成员` 字段。
 50. 以前错误摘要只说“修正后再提交”，用户要扫列表才能知道有多少项；现在摘要直接显示需要修正的字段数量，错误恢复的工作量更可见。
 51. 以前 variant 说明、版本说明和发布决策说明要提交后才知道是否超过 1000 字符；现在这些低频长文本字段会显示剩余或超出字符数，用户能在提交前修正。
+52. 以前本地 actor session 只有登录没有退出入口，用户要刷新或手动清 cookie 才能确认回到默认身份；现在 `Local login` 面板有 `退出登录`，退出后再导入 skill 会回到 `product-operator` owner。
 
 ## 仍然存在的摩擦
 
