@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { clearSkillCatalog } from "./helpers";
+import { clearSkillCatalog, gotoSkills } from "./helpers";
 
 test.beforeEach(async ({ request }) => {
   await clearSkillCatalog(request);
@@ -8,7 +8,7 @@ test.beforeEach(async ({ request }) => {
 
 test("mobile first-run keeps inspector actions collapsed until explicitly requested", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const inspector = page.getByLabel("Inspector");
   await expect(page.locator(".skillLaunchpad")).toBeVisible();

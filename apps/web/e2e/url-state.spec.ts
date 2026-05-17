@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, importSkillBundle } from "./helpers";
+import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, gotoWorkbenchUrl, importSkillBundle, reloadWorkbench } from "./helpers";
 
 test.beforeEach(async ({ request }) => {
   await clearSkillCatalog(request);
@@ -13,13 +13,13 @@ test("workbench opens the requested skill and mode from URL state", async ({ pag
   await importSkillBundle(page, alpha);
   await importSkillBundle(page, beta);
 
-  await page.goto(`/skills?skill=${encodeURIComponent(beta)}&mode=history`);
+  await gotoWorkbenchUrl(page, `/skills?skill=${encodeURIComponent(beta)}&mode=history`);
 
   await expect(page.getByRole("heading", { name: beta })).toBeVisible();
   await expect(page.getByRole("tab", { name: "历史", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".historyPane")).toBeVisible();
 
-  await page.reload();
+  await reloadWorkbench(page);
   await expect(page.getByRole("heading", { name: beta })).toBeVisible();
   await expect(page.getByRole("tab", { name: "历史", exact: true })).toHaveAttribute("aria-selected", "true");
 });
@@ -55,7 +55,7 @@ test("workbench restores diff pair, selected diff file, eval target, and selecte
   await expect(page).toHaveURL(/[?&]eval_target=[^&]+/);
   await expect(page).toHaveURL(/[?&]case=[^&]+/);
 
-  await page.reload();
+  await reloadWorkbench(page);
   await expect(page.getByRole("tab", { name: "测评", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".evalTargetBar")).toContainText("candidate");
   await expect(page.locator(".caseReviewCardActive")).toContainText("URL case: second guard");
@@ -71,7 +71,7 @@ test("workbench restores diff pair, selected diff file, eval target, and selecte
   await expect(page).toHaveURL(/[?&]diff_filter=added(?:&|$)/);
   await expect(page).toHaveURL(/[?&]diff_file=new-checklist\.md(?:&|$)/);
 
-  await page.reload();
+  await reloadWorkbench(page);
   await expect(page.getByRole("tab", { name: "差异", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".diffFilterBar .diffFilterActive")).toContainText("新增");
   await expect(page.locator(".diffFileRowActive")).toContainText("new-checklist.md");
@@ -106,7 +106,7 @@ test("workbench restores history comparison and promotion review from URL", asyn
   await expect(page).toHaveURL(/[?&]promotion_candidate=[^&]+/);
   await expect(page).toHaveURL(/[?&]promotion_eval_set=[^&]+/);
 
-  await page.reload();
+  await reloadWorkbench(page);
   await expect(page.getByRole("tab", { name: "评审", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".promotionReadiness").getByText("可设为当前版本")).toBeVisible();
 
@@ -123,7 +123,7 @@ test("workbench restores history comparison and promotion review from URL", asyn
   await expect(page).toHaveURL(/[?&]compare_candidate=[^&]+/);
   await expect(page).toHaveURL(/[?&]matrix_impact=fixed(?:&|$)/);
 
-  await page.reload();
+  await reloadWorkbench(page);
   await expect(page.getByRole("tab", { name: "历史", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByLabel("Status filter")).toHaveValue("finished");
   await expect(page.getByLabel("Matrix impact filter")).toHaveValue("fixed");

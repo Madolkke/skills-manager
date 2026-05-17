@@ -13,7 +13,7 @@ from skillhub.application.promotion_review import build_promotion_case_compariso
 from skillhub.application.run_comparison import build_run_case_comparisons, build_run_comparison_summary
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.domain.models import ContentRef, digest_text, new_id, normalize_tags, utc_now
-from skillhub.domain.permissions import VALID_ROLES, permission_label, role_allows
+from skillhub.domain.permissions import ROLE_PERMISSIONS, VALID_ROLES, permission_label, role_allows
 from skillhub.infrastructure.db import tables
 
 
@@ -1022,6 +1022,21 @@ class SqlSkillRepository:
         with self.engine.connect() as connection:
             self._skill_row(connection, skill_id)
             return self._skill_role_assignments(connection, skill_id)
+
+    def skill_capabilities(self, *, skill_id: str, actor: str, subject_type: str = "user") -> dict[str, Any]:
+        permissions = sorted({permission for role_permissions in ROLE_PERMISSIONS.values() for permission in role_permissions})
+        with self.engine.connect() as connection:
+            self._skill_row(connection, skill_id)
+            roles = sorted(self._actor_skill_roles(connection, skill_id=skill_id, actor=actor))
+        return {
+            "actor": actor,
+            "subject_type": subject_type,
+            "roles": roles,
+            "permissions": {
+                permission: any(role_allows(role, permission) for role in roles)
+                for permission in permissions
+            },
+        }
 
     def assign_skill_role(
         self,

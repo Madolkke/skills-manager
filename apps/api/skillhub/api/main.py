@@ -236,6 +236,16 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def skill_role_assignments(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.list_skill_role_assignments(skill_id=skill_id))
 
+    @app.get("/api/skills/{skill_id}/capabilities")
+    def skill_capabilities(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.skill_capabilities(skill_id=skill_id, actor=actor.id, subject_type=actor.subject_type)
+        )
+
     @app.get("/api/skills/{skill_id}/audit-events")
     def skill_audit_events(
         skill_id: str,

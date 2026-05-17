@@ -17,6 +17,7 @@ import type {
   EvalRunHistory,
   EvalRunMatrix,
   EvalRunRecord,
+  SkillCapabilities,
   SavedView,
   SkillDetail,
   VariantDetail,
@@ -31,6 +32,7 @@ export type HistoryRunFilters = {
 
 type WorkbenchHistoryPaneProps = {
   busy: boolean;
+  capabilities: SkillCapabilities | null;
   compareBaselineRunId: string | null;
   compareCandidateRunId: string | null;
   evalSets: SkillDetail["eval_sets"];
@@ -63,6 +65,7 @@ type WorkbenchHistoryPaneProps = {
 
 export function WorkbenchHistoryPane({
   busy,
+  capabilities,
   compareBaselineRunId,
   compareCandidateRunId,
   evalSets,
@@ -193,6 +196,7 @@ export function WorkbenchHistoryPane({
         <section className="historyRunDetail">
           <RunComparisonPanel
             busy={busy}
+            capabilities={capabilities}
             comparison={runComparison}
             loading={runComparisonLoading}
             onAccept={onAcceptComparison}

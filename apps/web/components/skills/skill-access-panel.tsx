@@ -3,7 +3,8 @@
 import type { FormEvent } from "react";
 
 import { SelectField, TextField } from "@/components/forms/workbench-field";
-import type { RoleAssignment } from "@/lib/types";
+import { canUseCapability, capabilityDeniedReason, roleSummary } from "@/lib/capabilities";
+import type { RoleAssignment, SkillCapabilities, SkillPermission } from "@/lib/types";
 
 const roleLabels: Record<RoleAssignment["role"], string> = {
   owner: "Owner",
@@ -15,6 +16,7 @@ const roleLabels: Record<RoleAssignment["role"], string> = {
 type SkillAccessPanelProps = {
   actor: string;
   busy: boolean;
+  capabilities: SkillCapabilities | null;
   onAssignRole: (event: FormEvent<HTMLFormElement>) => void;
   onRevokeRole: (roleAssignmentId: string) => void;
   roleAssignments: RoleAssignment[];
@@ -23,11 +25,13 @@ type SkillAccessPanelProps = {
 export function SkillAccessPanel({
   actor,
   busy,
+  capabilities,
   onAssignRole,
   onRevokeRole,
   roleAssignments,
 }: SkillAccessPanelProps) {
   const ownerCount = roleAssignments.filter((assignment) => assignment.role === "owner").length;
+  const canManageRoles = canUseCapability(capabilities, "role.manage");
 
   return (
     <section className="skillAccessPanel">
@@ -42,11 +46,19 @@ export function SkillAccessPanel({
       <div className="skillAccessActor">
         <span>Local actor</span>
         <strong>{actor}</strong>
+        <small>{roleSummary(capabilities)}</small>
+      </div>
+
+      <div className="skillCapabilityGrid" aria-label="Current actor capabilities">
+        <CapabilityChip capabilities={capabilities} label="管理角色" permission="role.manage" />
+        <CapabilityChip capabilities={capabilities} label="设为当前版本" permission="variant.promote" />
+        <CapabilityChip capabilities={capabilities} label="接受验证依据" permission="verification.accept" />
       </div>
 
       <div className="skillAccessRows">
         {roleAssignments.map((assignment) => {
           const isLastOwner = assignment.role === "owner" && ownerCount <= 1;
+          const disableRevoke = busy || isLastOwner || !canManageRoles;
           return (
             <article className="skillAccessRow" key={assignment.id}>
               <div>
@@ -55,7 +67,7 @@ export function SkillAccessPanel({
               </div>
               <b>{roleLabels[assignment.role]}</b>
               <small>by {assignment.created_by}</small>
-              <button disabled={busy || isLastOwner} onClick={() => onRevokeRole(assignment.id)} type="button">
+              <button disabled={disableRevoke} onClick={() => onRevokeRole(assignment.id)} title={!canManageRoles ? capabilityDeniedReason("role.manage") : undefined} type="button">
                 移除
               </button>
             </article>
@@ -71,8 +83,32 @@ export function SkillAccessPanel({
           <option value="viewer">Viewer</option>
           <option value="owner">Owner</option>
         </SelectField>
-        <button disabled={busy} type="submit">添加成员</button>
+        <button disabled={busy || !canManageRoles} title={!canManageRoles ? capabilityDeniedReason("role.manage") : undefined} type="submit">添加成员</button>
       </form>
     </section>
   );
+}
+
+function CapabilityChip({
+  capabilities,
+  label,
+  permission,
+}: {
+  capabilities: SkillCapabilities | null;
+  label: string;
+  permission: SkillPermission;
+}) {
+  const allowed = canUseCapability(capabilities, permission);
+  return (
+    <span className={`skillCapabilityChip ${allowed ? "skillCapabilityChipAllowed" : "skillCapabilityChipDenied"}`}>
+      <b>{label}</b>
+      <small>{allowed ? "可执行" : deniedShortLabel(permission)}</small>
+    </span>
+  );
+}
+
+function deniedShortLabel(permission: SkillPermission) {
+  if (permission === "role.manage") return "不能管理角色";
+  if (permission === "variant.promote") return "不能 promote";
+  return "不能接受验证";
 }

@@ -46,6 +46,7 @@ import type {
   PromotionReview,
   SavedView,
   AuditEvent,
+  SkillCapabilities,
   SkillDetail,
   SkillSummary,
   VariantDetail,
@@ -123,6 +124,7 @@ export function DecisionWorkbench({
   const [selectedSavedViewId, setSelectedSavedViewId] = useState("adhoc");
   const [savedViewName, setSavedViewName] = useState("");
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>(featuredSkill.audit_events);
+  const [capabilities, setCapabilities] = useState<SkillCapabilities | null>(null);
   const [auditFilters, setAuditFilters] = useState<AuditExplorerFilters>(DEFAULT_AUDIT_FILTERS);
   const [auditLoading, setAuditLoading] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -143,6 +145,7 @@ export function DecisionWorkbench({
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const [actor, setActor] = useState(DEFAULT_ACTOR);
+  const [hydrated, setHydrated] = useState(false);
 
   const visibleSkills = useMemo(() => {
     const query = catalogQuery.trim().toLowerCase();
@@ -224,6 +227,7 @@ export function DecisionWorkbench({
   });
 
   useEffect(() => {
+    setHydrated(true);
     void loadSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -441,6 +445,7 @@ export function DecisionWorkbench({
     if (nextSkills.length === 0) {
       setSelectedSkillId(emptySkillDetail.skill.id);
       setSelectedDetail(emptySkillDetail);
+      setCapabilities(null);
       setAuditEvents([]);
       setEvalSetDetail(null);
       setCaseResults({});
@@ -457,16 +462,22 @@ export function DecisionWorkbench({
   async function loadSkill(skillId: string) {
     if (skillId === emptySkillDetail.skill.id) {
       setSelectedDetail(emptySkillDetail);
+      setCapabilities(null);
       setAuditEvents([]);
       return;
     }
     try {
-      const detail = await apiGet<SkillDetail>(`/api/skills/${skillId}`);
+      const [detail, nextCapabilities] = await Promise.all([
+        apiGet<SkillDetail>(`/api/skills/${skillId}`),
+        apiGet<SkillCapabilities>(`/api/skills/${skillId}/capabilities`),
+      ]);
       setSelectedDetail(detail);
+      setCapabilities(nextCapabilities);
       setAuditEvents(detail.audit_events);
     } catch {
       if (skillId === featuredSkill.skill.id) {
         setSelectedDetail(featuredSkill);
+        setCapabilities(null);
         setAuditEvents(featuredSkill.audit_events);
       }
     }
@@ -1228,6 +1239,7 @@ export function DecisionWorkbench({
     <div
       className="linearWorkbench"
       data-first-run={hasPersistedSkill ? undefined : "true"}
+      data-hydrated={hydrated ? "true" : "false"}
       data-inspector-layout={inspectorLayout}
     >
       <CommandMenu commands={commandItems} scopeLabel={selectedDetail.skill.slug} />
@@ -1276,6 +1288,7 @@ export function DecisionWorkbench({
               assignSkillRole={assignSkillRole}
               busy={busy}
               caseCount={cases.length}
+              capabilities={capabilities}
               createSkill={createSkill}
               defaultVariant={defaultVariant}
               hasPersistedSkill={hasPersistedSkill}
@@ -1303,6 +1316,7 @@ export function DecisionWorkbench({
           {mode === "variants" ? (
             <WorkbenchVariantsPane
               busy={busy}
+              capabilities={capabilities}
               defaultVariant={defaultVariant}
               onAction={chooseAction}
               onCreateVariant={createVariant}
@@ -1316,6 +1330,7 @@ export function DecisionWorkbench({
           {mode === "diff" ? (
             <WorkbenchDiffPane
               diff={bundleDiff}
+              capabilities={capabilities}
               filter={diffFilter}
               leftVersionId={diffLeftVersionId}
               loading={diffLoading}
@@ -1332,6 +1347,7 @@ export function DecisionWorkbench({
           {mode === "history" ? (
             <WorkbenchHistoryPane
               busy={busy}
+              capabilities={capabilities}
               compareBaselineRunId={compareBaselineRunId}
               compareCandidateRunId={compareCandidateRunId}
               evalSets={selectedDetail.eval_sets}
@@ -1377,6 +1393,7 @@ export function DecisionWorkbench({
           {mode === "promotion" ? (
             <PromotionReviewPane
               busy={busy}
+              capabilities={capabilities}
               loading={promotionLoading}
               onBack={() => {
                 setPromotionTarget(null);

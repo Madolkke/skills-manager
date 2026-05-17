@@ -1237,6 +1237,57 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(revoked.status_code, 200)
         self.assertNotIn("qa-reviewer", [item["subject_id"] for item in listed_after.json()])
 
+    def test_skill_capabilities_reflect_actor_roles(self):
+        skill = self.create_skill("capabilities-api")
+
+        owner_capabilities = self.client.get(f"/api/skills/{skill['skill_id']}/capabilities").json()
+        self.assertEqual(owner_capabilities["actor"], "tester")
+        self.assertEqual(owner_capabilities["roles"], ["owner"])
+        self.assertEqual(
+            owner_capabilities["permissions"],
+            {
+                "role.manage": True,
+                "variant.promote": True,
+                "verification.accept": True,
+            },
+        )
+
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            json={"subject_id": "capability-viewer", "role": "viewer"},
+        )
+        viewer_capabilities = self.client.get(
+            f"/api/skills/{skill['skill_id']}/capabilities",
+            headers={"X-SkillHub-Actor": "capability-viewer"},
+        ).json()
+        self.assertEqual(viewer_capabilities["roles"], ["viewer"])
+        self.assertEqual(
+            viewer_capabilities["permissions"],
+            {
+                "role.manage": False,
+                "variant.promote": False,
+                "verification.accept": False,
+            },
+        )
+
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            json={"subject_id": "capability-viewer", "role": "maintainer"},
+        )
+        maintainer_capabilities = self.client.get(
+            f"/api/skills/{skill['skill_id']}/capabilities",
+            headers={"X-SkillHub-Actor": "capability-viewer"},
+        ).json()
+        self.assertEqual(maintainer_capabilities["roles"], ["maintainer", "viewer"])
+        self.assertEqual(
+            maintainer_capabilities["permissions"],
+            {
+                "role.manage": False,
+                "variant.promote": True,
+                "verification.accept": True,
+            },
+        )
+
     def test_request_actor_header_controls_created_owner(self):
         response = self.client.post(
             "/api/skills",

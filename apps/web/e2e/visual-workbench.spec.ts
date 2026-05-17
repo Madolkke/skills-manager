@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, hideVolatileUi, importSkillBundle } from "./helpers";
+import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, gotoSkills, hideVolatileUi, importSkillBundle } from "./helpers";
 
 test.beforeEach(async ({ request }) => {
   await clearSkillCatalog(request);
@@ -8,7 +8,8 @@ test.beforeEach(async ({ request }) => {
 
 test("visual baseline: empty skill workbench", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/skills");
+  await gotoSkills(page);
+  await expect(page.locator(".skillLaunchpad")).toBeVisible();
   await hideVolatileUi(page);
 
   await expect(page.locator(".linearWorkbench")).toHaveScreenshot("empty-skill-workbench.png", {
@@ -52,6 +53,7 @@ test("visual baseline: variants workspace composers", async ({ page }) => {
 test("visual baseline: skill access panel", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await importSkillBundle(page, "visual-access-control");
+  await expect(page.locator(".skillAccessPanel")).toContainText("当前角色 Owner");
   await hideVolatileUi(page);
 
   const panel = page.locator(".skillAccessPanel");
@@ -63,7 +65,7 @@ test("visual baseline: skill access panel", async ({ page }) => {
 
 test("visual baseline: local session panel", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/skills");
+  await gotoSkills(page);
   await hideVolatileUi(page);
 
   const panel = page.locator(".localSessionPanel");
@@ -177,7 +179,7 @@ test("visual baseline: run comparison", async ({ page }) => {
 
 test("visual baseline: mobile empty workbench", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/skills");
+  await gotoSkills(page);
   await hideVolatileUi(page);
 
   await expect(page.locator(".linearWorkbench")).toHaveScreenshot("mobile-empty-workbench.png", {

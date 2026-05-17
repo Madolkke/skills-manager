@@ -5,25 +5,29 @@ import { FormEvent, useState } from "react";
 import { Badge } from "@/components/chrome";
 import { ValidatedForm } from "@/components/forms/form-validation";
 import { TextField } from "@/components/forms/workbench-field";
+import { canUseCapability, capabilityDeniedReason } from "@/lib/capabilities";
 import { percent, shortId } from "@/lib/format";
-import type { EvalRunComparison } from "@/lib/types";
+import type { EvalRunComparison, SkillCapabilities } from "@/lib/types";
 
 export function RunComparisonPanel({
   busy,
+  capabilities,
   comparison,
   loading,
   onAccept,
 }: {
   busy: boolean;
+  capabilities: SkillCapabilities | null;
   comparison: EvalRunComparison | null;
   loading: boolean;
   onAccept: (note: string) => void | Promise<void>;
 }) {
   const [note, setNote] = useState("");
+  const canAcceptVerification = canUseCapability(capabilities, "verification.accept");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!comparison || busy || comparison.candidate_accepted_verification) return;
+    if (!comparison || busy || comparison.candidate_accepted_verification || !canAcceptVerification) return;
     return onAccept(note.trim());
   }
 
@@ -51,6 +55,8 @@ export function RunComparisonPanel({
 
   const accepted = comparison.candidate_accepted_verification;
   const delta = comparison.summary.delta;
+  const acceptDisabled = busy || Boolean(accepted) || !canAcceptVerification;
+  const acceptDeniedReason = !canAcceptVerification ? capabilityDeniedReason("verification.accept") : undefined;
 
   return (
     <section className="runComparePanel" data-testid="run-comparison-panel">
@@ -106,17 +112,18 @@ export function RunComparisonPanel({
         <div>
           <span>Verification pointer</span>
           <strong>{accepted ? "候选 run 已是验证依据" : "把候选 run 接受为验证依据"}</strong>
+          {!canAcceptVerification ? <small>{acceptDeniedReason}</small> : null}
         </div>
         <TextField
           aria-label="Accepted verification note"
-          disabled={Boolean(accepted)}
+          disabled={Boolean(accepted) || !canAcceptVerification}
           label="Verification note"
           name="note"
           onChange={(event) => setNote(event.currentTarget.value)}
           placeholder="可选：记录为什么接受这次测评"
           value={accepted ? accepted.note : note}
         />
-        <button className="primaryAction" disabled={busy || Boolean(accepted)} type="submit">
+        <button className="primaryAction" disabled={acceptDisabled} title={acceptDeniedReason} type="submit">
           接受为验证依据
         </button>
       </ValidatedForm>

@@ -31,10 +31,10 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      command: `SKILLHUB_API_URL=http://127.0.0.1:${apiPort} NEXT_PUBLIC_SKILLHUB_API_URL=http://127.0.0.1:${apiPort} npm run dev -- --hostname 127.0.0.1 --port ${webPort}`,
-      url: `http://127.0.0.1:${webPort}/skills`,
+      command: `SKILLHUB_API_URL=http://127.0.0.1:${apiPort} NEXT_PUBLIC_SKILLHUB_API_URL=http://127.0.0.1:${apiPort} HOSTNAME=127.0.0.1 PORT=${webPort} sh -c 'npm run build && mkdir -p .next/standalone/.next && rm -rf .next/standalone/.next/static && cp -R .next/static .next/standalone/.next/static && node .next/standalone/server.js'`,
+      url: `http://127.0.0.1:${webPort}/`,
       reuseExistingServer: false,
-      timeout: 60_000,
+      timeout: 120_000,
     },
   ],
 });

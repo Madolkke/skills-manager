@@ -5,14 +5,16 @@ import { FormEvent, useMemo, useState } from "react";
 import { Badge } from "@/components/chrome";
 import { ValidatedForm } from "@/components/forms/form-validation";
 import { TextAreaField } from "@/components/forms/workbench-field";
+import { canUseCapability, capabilityDeniedReason } from "@/lib/capabilities";
 import { percent, shortId } from "@/lib/format";
-import type { PromotionReview } from "@/lib/types";
+import type { PromotionReview, SkillCapabilities } from "@/lib/types";
 import { PromotionCaseComparisonList } from "./promotion-case-comparison-list";
 import { PromotionDiffViewer } from "./promotion-diff-viewer";
 import { PromotionReadinessCard } from "./promotion-readiness-card";
 
 export function PromotionReviewPane({
   busy,
+  capabilities,
   loading,
   onBack,
   onOpenEvals,
@@ -20,6 +22,7 @@ export function PromotionReviewPane({
   review,
 }: {
   busy: boolean;
+  capabilities: SkillCapabilities | null;
   loading: boolean;
   onBack: () => void;
   onOpenEvals: () => void;
@@ -29,6 +32,7 @@ export function PromotionReviewPane({
   const [decisionNote, setDecisionNote] = useState("");
   const candidateScore = useMemo(() => runScore(review?.candidate_run ?? null), [review?.candidate_run]);
   const currentScore = useMemo(() => runScore(review?.current_run ?? null), [review?.current_run]);
+  const canPromoteByCapability = canUseCapability(capabilities, "variant.promote");
 
   if (loading) {
     return (
@@ -55,9 +59,11 @@ export function PromotionReviewPane({
 
   const canPromote =
     !busy &&
+    canPromoteByCapability &&
     Boolean(review.candidate_run) &&
     (review.readiness.status === "ready" || review.readiness.status === "risky");
   const promoteLabel = review.readiness.status === "risky" ? "接受风险并设为当前版本" : "设为当前版本";
+  const promoteDeniedReason = !canPromoteByCapability ? capabilityDeniedReason("variant.promote") : undefined;
 
   function submitPromotion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,7 +118,7 @@ export function PromotionReviewPane({
         <div>
           <span>Decision</span>
           <strong>{review.readiness.label}</strong>
-          <small>{decisionHint(review)}</small>
+          <small>{promoteDeniedReason ?? decisionHint(review)}</small>
         </div>
         <TextAreaField
           aria-label="设为当前版本说明"
@@ -124,7 +130,7 @@ export function PromotionReviewPane({
           required={review.readiness.requires_note}
           value={decisionNote}
         />
-        <button className="primaryAction" disabled={!canPromote} type="submit">
+        <button className="primaryAction" disabled={!canPromote} title={promoteDeniedReason} type="submit">
           {promoteLabel}
         </button>
       </ValidatedForm>

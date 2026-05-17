@@ -1,6 +1,6 @@
 # SkillHub 产品体验评审
 
-更新时间：2026-05-14
+更新时间：2026-05-16
 
 ## 当前可用流程
 
@@ -15,7 +15,7 @@
 - `SkillLaunchpad` 和 `WorkbenchInspector` 高频写入表单已迁移到共享字段基础件：label、hint、`aria-describedby`、业务字段 `autocomplete="off"` 和局部 `:focus-visible` 行为保持一致。
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `概览` 页现在提供 `身份与默认分发` 设置面板，用户可以直接修改 skill ID、归属，并选择默认分发 variant。
-- `概览` 页现在提供 `访问控制` 面板，用户可以查看 skill 作用域角色，并添加或移除 owner/maintainer/evaluator/viewer。
+- `概览` 页现在提供 `访问控制` 面板，用户可以查看 skill 作用域角色、当前 actor 的后端权威 capabilities，并添加或移除 owner/maintainer/evaluator/viewer；权限不足时相关按钮会 disabled 并显示需要的角色。
 - `概览` 页现在提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档放进需要输入当前 skill ID 的危险区；用户也可以进入 `审计 Explorer`，用 action quick filters、actor/action/resource type 过滤、可读时间线和结构化详情追踪事件，Raw payload 默认折叠。
 - 右侧 inspector 顶部新增 `Local session` 面板，显示当前本地 actor，并允许切换为 `release-manager` 等本地身份；后端用签名 HttpOnly cookie 承载 actor，前端 mutation 不再硬编码身份 header。
 - 工作台新增基础 accessibility 护栏：首个 Tab 可聚焦 `跳到主要内容`，焦点 ring 更高对比，reduced-motion 下非必要 transition 被压低，异步操作结果用 `role=status` 暴露。
@@ -42,7 +42,7 @@
 - 选择 `对照` 和 `候选` run 后，Run matrix 每个 case 行会显示 `修复`、`回退`、`稳定通过`、`仍未通过` 或 `缺失`，把样本级变化直接放到表格里。
 - Run matrix 支持按 impact 过滤 case、按 impact 分组、隐藏 run header 分数，并且这些矩阵控制项会随命名视图一起保存和恢复。
 - History mode 支持把两次同 `EvalSetVersion` 的 run 标为对照/候选，直接查看通过率 delta、逐 case 修复/回退，并把候选 run 接受为当前验证依据。
-- `promotion` 和 `accepted verification` 已有后端角色门禁：只有 skill 的 owner/maintainer 能移动可信分发或验证指针。
+- `promotion` 和 `accepted verification` 已有后端角色门禁：只有 skill 的 owner/maintainer 能移动可信分发或验证指针；前端现在也会按 `SkillCapabilities` 禁用设为当前版本评审和接受验证依据入口。
 - 每个 eval case 可以在测评页内查看版本时间线，包括 input、expected output、notes，以及被哪些 eval set snapshot 包含；也可以从旧版本一键恢复为新的当前版本，历史不会被覆盖。
 - Playwright 覆盖 folder/zip import、导入后验证引导、访问控制、治理归档、审计 Explorer、新建 variant、新增/编辑/归档 case、手工 eval、候选版本 promotion review、风险 promotion、bundle diff、run history、run comparison、accepted verification、case history、键盘入口、accessibility 护栏、移动端宽度和视觉回归。
 
@@ -62,6 +62,7 @@
 - **GitHub repository topics:** GitHub 把 topics 展示在仓库主页的 About 区域，用于发现和分类。SkillHub 适配为在 skill 概览展示默认 variant 的 tags，并允许切换默认分发。
 - **Notion database properties:** Notion 既有集中属性管理，也允许直接点击单个属性编辑。SkillHub 适配为保留 inspector，同时把高频 skill 属性放在概览主区。
 - **Vercel project roles:** Vercel 用 team role + project role 控制项目级操作。SkillHub 适配为 skill 作用域 role assignment，先保护当前分发和验证指针。
+- **GitLab project members / GitHub protected branches:** GitLab 在项目成员页把角色和能力放到项目上下文中，GitHub protected branches 会在发布前给出不可操作或需要权限的提示。SkillHub 适配为后端 `SkillCapabilities`：UI 只展示当前 actor 能不能管理角色、promotion、accepted verification，真正的拒绝仍在 mutation endpoint。
 - **Linear members and roles:** Linear 把成员管理集中到清晰的 administration surface，并限制危险操作。SkillHub 适配为概览页 `访问控制`，让权限状态靠近 skill 身份设置。
 - **Linear audit log:** Linear 的 audit log 把成员、权限和关键管理动作放到可追溯时间线中。SkillHub 适配为 skill 详情里的最近 audit events，先服务当前对象的治理理解，再考虑全局审计搜索。
 - **GitHub Enterprise Audit Log:** GitHub 用 actor、action、repo、created 等结构化限定符查询审计事件。SkillHub 适配为当前 skill 的 actor/action/resource_type 过滤，避免无边界全文搜索。
@@ -161,6 +162,7 @@
 44. 以前保存历史视图重名时只会出现全局失败提示；现在空白、重复或超过 80 字符的名称会显示错误摘要，并把错误标到 `保存视图名称` 输入框旁。
 45. 以前接受验证依据时 note 可以无限长，失败也只可能成为全局错误；现在超过 1000 字符会显示错误摘要，并把错误标到 `Accepted verification note` 输入框旁。
 46. 以前 risky promotion 用禁用按钮解释缺少说明，且超长说明没有字段保护；现在提交后会把缺失或超过 1000 字符的说明回填到 `设为当前版本说明`。
+47. 以前用户只有点了受保护动作才知道自己没权限；现在概览页显示当前 actor 角色和 capability，访问控制、设为当前版本评审和接受验证依据入口会提前 disabled 并给出需要 owner/maintainer 的原因。
 
 ## 仍然存在的摩擦
 
@@ -169,13 +171,13 @@
 3. Promotion review 已经展示 case impact、diff 和会话级文件 reviewed progress，但 viewed state 还没有服务端持久化，也没有把具体 diff hunk 关联到具体 eval case。
 4. URL state 已覆盖核心证据上下文，但还没有短链接、权限感知分享提示，也没有保存未提交草稿。
 5. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
-6. 权限还没有真实认证来源。当前 actor 已从请求体和前端硬编码 header 收敛到后端签名的本地 cookie session，但仍不是多用户登录、token rotation 或组织级身份系统。
+6. 权限还没有真实认证来源。当前 actor 已从请求体和前端硬编码 header 收敛到后端签名的本地 cookie session，前端也已改为展示后端 capabilities，但仍不是多用户登录、token rotation 或组织级身份系统。
 7. Accessibility 仍未完整覆盖全路径。现在已有 skip link、focus ring、reduced-motion、status notice、命令菜单、Workbench mode tablist、Run matrix 表格语义、Inspector action focus handoff 和主要表单字段语义回归，但更广的全路径焦点巡检和人工读屏验收还需要继续补。
 
 ## 下一轮优化队列
 
 1. 表单验证第二阶段剩余部分：其他产品字段长度上限、错误统计，以及更多嵌套写入表单的字段错误回填。
-2. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，前端只展示 capability，不再允许自由切换开发身份。
+2. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，保留后端 capabilities 契约，前端不再允许自由切换开发身份。
 3. Diff / Promotion review 第二阶段：评估是否服务端持久化 viewed state、自动折叠已查看文件，或把 diff hunk 关联到 eval case。
 4. URL state 第三阶段：增加短链接、权限感知分享提示，并评估是否保存草稿到本地 session storage 而不是 URL。
 5. 做 run matrix 多维表格：支持列配置、自定义指标列、导出，并考虑是否保存对照/候选 run 指针。

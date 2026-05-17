@@ -14,6 +14,7 @@
 - `CaseResult` 是某个 case 在某次 run 中的最终 `pass/fail`。
 - `AcceptedVerification` 是验证指针，只指向一次不可变 `EvalRun`，用于说明当前 variant 在某个 eval set snapshot 上认可哪次测评。
 - `RoleAssignment` 是 skill 作用域授权，保护 promotion、accepted verification 和角色管理等高风险动作。
+- `SkillCapabilities` 是当前请求 actor 对某个 skill 的后端权威能力快照，前端只能展示和禁用动作，不能自行推断权限。
 - `AuditEvent` 是 append-only 治理事实，记录角色变更、发布决策和归档等动作。
 
 ## 对象字段
@@ -43,6 +44,25 @@
 | `resource_id` | string | 所属 `Skill.id`。 |
 | `role` | enum | `owner`、`maintainer`、`evaluator`、`viewer`。 |
 | `created_by` | string | 授权人 actor。 |
+
+### SkillCapabilities
+
+`SkillCapabilities` 是只读投影，用于让 UI 按当前 actor 展示可执行能力和禁用原因。它不是权限来源；权限仍由后端在 mutation endpoint 内校验。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `actor` | string | 当前请求 actor。 |
+| `subject_type` | string | 当前为 `user`。 |
+| `roles` | string[] | 当前 actor 在该 skill 上拥有的角色，例如 `["viewer"]`。 |
+| `permissions` | object | 稳定 permission key 到 boolean 的映射。 |
+
+当前 permission key：
+
+| Permission | true 条件 | 用途 |
+| --- | --- | --- |
+| `role.manage` | `owner` | 添加或撤销 skill role assignment。 |
+| `variant.promote` | `owner` 或 `maintainer` | 打开/提交设为当前版本评审。 |
+| `verification.accept` | `owner` 或 `maintainer` | 接受某次 run 为验证依据。 |
 
 本轮权限：
 
@@ -679,6 +699,35 @@ X-SkillHub-Actor: product-operator
 - 授予和撤销需要 `owner`。
 - 删除最后一个 `owner` 会被拒绝。
 - 重复授予同一个 `subject + skill + role` 会返回已有记录。
+
+### Skill Capabilities
+
+```http
+GET /api/skills/{skill_id}/capabilities
+X-SkillHub-Actor: capability-viewer
+```
+
+返回当前请求 actor 对这个 skill 的能力快照：
+
+```json
+{
+  "actor": "capability-viewer",
+  "subject_type": "user",
+  "roles": ["viewer"],
+  "permissions": {
+    "role.manage": false,
+    "variant.promote": false,
+    "verification.accept": false
+  }
+}
+```
+
+行为：
+
+- endpoint 会先确认 skill 存在；不存在按 skill detail 规则返回 404。
+- `roles` 来自当前 skill 的 role assignment，不做前端推断。
+- `permissions` 与后端 mutation 的 `role_allows` 规则共用同一来源；前端只能用它控制展示和禁用态。
+- 正式认证接入后，actor 来源从本地 cookie/header 换成真实 session/token，返回结构保持稳定。
 
 ### Skill Audit Events
 

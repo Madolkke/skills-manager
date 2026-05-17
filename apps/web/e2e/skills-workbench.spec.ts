@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, createStoredZip, importSkillBundle } from "./helpers";
+import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, createStoredZip, gotoSkills, importSkillBundle, reloadWorkbench } from "./helpers";
 
 test("invalid skill folders show a blocking import preview", async ({ page }) => {
   const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-invalid-bundle-"));
@@ -10,7 +10,7 @@ test("invalid skill folders show a blocking import preview", async ({ page }) =>
   await writeFile(join(bundleDir, "README.md"), "# Missing skill contract\n");
 
   try {
-    await page.goto("/skills");
+    await gotoSkills(page);
     const inspector = page.getByLabel("Inspector");
     await inspector.getByRole("button", { name: "导入 bundle", exact: true }).click();
     await inspector.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
@@ -44,7 +44,7 @@ test("operator can import a skill from the workspace launchpad", async ({ page, 
   );
 
   try {
-    await page.goto("/skills");
+    await gotoSkills(page);
     const launchpad = page.locator(".skillLaunchpad");
     await launchpad.getByPlaceholder("skillhub-lab").fill("skillhub-launchpad");
     await launchpad.getByPlaceholder("codex, gpt5.4").fill("codex, launchpad");
@@ -53,7 +53,7 @@ test("operator can import a skill from the workspace launchpad", async ({ page, 
     await expect(launchpad).toContainText(skillName);
     await launchpad.getByRole("button", { name: "导入并创建 skill" }).click();
 
-    await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
+    await expect(page.locator(".linearHeader")).toContainText(skillName, { timeout: 30_000 });
     await expect(page.locator(".productHero")).toContainText("Review pull requests from the first-run launchpad.");
   } finally {
     await rm(bundleDir, { force: true, recursive: true });
@@ -64,7 +64,7 @@ test("operator can create a blank skill from the workspace launchpad", async ({ 
   await clearSkillCatalog(request);
   const slug = `launchpad-blank-${Date.now()}`;
 
-  await page.goto("/skills");
+  await gotoSkills(page);
   const launchpad = page.locator(".skillLaunchpad");
   await launchpad.getByRole("button", { name: "新建 skill" }).click();
   await launchpad.getByPlaceholder("security-reviewer").fill(slug);
@@ -133,16 +133,17 @@ test("operator can import a zipped standard skill bundle", async ({ page }) => {
   );
 
   try {
-    await page.goto("/skills");
-    await page.getByRole("button", { name: "导入 bundle", exact: true }).click();
-    await page.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
-    await page.getByPlaceholder("codex, gpt5.4").fill("codex, zip");
-    await page.locator('input[name="zip_file"]').setInputFiles(zipPath);
+    await gotoSkills(page);
+    const inspector = page.getByLabel("Inspector");
+    await inspector.getByRole("button", { name: "导入 bundle", exact: true }).click();
+    await inspector.getByPlaceholder("skillhub-lab").fill("skillhub-e2e");
+    await inspector.getByPlaceholder("codex, gpt5.4").fill("codex, zip");
+    await inspector.locator('input[name="zip_file"]').setInputFiles(zipPath);
 
-    await expect(page.getByText("zip-reviewing.zip")).toBeVisible();
-    await page.getByRole("button", { name: "导入并创建 skill" }).click();
+    await expect(inspector.getByText("zip-reviewing.zip")).toBeVisible();
+    await inspector.getByRole("button", { name: "导入并创建 skill" }).click();
 
-    await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
+    await expect(page.locator(".linearHeader")).toContainText(skillName, { timeout: 30_000 });
     await expect(page.locator(".productHero")).toContainText("Review zipped skills through the same import path.");
   } finally {
     await rm(bundleDir, { force: true, recursive: true });
@@ -219,11 +220,38 @@ test("operator can manage skill access roles from overview", async ({ page }) =>
   await expect(panel.locator(".skillAccessRow").filter({ hasText: "qa-reviewer" })).toHaveCount(0);
 });
 
+test("viewer sees protected actions disabled from skill capabilities", async ({ page }) => {
+  const skillName = `capabilities-${Date.now()}`;
+  await importSkillBundle(page, skillName);
+  await appendSkillBundleVersion(page, skillName, { makeCurrent: false });
+
+  await page.getByRole("tab", { name: "概览", exact: true }).click();
+  const accessPanel = page.locator(".skillAccessPanel");
+  await accessPanel.getByPlaceholder("qa-reviewer").fill("capability-viewer");
+  await accessPanel.getByLabel("Access role").selectOption("viewer");
+  await accessPanel.getByRole("button", { name: "添加成员" }).click();
+  await expect(accessPanel).toContainText("capability-viewer");
+
+  const sessionPanel = page.locator(".localSessionPanel");
+  await sessionPanel.getByPlaceholder("release-manager").fill("capability-viewer");
+  await sessionPanel.getByRole("button", { name: "切换 actor" }).click();
+  await expect(sessionPanel).toContainText("capability-viewer");
+
+  await expect(accessPanel).toContainText("当前角色 Viewer");
+  await expect(accessPanel).toContainText("不能管理角色");
+  await expect(accessPanel.getByRole("button", { name: "添加成员" })).toBeDisabled();
+
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
+  const promoteReview = page.locator(".variantVersionRow").filter({ hasText: "v2" }).getByRole("button", { name: "设为当前版本评审" });
+  await expect(promoteReview).toBeDisabled();
+  await expect(promoteReview).toHaveAttribute("title", "需要 owner 或 maintainer 权限。");
+});
+
 test("operator can switch local session actor before importing a skill", async ({ page, request }) => {
   await clearSkillCatalog(request);
   const sessionPanel = page.locator(".localSessionPanel");
 
-  await page.goto("/skills");
+  await gotoSkills(page);
   await expect(sessionPanel).toContainText("product-operator");
   await sessionPanel.getByPlaceholder("release-manager").fill("release-manager");
   await sessionPanel.getByRole("button", { name: "切换 actor" }).click();
@@ -298,11 +326,12 @@ test("imported skill is guided into its first verification run", async ({ page }
   await expect(page.locator(".verificationStep").filter({ hasText: "补齐评测集" })).toContainText("待处理");
 
   await page.getByRole("button", { name: "添加首批 case" }).click();
-  await page.getByPlaceholder("PR: 缺少 owner 校验").fill("PR: first verification path");
-  await page.getByPlaceholder("输入：代码 diff、上下文、用户请求...").fill("diff --git a/api.py b/api.py\n+return Project.all()");
-  await page.getByPlaceholder("期望输出：应该指出什么、避免什么...").fill("Must flag missing tenant scope.");
-  await page.getByPlaceholder("来源、bad case、维护说明").fill("Imported skill first verification.");
-  await page.getByRole("button", { name: "加入评测集" }).click();
+  const quickCaseForm = page.locator(".quickCaseGrid");
+  await quickCaseForm.locator('input[name="quick_title"]').fill("PR: first verification path");
+  await quickCaseForm.locator('textarea[name="quick_input_text"]').fill("diff --git a/api.py b/api.py\n+return Project.all()");
+  await quickCaseForm.locator('textarea[name="quick_expected_output"]').fill("Must flag missing tenant scope.");
+  await quickCaseForm.locator('input[name="quick_notes"]').fill("Imported skill first verification.");
+  await quickCaseForm.getByRole("button", { name: "快速加入" }).click();
 
   await expect(page.getByRole("tab", { name: "测评", exact: true })).toHaveClass(/linearTabActive/);
   await expect(page.locator(".caseReviewCard").filter({ hasText: "PR: first verification path" })).toBeVisible();
@@ -325,7 +354,7 @@ test("imported skill is guided into its first verification run", async ({ page }
 
 test("keyboard users can open primary inspector actions", async ({ page, request }) => {
   await clearSkillCatalog(request);
-  await page.goto("/skills");
+  await gotoSkills(page);
   const inspector = page.getByLabel("Inspector");
 
   await page.getByLabel("Skill catalog").getByRole("button", { name: "导入", exact: true }).focus();
@@ -925,7 +954,7 @@ test("operator can restore an older eval case version", async ({ page }) => {
 
 test("workbench keeps the primary content within a mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const workbench = page.locator(".linearWorkbench");
   await expect(workbench).toBeVisible();
@@ -936,7 +965,7 @@ test("workbench keeps the primary content within a mobile viewport", async ({ pa
 test("batch case preview stacks and scrolls within a mobile viewport", async ({ page }) => {
   await importSkillBundle(page, `mobile-batch-preview-${Date.now()}`);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.reload();
+  await reloadWorkbench(page);
 
   await page.getByRole("tab", { name: "测评", exact: true }).click();
   await page.getByRole("button", { name: "批量", exact: true }).click();

@@ -1,9 +1,9 @@
 import { expect, test, type Locator } from "@playwright/test";
 
-import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, importSkillBundle } from "./helpers";
+import { addEvalCase, appendSkillBundleVersion, clearSkillCatalog, gotoSkills, importSkillBundle } from "./helpers";
 
 test("keyboard users can skip chrome and move focus to main content", async ({ page }) => {
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   await page.keyboard.press("Tab");
   const skipLink = page.getByRole("link", { name: "跳到主要内容" });
@@ -15,7 +15,7 @@ test("keyboard users can skip chrome and move focus to main content", async ({ p
 });
 
 test("primary controls expose a visible keyboard focus indicator", async ({ page }) => {
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const commandButton = page.getByRole("button", { name: "Open command menu" }).first();
   await commandButton.focus();
@@ -25,7 +25,7 @@ test("primary controls expose a visible keyboard focus indicator", async ({ page
 
 test("reduced motion preference suppresses non-essential transitions", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const commandButton = page.getByRole("button", { name: "Open command menu" }).first();
   const maxTransitionMs = await maxTransitionDurationMs(commandButton);
@@ -34,7 +34,7 @@ test("reduced motion preference suppresses non-essential transitions", async ({ 
 });
 
 test("async workbench notices are exposed as polite status updates", async ({ page }) => {
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const sessionPanel = page.locator(".localSessionPanel");
   await sessionPanel.getByPlaceholder("release-manager").fill("accessibility-operator");
@@ -44,7 +44,7 @@ test("async workbench notices are exposed as polite status updates", async ({ pa
 });
 
 test("command menu exposes combobox listbox semantics", async ({ page }) => {
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   await page.getByRole("button", { name: "Open command menu" }).first().click();
   const combobox = page.getByRole("combobox", { name: "Search" });
@@ -67,7 +67,7 @@ test("command menu exposes combobox listbox semantics", async ({ page }) => {
 });
 
 test("command menu traps tab focus and restores focus on close", async ({ page }) => {
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const trigger = page.getByRole("button", { name: "Open command menu" }).first();
   await trigger.focus();
@@ -90,7 +90,7 @@ test("command menu traps tab focus and restores focus on close", async ({ page }
 });
 
 test("catalog action moves focus into the inspector form", async ({ page }) => {
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   await page.getByLabel("Skill catalog").getByRole("button", { name: "导入", exact: true }).click();
 
@@ -109,7 +109,7 @@ test("command menu action moves focus into the inspector form", async ({ page })
 
 test("core write forms expose explicit autocomplete and visible field focus", async ({ page, request }) => {
   await clearSkillCatalog(request);
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   const launchpadForm = page.locator(".skillLaunchpadForm");
   await expect(launchpadForm.locator('input[name="owner_ref"]')).toHaveAttribute("autocomplete", "off");

@@ -46,6 +46,15 @@ export type RoleAssignment = {
   created_by: string;
 };
 
+export type SkillPermission = "role.manage" | "variant.promote" | "verification.accept";
+
+export type SkillCapabilities = {
+  actor: string;
+  subject_type: string;
+  roles: RoleAssignment["role"][];
+  permissions: Record<SkillPermission, boolean>;
+};
+
 export type VariantDetail = {
   id: string;
   skill_id: string;

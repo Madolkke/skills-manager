@@ -3,11 +3,11 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { addEvalCase, clearSkillCatalog, importSkillBundle } from "./helpers";
+import { addEvalCase, clearSkillCatalog, gotoSkills, importSkillBundle } from "./helpers";
 
 test("launchpad required fields show an error summary and focus recovery links", async ({ page, request }) => {
   await clearSkillCatalog(request);
-  await page.goto("/skills");
+  await gotoSkills(page);
 
   await page.getByLabel("Skill 接入方式").getByRole("button", { name: "新建 skill" }).click();
   await page.locator(".skillLaunchpadForm").getByRole("button", { name: "创建 skill" }).click();
@@ -50,7 +50,7 @@ test("server field errors map to the matching inspector field", async ({ page, r
 
 test("server format errors map to the matching launchpad field", async ({ page, request }) => {
   await clearSkillCatalog(request);
-  await page.goto("/skills");
+  await gotoSkills(page);
   await page.getByLabel("Skill 接入方式").getByRole("button", { name: "新建 skill" }).click();
 
   const form = page.locator(".skillLaunchpadForm");
@@ -101,7 +101,7 @@ test("skill bundle frontmatter errors map to the folder upload field", async ({ 
   );
 
   try {
-    await page.goto("/skills");
+    await gotoSkills(page);
     const form = page.locator(".skillLaunchpadForm");
     await form.locator('input[name="owner_ref"]').fill("skillhub-e2e");
     await form.locator('input[name="tags"]').fill("codex, e2e");

@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-17 15:58 CST - TASK-062 Skill capabilities 权限感知
+
+- 新增 `GET /api/skills/{skill_id}/capabilities`，后端复用 skill role assignment 和 `role_allows` 返回当前 actor 的 roles 与 `role.manage`、`variant.promote`、`verification.accept`。
+- 前端 `DecisionWorkbench` 加载 skill detail 时并行加载 capabilities，访问控制面板显示当前角色和能力，变体、diff、promotion review 与 run comparison 的受保护动作按 capability 禁用并显示中文原因。
+- 新增 `apps/web/lib/capabilities.ts`，集中处理能力判断、禁用原因和角色摘要，避免 UI 组件各自硬编码权限语义。
+- 稳定了 E2E 启动和工作台 hydration 等待；zip 导入用例改为使用常驻 Inspector 入口，避免全量测试中已有 skill 时误依赖空库 Launchpad。
+- README、API contract、产品体验评审、完成度审计、摩擦审计、Superpowers spec/plan 和 TASK-062 任务记录已更新。
+- 已验证：红灯 API 先失败于 endpoint 不存在；绿色后目标 API 1 passed；红灯 E2E 先失败于 viewer 下角色和受保护动作未按 capabilities 展示；绿色后目标 E2E 1 passed；zip/first verification 稳定性回归 2 passed；`UV_NO_CACHE=1 uv run pytest` 106 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run e2e` 70 passed；`git diff --check` passed；任务 JSON 结构检查 passed。
+
 ### 2026-05-16 00:06 CST - TASK-061 Promotion decision note 字段级校验
 
 - 新增 `docs/superpowers/specs/2026-05-15-promotion-decision-note-validation-design.md` 和执行计划，记录 GOV.UK Error Summary / Validation / Textarea 与 GitHub protected branch 对 promotion gate 的适配。

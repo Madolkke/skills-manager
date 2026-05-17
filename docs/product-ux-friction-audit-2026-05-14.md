@@ -2,7 +2,7 @@
 
 日期：2026-05-14
 
-状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及权限协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、批量 case 预览移动端护栏、保存视图名称字段级校验、accepted verification note 字段级校验、promotion decision note 字段级校验、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
+状态：当前产品闭环已经强于普通 demo，但还不是成熟产品。主要缺口不在“能不能跑通”，而在信息架构密度、历史/发布证据的可扫读性，以及真实认证、多用户协作、验证策略和少量深水区可访问性细节。移动端 first-run、证据视图 inspector 折叠、URL state 第二阶段、Audit Explorer 扫读重构、表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、批量 case 预览移动端护栏、保存视图名称字段级校验、accepted verification note 字段级校验、promotion decision note 字段级校验、Skill capabilities 权限感知、Command menu 第二阶段和 Diff / Promotion 文件 reviewed progress 第一阶段已经按本审计后续任务完成。
 
 ## 审计输入
 
@@ -26,6 +26,7 @@
 3. **高频路径有多入口。** Launchpad、主区 composer、右侧 inspector、command menu 和键盘路径并存，已经开始兼顾新手和熟手。
 4. **验证证据链领先普通 SkillHub。** 当前产品已经把 bundle diff、eval set version、eval run binding、case result 和 promotion decision 放进同一个可信链条。
 5. **可访问性有工程护栏。** skip link、focus ring、reduced-motion、status notice、command menu ARIA、tablist、run matrix table semantics 和 inspector focus handoff 都有自动化覆盖。
+6. **权限反馈开始前置。** 后端返回当前 actor 的 skill capabilities，前端在访问控制、promotion 和 accepted verification 入口提前展示禁用态和原因，而不是等提交失败。
 
 ## 摩擦发现
 
@@ -104,6 +105,25 @@
 建议：
 
 - 将来做组织级审计时，沿用这套信息架构，并补日期范围、分页、导出和保留策略。
+
+### 已解决第一阶段 / 仍需后续 - 权限不足反馈太晚
+
+证据：
+
+- TASK-062 新增 `GET /api/skills/{skill_id}/capabilities`，返回当前 actor 的 roles 和 `role.manage`、`variant.promote`、`verification.accept`。
+- `SkillAccessPanel` 会显示当前角色和能力 chip；viewer 会看到 `不能管理角色`、不能添加成员或撤销角色。
+- `WorkbenchVariantsPane`、`WorkbenchDiffPane`、`PromotionReviewPane` 和 `RunComparisonPanel` 会按 capability 禁用设为当前版本评审、最终 promote 和接受验证依据。
+- E2E 覆盖 viewer 切换后访问控制显示 `当前角色 Viewer`，添加成员和设为当前版本评审按钮 disabled，并提供需要 owner/maintainer 的 title。
+
+影响：
+
+- 用户在执行受保护动作前就能看到为什么不可操作，减少“点了才失败”的摩擦。
+- 前端只消费后端 capability，不在浏览器里复制权限业务规则；正式认证接入时可以替换 actor 来源而保留 UI 契约。
+
+建议：
+
+- 下一阶段应接入真实认证，让 capability 来自登录 session/token，而不是本地开发 cookie。
+- 低频 admin action 也可以逐步接入 capability 提示，但不要在没有真实角色体系前发散到自定义权限编辑器。
 
 ### 已解决字段错误映射第一阶段 / 仍需后续 - 表单字段语义已统一，验证体验继续深化
 
@@ -210,7 +230,7 @@
 ## 下一轮任务排序
 
 1. **表单验证第二阶段剩余部分。** 其他产品字段长度上限、错误统计，以及更复杂嵌套表单的字段级回填。
-2. **接入真实认证。** 用真实登录 session/token 替换本地 actor cookie，并把 capability 反映到 UI。
+2. **接入真实认证。** 用真实登录 session/token 替换本地 actor cookie，并复用当前 capability UI 契约。
 3. **组织级 Audit Explorer。** 跨 skill 查询、日期范围、分页、导出和保留策略。
 4. **Diff / Promotion reviewed progress 第二阶段。** 决定是否服务端持久化、自动折叠已查看文件或纳入 promotion checklist。
 5. **URL state 第三阶段。** 短链接、权限感知分享提示和草稿恢复策略。

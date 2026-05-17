@@ -3,12 +3,14 @@
 import { Metric } from "@/components/workbench-metric";
 import { bundleDiffReviewKey, useFileReviewProgress } from "@/components/diff/use-file-review-progress";
 import { SelectField } from "@/components/forms/workbench-field";
+import { canUseCapability, capabilityDeniedReason } from "@/lib/capabilities";
 import { formatBytes } from "@/lib/format";
-import type { BundleDiff, BundleDiffFile, BundleDiffStatus, VariantDetail, VariantVersion } from "@/lib/types";
+import type { BundleDiff, BundleDiffFile, BundleDiffStatus, SkillCapabilities, VariantDetail, VariantVersion } from "@/lib/types";
 
 export type DiffFilter = "all" | BundleDiffStatus | "binary";
 
 type WorkbenchDiffPaneProps = {
+  capabilities: SkillCapabilities | null;
   diff: BundleDiff | null;
   filter: DiffFilter;
   leftVersionId: string | null;
@@ -23,6 +25,7 @@ type WorkbenchDiffPaneProps = {
 };
 
 export function WorkbenchDiffPane({
+  capabilities,
   diff,
   filter,
   leftVersionId,
@@ -37,7 +40,9 @@ export function WorkbenchDiffPane({
 }: WorkbenchDiffPaneProps) {
   const versions = sortedVersions(variant?.versions ?? []);
   const rightVersion = versions.find((version) => version.id === rightVersionId) ?? null;
-  const canReviewRight = Boolean(variant && rightVersion && rightVersion.id !== variant.current_version?.id);
+  const canPromote = canUseCapability(capabilities, "variant.promote");
+  const canReviewRight = Boolean(variant && rightVersion && rightVersion.id !== variant.current_version?.id && canPromote);
+  const reviewDeniedReason = !canPromote ? capabilityDeniedReason("variant.promote") : undefined;
   const allFiles = diff?.files ?? [];
   const reviewProgress = useFileReviewProgress(allFiles, bundleDiffReviewKey(diff));
   const filteredFiles = filterDiffFiles(allFiles, filter);
@@ -92,6 +97,7 @@ export function WorkbenchDiffPane({
             onClick={() => {
               if (variant && rightVersion) onPromotionReview(variant.id, rightVersion.id);
             }}
+            title={reviewDeniedReason}
             type="button"
           >
             设为当前版本评审

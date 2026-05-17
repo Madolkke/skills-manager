@@ -6,12 +6,14 @@ import { FormEvent } from "react";
 import { Badge } from "@/components/chrome";
 import { VariantCreationComposer } from "@/components/variants/variant-creation-composer";
 import { WorkspaceVersionComposer } from "@/components/variants/workspace-version-composer";
-import type { VariantDetail, VariantVersion } from "@/lib/types";
+import { canUseCapability, capabilityDeniedReason } from "@/lib/capabilities";
+import type { SkillCapabilities, VariantDetail, VariantVersion } from "@/lib/types";
 
 type VariantActionMode = "new-variant" | "new-version";
 
 type WorkbenchVariantsPaneProps = {
   busy: boolean;
+  capabilities: SkillCapabilities | null;
   defaultVariant: VariantDetail | null;
   onAction: (mode: VariantActionMode) => void;
   onCreateVariant: (event: FormEvent<HTMLFormElement>) => void;
@@ -23,6 +25,7 @@ type WorkbenchVariantsPaneProps = {
 
 export function WorkbenchVariantsPane({
   busy,
+  capabilities,
   defaultVariant,
   onAction,
   onCreateVariant,
@@ -32,6 +35,8 @@ export function WorkbenchVariantsPane({
   variants,
 }: WorkbenchVariantsPaneProps) {
   const historyCount = variants.reduce((total, variant) => total + variant.versions.length, 0);
+  const canPromote = canUseCapability(capabilities, "variant.promote");
+  const promoteDeniedReason = capabilityDeniedReason("variant.promote");
 
   return (
     <div className="linearPane">
@@ -84,7 +89,12 @@ export function WorkbenchVariantsPane({
                     {isCurrent ? (
                       <Badge tone="good">Current</Badge>
                     ) : (
-                      <button onClick={() => onPromotionReview(variant.id, version.id)} type="button">
+                      <button
+                        disabled={!canPromote}
+                        onClick={() => onPromotionReview(variant.id, version.id)}
+                        title={!canPromote ? promoteDeniedReason : undefined}
+                        type="button"
+                      >
                         设为当前版本评审
                       </button>
                     )}

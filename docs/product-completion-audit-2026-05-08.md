@@ -2,7 +2,7 @@
 
 日期：2026-05-15
 
-状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：主工作区 Skill Launchpad、移动端 first-run 单主路径、中等桌面证据视图 compact inspector rail、URL state 第二阶段、高频写入表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、批量 case 预览移动端护栏、保存视图名称字段级校验、accepted verification note 字段级校验、promotion decision note 字段级校验、Command menu 第二阶段、Diff / Promotion 文件 reviewed progress 第一阶段、主工作区 Skill 设置、Skill 作用域访问控制、本地 session actor、基础 accessibility 护栏、Workbench mode tablist、Inspector action 焦点交接、Skill 治理与审计面板、Skill 审计 Explorer quick filters/readable timeline/structured detail、标准 Skill bundle 导入、导入后验证清单、variant/version、candidate verification handoff、eval set version、manual eval review queue、历史查看、run matrix 多维控制与表格语义、保存历史筛选视图、run-to-run comparison、accepted verification、bundle diff、candidate promotion review、上下文命令菜单 ARIA 和快速添加 case 都能闭环。但距离成熟产品还缺少真实认证、多用户协作、自动测评策略和更深的可访问性验证。
+状态：尚未达到“成熟产品完成”。当前已经是一个强的正式垂直切片：主工作区 Skill Launchpad、移动端 first-run 单主路径、中等桌面证据视图 compact inspector rail、URL state 第二阶段、高频写入表单字段基础件第二阶段、表单验证错误摘要、后端字段错误映射、基础格式校验第一阶段、导入 bundle 字段错误映射第一阶段、批量 case 行级错误第一阶段、服务端批量 case 字段错误契约、eval case 文本长度校验、批量 case 导入预览表、批量 case 预览移动端护栏、保存视图名称字段级校验、accepted verification note 字段级校验、promotion decision note 字段级校验、Skill capabilities 权限感知、Command menu 第二阶段、Diff / Promotion 文件 reviewed progress 第一阶段、主工作区 Skill 设置、Skill 作用域访问控制、本地 session actor、基础 accessibility 护栏、Workbench mode tablist、Inspector action 焦点交接、Skill 治理与审计面板、Skill 审计 Explorer quick filters/readable timeline/structured detail、标准 Skill bundle 导入、导入后验证清单、variant/version、candidate verification handoff、eval set version、manual eval review queue、历史查看、run matrix 多维控制与表格语义、保存历史筛选视图、run-to-run comparison、accepted verification、bundle diff、candidate promotion review、上下文命令菜单 ARIA 和快速添加 case 都能闭环。但距离成熟产品还缺少真实认证、多用户协作、自动测评策略和更深的可访问性验证。
 
 ## 目标拆解
 
@@ -37,6 +37,7 @@
 | 证据视图 Inspector rail | 1041-1440px 下 diff/history/audit/promotion 使用 compact verification rail；E2E 覆盖 overview/full 与 history/compact 的宽度变化；视觉基线覆盖 promotion、run comparison 和 audit explorer。 | 完成 |
 | 主工作区 Skill 设置 | `SkillSettingsPanel` 在概览主区编辑 skill ID、owner 和默认分发 variant；`PATCH /api/skills/{skill_id}` 校验 default variant 同 skill；API/E2E 覆盖。 | 完成 |
 | Skill 作用域访问控制 | 创建 skill 自动授予 actor `owner`；`GET/POST /api/skills/{skill_id}/role-assignments` 和 `DELETE /api/role-assignments/{id}` 支持查看、授予、撤销角色；概览页 `SkillAccessPanel` 覆盖添加/移除 evaluator。 | 完成 |
+| Skill capabilities 权限感知 | `GET /api/skills/{skill_id}/capabilities` 返回当前 actor roles 和 `role.manage / variant.promote / verification.accept`；前端访问控制、变体、差异、评审和历史比较入口按 capability 展示角色、禁用态和原因；E2E 覆盖 viewer 无法管理角色或进入设为当前版本评审。 | 完成第一阶段 |
 | 本地 session ActorContext | Mutation endpoint 优先从签名 `skillhub_actor` HttpOnly cookie 获取本地 actor，前端 `apiSend/apiGet` 统一带 credentials，不再硬编码 actor header；直接 API 调用仍可用 `X-SkillHub-Actor` fallback，JSON body 中的 actor 被忽略。 | 完成 |
 | Skill 治理与审计 | `GET /api/skills/{skill_id}/audit-events` 和 skill detail 返回最近审计事件；`DELETE /api/skills/{skill_id}` 需要 owner 权限、写入 `skill.archived`；概览页 `SkillGovernancePanel` 展示治理摘要、审计时间线和 slug 确认危险区。 | 完成 |
 | Skill 审计 Explorer | `GET /api/skills/{skill_id}/audit-events` 支持 actor/action/resource_type filters，并纳入当前 skill 关联的 variant/eval_run audit events；前端 `SkillAuditExplorer` 支持 action quick filters、可读时间线、结构化详情和默认折叠的 Raw payload。 | 完成 |
@@ -129,6 +130,7 @@ wc -l apps/api/skillhub/api/main.py apps/api/tests/test_api_commands.py apps/web
 - TASK-059 增量验证：保存视图名称 API 红灯先失败于重复名缺少 `field_errors`、超长名被接受；E2E 红灯先失败于重复名后没有 `.savedRunViews .formErrorSummary`；完整验证记录见 `.agent/tasks/TASK-059.json`。
 - TASK-060 增量验证：accepted verification note API 红灯先失败于 1001 字符 note 返回 200；E2E 红灯先失败于超长 note 后没有 `.runCompareAcceptBar .formErrorSummary`；完整验证记录见 `.agent/tasks/TASK-060.json`。
 - TASK-061 增量验证：promotion decision note API 红灯先失败于空 risky note 缺少 `field_errors`；E2E 红灯先失败于 risky promotion 按钮仍 disabled；完整验证记录见 `.agent/tasks/TASK-061.json`。
+- TASK-062 增量验证：skill capabilities API 红灯先失败于 endpoint 不存在；E2E 红灯先失败于 viewer 下访问控制没有 `当前角色 Viewer` 且 protected action 未禁用；绿色后目标 API 1 passed、目标 E2E 1 passed、zip/first verification 稳定性回归 2 passed；完整验证为 API 106 passed、Web unit 5 files / 16 tests passed、typecheck/build/audit 通过、Playwright E2E 70 passed、`git diff --check` 和任务 JSON 检查通过；完整验证记录见 `.agent/tasks/TASK-062.json`。
 
 本轮相关视觉资产：
 
@@ -155,7 +157,7 @@ wc -l apps/api/skillhub/api/main.py apps/api/tests/test_api_commands.py apps/web
 
 ## 仍然阻塞“成熟产品完成”的风险
 
-1. **真实认证和多用户协作还没实现。** 当前已有 skill 作用域 owner/maintainer/evaluator/viewer、受保护动作门禁和签名本地 actor session，但它仍是开发期身份切换，不是真正的登录、token rotation 或组织级身份系统。
+1. **真实认证和多用户协作还没实现。** 当前已有 skill 作用域 owner/maintainer/evaluator/viewer、受保护动作门禁、后端 capabilities 和签名本地 actor session，但它仍是开发期身份切换，不是真正的登录、token rotation 或组织级身份系统。
 2. **部分操作仍偏表单。** 移动端 first-run 已去掉重复入口，中等桌面证据视图已把 inspector 收成 verification rail；Launchpad/Inspector 高频写入字段已有共享基础件；Command menu 已按当前 mode、最近使用和当前 selection 把高频动作前置；导入后清单、case 新增、case 详情内联编辑、主区创建 variant、主区追加候选版本、主区创建 skill、主区 skill 设置、访问控制、治理审计、记录 run 和 candidate 验证已更连续，但部分低频设置和筛选控件仍主要依赖局部表单或尚未产品化。
 3. **自动测评策略还没产品化。** 当前支持手工 pass/fail 和外部结果导入，但还没有内置 strategy registry、runner 调度和自动优化流水线。
 4. **URL sharing 还有协作层缺口。** 深层证据上下文已进 URL，但还没有短链接、权限感知分享提示，也没有草稿恢复策略。

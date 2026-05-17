@@ -425,5 +425,12 @@
     "priority": 61,
     "passes": true,
     "spec": ".agent/tasks/TASK-061.json"
+  },
+  {
+    "id": "062",
+    "title": "Skill capabilities 权限感知",
+    "priority": 62,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-062.json"
   }
 ]

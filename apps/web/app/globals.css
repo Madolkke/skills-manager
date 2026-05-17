@@ -5130,6 +5130,48 @@ body {
   font-size: 13px;
 }
 
+.skillAccessActor small {
+  color: #536176;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.skillCapabilityGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skillCapabilityChip {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e1e7ef;
+  border-radius: 10px;
+  background: #fbfcfd;
+  padding: 9px 10px;
+}
+
+.skillCapabilityChip b {
+  color: #111827;
+  font-size: 12px;
+}
+
+.skillCapabilityChip small {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.skillCapabilityChipAllowed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.skillCapabilityChipDenied {
+  border-color: #fee2e2;
+  background: #fff7f7;
+}
+
 .skillAccessRows {
   display: grid;
   gap: 8px;

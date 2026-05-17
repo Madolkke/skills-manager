@@ -19,6 +19,21 @@ export async function clearSkillCatalog(request: APIRequestContext) {
   }
 }
 
+export async function gotoSkills(page: Page) {
+  await page.goto("/skills", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('.linearWorkbench[data-hydrated="true"]')).toBeVisible({ timeout: 30_000 });
+}
+
+export async function gotoWorkbenchUrl(page: Page, url: string) {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await expect(page.locator('.linearWorkbench[data-hydrated="true"]')).toBeVisible({ timeout: 30_000 });
+}
+
+export async function reloadWorkbench(page: Page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator('.linearWorkbench[data-hydrated="true"]')).toBeVisible({ timeout: 30_000 });
+}
+
 export async function importSkillBundle(page: Page, skillName: string) {
   const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-bundle-"));
 
@@ -39,7 +54,7 @@ export async function importSkillBundle(page: Page, skillName: string) {
   await writeFile(join(bundleDir, "references", "checklist.md"), "Check owner filters and secret logging.\n");
 
   try {
-    await page.goto("/skills");
+    await gotoSkills(page);
     const inspector = page.getByLabel("Inspector");
     await inspector.getByRole("button", { name: "导入 bundle", exact: true }).click();
     const form = inspector.locator(".inspectorForm");
@@ -51,7 +66,7 @@ export async function importSkillBundle(page: Page, skillName: string) {
     await expect(inspector.getByText(skillName)).toBeVisible();
     await inspector.getByRole("button", { name: "导入并创建 skill" }).click();
 
-    await expect(page.getByRole("heading", { name: skillName })).toBeVisible();
+    await expect(page.locator(".linearHeader")).toContainText(skillName, { timeout: 30_000 });
     await expect(page.locator(".productHero")).toContainText("Review pull requests for authorization and data access regressions.");
   } finally {
     await rm(bundleDir, { force: true, recursive: true });

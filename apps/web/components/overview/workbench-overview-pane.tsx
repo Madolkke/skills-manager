@@ -12,13 +12,14 @@ import { SkillLaunchpad } from "@/components/skills/skill-launchpad";
 import { SkillSettingsPanel } from "@/components/skills/skill-settings-panel";
 import { Metric } from "@/components/workbench-metric";
 import { formatBytes, percent } from "@/lib/format";
-import type { BundleFile, EvalRunRecord, SkillDetail, VariantDetail } from "@/lib/types";
+import type { BundleFile, EvalRunRecord, SkillCapabilities, SkillDetail, VariantDetail } from "@/lib/types";
 
 type WorkbenchOverviewPaneProps = {
   actor: string;
   assignSkillRole: (event: FormEvent<HTMLFormElement>) => void;
   busy: boolean;
   caseCount: number;
+  capabilities: SkillCapabilities | null;
   createSkill: (event: FormEvent<HTMLFormElement>) => void;
   defaultVariant: VariantDetail | null;
   hasPersistedSkill: boolean;
@@ -44,6 +45,7 @@ export function WorkbenchOverviewPane({
   assignSkillRole,
   busy,
   caseCount,
+  capabilities,
   createSkill,
   defaultVariant,
   hasPersistedSkill,
@@ -118,6 +120,7 @@ export function WorkbenchOverviewPane({
       <SkillAccessPanel
         actor={actor}
         busy={busy}
+        capabilities={capabilities}
         onAssignRole={assignSkillRole}
         onRevokeRole={revokeSkillRole}
         roleAssignments={selectedDetail.role_assignments}
