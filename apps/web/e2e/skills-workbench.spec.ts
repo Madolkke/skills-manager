@@ -816,6 +816,9 @@ test("operator can inspect run matrix across eval runs", async ({ page }) => {
   await expect(matrixTable).toHaveAttribute("aria-colcount", "4");
   await expect(matrixTable.getByRole("columnheader", { name: "Case" })).toBeVisible();
   await expect(matrixTable.getByRole("columnheader", { name: "Impact" })).toBeVisible();
+  await expect(page.locator(".runMatrixCaseHeader")).toHaveCSS("left", "0px");
+  await expect(page.locator(".runMatrixRunHeader").first()).toHaveCSS("position", "sticky");
+  await expect(page.locator(".runMatrixRunHeader").first()).toHaveCSS("top", "0px");
   await expect(page.locator(".runMatrixRunHeader")).toHaveCount(2);
   await expect(page.locator(".runMatrixCaseTitle", { hasText: "PR: missing tenant scope" })).toBeVisible();
   await expect(page.locator(".runMatrixCaseTitle", { hasText: "PR: token logging" })).toBeVisible();

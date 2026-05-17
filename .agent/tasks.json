@@ -509,5 +509,12 @@
     "priority": 73,
     "passes": true,
     "spec": ".agent/tasks/TASK-073.json"
+  },
+  {
+    "id": "074",
+    "title": "Run matrix sticky header",
+    "priority": 74,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-074.json"
   }
 ]

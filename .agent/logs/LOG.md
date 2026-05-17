@@ -10,6 +10,13 @@
 
 ## Session Log
 
+### 2026-05-17 18:52 CST - TASK-074 Run matrix sticky header
+
+- Run matrix 表头新增 sticky top，纵向滚动矩阵时 run header 会保持可见；左上角 `Case` header 提高 z-index，继续同时承担横向和纵向上下文。
+- Run matrix E2E 新增 CSS 语义断言，覆盖 `.runMatrixRunHeader` 的 sticky position/top 和 `.runMatrixCaseHeader` 的 sticky left。
+- README、产品体验评审、摩擦审计、完成度审计、Superpowers spec/plan 和 TASK-074 任务记录已更新；run comparison 视觉基线已按意图更新。
+- 已验证：红灯 Run matrix E2E 先失败于 run header 为 static；绿色后目标 Run matrix E2E 1 passed；run comparison 视觉基线更新 1 passed；`UV_NO_CACHE=1 uv run pytest` 111 passed；`npm run test:unit` 7 files/23 tests passed；`npm run build` passed；`npm run typecheck` passed；`npm audit --omit=dev` found 0 vulnerabilities；完整 `npm run e2e` 74 passed；`git diff --check` 和任务 JSON 检查通过。
+
 ### 2026-05-17 18:44 CST - TASK-073 Saved run view config helper 重构
 
 - 新增 `saved-run-view-config` helper，把 saved run view config 的构建、run filters 恢复、matrix controls 恢复和 comparison 指针恢复从 `DecisionWorkbench` 抽出。

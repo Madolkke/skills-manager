@@ -1,0 +1,32 @@
+{
+  "id": "074",
+  "title": "Run matrix sticky header",
+  "status": "complete",
+  "goal": "让 Run matrix 表头在矩阵滚动时保持可见，减少用户扫读多 run 结果时丢失列上下文。",
+  "scope": [
+    "Run matrix thead th 使用 sticky top",
+    "Case header 保持 sticky left 且 z-index 高于普通 header",
+    "新增 E2E CSS 语义断言",
+    "更新 run comparison 视觉基线",
+    "更新产品审计和任务记录"
+  ],
+  "out_of_scope": [
+    "第三方 data grid",
+    "Run matrix 数据模型变化",
+    "自定义指标列",
+    "CSV 导出变化"
+  ],
+  "verification": [
+    "红灯 E2E: cd apps/web && npm run e2e -- skills-workbench.spec.ts -g \"run matrix\" 先失败于 `.runMatrixRunHeader` computed position 为 static。",
+    "绿色目标 E2E: cd apps/web && npm run e2e -- skills-workbench.spec.ts -g \"run matrix\" -> 1 passed。",
+    "视觉基线: cd apps/web && npm run e2e -- visual-workbench.spec.ts -g \"run comparison\" --update-snapshots -> 1 passed。",
+    "API: cd apps/api && UV_NO_CACHE=1 uv run pytest -> 111 passed。",
+    "Web unit: cd apps/web && npm run test:unit -> 7 files / 23 tests passed。",
+    "Web build: cd apps/web && npm run build -> passed。",
+    "Web audit: cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities。",
+    "Web typecheck: cd apps/web && npm run typecheck -> passed。",
+    "Web E2E: cd apps/web && npm run e2e -> 74 passed。",
+    "Whitespace: git diff --check -> passed。",
+    "Task JSON: jq empty .agent/tasks.json .agent/tasks/TASK-074.json -> passed。"
+  ]
+}

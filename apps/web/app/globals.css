@@ -6909,6 +6909,13 @@ body {
   border-right: 0;
 }
 
+.runMatrixTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fafc;
+}
+
 .runMatrixCaseHeader,
 .runMatrixCaseTitle {
   position: sticky;
@@ -6918,6 +6925,10 @@ body {
   min-width: 240px;
   max-width: 240px;
   background: #f8fafc;
+}
+
+.runMatrixTable thead .runMatrixCaseHeader {
+  z-index: 3;
 }
 
 .runMatrixImpactHeader,

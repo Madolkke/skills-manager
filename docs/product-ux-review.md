@@ -38,7 +38,7 @@
 - 标准 bundle version 可以在专门的 diff mode 里比较文件状态、筛选 changed/added/removed/binary，并查看行级 diff。
 - Diff mode 和 Promotion review 的 bundle diff 都支持会话级文件 `已查看` 标记，并显示 `Reviewed x/y` 或 `x/y reviewed`，用户能按文件推进审查。
 - History mode 支持按 exact variant version、eval set version、strategy、status 过滤 eval run，并查看每个 run 的逐 case 结果。
-- History mode 支持 `Run matrix`，把当前筛选下的 runs 展成 case x run 矩阵，快速识别哪些 case 在哪些 run 上通过、不通过或未覆盖；矩阵使用原生 table、caption、列/行标题和完整单元格标签，辅助技术不用靠颜色和视觉位置猜测结果。
+- History mode 支持 `Run matrix`，把当前筛选下的 runs 展成 case x run 矩阵，快速识别哪些 case 在哪些 run 上通过、不通过或未覆盖；矩阵使用原生 table、caption、列/行标题、sticky case 首列、sticky 表头和完整单元格标签，辅助技术不用靠颜色和视觉位置猜测结果。
 - History mode 支持保存、应用、删除当前筛选视图，用户可以把“候选 v2 / Primary v3”这类常用实验入口固化下来；保存视图也会恢复对照/候选 run 指针，不需要反复手动组合筛选和比较上下文。
 - 选择 `对照` 和 `候选` run 后，Run matrix 每个 case 行会显示 `修复`、`回退`、`稳定通过`、`仍未通过` 或 `缺失`，把样本级变化直接放到表格里。
 - Run matrix 支持按 impact 过滤 case、按 impact 分组、隐藏 run header 分数、隐藏 `Impact` 列，并且这些矩阵控制项会随 URL 和命名视图一起保存和恢复；当前可见矩阵还能直接导出 CSV，用于外部复盘和评审。
@@ -173,6 +173,7 @@
 54. 以前 Run matrix 的 `Impact` 列固定显示，占用横向空间；现在可以关闭 `Impact column`，URL 和 saved view 都会恢复这个列配置。
 55. 以前用户只能在页面里看 Run matrix，想带到外部评审要手动复制；现在 `Export CSV` 会导出当前可见 rows 和当前列配置，`Impact column` 关闭时 CSV 也不会导出该列。
 56. 以前 saved view 只能恢复 run filters 和 matrix 偏好，用户仍要重新点 `对照` / `候选`；现在 saved view 会保存和恢复这两个 run 指针，并重新显示对应 comparison。
+57. 以前 Run matrix 只有 case 首列 sticky，纵向扫读时 run header 会离开视口；现在表头也 sticky，用户看深处 case 时仍能看到每个结果列对应哪次 run。
 
 ## 仍然存在的摩擦
 
