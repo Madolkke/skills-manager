@@ -12,7 +12,7 @@
 - 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，用户可以搜索并执行导入、创建、测评、历史、差异等高频动作；可见的 `Cmd K` 按钮也能打开同一个入口。命令菜单现在按 `dialog + combobox + listbox` 建模，搜索框保留焦点，方向键移动 active option，Tab 在弹层内循环；排序会结合当前 workbench mode、最近使用和当前 selection，选中 case 时可直接查看 case 历史，选中 run 时可设置 run comparison，并用右侧 preview 说明命令作用对象和禁用原因。
 - 中间工作区的 `概览 / 变体 / 测评 / 差异 / 历史` 已按 APG Tabs Pattern 建模：Tab 只进入当前 mode tab，左右方向键、Home、End 在同组模式中移动并激活对应 panel，减少键盘用户重复 Tab 的成本。
 - 从 catalog button 或命令菜单触发 `导入 bundle`、`新建 skill`、`添加 case` 等 Inspector action 后，焦点会进入对应表单的第一个可操作控件，键盘用户不用从旧触发点一路 Tab 到右侧面板。
-- `SkillLaunchpad` 和 `WorkbenchInspector` 高频写入表单已迁移到共享字段基础件：label、hint、`aria-describedby`、业务字段 `autocomplete="off"` 和局部 `:focus-visible` 行为保持一致。
+- `SkillLaunchpad` 和 `WorkbenchInspector` 高频写入表单已迁移到共享字段基础件：label、hint、`aria-describedby`、业务字段 `autocomplete="off"` 和局部 `:focus-visible` 行为保持一致；错误摘要会显示需要修正的字段数量，用户不用先扫完整列表才能知道工作量。
 - 用户可以创建 skill、导入标准 Skill 文件夹或 zip、创建 variant、追加 bundle version、添加/编辑/归档 eval case，并记录手工通过/不通过测评。
 - `概览` 页现在提供 `身份与默认分发` 设置面板，用户可以直接修改 skill ID、归属，并选择默认分发 variant；非法归属会回填到字段错误摘要和 `归属` 输入框。
 - `概览` 页现在提供 `访问控制` 面板，用户可以查看 skill 作用域角色、当前 actor 的后端权威 capabilities，并添加或移除 owner/maintainer/evaluator/viewer；权限不足时相关按钮会 disabled 并显示需要的角色，非法成员 identity ref 会回填到 `成员` 输入框。
@@ -74,7 +74,7 @@
 - **WAI-ARIA APG Tabs Pattern:** APG 建议 tablist 只把当前 tab 放进 Tab 顺序，方向键在 tablist 内移动，tabpanel 用 `aria-labelledby` 关联 active tab。SkillHub 适配为工作区 mode switcher，保留原生 button 和既有 click 行为，同时补齐 `role=tablist/tab/tabpanel`。
 - **WCAG Focus Order:** WCAG 2.4.3 要求顺序导航保留意义和可操作性。SkillHub 适配为 Inspector action 的焦点交接：用户请求某个右侧表单时，焦点进入该表单，而不是停在左侧或命令菜单的旧位置。
 - **Vercel / MDN / WCAG / VA.gov form guidance:** 表单字段需要稳定 label、说明、合适的 `autocomplete` 和键盘可见焦点。SkillHub 适配为轻量 `WorkbenchField` 系列，先覆盖 Launchpad 与 Inspector 的高频写入路径；业务字段不是姓名、邮箱或地址时默认关闭浏览器自动填充，防止 `owner_ref`、`tags`、`slug` 被个人资料误填。
-- **GOV.UK / MOJ form validation:** GOV.UK 要求错误摘要和字段旁错误同时出现，且文案一致；MOJ 建议提交时验证，不在输入或 blur 时打扰用户。SkillHub 适配为 `ValidatedForm`：提交空 required 字段后展示摘要、聚焦摘要、链接回字段，并通过 `WorkbenchField` 显示同一条字段错误。
+- **GOV.UK / MOJ form validation:** GOV.UK 要求错误摘要和字段旁错误同时出现，且文案一致；MOJ 建议提交时验证，不在输入或 blur 时打扰用户。SkillHub 适配为 `ValidatedForm`：提交空 required 字段后展示摘要、聚焦摘要、显示需要修正的字段数量、链接回字段，并通过 `WorkbenchField` 显示同一条字段错误。
 - **GOV.UK file upload:** 文件上传失败要贴近上传控件本身，而不是只在页面顶部显示泛化错误。SkillHub 适配为：标准 Skill bundle 的 `SKILL.md`、frontmatter 和 zip 解析错误会回填到 `folder_files` 或 `zip_file`，用户知道应该重新选择哪个来源。
 - **RFC 9457 / JSON:API error object / FastAPI exception handlers:** API 错误应该把人读说明和机器可读定位分开，客户端不应该解析 `detail` 文案猜字段。SkillHub 适配为兼容式 `detail + field_errors`：重复 Skill ID、请求体校验错误和 Skill bundle 导入解析错误会回填到表单字段；批量 case 直连 API 会返回 `cases[n].field`，让客户端不用猜测哪一行失败。
 - **MDN form validation:** 客户端校验可以改善体验，但不能替代服务端校验。SkillHub 适配为服务端权威格式规则：手工新建 skill 的 `slug` 与标准 Skill bundle `name` 保持一致，tag 只允许稳定可查询字符；前端只显示服务端 `field_errors`。
@@ -165,11 +165,12 @@
 47. 以前用户只有点了受保护动作才知道自己没权限；现在概览页显示当前 actor 角色和 capability，访问控制、设为当前版本评审和接受验证依据入口会提前 disabled 并给出需要 owner/maintainer 的原因。
 48. 以前主工作区创建 variant 和追加候选版本还是 raw form，过长说明只会变成全局失败或直接入库；现在它们复用 `ValidatedForm` 和 `WorkbenchField`，variant 名称限制 80 字符，说明和版本说明限制 1000 字符，超限会显示错误摘要并回到具体字段。
 49. 以前 `owner_ref` 和 role `subject_id` 可以写入带空格或不可查询符号的脏身份引用；现在两者共享 identity ref 规则，最多 120 字符，只允许字母、数字、点、下划线、`@` 和连字符，并在概览页回填到 `归属` / `成员` 字段。
+50. 以前错误摘要只说“修正后再提交”，用户要扫列表才能知道有多少项；现在摘要直接显示需要修正的字段数量，错误恢复的工作量更可见。
 
 ## 仍然存在的摩擦
 
 1. Command menu 已完成第二阶段：支持 mode-aware 排序、本地最近使用、selected case/run 命令和右侧 preview；还没有服务器端个性化、跨 skill 全局搜索或快捷键自定义。
-2. 表单字段基础件已覆盖主要工作台表单，required 字段已有错误 summary、提交后聚焦摘要、摘要链接回字段和字段旁错误；后端字段错误映射已覆盖重复 Skill ID、基础请求体校验、Skill ID 格式、tags 格式、owner_ref / subject_id 身份引用格式、导入 bundle 解析错误、批量 case 行级字段错误、eval case 文本长度上限、variant 写入字段长度上限、保存视图名称字段错误、accepted verification note 字段错误和 promotion decision note 字段错误。还没有错误统计和更复杂嵌套字段回填。
+2. 表单字段基础件已覆盖主要工作台表单，required 字段已有错误 summary、错误数量统计、提交后聚焦摘要、摘要链接回字段和字段旁错误；后端字段错误映射已覆盖重复 Skill ID、基础请求体校验、Skill ID 格式、tags 格式、owner_ref / subject_id 身份引用格式、导入 bundle 解析错误、批量 case 行级字段错误、eval case 文本长度上限、variant 写入字段长度上限、保存视图名称字段错误、accepted verification note 字段错误和 promotion decision note 字段错误。还没有更复杂嵌套字段回填。
 3. Promotion review 已经展示 case impact、diff 和会话级文件 reviewed progress，但 viewed state 还没有服务端持久化，也没有把具体 diff hunk 关联到具体 eval case。
 4. URL state 已覆盖核心证据上下文，但还没有短链接、权限感知分享提示，也没有保存未提交草稿。
 5. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
@@ -178,7 +179,7 @@
 
 ## 下一轮优化队列
 
-1. 表单验证后续：错误统计、更多嵌套写入表单的字段错误回填，以及低频字段的辅助说明/字符计数。
+1. 表单验证后续：更多嵌套写入表单的字段错误回填，以及低频字段的辅助说明/字符计数。
 2. 接入真实认证：用真正的登录 session/token 替换本地登录码和 actor cookie，保留后端 capabilities 契约，前端不再允许开发期身份模拟。
 3. Diff / Promotion review 第二阶段：评估是否服务端持久化 viewed state、自动折叠已查看文件，或把 diff hunk 关联到 eval case。
 4. URL state 第三阶段：增加短链接、权限感知分享提示，并评估是否保存草稿到本地 session storage 而不是 URL。

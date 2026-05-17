@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-17 17:08 CST - TASK-066 表单错误摘要统计
+
+- `FormErrorSummary` 的说明文案从泛化的“修正后再提交。”升级为显示需要修正的字段数量，例如 `6 个字段需要修正。修正后再提交。`。
+- 这次不新增校验规则、不改字段错误映射，只增强 `ValidatedForm` 的错误恢复可见性；原有 summary focus、摘要链接回焦、字段旁错误和 `aria-invalid` 逻辑保持不变。
+- E2E 扩展 Launchpad required-fields 用例，覆盖空白新建 skill 时错误摘要显示 6 个字段需要修正，同时保留 `填写 Skill ID`、summary focus 和链接回焦断言。
+- README、产品体验评审、摩擦审计、完成度审计、Superpowers spec/plan 和 TASK-066 任务记录已更新，下一轮表单队列移除“错误统计”，保留复杂嵌套字段错误与低频字段辅助说明。
+- 已验证：红灯 E2E 先失败于错误摘要缺少数量；绿色后目标 E2E 1 passed；`UV_NO_CACHE=1 uv run pytest` 109 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run e2e` 72 passed；`git diff --check` passed；任务 JSON 结构检查 passed。
+
 ### 2026-05-17 16:56 CST - TASK-065 身份引用字段格式校验
 
 - 新增 `IdentityRef` API 字段类型，`owner_ref` 和 role `subject_id` 统一限制为最多 120 字符，只允许字母、数字、点、下划线、`@` 和连字符。

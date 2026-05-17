@@ -15,6 +15,7 @@ test("launchpad required fields show an error summary and focus recovery links",
   const summary = page.locator(".skillLaunchpadForm .formErrorSummary");
   await expect(summary).toBeVisible();
   await expect(summary).toBeFocused();
+  await expect(summary).toContainText("6 个字段需要修正。修正后再提交。");
   await expect(summary).toContainText("填写 Skill ID");
   await expect(page.locator(".skillLaunchpadForm").locator('input[name="slug"]')).toHaveAttribute("aria-invalid", "true");
 

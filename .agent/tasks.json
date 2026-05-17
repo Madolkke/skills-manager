@@ -453,5 +453,12 @@
     "priority": 65,
     "passes": true,
     "spec": ".agent/tasks/TASK-065.json"
+  },
+  {
+    "id": "066",
+    "title": "表单错误摘要统计",
+    "priority": 66,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-066.json"
   }
 ]

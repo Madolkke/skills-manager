@@ -86,7 +86,7 @@ function FormErrorSummary({
   return (
     <div aria-label={title} className="formErrorSummary" ref={summaryRef} role="alert" tabIndex={-1}>
       <strong>{title}</strong>
-      <p>修正后再提交。</p>
+      <p>{errors.length} 个字段需要修正。修正后再提交。</p>
       <ul>
         {errors.map((error) => {
           const fieldId = error.fieldId;
