@@ -69,6 +69,53 @@ test("server format errors map to the matching launchpad field", async ({ page, 
   await expect(form.locator('input[name="slug"]')).toHaveAttribute("aria-invalid", "true");
 });
 
+test("variant workspace field errors stay on their fields", async ({ page }) => {
+  await importSkillBundle(page, `variant-workspace-errors-${Date.now()}`);
+  await page.getByRole("tab", { name: "变体", exact: true }).click();
+
+  const variantComposer = page.locator(".variantCreationComposer");
+  await variantComposer.getByRole("button", { name: "新建约束 variant" }).click();
+  await variantComposer.locator('input[name="label"]').fill("Strict reviewer");
+  await variantComposer.locator('input[name="tags"]').fill("codex, strict");
+  await variantComposer.locator('textarea[name="summary"]').fill("x".repeat(1001));
+  await variantComposer.locator('textarea[name="change_summary"]').fill("Add stricter variant.");
+  await variantComposer.getByRole("button", { name: "创建约束 variant" }).click();
+
+  const variantSummary = variantComposer.locator(".formErrorSummary");
+  await expect(variantSummary).toBeVisible();
+  await expect(variantSummary).toBeFocused();
+  await expect(variantSummary).toContainText("说明最多 1000 个字符。");
+  await expect(variantComposer.locator('textarea[name="summary"]')).toHaveAttribute("aria-invalid", "true");
+
+  const bundleDir = await mkdtemp(join(tmpdir(), "skillhub-version-field-errors-"));
+  await writeFile(
+    join(bundleDir, "SKILL.md"),
+    [
+      "---",
+      "name: variant-workspace-errors",
+      "description: Candidate version with an overlong change summary.",
+      "---",
+      "",
+      "# Candidate",
+    ].join("\n"),
+  );
+
+  try {
+    const versionComposer = page.locator(".workspaceVersionComposer");
+    await versionComposer.locator('input[name="version_folder_files"]').setInputFiles(bundleDir);
+    await versionComposer.locator('textarea[name="change_summary"]').fill("x".repeat(1001));
+    await versionComposer.getByRole("button", { name: "追加候选版本" }).click();
+
+    const versionSummary = versionComposer.locator(".formErrorSummary");
+    await expect(versionSummary).toBeVisible();
+    await expect(versionSummary).toBeFocused();
+    await expect(versionSummary).toContainText("版本说明最多 1000 个字符。");
+    await expect(versionComposer.locator('textarea[name="change_summary"]')).toHaveAttribute("aria-invalid", "true");
+  } finally {
+    await rm(bundleDir, { force: true, recursive: true });
+  }
+});
+
 test("quick case required fields show a focused error summary", async ({ page }) => {
   await importSkillBundle(page, `quick-case-errors-${Date.now()}`);
 

@@ -108,6 +108,86 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(response.json()["field_errors"][0]["field"], "tags")
         self.assertEqual(response.json()["field_errors"][0]["message"], "至少填写一个约束标签。")
 
+    def test_variant_write_fields_return_field_errors(self):
+        skill = self.create_skill("variant-field-limits")
+
+        overlong_label = self.client.post(
+            "/api/variants",
+            json={
+                "skill_id": skill["skill_id"],
+                "name": "Strict",
+                "label": "x" * 81,
+                "summary": "Strict reviewer.",
+                "tags": ["codex", "strict"],
+                "content_ref": {
+                    "kind": "skill_bundle",
+                    "locator": "memory:strict",
+                    "digest": "digest-strict",
+                },
+                "change_summary": "Add strict variant.",
+            },
+        )
+
+        self.assertEqual(overlong_label.status_code, 422)
+        self.assertEqual(
+            overlong_label.json()["field_errors"][0],
+            {
+                "field": "label",
+                "message": "变体名称最多 80 个字符。",
+                "code": "request.string_too_long",
+            },
+        )
+
+        overlong_summary = self.client.post(
+            "/api/variants",
+            json={
+                "skill_id": skill["skill_id"],
+                "name": "Strict",
+                "label": "Strict",
+                "summary": "x" * 1001,
+                "tags": ["codex", "strict"],
+                "content_ref": {
+                    "kind": "skill_bundle",
+                    "locator": "memory:strict-summary",
+                    "digest": "digest-strict-summary",
+                },
+                "change_summary": "Add strict variant.",
+            },
+        )
+
+        self.assertEqual(overlong_summary.status_code, 422)
+        self.assertEqual(
+            overlong_summary.json()["field_errors"][0],
+            {
+                "field": "summary",
+                "message": "说明最多 1000 个字符。",
+                "code": "request.string_too_long",
+            },
+        )
+
+        overlong_change_summary = self.client.post(
+            "/api/variant-versions",
+            json={
+                "variant_id": skill["variant_id"],
+                "content_ref": {
+                    "kind": "skill_bundle",
+                    "locator": "memory:candidate",
+                    "digest": "digest-candidate",
+                },
+                "change_summary": "x" * 1001,
+            },
+        )
+
+        self.assertEqual(overlong_change_summary.status_code, 422)
+        self.assertEqual(
+            overlong_change_summary.json()["field_errors"][0],
+            {
+                "field": "change_summary",
+                "message": "版本说明最多 1000 个字符。",
+                "code": "request.string_too_long",
+            },
+        )
+
     def test_command_flow_records_eval_run(self):
         skill = self.create_skill("code-reviewer")
         candidate = self.client.post(

@@ -432,5 +432,12 @@
     "priority": 62,
     "passes": true,
     "spec": ".agent/tasks/TASK-062.json"
+  },
+  {
+    "id": "063",
+    "title": "Variant 写入字段校验",
+    "priority": 63,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-063.json"
   }
 ]

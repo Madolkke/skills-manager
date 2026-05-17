@@ -3,6 +3,9 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 
+import { ValidatedForm } from "@/components/forms/form-validation";
+import { CheckboxField, TextAreaField, TextField } from "@/components/forms/workbench-field";
+
 type VariantCreationComposerProps = {
   busy: boolean;
   hasBaseVersion: boolean;
@@ -24,35 +27,35 @@ export function VariantCreationComposer({
         <p>用 tags 表达使用约束，默认从当前版本复制基线，再按这个约束继续演进。</p>
       </div>
       {expanded ? (
-        <form className="variantCreationComposerGrid" onSubmit={onCreateVariant}>
-          <label>
-            <span>Label</span>
-            <input name="label" placeholder="Codex + stricter auth" required />
-          </label>
-          <label>
-            <span>Tags</span>
-            <input name="tags" placeholder="codex, strict-auth" required />
-          </label>
-          <label className="variantCreationFull">
-            <span>Summary</span>
-            <textarea name="summary" placeholder="这个约束组合下的最优解说明" required />
-          </label>
-          <label className="variantCreationFull">
-            <span>Change summary</span>
-            <textarea name="change_summary" placeholder="为什么要创建这个 variant" required />
-          </label>
-          <label className="variantCreationToggle">
-            <input defaultChecked disabled={!hasBaseVersion} name="copy_current" type="checkbox" />
-            <span>{hasBaseVersion ? "从当前版本复制基线" : "暂无当前版本可复制"}</span>
-          </label>
-          <label className="variantCreationToggle">
-            <input name="make_default" type="checkbox" />
-            <span>设为 default</span>
-          </label>
+        <ValidatedForm className="variantCreationComposerGrid" onValidSubmit={onCreateVariant}>
+          <TextField label="Label" name="label" placeholder="Codex + stricter auth" required />
+          <TextField label="Tags" name="tags" placeholder="codex, strict-auth" required />
+          <TextAreaField
+            className="variantCreationFull"
+            label="Summary"
+            name="summary"
+            placeholder="这个约束组合下的最优解说明"
+            required
+          />
+          <TextAreaField
+            className="variantCreationFull"
+            label="Change summary"
+            name="change_summary"
+            placeholder="为什么要创建这个 variant"
+            required
+          />
+          <CheckboxField
+            className="variantCreationToggle"
+            defaultChecked
+            disabled={!hasBaseVersion}
+            label={hasBaseVersion ? "从当前版本复制基线" : "暂无当前版本可复制"}
+            name="copy_current"
+          />
+          <CheckboxField className="variantCreationToggle" label="设为 default" name="make_default" />
           <button disabled={busy} type="submit">
             创建约束 variant
           </button>
-        </form>
+        </ValidatedForm>
       ) : (
         <button className="variantCreationComposerOpen" disabled={busy} onClick={() => setExpanded(true)} type="button">
           新建约束 variant

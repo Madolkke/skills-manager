@@ -10,6 +10,15 @@
 
 ## Session Log
 
+### 2026-05-17 16:14 CST - TASK-063 Variant 写入字段校验
+
+- 新增 `docs/superpowers/specs/2026-05-17-variant-field-validation-design.md` 和执行计划，记录 GOV.UK / Atlassian / Material 表单错误实践对 variant 高频写入路径的适配。
+- 后端为 `variant_label` / `label` 增加 80 字符上限，为 `variant_summary` / `summary` 和 `change_summary` 增加 1000 字符上限；超限继续返回兼容的 `detail + field_errors`。
+- `VariantCreationComposer` 和 `WorkspaceVersionComposer` 从 raw form 改为 `ValidatedForm + WorkbenchField`，主工作区创建 variant 和追加候选版本现在会显示错误摘要、字段旁错误和 `aria-invalid`。
+- `createVariant` 和 `createVariantVersion` 对 API 字段错误重新抛回表单，避免只显示全局 notice。
+- README、API contract、产品体验评审、摩擦审计、完成度审计和 TASK-063 任务记录已更新。
+- 已验证：红灯 API 先失败于过长 variant label 返回 200；绿色后目标 API 1 passed；红灯 E2E 先失败于主工作区 variant 表单没有 `.formErrorSummary`；绿色后目标 E2E 1 passed；`UV_NO_CACHE=1 uv run pytest` 107 passed；`npm run test:unit` 5 files/16 tests passed；`npm run typecheck` passed；`npm run build` passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run e2e` 71 passed。
+
 ### 2026-05-17 15:58 CST - TASK-062 Skill capabilities 权限感知
 
 - 新增 `GET /api/skills/{skill_id}/capabilities`，后端复用 skill role assignment 和 `role_allows` 返回当前 actor 的 roles 与 `role.manage`、`variant.promote`、`verification.accept`。

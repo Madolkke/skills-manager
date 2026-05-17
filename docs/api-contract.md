@@ -119,6 +119,8 @@
 - `POST /api/skills` 重复 `slug`：`400`，`field_errors[0].field = "slug"`。
 - `PATCH /api/skills/{skill_id}` 重复 `slug`：`400`，`field_errors[0].field = "slug"`。
 - `POST /api/skill-imports` 解析标准 Skill bundle 失败：`400`，folder 导入回填 `folder_files`，zip 导入回填 `zip_file`。
+- `POST /api/variants` 过长 `label` 或 `summary`：`422`，分别回填 `label` 或 `summary`。
+- `POST /api/variant-versions` 过长 `change_summary`：`422`，回填 `change_summary`。
 - `POST /api/saved-views` 空白、重复或超长 `name`：`400/422`，`field_errors[0].field = "name"`。
 - `POST /api/eval-runs/accepted-verifications` 超长 `note`：`422`，`field_errors[0].field = "note"`。
 - `POST /api/variants/promotions` risky promotion 空白或超长 `decision_note`：`400/422`，`field_errors[0].field = "decision_note"`。
@@ -131,6 +133,9 @@
 | --- | --- | --- |
 | `slug` | `^[a-z0-9][a-z0-9-]{0,63}$`，小写字母、数字、连字符，必须以字母或数字开头，最多 64 字符。 | `slug` |
 | `tags[]` | 每个 tag 1-64 字符，只能使用字母、数字、`.`、`_`、`-`。 | `tags` |
+| Variant `variant_label` / `label` | 1-80 字符。 | `variant_label` 或 `label` |
+| Variant `variant_summary` / `summary` | 1-1000 字符。 | `variant_summary` 或 `summary` |
+| Variant version `change_summary` | 1-1000 字符。 | `change_summary` |
 | Eval case `title` | 1-160 字符。 | `title` 或 `cases[n].title` |
 | Eval case `input_text` | 1-20000 字符。 | `input_text` 或 `cases[n].input_text` |
 | Eval case `expected_output` | 1-10000 字符。 | `expected_output` 或 `cases[n].expected_output` |

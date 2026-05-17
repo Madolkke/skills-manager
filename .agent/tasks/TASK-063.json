@@ -1,0 +1,33 @@
+{
+  "id": "063",
+  "title": "Variant 写入字段校验",
+  "status": "complete",
+  "goal": "为 variant 和 variant version 高频写入字段增加后端长度上限，并让主工作区表单展示字段级错误。",
+  "scope": [
+    "新增 variant label / summary / change summary API 红绿测试",
+    "为 variant label / summary / change summary 增加 Pydantic 长度上限",
+    "让主工作区创建 variant 表单接入 ValidatedForm 和 WorkbenchField",
+    "让主工作区追加候选版本表单接入 ValidatedForm 和 WorkbenchField",
+    "让 createVariant / createVariantVersion 重新抛出 API 字段错误",
+    "更新 README、API contract、体验审计和任务记录"
+  ],
+  "out_of_scope": [
+    "字符计数器",
+    "真实认证",
+    "owner_ref / role subject_id / strategy_ref 等其他字段校验",
+    "数据库 schema 迁移"
+  ],
+  "verification": [
+    "红灯 API：cd apps/api && UV_NO_CACHE=1 uv run pytest tests/test_api_commands.py -k \"variant_write_fields\" -> failed，过长 variant label 返回 200。",
+    "绿色 API target：cd apps/api && UV_NO_CACHE=1 uv run pytest tests/test_api_commands.py -k \"variant_write_fields\" -> 1 passed。",
+    "红灯 E2E：cd apps/web && npm run e2e -- form-errors.spec.ts -g \"variant workspace field errors\" -> failed，`.variantCreationComposer .formErrorSummary` 不存在。",
+    "绿色 E2E target：cd apps/web && npm run e2e -- form-errors.spec.ts -g \"variant workspace field errors\" -> 1 passed。",
+    "后端全量：cd apps/api && UV_NO_CACHE=1 uv run pytest -> 107 passed。",
+    "前端单元：cd apps/web && npm run test:unit -> 5 files / 16 tests passed。",
+    "前端类型：cd apps/web && npm run typecheck -> passed。",
+    "前端构建：cd apps/web && npm run build -> passed。",
+    "依赖审计：cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities。",
+    "E2E：cd apps/web && npm run e2e -> 71 passed。",
+    "结构检查：git diff --check -> passed；jq empty .agent/tasks.json .agent/tasks/TASK-063.json -> passed。"
+  ]
+}

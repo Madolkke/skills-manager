@@ -1021,32 +1021,36 @@ export function DecisionWorkbench({
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    await runCommand("Variant 已创建。", async () => {
-      const label = textValue(form, "label");
-      const summary = textValue(form, "summary");
-      const baseContentRef = defaultVariant?.current_version?.content_ref ?? null;
-      const copyCurrent = form.get("copy_current") === "on" && baseContentRef;
-      await apiSend("/api/variants", {
-        method: "POST",
-        body: {
-          skill_id: selectedDetail.skill.id,
-          name: label,
-          label,
-          summary,
-          tags: tagList(textValue(form, "tags")),
-          content_ref: copyCurrent
-            ? baseContentRef
-            : {
-                kind: "skill_bundle",
-                locator: `inline:${selectedDetail.skill.slug}/${label}`,
-                digest: await digestText(summary + textValue(form, "tags")),
-              },
-          change_summary: textValue(form, "change_summary"),
-          make_default: form.get("make_default") === "on",
-        },
-      });
-      formElement.reset();
-    });
+    await runCommand(
+      "Variant 已创建。",
+      async () => {
+        const label = textValue(form, "label");
+        const summary = textValue(form, "summary");
+        const baseContentRef = defaultVariant?.current_version?.content_ref ?? null;
+        const copyCurrent = form.get("copy_current") === "on" && baseContentRef;
+        await apiSend("/api/variants", {
+          method: "POST",
+          body: {
+            skill_id: selectedDetail.skill.id,
+            name: label,
+            label,
+            summary,
+            tags: tagList(textValue(form, "tags")),
+            content_ref: copyCurrent
+              ? baseContentRef
+              : {
+                  kind: "skill_bundle",
+                  locator: `inline:${selectedDetail.skill.slug}/${label}`,
+                  digest: await digestText(summary + textValue(form, "tags")),
+                },
+            change_summary: textValue(form, "change_summary"),
+            make_default: form.get("make_default") === "on",
+          },
+        });
+        formElement.reset();
+      },
+      { rethrowFieldErrors: true },
+    );
   }
 
   async function createVariantVersion(event: FormEvent<HTMLFormElement>) {
@@ -1065,41 +1069,45 @@ export function DecisionWorkbench({
       setNotice({ tone: "bad", message: "请选择标准 Skill 文件夹、zip，或填写 content_ref 摘要。" });
       return;
     }
-    await runCommand("Variant 版本已创建。", async () => {
-      const variantId = textValue(form, "variant_id");
-      const content = textValue(form, "content");
-      const hasBundleSource = (zipFile && zipFile.size > 0) || folderFiles.length > 0;
-      const source = hasBundleSource
-        ? await sourceFromSelectedBundle({ folderFiles, zipFile })
-        : null;
-      const makeCurrent = form.get("make_current") === "on";
-      const result = await apiSend<{ variant_version_id: string; version_number: number }>("/api/variant-versions", {
-        method: "POST",
-        body: {
-          variant_id: variantId,
-          ...(source
-            ? { source }
-            : {
-                content_ref: {
-                  kind: "skill_bundle",
-                  locator: `inline:${variantId}/${Date.now()}`,
-                  digest: await digestText(content),
-                },
-              }),
-          change_summary: textValue(form, "change_summary"),
-          make_current: makeCurrent,
-        },
-      });
-      formElement.reset();
-      if (!makeCurrent) {
-        return {
-          actionMode: "run",
-          evalTargetVersionId: result.variant_version_id,
-          message: `Variant 版本已创建。已切到候选 v${result.version_number} 测评。`,
-          mode: "evals",
-        };
-      }
-    });
+    await runCommand(
+      "Variant 版本已创建。",
+      async () => {
+        const variantId = textValue(form, "variant_id");
+        const content = textValue(form, "content");
+        const hasBundleSource = (zipFile && zipFile.size > 0) || folderFiles.length > 0;
+        const source = hasBundleSource
+          ? await sourceFromSelectedBundle({ folderFiles, zipFile })
+          : null;
+        const makeCurrent = form.get("make_current") === "on";
+        const result = await apiSend<{ variant_version_id: string; version_number: number }>("/api/variant-versions", {
+          method: "POST",
+          body: {
+            variant_id: variantId,
+            ...(source
+              ? { source }
+              : {
+                  content_ref: {
+                    kind: "skill_bundle",
+                    locator: `inline:${variantId}/${Date.now()}`,
+                    digest: await digestText(content),
+                  },
+                }),
+            change_summary: textValue(form, "change_summary"),
+            make_current: makeCurrent,
+          },
+        });
+        formElement.reset();
+        if (!makeCurrent) {
+          return {
+            actionMode: "run",
+            evalTargetVersionId: result.variant_version_id,
+            message: `Variant 版本已创建。已切到候选 v${result.version_number} 测评。`,
+            mode: "evals",
+          };
+        }
+      },
+      { rethrowFieldErrors: true },
+    );
   }
 
   async function createCase(event: FormEvent<HTMLFormElement>) {

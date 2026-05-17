@@ -3892,6 +3892,11 @@ h2 {
   align-items: end;
 }
 
+.variantCreationComposerGrid .formErrorSummary,
+.workspaceVersionComposerGrid .formErrorSummary {
+  grid-column: 1 / -1;
+}
+
 .variantCreationComposerGrid label {
   display: grid;
   gap: 6px;

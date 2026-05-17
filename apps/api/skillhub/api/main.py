@@ -40,6 +40,9 @@ EVAL_CASE_NOTES_MAX_LENGTH = 2_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
 PROMOTION_DECISION_NOTE_MAX_LENGTH = 1_000
+VARIANT_LABEL_MAX_LENGTH = 80
+VARIANT_SUMMARY_MAX_LENGTH = 1_000
+VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
 EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MAX_LENGTH)]
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
 EvalCaseExpectedOutput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH)]
@@ -47,6 +50,9 @@ EvalCaseNotes = Annotated[str, Field(max_length=EVAL_CASE_NOTES_MAX_LENGTH)]
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
 PromotionDecisionNote = Annotated[str | None, Field(max_length=PROMOTION_DECISION_NOTE_MAX_LENGTH)]
+VariantLabel = Annotated[str, Field(min_length=1, max_length=VARIANT_LABEL_MAX_LENGTH)]
+VariantSummary = Annotated[str, Field(min_length=1, max_length=VARIANT_SUMMARY_MAX_LENGTH)]
+VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
 
 
 class ContentRefPayload(BaseModel):
@@ -60,36 +66,36 @@ class CreateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: str
     variant_name: str
-    variant_label: str
-    variant_summary: str
+    variant_label: VariantLabel
+    variant_summary: VariantSummary
     tags: TagsPayload
     content_ref: ContentRefPayload
-    change_summary: str
+    change_summary: VersionChangeSummary
 
 
 class ImportSkillPayload(BaseModel):
     owner_ref: str
     tags: TagsPayload
     source: dict[str, Any]
-    variant_label: str = "Imported"
+    variant_label: VariantLabel = "Imported"
 
 
 class CreateVariantVersionPayload(BaseModel):
     variant_id: str
     content_ref: ContentRefPayload | None = None
     source: dict[str, Any] | None = None
-    change_summary: str
+    change_summary: VersionChangeSummary
     make_current: bool = False
 
 
 class CreateVariantPayload(BaseModel):
     skill_id: str
     name: str
-    label: str
-    summary: str
+    label: VariantLabel
+    summary: VariantSummary
     tags: TagsPayload
     content_ref: ContentRefPayload
-    change_summary: str
+    change_summary: VersionChangeSummary
     make_default: bool = False
 
 
@@ -806,6 +812,12 @@ def request_validation_message(field: str, error_type: str) -> str:
         return f"验证说明最多 {ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH} 个字符。"
     if field == "decision_note" and error_type == "string_too_long":
         return f"设为当前版本说明最多 {PROMOTION_DECISION_NOTE_MAX_LENGTH} 个字符。"
+    if field in {"variant_label", "label"} and error_type == "string_too_long":
+        return f"变体名称最多 {VARIANT_LABEL_MAX_LENGTH} 个字符。"
+    if field in {"variant_summary", "summary"} and error_type == "string_too_long":
+        return f"说明最多 {VARIANT_SUMMARY_MAX_LENGTH} 个字符。"
+    if field == "change_summary" and error_type == "string_too_long":
+        return f"版本说明最多 {VERSION_CHANGE_SUMMARY_MAX_LENGTH} 个字符。"
     return f"{label} 格式不正确。"
 
 
@@ -866,6 +878,8 @@ API_FIELD_LABELS = {
     "owner_ref": "归属",
     "variant_label": "变体名称",
     "variant_summary": "变体简介",
+    "label": "变体名称",
+    "summary": "说明",
     "tags": "约束标签",
     "change_summary": "版本说明",
     "name": "保存视图名称",

@@ -163,11 +163,12 @@
 45. 以前接受验证依据时 note 可以无限长，失败也只可能成为全局错误；现在超过 1000 字符会显示错误摘要，并把错误标到 `Accepted verification note` 输入框旁。
 46. 以前 risky promotion 用禁用按钮解释缺少说明，且超长说明没有字段保护；现在提交后会把缺失或超过 1000 字符的说明回填到 `设为当前版本说明`。
 47. 以前用户只有点了受保护动作才知道自己没权限；现在概览页显示当前 actor 角色和 capability，访问控制、设为当前版本评审和接受验证依据入口会提前 disabled 并给出需要 owner/maintainer 的原因。
+48. 以前主工作区创建 variant 和追加候选版本还是 raw form，过长说明只会变成全局失败或直接入库；现在它们复用 `ValidatedForm` 和 `WorkbenchField`，variant 名称限制 80 字符，说明和版本说明限制 1000 字符，超限会显示错误摘要并回到具体字段。
 
 ## 仍然存在的摩擦
 
 1. Command menu 已完成第二阶段：支持 mode-aware 排序、本地最近使用、selected case/run 命令和右侧 preview；还没有服务器端个性化、跨 skill 全局搜索或快捷键自定义。
-2. 表单字段基础件已覆盖主要工作台表单，required 字段已有错误 summary、提交后聚焦摘要、摘要链接回字段和字段旁错误；后端字段错误映射第一阶段已覆盖重复 Skill ID、基础请求体校验、Skill ID 格式、tags 格式、导入 bundle 解析错误、批量 case 行级字段错误、eval case 文本长度上限、保存视图名称字段错误、accepted verification note 字段错误和 promotion decision note 字段错误。还没有其他产品字段长度上限和错误统计。
+2. 表单字段基础件已覆盖主要工作台表单，required 字段已有错误 summary、提交后聚焦摘要、摘要链接回字段和字段旁错误；后端字段错误映射已覆盖重复 Skill ID、基础请求体校验、Skill ID 格式、tags 格式、导入 bundle 解析错误、批量 case 行级字段错误、eval case 文本长度上限、variant 写入字段长度上限、保存视图名称字段错误、accepted verification note 字段错误和 promotion decision note 字段错误。还没有错误统计和更复杂嵌套字段回填。
 3. Promotion review 已经展示 case impact、diff 和会话级文件 reviewed progress，但 viewed state 还没有服务端持久化，也没有把具体 diff hunk 关联到具体 eval case。
 4. URL state 已覆盖核心证据上下文，但还没有短链接、权限感知分享提示，也没有保存未提交草稿。
 5. Run matrix 已经提供 read-only 多 run x case 浏览、保存筛选视图、对照/候选 impact、impact 过滤和分组，但还没有列配置、自定义指标列、导出或保存对照/候选 run 指针。
@@ -176,7 +177,7 @@
 
 ## 下一轮优化队列
 
-1. 表单验证第二阶段剩余部分：其他产品字段长度上限、错误统计，以及更多嵌套写入表单的字段错误回填。
+1. 表单验证后续：错误统计、owner_ref / role subject_id 等低频字段格式校验，以及更多嵌套写入表单的字段错误回填。
 2. 接入真实认证：用真正的登录 session/token 替换本地 actor cookie，保留后端 capabilities 契约，前端不再允许自由切换开发身份。
 3. Diff / Promotion review 第二阶段：评估是否服务端持久化 viewed state、自动折叠已查看文件，或把 diff hunk 关联到 eval case。
 4. URL state 第三阶段：增加短链接、权限感知分享提示，并评估是否保存草稿到本地 session storage 而不是 URL。
