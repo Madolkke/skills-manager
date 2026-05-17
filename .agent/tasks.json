@@ -523,5 +523,12 @@
     "priority": 75,
     "passes": true,
     "spec": ".agent/tasks/TASK-075.json"
+  },
+  {
+    "id": "076",
+    "title": "拆分 Workbench 历史实验 E2E",
+    "priority": 76,
+    "passes": true,
+    "spec": ".agent/tasks/TASK-076.json"
   }
 ]

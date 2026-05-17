@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-17 19:19 CST - TASK-076 拆分 Workbench 历史实验 E2E
+
+- 新增 `apps/web/e2e/run-history-workbench.spec.ts`，承载历史记录、Run matrix、saved view、run comparison 和 case version history 相关测试。
+- `apps/web/e2e/skills-workbench.spec.ts` 删除对应测试区块并清理 `readFile` import，仍保留导入、权限、治理、候选版本和移动端基础流。
+- 拆分前 `skills-workbench.spec.ts` 为 1081 行；拆分后主文件 791 行，新文件 293 行。用户可见行为、测试标题和断言语义不变。
+- Superpowers spec/plan、TASK-076 任务记录和完成度审计已更新；README 未改，因为这是无用户可见行为变化的测试组织重构。
+- 已验证：快速 `npx tsc --noEmit --pretty false` passed；定点 `npm run e2e -- skills-workbench.spec.ts run-history-workbench.spec.ts` 36 passed；`UV_NO_CACHE=1 uv run pytest` 111 passed；`npm run test:unit` 7 files/23 tests passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run build` passed；`npm run typecheck` passed；完整 `npm run e2e` 74 passed；`git diff --check` 和任务 JSON 检查通过。
+
 ### 2026-05-17 19:09 CST - TASK-075 Run matrix 结果摘要列
 
 - Run matrix 默认新增 `Summary` 指标列，按当前可见 runs 汇总每条 case 的通过、失败和未覆盖数量，减少横向比较时的心算成本。
