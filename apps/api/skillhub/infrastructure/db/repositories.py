@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from skillhub.application.promotion_review import build_promotion_case_comparisons, build_promotion_readiness
 from skillhub.application.run_comparison import build_run_case_comparisons, build_run_comparison_summary
+from skillhub.application.run_matrix import build_eval_run_matrix
 from skillhub.application.saved_views import normalize_saved_view_config, validate_saved_view_type
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.domain.models import ContentRef, digest_text, new_id, normalize_tags, utc_now
@@ -1257,45 +1258,23 @@ class SqlSkillRepository:
                 limit=limit,
             )
             runs = [self._eval_run_context_row(connection, run, include_accepted=False) for run in run_rows]
-            case_rows: dict[str, dict[str, Any]] = {}
-            cells = []
-
+            eval_set_cases_by_run = {}
+            results_by_run = {}
             for run in run_rows:
                 result_rows = (
                     connection.execute(select(tables.case_results).where(tables.case_results.c.run_id == run["id"]))
                     .mappings()
                     .all()
                 )
-                results_by_case_version = {result["case_version_id"]: result for result in result_rows}
-                for eval_set_case in self._eval_set_cases(connection, run["eval_set_version_id"]):
-                    eval_case = eval_set_case["case"]
-                    case_version = eval_set_case["case_version"]
-                    case_row = case_rows.setdefault(eval_case["id"], {"case": eval_case, "versions": []})
-                    if not any(version["case_version_id"] == case_version["id"] for version in case_row["versions"]):
-                        case_row["versions"].append(
-                            {
-                                "case_version_id": case_version["id"],
-                                "version_number": case_version["version_number"],
-                            }
-                        )
-                    result = results_by_case_version.get(case_version["id"])
-                    if result:
-                        cells.append(
-                            {
-                                "run_id": run["id"],
-                                "case_id": eval_case["id"],
-                                "case_version_id": case_version["id"],
-                                "passed": result["passed"],
-                                "score": result["score"],
-                            }
-                        )
+                eval_set_cases_by_run[run["id"]] = self._eval_set_cases(connection, run["eval_set_version_id"])
+                results_by_run[run["id"]] = [self._row_dict(result) for result in result_rows]
 
-        return {
-            "skill": self._row_dict(skill),
-            "runs": runs,
-            "cases": list(case_rows.values()),
-            "cells": cells,
-        }
+        return build_eval_run_matrix(
+            skill=self._row_dict(skill),
+            runs=runs,
+            eval_set_cases_by_run=eval_set_cases_by_run,
+            results_by_run=results_by_run,
+        )
 
     def list_saved_views(self, *, skill_id: str, view_type: str = "run_history") -> list[dict[str, Any]]:
         validate_saved_view_type(view_type)

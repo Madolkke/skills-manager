@@ -1,0 +1,34 @@
+{
+  "id": "078",
+  "title": "抽出 Run matrix read model builder",
+  "status": "complete",
+  "goal": "把 Run matrix 的 cases/cells 组装规则从 SqlSkillRepository 抽到独立应用层 builder，为后续多维表格和自定义指标列降低后端复杂度。",
+  "scope": [
+    "新增 Run matrix builder 纯函数模块",
+    "新增 builder 单元测试覆盖 case 合并、case version 去重和缺失 result",
+    "SqlSkillRepository 查询后调用新 builder，不再内联组装 cases/cells",
+    "更新中文任务记录和完成度审计"
+  ],
+  "out_of_scope": [
+    "新增自定义指标列",
+    "改变 Run matrix API shape",
+    "改动数据库 schema",
+    "改动前端 Run matrix 行为",
+    "更新 README"
+  ],
+  "verification": [
+    "红灯 builder: cd apps/api && UV_NO_CACHE=1 uv run pytest tests/test_run_matrix.py -> failed，ModuleNotFoundError: No module named 'skillhub.application.run_matrix'。",
+    "绿色 builder: cd apps/api && UV_NO_CACHE=1 uv run pytest tests/test_run_matrix.py -> 1 passed。",
+    "绿色 Repository: cd apps/api && UV_NO_CACHE=1 uv run pytest tests/test_sql_repository.py -k eval_run_matrix -> 1 passed, 34 deselected。",
+    "绿色 API: cd apps/api && UV_NO_CACHE=1 uv run pytest tests/test_api_commands.py -k eval_run_matrix -> 1 passed, 55 deselected。",
+    "完整 API: cd apps/api && UV_NO_CACHE=1 uv run pytest -> 115 passed。",
+    "完整 Web unit: cd apps/web && npm run test:unit -> 7 files / 23 tests passed。",
+    "完整 Web audit: cd apps/web && npm audit --omit=dev -> found 0 vulnerabilities。",
+    "完整 Web build: cd apps/web && npm run build -> passed。",
+    "完整 Web typecheck: cd apps/web && npm run typecheck -> passed。",
+    "完整 Playwright: cd apps/web && npm run e2e -> 74 passed。",
+    "行数检查: repositories.py -> 2423 lines；application/run_matrix.py -> 47 lines；tests/test_run_matrix.py -> 77 lines。",
+    "空白检查: git diff --check -> passed。",
+    "任务 JSON 检查: jq empty .agent/tasks.json .agent/tasks/TASK-078.json -> passed。"
+  ]
+}

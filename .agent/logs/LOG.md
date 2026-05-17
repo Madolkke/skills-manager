@@ -10,6 +10,14 @@
 
 ## Session Log
 
+### 2026-05-17 19:35 CST - TASK-078 抽出 Run matrix read model builder
+
+- 新增 `skillhub.application.run_matrix`，用纯函数集中组装 Run matrix read model 的 `cases` 和 `cells`，为后续多维表格和指标列扩展留出清晰入口。
+- `SqlSkillRepository.eval_run_matrix_for_skill` 继续负责 SQL 查询和 row 转换，删除本地 case/version/cell 组装循环，改为调用 `build_eval_run_matrix`。
+- 新增 `tests/test_run_matrix.py`，覆盖跨 run 合并 case、同 case 多版本保留、重复 case version 去重、缺失 result 不生成 cell。
+- Superpowers spec/plan、TASK-078 任务记录和完成度审计已更新；README 未改，因为这是无用户可见行为变化的后端 read model 重构。
+- 已验证：红灯 builder 先失败于 `skillhub.application.run_matrix` 模块不存在；绿色后 builder 1 passed、Repository eval_run_matrix 1 passed、API eval_run_matrix 1 passed；`UV_NO_CACHE=1 uv run pytest` 115 passed；`npm run test:unit` 7 files/23 tests passed；`npm audit --omit=dev` found 0 vulnerabilities；`npm run build` passed；`npm run typecheck` passed；完整 `npm run e2e` 74 passed；`git diff --check` 和任务 JSON 检查通过。
+
 ### 2026-05-17 19:26 CST - TASK-077 抽出 Saved view config normalizer
 
 - 新增 `skillhub.application.saved_views`，集中维护 `run_history` saved view 类型校验和 config allowlist/trim/空值过滤/`all` 过滤规则。
