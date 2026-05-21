@@ -1,0 +1,206 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(15 23 42 / 32%);
+  backdrop-filter: blur(5px);
+}
+
+.modal-card {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  z-index: 51;
+  transform: translate(-50%, -50%);
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(860px, calc(100vh - 48px));
+  overflow: auto;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid var(--line);
+  box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
+}
+
+.modal-head {
+  min-height: 90px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.modal-title {
+  display: block;
+  font-size: 24px;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+.modal-description {
+  display: block;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.form-stack {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.field-label {
+  display: grid;
+  gap: 8px;
+  color: #53637b;
+  font-weight: 780;
+}
+
+.field-label input,
+.field-label textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  min-height: 46px;
+  padding: 12px 14px;
+  color: var(--ink);
+  outline: none;
+}
+
+.field-label textarea {
+  min-height: 118px;
+  resize: vertical;
+}
+
+.field-label input:focus,
+.field-label textarea:focus,
+select:focus,
+.tag-box:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 10%);
+}
+
+.form-error {
+  border: 1px solid #fecaca;
+  background: var(--red-soft);
+  color: #991b1b;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-weight: 720;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.tag-input {
+  position: relative;
+}
+
+.tag-box {
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 7px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: white;
+}
+
+.tag-box input {
+  border: 0;
+  outline: 0;
+  min-width: 190px;
+  flex: 1;
+  padding: 7px;
+}
+
+.tag-chip.editable button {
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.tag-suggestions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-suggestions button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fbfdff;
+  color: #355071;
+  padding: 6px 12px;
+  font-weight: 720;
+}
+
+.bundle-picker {
+  border: 1px dashed #b8c7db;
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.picker-tile {
+  min-height: 104px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  color: #34506f;
+  font-weight: 780;
+}
+
+.picker-label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-weight: 720;
+}
+
+.toast {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 70;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  padding: 12px 14px 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  font-weight: 760;
+}
+
+.toast.success {
+  color: var(--green);
+}
+
+.toast.danger {
+  color: var(--red);
+}
+
+.toast button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 760;
+}

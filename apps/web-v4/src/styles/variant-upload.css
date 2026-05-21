@@ -1,0 +1,74 @@
+.variants-layout.with-upload-panel {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 300px) 360px;
+  gap: 18px;
+}
+
+.variant-upload-panel {
+  position: sticky;
+  top: 106px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: var(--shadow);
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+}
+
+.variant-upload-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.variant-upload-head h2 {
+  font-size: 17px;
+  margin-bottom: 7px;
+}
+
+.variant-upload-head p {
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.variant-upload-panel .form-stack {
+  gap: 15px;
+}
+
+.variant-upload-panel .tag-box {
+  min-height: 44px;
+}
+
+.variant-upload-panel .bundle-picker {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 14px;
+}
+
+.variant-upload-panel .picker-tile {
+  min-height: 72px;
+  grid-auto-flow: column;
+  justify-content: start;
+  padding: 0 14px;
+}
+
+.variant-upload-panel .picker-label {
+  grid-column: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variant-upload-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.variant-upload-actions .primary-button,
+.variant-upload-actions .secondary-button {
+  width: 100%;
+  justify-content: center;
+}

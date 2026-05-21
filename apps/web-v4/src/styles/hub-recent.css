@@ -1,0 +1,95 @@
+.recent-panel {
+  position: sticky;
+  top: 106px;
+  overflow: hidden;
+}
+
+.panel-head {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.panel-head h2 {
+  font-size: 18px;
+}
+
+.panel-head button {
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.panel-head button:hover {
+  color: #1e4ed8;
+}
+
+.recent-list {
+  display: grid;
+}
+
+.recent-row {
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  background: white;
+  padding: 22px 24px;
+  text-align: left;
+}
+
+.recent-row-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.recent-title-line,
+.recent-actor-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.recent-title-line strong,
+.recent-version-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-row span,
+.recent-row small {
+  color: var(--muted);
+}
+
+.recent-row b {
+  white-space: nowrap;
+}
+
+.recent-row b.verified {
+  color: var(--green);
+}
+
+.recent-row b.warning {
+  color: var(--amber);
+}
+
+.recent-row b.empty {
+  color: #718096;
+}
+
+.recent-version-line {
+  font-weight: 760;
+}
+
+.recent-empty {
+  padding: 28px 24px;
+  color: var(--muted);
+  line-height: 1.5;
+}

@@ -1,0 +1,171 @@
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+.skill-card {
+  min-height: 236px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  box-shadow: 0 14px 34px rgb(15 23 42 / 4%);
+}
+
+.skill-card:hover {
+  border-color: #bcd3ff;
+  transform: translateY(-1px);
+}
+
+.skill-grid.list-view {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.skill-grid.list-view .skill-card {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(420px, 0.9fr);
+}
+
+.skill-grid.list-view .card-body {
+  padding: 20px 24px;
+}
+
+.skill-grid.list-view .card-body p {
+  margin-bottom: 18px;
+}
+
+.skill-grid.list-view .card-metrics {
+  border-top: 0;
+  border-left: 1px solid var(--soft-line);
+  min-height: 0;
+  padding: 18px 20px;
+}
+
+.card-body {
+  padding: 26px 26px 22px;
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.card-context {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.card-context span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.card-body h3 {
+  font-size: 21px;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.card-body p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.score-chip {
+  border-radius: 999px;
+  background: #eef3fb;
+  color: #718096;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.score-chip.verified {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.score-chip.warning {
+  color: var(--amber);
+  background: #fff6df;
+}
+
+.tag-chip.muted {
+  color: #67758c;
+  background: #eef3fa;
+}
+
+.card-metrics {
+  border-top: 1px solid var(--soft-line);
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 34px;
+  align-items: center;
+  gap: 0;
+  padding: 0 18px 0 22px;
+}
+
+.metric-cell {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  border-right: 1px solid var(--soft-line);
+  padding-right: 14px;
+  margin-right: 14px;
+}
+
+.metric-cell small {
+  color: var(--muted);
+  font-weight: 740;
+  white-space: nowrap;
+}
+
+.metric-cell strong {
+  color: #273858;
+  font-size: 18px;
+}
+
+.metric-cell strong.verified {
+  color: var(--green);
+}
+
+.metric-cell strong.warning {
+  color: var(--amber);
+}
+
+.metric-cell strong.empty {
+  color: #718096;
+}
+
+.status-ring {
+  justify-self: end;
+}
+
+.status-ring.verified {
+  color: var(--green);
+}
+
+.status-ring.empty {
+  color: #90a0b7;
+}

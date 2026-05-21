@@ -1,0 +1,250 @@
+.evaluate-page {
+  padding-bottom: 172px;
+  scroll-padding-bottom: 172px;
+}
+
+.evaluation-selectors {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) minmax(280px, 0.9fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.evaluation-selector-card {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+}
+
+.selector-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+  font-weight: 820;
+}
+
+.evaluation-selector-card select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--ink);
+  padding: 0 12px;
+  font-weight: 760;
+}
+
+.info-box {
+  min-width: 0;
+  border: 1px solid #cfe0ff;
+  background: #f2f7ff;
+  border-radius: var(--radius);
+  color: #355071;
+  padding: 12px 14px;
+  line-height: 1.5;
+  display: flex;
+  gap: 12px;
+}
+
+.info-box svg {
+  flex: 0 0 auto;
+  color: var(--blue);
+  margin-top: 2px;
+}
+
+.info-box p {
+  margin-top: 4px;
+}
+
+.eval-progress-panel {
+  min-height: 112px;
+  padding: 16px 22px;
+  display: grid;
+  grid-template-columns: minmax(290px, 0.92fr) minmax(320px, 1fr) minmax(360px, 1.24fr);
+  align-items: center;
+  gap: 22px;
+  margin: 18px 0;
+}
+
+.eval-progress-panel > *,
+.manual-eval-grid > * {
+  min-width: 0;
+}
+
+.progress-ring {
+  --coverage: 0%;
+  width: 82px;
+  height: 82px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  background: conic-gradient(#5b80f0 var(--coverage), #e3e9f4 0);
+  color: #172554;
+  font-weight: 880;
+}
+
+.progress-ring::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: inherit;
+  background: white;
+}
+
+.progress-ring span {
+  position: relative;
+}
+
+.progress-summary-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.progress-copy span {
+  color: var(--muted);
+  font-weight: 780;
+}
+
+.progress-copy h1 {
+  font-size: 30px;
+  line-height: 1.1;
+  margin-top: 6px;
+}
+
+.progress-copy p {
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.progress-copy small {
+  display: block;
+  color: var(--subtle);
+  font-weight: 740;
+  margin-top: 3px;
+}
+
+.progress-total-label {
+  font-weight: 760;
+}
+
+.progress-metrics {
+  min-height: 74px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+}
+
+.progress-metric {
+  display: grid;
+  grid-template-columns: 10px auto;
+  grid-template-areas:
+    "dot value"
+    "dot label";
+  gap: 2px 10px;
+  align-content: center;
+  padding: 12px 18px;
+  border-right: 1px solid var(--soft-line);
+}
+
+.progress-metric:last-child {
+  border-right: 0;
+}
+
+.progress-metric i {
+  grid-area: dot;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  margin-top: 8px;
+}
+
+.progress-metric strong {
+  grid-area: value;
+  font-size: 22px;
+}
+
+.progress-metric small {
+  grid-area: label;
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.progress-metric.passed i,
+.stacked-bar .passed {
+  background: #4bae77;
+}
+
+.progress-metric.failed i,
+.stacked-bar .failed {
+  background: #e05252;
+}
+
+.progress-metric.pending i,
+.stacked-bar .pending {
+  background: #cbd5e1;
+}
+
+.progress-track {
+  display: grid;
+  gap: 12px;
+}
+
+.progress-track-card {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.progress-track-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.progress-track-head strong {
+  color: #334155;
+  font-size: 14px;
+}
+
+.stacked-bar {
+  height: 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e2e8f0;
+  display: flex;
+}
+
+.track-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 740;
+}
+
+.manual-eval-grid {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}

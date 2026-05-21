@@ -953,6 +953,8 @@ class SqlSkillRepositoryTest(unittest.TestCase):
                 "variant_version_id": skill.variant_version_id,
                 "eval_set_version_id": "all",
                 "strategy": "manual_pass_fail",
+                "matrix_case_query": " tenant ",
+                "matrix_result": "missing",
                 "matrix_show_summary": "false",
                 "compare_baseline_run_id": "run-baseline",
                 "compare_candidate_run_id": "run-candidate",
@@ -970,6 +972,8 @@ class SqlSkillRepositoryTest(unittest.TestCase):
             {
                 "variant_version_id": skill.variant_version_id,
                 "strategy": "manual_pass_fail",
+                "matrix_case_query": "tenant",
+                "matrix_result": "missing",
                 "matrix_show_summary": "false",
                 "compare_baseline_run_id": "run-baseline",
                 "compare_candidate_run_id": "run-candidate",

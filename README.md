@@ -9,30 +9,18 @@
 - `VariantVersion` 是不可变内容快照，可以是标准 Skill 文件夹或 zip 导入后的 `skill_bundle` artifact。
 - `EvalSetVersion` 是测试用例版本快照。
 - `EvalRun` 记录一次 exact `VariantVersion + EvalSetVersion` 的通过/不通过结果。
-- `AcceptedVerification` 是当前 variant 在某个 eval set snapshot 上认可的测评依据，只指向不可变 `EvalRun`。
-- 候选 `VariantVersion` 可以先测评，但不立刻成为 current。
-- “设为当前版本评审”会把候选版本、当前版本、目标评测集版本、逐 case 修复/回退、文件 diff 和风险说明放到同一个决策页面。
-- `差异` 和 `设为当前版本评审` 的文件 diff 支持会话级 `已查看` 标记与 `x/y reviewed` 进度，用户可以按文件推进审查，而不是靠记忆判断哪些 bundle 文件已经看完。
-- 外部 runner 可以导入标准 eval result JSON，并得到同样的 `EvalRun + CaseResult` 记录。
-- 空工作台主内容区提供 `SkillLaunchpad`，可直接导入标准 Skill bundle 或创建空白 skill，不需要先进入右侧 inspector。
-- 移动端 first-run 默认只保留主区 `SkillLaunchpad` 作为导入/创建主路径；右侧 inspector 的 action menu/form 会折叠，用户从 catalog 或命令菜单显式触发后才展开并接收焦点。
-- 中等桌面宽度下，`差异 / 历史 / 审计 / 评审` 这类证据视图会把右侧 inspector 压成 compact verification rail，把空间让给 diff、run matrix、audit payload 和 promotion evidence。
-- 工作台内可以查看 bundle 文件内容、在主工作区编辑 skill 身份和默认分发 variant、管理 skill 作用域角色、创建约束 variant、追加候选版本、版本 diff、run 历史、run matrix、保存历史筛选视图、run-to-run 比较、accepted verification、case 详情内联编辑、case 版本历史、case 历史版本恢复和 promotion review。
-- 创建或导入 skill 的本地 actor 会自动成为该 skill 的 `owner`；`promotion` 和 `accepted verification` 需要 `owner` 或 `maintainer`。前端本地开发身份来自后端签名的 HttpOnly cookie session，页面切换 actor 需要本地登录码，也可以从 Local login 面板退出回默认 actor；JSON body 中不再传 actor。直接调 API 的脚本仍可用 `X-SkillHub-Actor` 作为兼容 fallback。前端会读取后端权威 `SkillCapabilities`，在访问控制、设为当前版本评审和接受验证依据入口显示当前角色、可执行能力和禁用原因。
-- `概览` 页提供 `治理与审计` 面板，集中展示 lifecycle、角色态势、最近 audit events，并把归档收进需要输入当前 skill ID 的危险区；归档需要 `owner` 权限并写入 `skill.archived` audit event。治理面板也能打开 `审计 Explorer`，用 action quick filters、actor/action/resource_type 过滤、可读时间线和结构化详情追踪当前 skill 的治理、发布和验证事件，Raw payload 默认折叠在下钻区。
-- 工作台支持 `Cmd/Ctrl+K` 上下文命令菜单，可搜索并执行导入、创建、测评、历史、差异等高频动作；菜单使用 `dialog + combobox + listbox` 语义，方向键移动 active option，Tab 会限制在弹层内，关闭后焦点回到触发按钮。菜单会根据当前 mode、最近使用和当前 selection 排序：空工作台优先导入/新建，测评页可直接查看当前 case 历史，历史页可把当前 run 设为对照或候选；右侧 preview 会展示命令作用对象、scope 和禁用原因。
-- `/skills` 支持第二阶段 URL state：可以直达某个 skill 的 `概览 / 变体 / 测评 / 差异 / 历史 / 审计 / 评审`，并恢复 diff pair/file/filter、eval target/case、history filters、selected run、run comparison、matrix controls、audit filters 和 promotion review context；刷新、复制链接和浏览器 Back/Forward 都能还原这些证据上下文。
-- 工作台有基础 accessibility 护栏：键盘用户可用 skip link 直接进入主内容；全局 focus ring 更醒目；`prefers-reduced-motion` 会压低非必要动效；操作结果通过 `role=status` 暴露给读屏软件；命令菜单、Workbench mode tabs、Run matrix 和 Inspector action 焦点交接已有 E2E 回归。
-- 表单字段基础件已覆盖主要工作台表单：`SkillLaunchpad`、`WorkbenchInspector`、快速添加 case、case 详情内联编辑、skill 设置、访问控制、危险区确认、保存历史视图、history filters、run matrix controls 和 diff selectors 都使用共享字段壳层；业务 text/textarea 默认显式 `autocomplete="off"`。高频写入表单现在使用 `ValidatedForm` 做 required 字段错误摘要、需要修正的字段数量统计、字段旁错误、`aria-invalid` 和摘要链接聚焦，不再依赖浏览器原生 required 气泡；有 1000 字符服务端上限的低频长文本字段会显示剩余或超出的字符数，但不会用 `maxlength` 截断输入。后端唯一性和请求体校验错误会保留 `detail` 并返回 `field_errors`，新建/编辑 skill 时重复或格式错误的 Skill ID 会直接回填到 `Skill ID` 字段，非法 tag 会回填到 `约束标签` 字段，非法归属或成员 identity ref 会回填到 `归属` / `成员` 字段，variant 名称、说明和版本说明超限会回填到主工作区或 inspector 对应字段，保存历史视图的空白/重复/超长名称会回填到 `保存视图名称` 字段，accepted verification 的超长说明会回填到 `Accepted verification note` 字段，risky promotion 的缺失/超长说明会回填到 `设为当前版本说明` 字段，导入 bundle 的 `SKILL.md`、frontmatter 或 zip 解析错误会回填到对应的文件上传字段，直连 `POST /api/eval-cases/batch` 时缺字段会返回 `cases[n].field` 行级错误，直连 `POST /api/eval-runs` 时缺失或多余测评结果会返回 `results.<case_version_id>` 嵌套字段错误。
-- `测评` 页支持单条快速添加和批量粘贴 case；批量写入会生成一个新的 `EvalSetVersion`，避免逐条添加制造版本噪音。批量粘贴会显示逐行导入预览表，提交前可以扫到每行状态、标题、Input、Expected output 和 Notes；窄屏下 textarea、统计卡、预览表和提交按钮会纵向排布，预览表只在内部横向滚动；缺少标题、Input 或 Expected output 时会显示行号和错误摘要，服务端也会用同样的行级字段契约拒绝不完整批量请求。
-- Eval case 文本有服务端资产保护上限：标题最多 160 字符，Input 最多 20000 字符，Expected output 最多 10000 字符，Notes 最多 2000 字符；超限会回填到对应字段或 `cases[n].field`，不会自动截断。
-- `测评` 页的手工确认区是 review queue：可按全部/未确认/通过/不通过筛选，点击通过/不通过后自动前进到下一条未确认 case，并支持把未确认项批量标为通过。
-- 导入标准 Skill bundle 后，`概览` 会显示验证清单，引导用户补首批 case、记录首轮手工测评，再进入历史页沉淀证据。
-- 追加 candidate 版本后会自动切到该版本的测评上下文，完成候选 run 后可直接从测评页进入“设为当前版本评审”。
+- Web V4 首页提供 Skill 搜索、筛选、维护者、当前版本、测评集版本、验证状态和可展开的最近测评入口，并以 `docs/product-ui-reference/` 下 5 张正式版参考图为视觉目标；最近测评的 `查看全部` 是首页右栏内的列表展开，不伪造跨 Skill 全局历史页。
+- 新建 Skill 只需要上传标准 Skill bundle 并输入 tag；名称和说明优先从 `SKILL.md` frontmatter 读取。
+- Skill 概览展示根目录、维护者、状态、说明、默认变体、当前版本、验证分数、测评集和可展开的 bundle 文件树与文件内容。
+- 变体页用 tag 约束表示不同使用条件下的人为维护最优解；同一组 tag 再次上传会追加该变体的历史版本，并在右侧 inspector 中用版本线展示当前版本和历史版本，可直接查看 Bundle diff 与当前版本详情。
+- 测评集页只管理 case 和 case version；case 列表显示序号、case version、当前/历史状态和生命周期状态，新增或编辑 case 会生成新的 EvalSetVersion。
+- 测评页只执行手工确认：选择 exact `VariantVersion + EvalSetVersion`，可查看这组版本绑定详情，左侧 case 列表用序号、状态点和数字快捷键支持扫读与快速切换，逐条标记通过/不通过，最后记录 EvalRun。
+- 历史页展示 `VariantVersion`、`EvalSetVersion`、case version、artifact digest 与 eval run 证据链。
+- 权限、审计、治理、promotion review 和复杂对比视图暂不暴露在 Web V4 主流程里，避免打断核心闭环。
 
 ## 快速开始
 
-正式产品工作区位于 `apps/api` 和 `apps/web`。
+正式新版前端工作区位于 `apps/api` 和 `apps/web-v4`。`apps/web-v4` 是按产品参考图从零重写的前端项目；旧 `apps/web`、`apps/web-v2` 和 `apps/web-v3` 仍保留为历史工作台。
 
 ### 一键本地运行
 
@@ -43,11 +31,18 @@ bash scripts/dev.sh
 这个命令会启动：
 
 - API: `http://127.0.0.1:8000`
-- Web: `http://127.0.0.1:3000/skills`
+- Web V4 正式前端: `http://127.0.0.1:3030/skills`
 
-脚本使用 `uv` 运行 Python API，并在 `apps/web/node_modules` 缺失时安装前端依赖；脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。macOS 本地 Python 进程如果无法直接监听端口，脚本会通过 `scripts/run-uvicorn-socket-activated.rb` 先绑定本地 socket，再把 fd 交给 uvicorn。
+脚本使用 `uv` 运行 Python API，并在 `apps/web-v4/node_modules` 缺失时安装前端依赖；脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。
 本地 API 数据默认持久化到 `.data/skillhub.sqlite3`。可以用 `SKILLHUB_DATABASE_URL` 或 `SKILLHUB_DATA_DIR` 覆盖。
-本地开发默认 actor 是 `product-operator`；右侧 inspector 的 `Local login` 面板需要填写 actor 和本地登录码，成功后后端会写入签名的 HttpOnly `skillhub_actor` cookie。点击 `退出登录` 会调用 `DELETE /api/session` 清除 cookie，并回到默认 actor。默认登录码是 `skillhub-dev`，可用 `SKILLHUB_LOCAL_SESSION_CODE` 覆盖。前端所有 API 请求都会带上 cookie，不再硬编码 actor header。直接调 API 时仍可用 `X-SkillHub-Actor` header 模拟不同用户，后续正式认证会把本地登录门禁替换成真实 session/token。
+本地开发默认 actor 是 `product-operator`，页面顶部操作栏会显示当前操作者。前端所有 API 请求会带上后端 session cookie；直接调 API 时仍可用 `X-SkillHub-Actor` header 模拟不同用户。后续正式认证会把开发期 actor 机制替换成真实 session/token。
+
+启动后先检查：
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:3030/skills
+```
 
 ### 手动运行
 
@@ -64,34 +59,50 @@ uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port 8000
 终端 2：
 
 ```bash
-cd apps/web
+cd apps/web-v4
 npm install
-SKILLHUB_API_URL=http://127.0.0.1:8000 \
-NEXT_PUBLIC_SKILLHUB_API_URL=http://127.0.0.1:8000 \
-npm run dev -- --hostname 127.0.0.1 --port 3000
+VITE_SKILLHUB_API_URL=http://127.0.0.1:8000 \
+npm run dev -- --host 127.0.0.1 --port 3030
+```
+
+### 旧前端工作台
+
+旧 `apps/web` 仍可通过 `bash scripts/dev-legacy-web.sh` 启动，用于对照历史工作台；默认 `bash scripts/dev.sh` 已指向正式版 `apps/web-v4`。
+如果历史脚本或本地自动化暂时依赖旧工作台，也可以使用 `SKILLHUB_WEB_FLAVOR=legacy bash scripts/dev.sh`。
+本正式版发布分支不包含旧 `apps/web` redesign 代码改造；如果本地开发工作树里仍有旧工作台脏改动，不要混入正式版提交。发布范围见 [Web V4 正式版发布范围](docs/formal-web-v4-release-scope-2026-05-22.md)，旧工作树记录见 [旧 apps/web 工作树审计](docs/legacy-web-worktree-audit-2026-05-22.md)。
+
+### 新版前端单独启动
+
+`apps/web-v4` 不复用旧前端的页面结构，但继续连接同一个 Python API：
+
+```bash
+cd apps/web-v4
+npm install
+VITE_SKILLHUB_API_URL=http://127.0.0.1:8000 npm run dev -- --host 127.0.0.1 --port 3030
+```
+
+兼容入口 `bash scripts/dev-v4.sh` 仍可直接启动同一套正式版前端。
+
+打开：
+
+```bash
+http://127.0.0.1:3030/skills
 ```
 
 ### 建议试用路径
 
-1. 打开 `http://127.0.0.1:3000/skills`。
-2. 用左侧 catalog 切换 skill。
-3. 右侧 inspector 顶部的 `Local login` 显示当前本地 actor。需要模拟另一个维护者时，输入如 `release-manager` 和本地登录码 `skillhub-dev`，点击 `登录 actor`，之后创建、导入、授权、promotion 和审计都会使用这个 actor；点击 `退出登录` 会清除本地 actor session 并回到 `product-operator`。
-4. 空工作台会在主内容区显示 `SkillLaunchpad`：可以直接导入标准 Skill bundle，也可以先创建空白 skill。移动端 first-run 默认不再重复展示右侧 inspector 的第二份导入表单；需要低频入口时，点左侧 catalog 或 `Cmd/Ctrl+K` 命令菜单即可展开 inspector 表单并把焦点送过去。已有 skill 时，也可以继续用右侧 inspector 或命令菜单触发同类动作。命令菜单会记住最近执行的 5 个命令，并在右侧 preview 中说明当前命令作用对象；选中 case 后可从菜单进入 case 历史，选中 run 后可从菜单设置 run comparison。顶部工作区模式按 tablist 建模，聚焦当前模式后可用左右方向键、Home、End 在 `概览 / 变体 / 测评 / 差异 / 历史` 间移动；切换 skill、mode、diff pair、history filters、selected run 或 promotion review 后，地址栏会同步为可分享链接；中等桌面宽度下进入 `差异 / 历史 / 审计 / 评审` 时，右侧会自动收成 verification rail，方便扫读证据。
-5. 导入 bundle 后先看 `概览` 里的 `验证清单`：没有 case 时点击 `添加首批 case`；有 case 但没有 run 时点击 `打开手工测评`；完成 run 后点击 `查看证据历史`。
-6. 在 `概览` 页的 `身份与默认分发` 中可直接修改 skill ID、归属，并选择哪个 variant 作为默认分发入口。
-7. 在 `概览` 页的 `访问控制` 中可查看当前 skill 的 owner/maintainer/evaluator/viewer，以及当前 actor 的 `管理角色 / 设为当前版本 / 接受验证依据` capability。没有权限时，添加成员、移除成员、设为当前版本评审和接受验证依据会保持 disabled，并显示需要的角色。
-8. 在 `概览` 页的 `治理与审计` 中查看最近权限/发布/归档事件；点击 `查看全部审计` 可以进入 `审计 Explorer`，先用 action chip 快速收窄，再按 actor、action 和 resource type 精确过滤。选中事件后先看 actor/resource/time/summary 和 payload key/value，只有排障时再展开 `Raw payload`。确实要归档时，需要输入当前 skill ID 后才能执行。
-9. 在 `测评` 页可以直接用快速添加面板录入单条 case，或切到 `批量` 后粘贴多行 `title | input | expected output | notes`。批量模式会先显示逐行预览表；如果某行缺字段，页面会阻止提交、聚焦错误摘要，摘要会显示本次需要修正的字段数量，并在预览表和批量文本框旁提示第几行需要修正。直接调用批量 API 时，后端也会返回如 `cases[1].expected_output` 的 `field_errors`，不会写入部分有效行。
-   文本长度上限为：标题 160 字符、Input 20000 字符、Expected output 10000 字符、Notes 2000 字符。
-10. 在 `变体` 页可直接用 `新建约束 variant` 创建新的 tags 组合；默认会从当前 default variant 的 current version 复制基线，创建后在同一张 variant map 中出现。变体名称最多 80 字符，说明最多 1000 字符，说明字段会显示剩余/超出字符数，超限会显示错误摘要并标到字段旁。
-11. 在 `变体` 页可直接用 `追加候选版本` 上传新的标准 Skill 文件夹或 zip；默认不会设为 current，保存后会自动切到 candidate 的测评上下文。版本说明最多 1000 字符，会显示剩余/超出字符数，超限会回填到 `Change summary` 字段。
-12. 在 `测评` 页用 `未确认` 筛选处理剩余 case；点击 `通过` / `不通过` 会自动选中下一条未确认 case，也可以用 `未确认标为通过` 快速完成低风险批次。选中 case 后可直接在详情面板点击 `编辑`，保存时会生成新的 case version 和新的 `EvalSetVersion`，不用跳到右侧 inspector。
-13. 在 `历史` 页可以保存当前 run filters 和 matrix 展示偏好；保存视图名称最多 80 字符，空白、重复或超长名称会显示错误摘要，并把同一条错误标到 `保存视图名称` 输入框旁。
-14. 在 `导入 bundle` 中上传以下任一来源：
+1. 打开 `http://127.0.0.1:3030/skills`。
+2. 首页可搜索 skill、owner 和 tag；点击任意 skill 进入详情页。
+3. 点 `新建 Skill`，上传标准 Skill 文件夹或 zip，再输入一个或多个 tag。Skill 名称和描述优先从 `SKILL.md` frontmatter 读取，owner 使用当前本地 actor。
+4. 在 `概览` 查看 Skill 根目录、维护者、状态、说明、默认变体、当前版本、验证分数、测评集，以及可展开的 bundle 文件树。点击文件名可以查看具体内容。
+5. 在 `变体` 页查看 tag 组合、版本线和 bundle 文件摘要；点击 `上传版本` 会在页面内打开上传面板，默认带入当前选中变体的 tags；如果 tag 组合已存在，就是给该变体追加历史版本；如果 tag 组合不存在，就是创建新变体。
+6. 在 `测评集` 页管理测试用例：点击 `添加 case` 新增用例；点击 `编辑为新版本` 会创建新的 case version，并更新当前 EvalSetVersion。
+7. 在 `测评` 页选择 exact `VariantVersion + EvalSetVersion`，可点 `查看详情` 核对内容 digest、case 数和创建信息；逐条点击 `通过` 或 `不通过`，全部确认后点击 `记录本次测评`。
+8. 在 `历史` 页查看 variant version、eval run、case result 的证据链。
+9. 在 `导入 bundle` 或 `上传版本` 中上传以下任一来源：
    - 根目录包含 `SKILL.md` 的文件夹，或
    - 根目录文件夹包含 `SKILL.md` 的 zip。
-15. 手工新建 skill 时，`Skill ID` 必须使用小写字母、数字和连字符，并以字母或数字开头，最多 64 个字符；`约束标签` 每个最多 64 个字符，只能使用字母、数字、点、下划线和连字符；`归属` 和访问控制里的 `成员` 最多 120 个字符，只能使用字母、数字、点、下划线、`@` 和连字符。
-16. `SKILL.md` 必须以 frontmatter 开头：
+10. `SKILL.md` 必须以 frontmatter 开头：
 
 ```markdown
 ---
@@ -105,16 +116,20 @@ description: Review pull requests for auth and data access regressions.
 导入后的 bundle 会作为不可变 `skill_bundle` artifact 保存，创建出的 variant version 指向这个 artifact。
 如果缺少 `SKILL.md`、frontmatter 不合法、缺少 `name`/`description`，或 zip 无法读取，页面会在导入表单顶部显示错误摘要，并把同一条错误标到文件夹或 zip 上传控件旁。
 
-继续试完整 promotion 闭环：
+### 核心流程跑通清单
 
-1. 在 `测评` 中添加 case，并给当前版本记录一次通过/不通过结果。
-2. 在 `变体` 页的 `追加候选版本` 中上传第二个标准 Skill bundle，或使用右侧 `追加版本` 表单，取消 `设为 current`，让它成为候选版本。
-3. 页面会自动切到 `测评` 并选中新 candidate；记录候选版本的通过/不通过结果。
-4. 用测评页的 candidate banner 点击 `进入设为当前版本评审`，或在 `差异` 页选择 current -> candidate 后进入评审。
-5. 在评审页查看 readiness、逐 case 修复/回退、bundle diff；逐个文件勾选 `已查看此文件` 后，header 会显示 `x/y reviewed`。如果有风险，点击 `接受风险并设为当前版本` 会要求填写 `设为当前版本说明`；说明最多 1000 字符，缺失或超长都会显示字段级错误。
-6. 提交后，variant 历史列表会刷新，候选版本显示为 `Current`。
+完成一次正式版手工验收时，按下面顺序检查：
 
-记录多次手工测评后，打开 `历史` 可按 exact variant version、eval set version、strategy、status 过滤 run，并把当前筛选保存成命名视图，之后一键恢复同一组筛选。页面顶部的 `Run matrix` 会把当前筛选下的 runs 展成 case x run 矩阵，单元格显示 `通过`、`不通过` 或 `-` 未覆盖，并用原生 `table`、caption、列/行标题、sticky case 首列、sticky 表头和完整单元格标签暴露给辅助技术。每条 run 都可以标为 `对照` 或 `候选`；选择两条 run 后，矩阵会在每个 case 行显示 `修复`、`回退`、`稳定通过`、`仍未通过` 或 `缺失`。矩阵还支持按 impact 过滤、按 impact 分组、隐藏 run header 分数、隐藏 `Impact` 列、隐藏 `Summary` 指标列，并能用 `Export CSV` 导出当前可见矩阵视图；这些矩阵控制项、历史筛选和对照/候选 run 指针都会保存到命名视图里。当两条 run 绑定同一个 `EvalSetVersion` 时，右侧会显示通过率变化、逐 case `修复/回退/稳定通过/仍未通过`，并可把候选 run `接受为验证依据`；可选说明最多 1000 字符，超限会在 note 字段旁显示错误并聚焦错误摘要。在 `测评` 中，每个 case 行都有 `历史`，可以查看旧 case version 的 input、expected output、notes，以及它进入过哪些 eval set snapshot；如果要回到旧 input/expected output，点击旧版本上的 `恢复此版本`，系统会创建一个新的当前 case version 和新的 `EvalSetVersion`，不会覆盖历史。
+| 步骤 | 页面 | 操作 | 期望结果 |
+| --- | --- | --- | --- |
+| 1 | Hub 首页 | 点击 `新建 Skill`，上传标准 Skill 文件夹或 zip，输入 tag；最近测评超过 6 条时点击 `查看全部` | 创建后进入 Skill 详情页；首页可搜索到该 Skill；卡片能看到维护者、当前版本和测评集版本；最近测评能展开并收起 |
+| 2 | Skill 概览 | 查看 summary 身份卡；展开 bundle 文件夹并切换文件 | Summary 显示真实根目录、维护者和状态；右侧显示对应文件内容、路径和 digest，Skill 本身不显示图标 |
+| 3 | 变体 | 查看右侧版本线；点击 `Bundle diff` / `查看该版本详情`；点击 `上传版本`，在页面内上传面板输入一组 tag 并上传 bundle | 新 tag 组合创建新变体；已有 tag 组合追加该变体的新版本；当前版本在线性版本历史中清晰标出；inspector 能核对当前版本 diff 与 digest |
+| 4 | 测评集 | 新增 case；再编辑已有 case 为新版本 | case version 增加；当前 EvalSetVersion 更新；case 列表能按序号、版本和状态扫读；此页不执行测评 |
+| 5 | 测评 | 选择 exact `VariantVersion + EvalSetVersion`，点击两个 `查看详情`，逐 case 标记通过/不通过 | 详情区显示 VariantVersion / EvalSetVersion 的真实绑定信息；case 列表显示序号、状态点和快捷键；未全部确认前不能记录；全部确认后可点击 `记录本次测评` |
+| 6 | 历史 | 打开 `历史` tab，选择刚记录的 run | 展示 run、VariantVersion、EvalSetVersion、case result、artifact digest 与版本链 |
+
+如果只做冒烟验收，至少覆盖：新建 Skill、上传/更新变体、查看 bundle、创建 case、手动测评记录、历史证据链。
 
 ### 验证命令
 
@@ -126,20 +141,22 @@ uv run pytest
 ```
 
 ```bash
-cd apps/web
-npm run typecheck
-npm run test:unit
-npm run build
-npm audit --omit=dev
-npx playwright install chromium
+cd apps/web-v4
+npm run test
 npm run e2e
+npm run e2e:visual
+npm run lint
+npm run build
 ```
+
+`npm run e2e` 会用临时 SQLite 数据库启动 API 和 Web V4，执行一次从新建 Skill 到历史证据链的正式流程冒烟。详见 [Web V4 E2E smoke](apps/web-v4/e2e/formal-flow.md)。
+`npm run e2e:visual` 会用固定 seed 和 `1586x992` viewport 截取 5 个正式页面，防止 UI 布局偏离当前基线。详见 [Web V4 视觉 Smoke](apps/web-v4/e2e/visual-smoke.md)。
 
 运行中的应用可用下面命令冒烟检查：
 
 ```bash
 curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:3000/skills
+curl http://127.0.0.1:3030/skills
 ```
 
 正式 API Alembic migration 位于 `apps/api/migrations`；第一版 migration 会执行
@@ -147,7 +164,7 @@ curl http://127.0.0.1:3000/skills
 
 ### 旧原型
 
-早期 proof-of-concept 保留在 `demo-backend`、`demo` 和 `prototype` 中作为参考。新的产品开发应以 `apps/api` 和 `apps/web` 为准。
+早期 proof-of-concept 保留在 `demo-backend`、`demo` 和 `prototype` 中作为参考。新的产品开发应以 `apps/api` 和 `apps/web-v4` 为准。
 
 ### 外部测评导入冒烟
 
@@ -186,6 +203,11 @@ python -m skillhub_demo.external_runner \
 - [Formal tech stack](docs/formal-tech-stack.md)
 - [Formal architecture v0.1](docs/formal-architecture-v0.1.md)
 - [Formal UI design v0.1](docs/formal-ui-design.md)
+- [Web V4 E2E smoke](apps/web-v4/e2e/formal-flow.md)
+- [Web V4 视觉 Smoke](apps/web-v4/e2e/visual-smoke.md)
+- [Web V4 参考图差异清单](docs/formal-web-v4-reference-diff-2026-05-22.md)
+- [Web V4 正式版发布范围](docs/formal-web-v4-release-scope-2026-05-22.md)
+- [旧 apps/web 工作树审计](docs/legacy-web-worktree-audit-2026-05-22.md)
 - [Product completion audit](docs/product-completion-audit-2026-05-08.md)
 - [Bundle diff workbench design](docs/superpowers/specs/2026-05-08-bundle-diff-workbench-design.md)
 - [Roadmap](docs/roadmap.md)

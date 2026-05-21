@@ -80,25 +80,26 @@ class ImportSkillPayload(BaseModel):
     owner_ref: IdentityRef
     tags: TagsPayload
     source: dict[str, Any]
-    variant_label: VariantLabel = "Imported"
+    variant_label: VariantLabel | None = None
 
 
 class CreateVariantVersionPayload(BaseModel):
     variant_id: str
     content_ref: ContentRefPayload | None = None
     source: dict[str, Any] | None = None
-    change_summary: VersionChangeSummary
+    change_summary: VersionChangeSummary | None = None
     make_current: bool = False
 
 
 class CreateVariantPayload(BaseModel):
     skill_id: str
-    name: str
-    label: VariantLabel
-    summary: VariantSummary
+    name: str | None = None
+    label: VariantLabel | None = None
+    summary: VariantSummary | None = None
     tags: TagsPayload
-    content_ref: ContentRefPayload
-    change_summary: VersionChangeSummary
+    content_ref: ContentRefPayload | None = None
+    source: dict[str, Any] | None = None
+    change_summary: VersionChangeSummary | None = None
     make_default: bool = False
 
 
@@ -454,6 +455,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         bundle = parse_skill_import_payload(payload.source)
+        variant_label = payload.variant_label or variant_label_from_tags(payload.tags)
         artifact = repository.create_text_artifact(
             kind="skill_bundle",
             namespace=f"skill-import:{bundle.slug}",
@@ -463,8 +465,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         result = repository.create_skill(
             slug=bundle.slug,
             owner_ref=payload.owner_ref,
-            variant_name=payload.variant_label,
-            variant_label=payload.variant_label,
+            variant_name=variant_label,
+            variant_label=variant_label,
             variant_summary=bundle.description,
             tags=payload.tags,
             content_ref=ContentRef(
@@ -492,6 +494,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
+        bundle = None
         if payload.source is not None:
             bundle = parse_skill_import_source(payload.source)
             artifact = repository.create_text_artifact(
@@ -514,7 +517,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             repository.create_variant_version(
                 variant_id=payload.variant_id,
                 content_ref=content,
-                change_summary=payload.change_summary,
+                change_summary=payload.change_summary
+                or (f"Uploaded standard skill bundle with {bundle.file_count} files." if bundle else "Updated skill version."),
                 actor=actor.id,
                 make_current=payload.make_current,
             )
@@ -526,15 +530,36 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
+        bundle = None
+        if payload.source is not None:
+            bundle = parse_skill_import_source(payload.source)
+            artifact = repository.create_text_artifact(
+                kind="skill_bundle",
+                namespace=f"variant-import:{bundle.slug}",
+                content=bundle.manifest_text,
+                actor=actor.id,
+            )
+            content = ContentRef(
+                kind="artifact",
+                locator=f"artifact:{artifact['id']}",
+                digest=artifact["digest"],
+                path=bundle.entry_path,
+            )
+        elif payload.content_ref is not None:
+            content = content_ref(payload.content_ref)
+        else:
+            raise InvariantError("Variant requires either content_ref or standard skill bundle source.")
+        label = payload.label or variant_label_from_tags(payload.tags)
         return result_payload(
             repository.create_variant(
                 skill_id=payload.skill_id,
-                name=payload.name,
-                label=payload.label,
-                summary=payload.summary,
+                name=payload.name or label,
+                label=label,
+                summary=payload.summary or (bundle.description if bundle else label),
                 tags=payload.tags,
-                content_ref=content_ref(payload.content_ref),
-                change_summary=payload.change_summary,
+                content_ref=content,
+                change_summary=payload.change_summary
+                or (f"Uploaded standard skill bundle with {bundle.file_count} files." if bundle else "Created variant version."),
                 actor=actor.id,
                 make_default=payload.make_default,
             )
@@ -734,6 +759,10 @@ def repository_dependency(request: Request) -> SqlSkillRepository:
 
 def content_ref(payload: ContentRefPayload) -> ContentRef:
     return ContentRef(kind=payload.kind, locator=payload.locator, digest=payload.digest, path=payload.path)  # type: ignore[arg-type]
+
+
+def variant_label_from_tags(tags: list[str]) -> str:
+    return " + ".join(tags) if tags else "default"
 
 
 def result_payload(result: Any) -> Any:

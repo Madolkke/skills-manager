@@ -19,9 +19,20 @@ apps/web/.next/
 apps/web/.next-dev/
 apps/web/playwright-report/
 apps/web/test-results/
+apps/web-v3/node_modules/
+apps/web-v3/dist/
+apps/web-v3/.vite/
+apps/web-v3/*.tsbuildinfo
+apps/web-v4/node_modules/
+apps/web-v4/dist/
+apps/web-v4/.vite/
+apps/web-v4/*.tsbuildinfo
+apps/web-v4/playwright-report/
+apps/web-v4/test-results/
 
 .data/
 .uv-cache/
 .tools/
 .DS_Store
 .superpowers/
+.agent/recordings/

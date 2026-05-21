@@ -1,0 +1,119 @@
+.case-version-history {
+  margin-top: 30px;
+  display: grid;
+  gap: 12px;
+}
+
+.case-version-history h2 {
+  font-size: 18px;
+}
+
+.case-version-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 0;
+  align-items: stretch;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.case-version-step {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 32px 1fr;
+  gap: 10px;
+  padding-right: 18px;
+}
+
+.case-version-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: 34px;
+  right: -2px;
+  height: 2px;
+  background: #c8d9f5;
+}
+
+.case-version-marker {
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #bcd0eb;
+  border-radius: 999px;
+  background: white;
+  color: #3b5b82;
+  display: grid;
+  place-items: center;
+}
+
+.case-version-step.current::after,
+.case-version-step:has(+ .case-version-step.current)::after {
+  background: var(--blue);
+}
+
+.case-version-step.current .case-version-marker {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: white;
+}
+
+.case-version-step.pending .case-version-marker {
+  border-style: dashed;
+  color: #7a879a;
+  background: #fbfdff;
+}
+
+.case-version-card {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  background: white;
+}
+
+.case-version-step.current .case-version-card {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+  background: #f8fbff;
+}
+
+.case-version-step.pending .case-version-card {
+  border-style: dashed;
+  color: #7a879a;
+  background: #fbfdff;
+}
+
+.case-version-card strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.case-version-card span,
+.case-version-card p {
+  color: var(--muted);
+}
+
+.case-version-step.pending .case-version-card strong {
+  color: #7a879a;
+}
+
+.case-version-step.pending .case-version-card small {
+  color: #7a879a;
+  background: #eef3fa;
+}
+
+.case-version-card small {
+  justify-self: start;
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-weight: 760;
+}

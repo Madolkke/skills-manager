@@ -1,0 +1,137 @@
+.bundle-panel {
+  overflow: hidden;
+}
+
+.panel-title-row {
+  min-height: 72px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--soft-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bundle-browser {
+  min-height: 540px;
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+}
+
+.bundle-tree {
+  border-right: 1px solid var(--soft-line);
+  background: #fbfdff;
+  padding: 18px;
+  overflow: auto;
+}
+
+.bundle-tree-list {
+  display: grid;
+  gap: 4px;
+}
+
+.bundle-tree-node {
+  --tree-depth: 0;
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #344560;
+  display: grid;
+  grid-template-columns: 16px 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  padding: 0 10px 0 calc(8px + var(--tree-depth) * 18px);
+}
+
+.bundle-tree-node span:nth-child(3) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bundle-tree-node:hover {
+  background: #f2f6fc;
+}
+
+.bundle-tree-node.branch {
+  color: #263957;
+  font-weight: 760;
+}
+
+.bundle-tree-node.leaf {
+  min-height: 38px;
+}
+
+.bundle-tree-node.leaf.active {
+  background: #eaf2ff;
+  color: var(--blue);
+}
+
+.bundle-tree-node small {
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.tree-caret {
+  color: #8090a8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bundle-content {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 56px minmax(0, 1fr);
+}
+
+.bundle-content header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.bundle-content header strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-preview {
+  overflow: auto;
+  background: #ffffff;
+  color: #1f2937;
+  font-family: "SFMono-Regular", "Cascadia Code", "Liberation Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 18px 0 22px;
+}
+
+.code-line {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-height: 24px;
+}
+
+.code-line span {
+  color: #97a4b7;
+  text-align: right;
+  padding: 0 18px;
+  user-select: none;
+}
+
+.code-line code {
+  min-width: max-content;
+  padding-right: 28px;
+  white-space: pre;
+}

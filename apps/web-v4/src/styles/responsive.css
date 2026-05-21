@@ -1,0 +1,198 @@
+@media (max-width: 1280px) {
+  .hub-page,
+  .overview-grid,
+  .variants-layout,
+  .variants-layout.with-upload-panel,
+  .history-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .recent-panel,
+  .variant-upload-panel,
+  .variant-detail-panel,
+  .run-history {
+    position: static;
+  }
+
+  .skill-grid,
+  .variant-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  .skill-grid.list-view .skill-card {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-grid.list-view .card-metrics {
+    border-left: 0;
+    border-top: 1px solid var(--soft-line);
+  }
+
+  .skill-summary-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .skill-title-block {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-rail {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    height: 74px;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 12px 14px;
+  }
+
+  .rail-nav,
+  .rail-footer {
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .rail-nav {
+    min-width: 0;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .rail-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .rail-collapse {
+    display: none;
+  }
+
+  .top-bar {
+    min-width: 0;
+    padding: 0 20px;
+  }
+
+  .breadcrumb-current {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .actor-menu {
+    flex: 0 0 auto;
+  }
+
+  .page-shell {
+    padding: 20px;
+  }
+
+  .hub-toolbar,
+  .skill-nav-row,
+  .section-heading,
+  .case-detail-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .skill-nav-row,
+  .skill-tabs,
+  .evaluate-page {
+    min-width: 0;
+  }
+
+  .skill-tabs {
+    max-width: 100%;
+    gap: 18px;
+    overflow-x: auto;
+  }
+
+  .skill-tab {
+    min-width: 64px;
+  }
+
+  .skill-grid,
+  .variant-grid,
+  .evalset-layout,
+  .manual-eval-grid,
+  .evaluation-selectors,
+  .eval-progress-panel,
+  .evidence-hero,
+  .bundle-browser,
+  .case-version-track,
+  .manual-version-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .selector-control-row {
+    grid-template-columns: 1fr;
+  }
+
+  .case-version-step {
+    padding-right: 0;
+  }
+
+  .case-version-step:not(:last-child)::after {
+    top: 32px;
+    bottom: -10px;
+    left: 15px;
+    right: auto;
+    width: 2px;
+    height: auto;
+  }
+
+  .version-row,
+  .case-evidence-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .case-sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .skill-summary-panel {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+
+  .skill-title-block {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-metric {
+    border-left: 0;
+    border-top: 1px solid var(--soft-line);
+    padding: 18px 0 0;
+  }
+
+  .eval-action-bar {
+    position: static;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .variant-list-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 16px;
+  }
+
+  .inspector-actions {
+    grid-template-columns: 1fr;
+  }
+}

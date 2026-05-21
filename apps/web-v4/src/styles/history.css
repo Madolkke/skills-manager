@@ -1,0 +1,250 @@
+.history-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.history-workspace,
+.version-history {
+  min-width: 0;
+  display: grid;
+  gap: 24px;
+}
+
+.history-workspace .section-heading .secondary-button {
+  white-space: nowrap;
+}
+
+.evidence-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.evidence-hero {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.85fr) repeat(3, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.evidence-score,
+.evidence-card {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 16px;
+}
+
+.evidence-score {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.evidence-score strong {
+  font-size: 30px;
+}
+
+.evidence-score span,
+.evidence-card span,
+.evidence-card small,
+.evidence-meta-row,
+.case-evidence-row span,
+.history-section-head p,
+.run-history-head p,
+.run-row small,
+.version-row span,
+.version-row small {
+  color: var(--muted);
+}
+
+.evidence-score.verified strong {
+  color: var(--green);
+}
+
+.evidence-score.warning strong {
+  color: var(--amber);
+}
+
+.evidence-card {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding-right: 54px;
+}
+
+.evidence-card strong,
+.evidence-card small,
+.version-row span,
+.version-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evidence-card .icon-button {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+}
+
+.evidence-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  font-weight: 740;
+}
+
+.evidence-meta-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.case-evidence-list,
+.version-stack,
+.run-history {
+  display: grid;
+  gap: 12px;
+}
+
+.case-evidence-list h2,
+.history-section-head h2,
+.run-history h2 {
+  font-size: 18px;
+}
+
+.case-evidence-row {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+}
+
+.case-evidence-row.passed svg {
+  color: var(--green);
+}
+
+.case-evidence-row.failed svg {
+  color: var(--red);
+}
+
+.case-evidence-row div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.case-evidence-row strong,
+.case-evidence-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-evidence-row b {
+  color: #334155;
+}
+
+.history-section-head,
+.run-history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.version-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  padding: 24px;
+}
+
+.version-group h3 {
+  margin-bottom: 18px;
+}
+
+.version-row {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  display: grid;
+  grid-template-columns: 24px 54px minmax(0, 1fr) 150px 38px;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+}
+
+.version-row.current {
+  border-color: #bcd3ff;
+  background: #f8fbff;
+}
+
+.run-history {
+  position: sticky;
+  top: 106px;
+  padding: 24px;
+}
+
+.run-row {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  text-align: left;
+  padding: 14px;
+  display: grid;
+  gap: 7px;
+}
+
+.run-row.active {
+  border-color: var(--blue);
+  background: #f8fbff;
+}
+
+.run-score {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #eef4ff;
+  color: #3154a3;
+  font-weight: 820;
+  font-size: 13px;
+}
+
+.run-score.verified {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.run-score.warning {
+  background: #fff7ed;
+  color: var(--amber);
+}
+
+.history-empty {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.history-empty strong {
+  color: var(--ink);
+  font-size: 20px;
+}

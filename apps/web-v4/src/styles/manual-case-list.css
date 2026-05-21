@@ -1,0 +1,122 @@
+.manual-case-list {
+  min-width: 0;
+  max-height: 640px;
+  overflow: auto;
+}
+
+.manual-list-head {
+  min-height: 64px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--soft-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.manual-list-head h2 {
+  font-size: 17px;
+}
+
+.manual-list-head p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.manual-list-head > span {
+  min-width: 34px;
+  height: 28px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #3154a3;
+  display: grid;
+  place-items: center;
+  font-weight: 820;
+}
+
+.manual-case-row {
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  background: white;
+  display: grid;
+  grid-template-columns: 10px 44px minmax(0, 1fr) 32px;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 0 14px;
+}
+
+.manual-case-row:hover,
+.manual-case-row.active {
+  background: #f1f6ff;
+}
+
+.manual-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.manual-status-dot.passed {
+  background: #4bae77;
+}
+
+.manual-status-dot.failed {
+  background: #e05252;
+}
+
+.manual-status-dot.pending {
+  background: #94a3b8;
+}
+
+.manual-case-index {
+  color: #24324a;
+  font-weight: 840;
+  font-variant-numeric: tabular-nums;
+}
+
+.manual-case-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.manual-case-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-case-copy small {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 740;
+}
+
+.manual-case-copy small span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-shortcut-chip {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid #d8e2ef;
+  border-radius: 7px;
+  background: #f8fbff;
+  color: #51627d;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 840;
+  line-height: 1;
+}

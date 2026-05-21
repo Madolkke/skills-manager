@@ -1,0 +1,139 @@
+.inspector-actions .secondary-button {
+  justify-content: center;
+}
+
+.inspector-actions .secondary-button[aria-pressed="true"] {
+  border-color: #b9ccf5;
+  background: #f3f7ff;
+  color: var(--blue);
+}
+
+.variant-inspector-detail-panel {
+  border: 1px solid #cfe0ff;
+  border-radius: var(--radius);
+  background: #f8fbff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.variant-inspector-detail-panel > header {
+  display: grid;
+  gap: 4px;
+}
+
+.variant-inspector-detail-panel > header span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.variant-inspector-detail-panel > header strong {
+  color: #1f2f49;
+  font-size: 16px;
+}
+
+.diff-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  overflow: hidden;
+}
+
+.diff-metric {
+  min-width: 0;
+  padding: 10px 8px;
+  display: grid;
+  gap: 3px;
+  text-align: center;
+  border-right: 1px solid var(--soft-line);
+}
+
+.diff-metric:last-child {
+  border-right: 0;
+}
+
+.diff-metric strong {
+  font-size: 18px;
+}
+
+.diff-metric small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 730;
+}
+
+.diff-metric.changed strong,
+.diff-file-row .changed {
+  color: var(--blue);
+}
+
+.diff-metric.added strong,
+.diff-file-row .added {
+  color: var(--green);
+}
+
+.diff-metric.removed strong,
+.diff-file-row .removed {
+  color: #bf3d3d;
+}
+
+.diff-file-list,
+.version-detail-list {
+  display: grid;
+  gap: 8px;
+}
+
+.diff-file-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  color: #38506f;
+}
+
+.diff-file-row b {
+  font-size: 12px;
+}
+
+.diff-file-row em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.diff-file-row small {
+  color: var(--muted);
+}
+
+.version-detail-list {
+  margin: 0;
+}
+
+.version-detail-list div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.version-detail-list dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.version-detail-list dd {
+  margin: 0;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.version-detail-list .mono {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
