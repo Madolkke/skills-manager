@@ -205,6 +205,7 @@ python -m skillhub_demo.external_runner \
 - [Formal UI design v0.1](docs/formal-ui-design.md)
 - [Web V4 E2E smoke](apps/web-v4/e2e/formal-flow.md)
 - [Web V4 视觉 Smoke](apps/web-v4/e2e/visual-smoke.md)
+- [Web V4 最终目标验收审计](docs/formal-web-v4-final-goal-audit-2026-05-22.md)
 - [Web V4 视觉参考验收记录](docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md)
 - [Web V4 参考图差异清单](docs/formal-web-v4-reference-diff-2026-05-22.md)
 - [Web V4 正式版发布范围](docs/formal-web-v4-release-scope-2026-05-22.md)
