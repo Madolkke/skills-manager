@@ -3,12 +3,13 @@
 日期：2026-05-21
 最近更新：2026-05-22
 
-结论：**不要标记总目标完成。** Web V4 已经跑通正式版核心闭环，并且默认启动入口已经切到 `apps/web-v4`；后续补充了仓库内 Playwright E2E smoke 和 5 页视觉 smoke，把临时真实操作与当前 UI 基线固化为可重复验证。2026-05-22 继续收敛了概览页术语、概览 summary 视觉重心、主操作边界、case 版本路线图、测评集列表工具条、手动测评操作条、测评集死入口、全局 rail、变体上传上下文、变体 inspector 版本线、变体 inspector 底部动作、Hub 首页信息密度、最近测评全量入口、bundle tree 层级、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口：bundle 文件树以真实 Skill slug 作为根目录，已从平铺分组收敛为可展开的根目录、子目录和文件叶子树，summary 左侧用真实根目录、维护者和状态组成身份信息 tile，在不恢复 Skill 图标的前提下补足视觉重心，版本入口改成不夸大能力边界的 `版本管理`，`上传版本` 只出现在概览和变体这两个 bundle 版本上下文，变体页上传已从居中 modal 改为页面内侧卡并默认带入当前选中变体 tags，变体 inspector 已把版本历史从纵向卡片改为水平 version line 和当前版本摘要，并补充文件级 `Bundle diff` 与当前 VariantVersion 详情动作，case 版本历史按 v1 到当前版本顺序展示为带 marker 和连接线的横向 roadmap，并提示下一版待创建，case 列表提供搜索、状态筛选和排序控件，列表行用真实 position、case version、当前/历史状态和 lifecycle status 提升扫读密度，手动测评列表行用状态点、`#position`、case version、结果状态和数字快捷键提升扫读密度，并修复 0-based position 导致第二条显示为 1 的问题，手动测评进度区改为“摘要卡 + 结果统计 + 结果分布条”的三段式布局，手动测评 selector 旁的 `查看详情` 能展开 VariantVersion / EvalSetVersion 真实绑定详情，手动测评底部操作条对齐当前 case 详情面板，测评集侧栏移除了没有菜单和 handler 的更多按钮，左侧 rail 只保留有真实行为的首页、搜索、新建和折叠入口，顶部 actor 改为静态身份标识；Hub 卡片在不恢复 Skill 图标的前提下补充维护者、更新时间和得分胶囊，右侧最近测评行补充当前版本、测评集版本、操作者和时间，并把 `查看已验证` 筛选命令替换成真实的 `查看全部` / `收起` 本地列表展开。测评集、测评、历史页不再暴露不相关的变体上传动作；跨 Skill 全量测评历史页不纳入当前 5 图正式版范围，避免把参考图外能力伪装成成熟主流程。正式版 release PR #1 已合并到 `main`，merge commit 为 `add9620af4d43cd8544dff0fe50f741c9c164f83`，合并前 GitHub Actions 全部通过；合并后已完成本地 lint/build/unit/E2E/视觉 smoke/API pytest 和 agent-browser 默认入口验证。但仍有两类证据不足：视觉 smoke 还只是当前 Web V4 基线，不是对参考图的逐像素验收；原开发工作树里的旧 `apps/web` 脏改动仍需归档、迁移或明确丢弃。
+结论：**不要标记总目标完成。** Web V4 已经跑通正式版核心闭环，并且默认启动入口已经切到 `apps/web-v4`；后续补充了仓库内 Playwright E2E smoke 和 5 页视觉 smoke，把临时真实操作与当前 UI 基线固化为可重复验证。2026-05-22 继续收敛了概览页术语、概览 summary 视觉重心、主操作边界、case 版本路线图、测评集列表工具条、手动测评操作条、测评集死入口、全局 rail、变体上传上下文、变体 inspector 版本线、变体 inspector 底部动作、Hub 首页信息密度、最近测评全量入口、bundle tree 层级、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口：bundle 文件树以真实 Skill slug 作为根目录，已从平铺分组收敛为可展开的根目录、子目录和文件叶子树，summary 左侧用真实根目录、维护者和状态组成身份信息 tile，在不恢复 Skill 图标的前提下补足视觉重心，版本入口改成不夸大能力边界的 `版本管理`，`上传版本` 只出现在概览和变体这两个 bundle 版本上下文，变体页上传已从居中 modal 改为页面内侧卡并默认带入当前选中变体 tags，变体 inspector 已把版本历史从纵向卡片改为水平 version line 和当前版本摘要，并补充文件级 `Bundle diff` 与当前 VariantVersion 详情动作，case 版本历史按 v1 到当前版本顺序展示为带 marker 和连接线的横向 roadmap，并提示下一版待创建，case 列表提供搜索、状态筛选和排序控件，列表行用真实 position、case version、当前/历史状态和 lifecycle status 提升扫读密度，手动测评列表行用状态点、`#position`、case version、结果状态和数字快捷键提升扫读密度，并修复 0-based position 导致第二条显示为 1 的问题，手动测评进度区改为“摘要卡 + 结果统计 + 结果分布条”的三段式布局，手动测评 selector 旁的 `查看详情` 能展开 VariantVersion / EvalSetVersion 真实绑定详情，手动测评底部操作条对齐当前 case 详情面板，测评集侧栏移除了没有菜单和 handler 的更多按钮，左侧 rail 只保留有真实行为的首页、搜索、新建和折叠入口，顶部 actor 改为静态身份标识；Hub 卡片在不恢复 Skill 图标的前提下补充维护者、更新时间和得分胶囊，右侧最近测评行补充当前版本、测评集版本、操作者和时间，并把 `查看已验证` 筛选命令替换成真实的 `查看全部` / `收起` 本地列表展开。测评集、测评、历史页不再暴露不相关的变体上传动作；跨 Skill 全量测评历史页不纳入当前 5 图正式版范围，避免把参考图外能力伪装成成熟主流程。正式版 release PR #1 已合并到 `main`，merge commit 为 `add9620af4d43cd8544dff0fe50f741c9c164f83`，合并前 GitHub Actions 全部通过；合并后已完成本地 lint/build/unit/E2E/视觉 smoke/API pytest 和 agent-browser 默认入口验证；视觉参考验收记录已把 5 张参考图和当前截图基线按产品范围逐页验收。剩余未收口项主要是原开发工作树里的旧 `apps/web` 脏改动仍需归档、迁移或明确丢弃，以及后续能力不应在当前 UI 中伪造。
 
 ## 审计输入
 
 - 目标范围：当前线程目标中列出的 5 张参考图、核心 Skill/Variant/EvalSet/Manual Eval/History 流程、交互约束和工程约束。
 - 参考图：`docs/product-ui-reference/01-hub-home.png` 到 `05-variant-management.png`。
+- 视觉参考验收：`docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md`。
 - 参考差异清单：`docs/formal-web-v4-reference-diff-2026-05-22.md`。
 - 发布范围：`docs/formal-web-v4-release-scope-2026-05-22.md`。
 - 旧工作台范围审计：`docs/legacy-web-worktree-audit-2026-05-22.md`。
@@ -22,7 +23,7 @@
 | --- | --- | --- |
 | 默认使用正式版入口 | `scripts/dev.sh` 已分发到 `scripts/dev-v4.sh`；README 一键启动改为 `bash scripts/dev.sh`，Web V4 默认端口 `3030`。 | 已证明 |
 | 保留旧工作台但不作为主流程 | `scripts/dev-legacy-web.sh` 保留旧 `apps/web` 入口；README 明确旧工作台只用于对照。 | 已证明 |
-| 5 张设计图作为目标参考 | `docs/product-ui-reference/` 中 5 张图存在；Web V4 页面结构分别对应 Hub、概览、测评集、手动测评、变体。 | 部分证明 |
+| 5 张设计图作为目标参考 | `docs/product-ui-reference/` 中 5 张图存在；Web V4 页面结构分别对应 Hub、概览、测评集、手动测评、变体；`docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md` 已按当前产品范围逐页验收。 | 已证明 |
 | Skill 不需要图标 | Web V4 Skill 卡片和概览主标题不依赖 Skill 图标；侧栏只有产品级 `SH` 标识。 | 已证明 |
 | Hub 首页可新建 Skill | `HubPage` 提供 `新建 Skill`；`NewSkillModal` 只要求 tag 与 bundle 上传。Playwright 临时脚本已真实创建 Skill。 | 已证明 |
 | Hub 首页信息密度 | `HubPage` Skill 卡片显示维护者、更新时间、得分胶囊、tags 和三项核心指标；最近测评行显示 Skill、得分、当前版本、测评集版本、操作者和时间，超过 6 条时可在同一真实列表内 `查看全部` / `收起`。 | 已证明 |
@@ -47,7 +48,7 @@
 | 不用跳转页面下方冒充导航 | Web V4 使用 `SkillTabs` 和 URL query tab 导航；未把测评/历史藏在同页锚点下方。 | 已证明 |
 | 全局 rail 不暴露无行为控件 | `BrandRail` 只保留首页、搜索、新建 Skill 和折叠；搜索会回到 Hub 并聚焦搜索框，未实现的全局测评记录、历史、设置入口不再显示；`TopBar` 的 actor 从按钮改为静态身份标识。 | 已证明 |
 | 组件成熟、层次清楚、低心智负担 | 已有较清晰的 rail/topbar/tabs/card/inspector/action bar；手动测评遮挡问题已修，进度区按摘要、统计和分布拆成三段；概览页主操作改为 `版本管理`；bundle tree 改为可展开层级树；变体页上传改为上下文侧卡，inspector 版本历史改为线性 version track，底部动作改为文件级 diff 与版本详情，减少上传时离开当前变体信息的心智切换；Hub 首页卡片、最近测评行和最近测评展开入口的扫读信息已补足。 | 部分证明 |
-| 严格向参考图看齐 | 最近几轮已按参考图逐页打磨；`npm run e2e:visual` 用固定 seed 截取 5 页当前 Web V4 基线；`docs/formal-web-v4-reference-diff-2026-05-22.md` 已记录逐图差异和后续优先级。 | 部分证明 |
+| 严格向参考图看齐 | 最近几轮已按参考图逐页打磨；`npm run e2e:visual` 用固定 seed 截取 5 页当前 Web V4 基线并断言关键结构；`docs/formal-web-v4-reference-diff-2026-05-22.md` 已记录逐图差异和后续优先级；`docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md` 已记录参考图验收口径和接受偏差。 | 已证明 |
 | 避免继续堆叠 demo 债务 | Web V4 从旧 `apps/web` 分离，文件大多在 200-300 行；手动测评列表样式已从 `manual-evaluation.css` 拆到 `manual-case-list.css`；手动测评进度区抽成 `ManualProgressPanel`；`workspaces.css` 283 行已接近上限。 | 部分证明 |
 | 所有用户可见文档默认中文 | README 与本审计为中文；代码标识保留英文。 | 已证明 |
 | 每轮修改后类型/单元/后端/真实操作验证 | 最近几轮均执行 `npm run build`、`npm run test`、`npm run lint`、`uv run pytest` 和真实操作验证；后续已补充 `apps/web-v4` 的 `npm run e2e` 与视觉 smoke。 | 已证明 |
@@ -56,7 +57,7 @@
 
 ## 当前最重要的缺口
 
-1. **参考图差异已有清单，当前 5 图主流程的阻塞差距已关闭。** `docs/formal-web-v4-reference-diff-2026-05-22.md` 记录了 5 张参考图和当前 baseline 的差距；变体上传上下文化、变体 inspector 版本线、变体 inspector 底部动作、测评集版本路线图、Hub 卡片密度、最近测评层级、最近测评全量入口、bundle tree 层级、Skill 概览 summary 视觉重心、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口已关闭。跨 Skill 全量测评历史页已明确为未来独立范围，不纳入当前 5 图正式版收口。
+1. **参考图差异和验收口径已固化，当前 5 图主流程的阻塞差距已关闭。** `docs/formal-web-v4-reference-diff-2026-05-22.md` 记录了 5 张参考图和当前 baseline 的差距；`docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md` 记录了逐页验收结论、接受偏差和不伪造范围。变体上传上下文化、变体 inspector 版本线、变体 inspector 底部动作、测评集版本路线图、Hub 卡片密度、最近测评层级、最近测评全量入口、bundle tree 层级、Skill 概览 summary 视觉重心、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口已关闭。跨 Skill 全量测评历史页已明确为未来独立范围，不纳入当前 5 图正式版收口。
 2. **旧 `apps/web` 脏改动会持续制造范围混淆。** `docs/legacy-web-worktree-audit-2026-05-22.md` 已记录原开发工作树中旧工作台脏改动的归属、风险和处理选项；本正式版发布分支明确排除旧 `apps/web` redesign，最终仍需决定这些旧改动要么归档、要么迁移、要么明确丢弃。
 3. **Visual polish 仍有未来扩展项。** 更深的逐行 bundle diff、跨 Skill 全量测评历史页、case tags 和多测评集列表都需要独立信息架构或后端字段支持后再做，当前正式版不伪造这些入口。
 
@@ -243,3 +244,9 @@ git diff --check -- README.md docs apps/web-v4
 - 代码来源：从 `origin/main` 新建 `docs/formal-v4-post-merge-status` 分支，确认基线包含 merge commit `add9620af4d43cd8544dff0fe50f741c9c164f83`。
 - 完整验证：`npm run lint`、`npm run build`、`npm run test`、`npm run e2e`、`npm run e2e:visual`、`cd apps/api && uv run pytest`、`git diff --check -- docs README.md apps/web-v4 apps/api scripts .gitignore` 均通过；unit 为 1 个测试文件、10 个测试，API 为 115 passed。
 - agent-browser 真实操作：临时启动 `scripts/dev.sh` 到 `18116/13116`，打开 `http://127.0.0.1:13116/skills` 后 snapshot 显示 Web V4 Hub 的 `SkillHub`、`新建 Skill`、筛选和排序控件；点击 `新建 Skill` 后 snapshot 显示新建 Skill 对话框、文件夹上传、zip 上传和禁用的 `创建 Skill` 按钮。
+
+2026-05-22 视觉参考验收记录补充验证：
+
+- 文档更新：新增 `docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md`，把 5 张参考图、当前 visual baseline、验收口径、逐页验收结论、接受偏差和剩余范围固化；README、视觉 smoke 说明、参考图差异清单和本审计已链接该记录。
+- 完整验证：`npm run lint`、`npm run build`、`npm run test`、`npm run e2e`、`npm run e2e:visual`、`cd apps/api && uv run pytest`、`git diff --check -- README.md docs apps/web-v4 apps/api scripts .gitignore` 均通过；unit 为 1 个测试文件、10 个测试，API 为 115 passed。
+- agent-browser 真实操作：临时启动 `scripts/dev.sh` 到 `18118/13118`，打开 `http://127.0.0.1:13118/skills` 后 snapshot 显示 Web V4 Hub 的 `SkillHub`、`新建 Skill`、筛选和排序控件；点击 `新建 Skill` 后 snapshot 显示新建 Skill 对话框、`约束 tag`、`选择文件夹`、`上传 zip` 和禁用的 `创建 Skill` 按钮。

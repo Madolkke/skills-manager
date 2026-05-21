@@ -2,7 +2,7 @@
 
 日期：2026-05-22
 
-目的：把 `docs/product-ui-reference/` 里的 5 张目标参考图和当前 Web V4 visual baseline 的差异固化成可执行验收清单。这个文件不是完成证明，而是后续 UI 收敛的工作单。
+目的：把 `docs/product-ui-reference/` 里的 5 张目标参考图和当前 Web V4 visual baseline 的差异固化成可执行验收清单。正式验收结论见 `docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md`；本文件继续作为后续 UI 收敛工作单。
 
 ## 输入
 

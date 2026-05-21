@@ -33,4 +33,4 @@ npm run e2e -- --config playwright.visual.config.ts
 
 ## 边界
 
-这些截图是当前 Web V4 的回归基线，用来防止布局、层级、主要控件和页面密度意外倒退。它们不是“已完全复刻参考图”的证明；后续仍需要继续做逐图差异审阅和 UI 打磨。
+这些截图是当前 Web V4 的回归基线，用来防止布局、层级、主要控件和页面密度意外倒退。它们不是“逐像素复刻参考图”的证明；正式验收口径见 [Web V4 视觉参考验收记录](../../../docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md)。
