@@ -3,7 +3,7 @@
 日期：2026-05-21
 最近更新：2026-05-22
 
-结论：**不要标记总目标完成。** Web V4 已经跑通正式版核心闭环，并且默认启动入口已经切到 `apps/web-v4`；后续补充了仓库内 Playwright E2E smoke 和 5 页视觉 smoke，把临时真实操作与当前 UI 基线固化为可重复验证。2026-05-22 继续收敛了概览页术语、概览 summary 视觉重心、主操作边界、case 版本路线图、测评集列表工具条、手动测评操作条、测评集死入口、全局 rail、变体上传上下文、变体 inspector 版本线、变体 inspector 底部动作、Hub 首页信息密度、最近测评全量入口、bundle tree 层级、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口：bundle 文件树以真实 Skill slug 作为根目录，已从平铺分组收敛为可展开的根目录、子目录和文件叶子树，summary 左侧用真实根目录、维护者和状态组成身份信息 tile，在不恢复 Skill 图标的前提下补足视觉重心，版本入口改成不夸大能力边界的 `版本管理`，`上传版本` 只出现在概览和变体这两个 bundle 版本上下文，变体页上传已从居中 modal 改为页面内侧卡并默认带入当前选中变体 tags，变体 inspector 已把版本历史从纵向卡片改为水平 version line 和当前版本摘要，并补充文件级 `Bundle diff` 与当前 VariantVersion 详情动作，case 版本历史按 v1 到当前版本顺序展示为带 marker 和连接线的横向 roadmap，并提示下一版待创建，case 列表提供搜索、状态筛选和排序控件，列表行用真实 position、case version、当前/历史状态和 lifecycle status 提升扫读密度，手动测评列表行用状态点、`#position`、case version、结果状态和数字快捷键提升扫读密度，并修复 0-based position 导致第二条显示为 1 的问题，手动测评进度区改为“摘要卡 + 结果统计 + 结果分布条”的三段式布局，手动测评 selector 旁的 `查看详情` 能展开 VariantVersion / EvalSetVersion 真实绑定详情，手动测评底部操作条对齐当前 case 详情面板，测评集侧栏移除了没有菜单和 handler 的更多按钮，左侧 rail 只保留有真实行为的首页、搜索、新建和折叠入口，顶部 actor 改为静态身份标识；Hub 卡片在不恢复 Skill 图标的前提下补充维护者、更新时间和得分胶囊，右侧最近测评行补充当前版本、测评集版本、操作者和时间，并把 `查看已验证` 筛选命令替换成真实的 `查看全部` / `收起` 本地列表展开。测评集、测评、历史页不再暴露不相关的变体上传动作；跨 Skill 全量测评历史页不纳入当前 5 图正式版范围，避免把参考图外能力伪装成成熟主流程。正式版 release 分支 `release/formal-skillhub-v4` 已打开 draft PR #1，GitHub Actions 全部通过且 merge state 为 CLEAN；但仍有几类证据不足：视觉 smoke 还只是当前 Web V4 基线，不是对参考图的逐像素验收；原开发工作树里的旧 `apps/web` 脏改动仍需归档、迁移或明确丢弃；最终 review/merge 决策仍未收口。
+结论：**不要标记总目标完成。** Web V4 已经跑通正式版核心闭环，并且默认启动入口已经切到 `apps/web-v4`；后续补充了仓库内 Playwright E2E smoke 和 5 页视觉 smoke，把临时真实操作与当前 UI 基线固化为可重复验证。2026-05-22 继续收敛了概览页术语、概览 summary 视觉重心、主操作边界、case 版本路线图、测评集列表工具条、手动测评操作条、测评集死入口、全局 rail、变体上传上下文、变体 inspector 版本线、变体 inspector 底部动作、Hub 首页信息密度、最近测评全量入口、bundle tree 层级、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口：bundle 文件树以真实 Skill slug 作为根目录，已从平铺分组收敛为可展开的根目录、子目录和文件叶子树，summary 左侧用真实根目录、维护者和状态组成身份信息 tile，在不恢复 Skill 图标的前提下补足视觉重心，版本入口改成不夸大能力边界的 `版本管理`，`上传版本` 只出现在概览和变体这两个 bundle 版本上下文，变体页上传已从居中 modal 改为页面内侧卡并默认带入当前选中变体 tags，变体 inspector 已把版本历史从纵向卡片改为水平 version line 和当前版本摘要，并补充文件级 `Bundle diff` 与当前 VariantVersion 详情动作，case 版本历史按 v1 到当前版本顺序展示为带 marker 和连接线的横向 roadmap，并提示下一版待创建，case 列表提供搜索、状态筛选和排序控件，列表行用真实 position、case version、当前/历史状态和 lifecycle status 提升扫读密度，手动测评列表行用状态点、`#position`、case version、结果状态和数字快捷键提升扫读密度，并修复 0-based position 导致第二条显示为 1 的问题，手动测评进度区改为“摘要卡 + 结果统计 + 结果分布条”的三段式布局，手动测评 selector 旁的 `查看详情` 能展开 VariantVersion / EvalSetVersion 真实绑定详情，手动测评底部操作条对齐当前 case 详情面板，测评集侧栏移除了没有菜单和 handler 的更多按钮，左侧 rail 只保留有真实行为的首页、搜索、新建和折叠入口，顶部 actor 改为静态身份标识；Hub 卡片在不恢复 Skill 图标的前提下补充维护者、更新时间和得分胶囊，右侧最近测评行补充当前版本、测评集版本、操作者和时间，并把 `查看已验证` 筛选命令替换成真实的 `查看全部` / `收起` 本地列表展开。测评集、测评、历史页不再暴露不相关的变体上传动作；跨 Skill 全量测评历史页不纳入当前 5 图正式版范围，避免把参考图外能力伪装成成熟主流程。正式版 release PR #1 已合并到 `main`，merge commit 为 `add9620af4d43cd8544dff0fe50f741c9c164f83`，合并前 GitHub Actions 全部通过；合并后已完成本地 lint/build/unit/E2E/视觉 smoke/API pytest 和 agent-browser 默认入口验证。但仍有两类证据不足：视觉 smoke 还只是当前 Web V4 基线，不是对参考图的逐像素验收；原开发工作树里的旧 `apps/web` 脏改动仍需归档、迁移或明确丢弃。
 
 ## 审计输入
 
@@ -52,22 +52,20 @@
 | 所有用户可见文档默认中文 | README 与本审计为中文；代码标识保留英文。 | 已证明 |
 | 每轮修改后类型/单元/后端/真实操作验证 | 最近几轮均执行 `npm run build`、`npm run test`、`npm run lint`、`uv run pytest` 和真实操作验证；后续已补充 `apps/web-v4` 的 `npm run e2e` 与视觉 smoke。 | 已证明 |
 | README 一键启动和核心流程说明 | README 已包含 `bash scripts/dev.sh`、health check、建议试用路径、核心流程跑通清单。 | 已证明 |
-| 阶段性稳定后推送 GitHub | clean release 分支 `release/formal-skillhub-v4` 已推送；draft PR #1 指向 `main`，排除旧 `apps/web`、`apps/web-v2`、`apps/web-v3` 实验路径；GitHub Actions 4 个 job 全部通过，merge state 为 CLEAN。 | 已证明 |
+| 阶段性稳定后推送 GitHub | clean release 分支 `release/formal-skillhub-v4` 已推送；PR #1 已 squash merge 到 `main`，merge commit 为 `add9620af4d43cd8544dff0fe50f741c9c164f83`；合并范围排除旧 `apps/web`、`apps/web-v2`、`apps/web-v3` 实验路径；合并前 GitHub Actions 4 个 job 全部通过。 | 已证明 |
 
 ## 当前最重要的缺口
 
 1. **参考图差异已有清单，当前 5 图主流程的阻塞差距已关闭。** `docs/formal-web-v4-reference-diff-2026-05-22.md` 记录了 5 张参考图和当前 baseline 的差距；变体上传上下文化、变体 inspector 版本线、变体 inspector 底部动作、测评集版本路线图、Hub 卡片密度、最近测评层级、最近测评全量入口、bundle tree 层级、Skill 概览 summary 视觉重心、测评集 case 列表密度、手动测评 case 列表密度、手动测评进度区比例和手动测评版本详情入口已关闭。跨 Skill 全量测评历史页已明确为未来独立范围，不纳入当前 5 图正式版收口。
 2. **旧 `apps/web` 脏改动会持续制造范围混淆。** `docs/legacy-web-worktree-audit-2026-05-22.md` 已记录原开发工作树中旧工作台脏改动的归属、风险和处理选项；本正式版发布分支明确排除旧 `apps/web` redesign，最终仍需决定这些旧改动要么归档、要么迁移、要么明确丢弃。
 3. **Visual polish 仍有未来扩展项。** 更深的逐行 bundle diff、跨 Skill 全量测评历史页、case tags 和多测评集列表都需要独立信息架构或后端字段支持后再做，当前正式版不伪造这些入口。
-4. **GitHub review/merge 还未收口。** Draft PR #1 已打开且 CI 全绿，但仍需要明确 review、是否转为 ready for review，以及是否合并。
 
 ## 下一步建议
 
 优先级最高的是把正式版范围和发布路径收口：
 
 1. 处理旧 `apps/web` 脏改动，避免正式版和历史工作台继续互相干扰。
-2. Review GitHub draft PR #1，决定是否转为 ready for review 并合并。
-3. 如果后续要做跨 Skill 全量测评历史页、逐行 bundle diff、case tags 或多测评集列表，先写独立信息架构和后端字段方案，不在当前 5 图正式版里伪造入口。
+2. 如果后续要做跨 Skill 全量测评历史页、逐行 bundle diff、case tags 或多测评集列表，先写独立信息架构和后端字段方案，不在当前 5 图正式版里伪造入口。
 
 ## 本轮验证记录
 
@@ -233,3 +231,15 @@ git diff --check -- README.md docs apps/web-v4
 - 本地验证：在 clean release worktree 中执行 `npm ci`、`npm run lint`、`npm run build`、`npm run test`、`npm run e2e`、`npm run e2e:visual`、`cd apps/api && uv run pytest`、`git diff --check --cached` 和 `git diff --check -- README.md docs apps/web-v4 apps/api scripts .gitignore`，均通过；unit 为 1 个测试文件、10 个测试，API 为 115 passed。
 - agent-browser 真实操作：临时启动 clean release 分支默认 `scripts/dev.sh` 到 `18114/13114`，打开 `http://127.0.0.1:13114/skills` 后 snapshot 显示 Web V4 Hub 的 `SkillHub`、`新建 Skill`、筛选和排序控件；点击 `新建 Skill` 后 snapshot 显示新建 Skill 对话框、文件夹上传、zip 上传和禁用的 `创建 Skill` 按钮。
 - GitHub 状态：draft PR #1 已创建，URL 为 `https://github.com/xunx911/skills-manager/pull/1`；PR head 为 `release/formal-skillhub-v4`，base 为 `main`，`mergeStateStatus` 为 `CLEAN`；GitHub Actions 中 `Backend tests`、`Formal API domain tests`、`Demo frontend build`、`Formal web build` 四个 job 均为 `SUCCESS`；截至本审计更新时没有评论或 review。
+
+2026-05-22 PR #1 合并状态：
+
+- GitHub 状态：PR #1 已从 draft 转为 ready for review，随后通过 squash merge 合并到 `main`；merge commit 为 `add9620af4d43cd8544dff0fe50f741c9c164f83`。
+- 合并前证据：`gh pr view 1` 显示 PR 为 open、非 draft、`mergeable=MERGEABLE`、`mergeStateStatus=CLEAN`；`Backend tests`、`Formal API domain tests`、`Demo frontend build`、`Formal web build` 四个 job 均为 `SUCCESS`。
+- 合并范围：`origin/main` 最新提交为 `add9620 feat: add formal skillhub web v4`；clean release PR 仍排除旧 `apps/web`、`apps/web-v2` 和 `apps/web-v3` 实验路径。
+
+2026-05-22 main 合并后回归验证：
+
+- 代码来源：从 `origin/main` 新建 `docs/formal-v4-post-merge-status` 分支，确认基线包含 merge commit `add9620af4d43cd8544dff0fe50f741c9c164f83`。
+- 完整验证：`npm run lint`、`npm run build`、`npm run test`、`npm run e2e`、`npm run e2e:visual`、`cd apps/api && uv run pytest`、`git diff --check -- docs README.md apps/web-v4 apps/api scripts .gitignore` 均通过；unit 为 1 个测试文件、10 个测试，API 为 115 passed。
+- agent-browser 真实操作：临时启动 `scripts/dev.sh` 到 `18116/13116`，打开 `http://127.0.0.1:13116/skills` 后 snapshot 显示 Web V4 Hub 的 `SkillHub`、`新建 Skill`、筛选和排序控件；点击 `新建 Skill` 后 snapshot 显示新建 Skill 对话框、文件夹上传、zip 上传和禁用的 `创建 Skill` 按钮。

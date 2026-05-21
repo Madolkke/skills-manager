@@ -36,6 +36,8 @@
 - PR：`https://github.com/xunx911/skills-manager/pull/1`
 - Head：`release/formal-skillhub-v4`
 - Base：`main`
-- 状态：draft，`mergeStateStatus` 为 `CLEAN`
-- CI：`Backend tests`、`Formal API domain tests`、`Demo frontend build`、`Formal web build` 均为 `SUCCESS`
-- 剩余决策：是否转为 ready for review，以及何时合并。
+- 状态：已通过 squash merge 合并到 `main`
+- Merge commit：`add9620af4d43cd8544dff0fe50f741c9c164f83`
+- 合并前 CI：`Backend tests`、`Formal API domain tests`、`Demo frontend build`、`Formal web build` 均为 `SUCCESS`
+- 合并后本地回归：Web lint/build/unit/E2E/视觉 smoke、API pytest、agent-browser 默认入口 smoke 均通过。
+- 剩余决策：原开发工作树里的旧 `apps/web` redesign 脏改动是否归档、迁移或明确丢弃。
