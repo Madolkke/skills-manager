@@ -98,7 +98,7 @@
 2. 跨 Skill 全量测评历史页。
 3. 独立 VariantVersion / EvalSetVersion 详情页。
 4. 逐行 bundle diff 工作台。
-5. 原开发工作树中旧 `apps/web` redesign 脏改动的归档、迁移或丢弃决策。
+5. 旧工作台或早期 demo 如需恢复，必须另开独立分支，不回到正式版主流程。
 
 ## 证据链
 

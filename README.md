@@ -20,7 +20,7 @@
 
 ## 快速开始
 
-正式新版前端工作区位于 `apps/api` 和 `apps/web-v4`。`apps/web-v4` 是按产品参考图从零重写的前端项目；旧 `apps/web`、`apps/web-v2` 和 `apps/web-v3` 仍保留为历史工作台。
+正式版工作区位于 `apps/api` 和 `apps/web-v4`。旧前端工作台、早期 demo 和 prototype 运行时代码已经从主分支移除；后续产品开发以这两个目录为准。
 
 ### 一键本地运行
 
@@ -65,15 +65,9 @@ VITE_SKILLHUB_API_URL=http://127.0.0.1:8000 \
 npm run dev -- --host 127.0.0.1 --port 3030
 ```
 
-### 旧前端工作台
-
-旧 `apps/web` 仍可通过 `bash scripts/dev-legacy-web.sh` 启动，用于对照历史工作台；默认 `bash scripts/dev.sh` 已指向正式版 `apps/web-v4`。
-如果历史脚本或本地自动化暂时依赖旧工作台，也可以使用 `SKILLHUB_WEB_FLAVOR=legacy bash scripts/dev.sh`。
-本正式版发布分支不包含旧 `apps/web` redesign 代码改造；如果本地开发工作树里仍有旧工作台脏改动，不要混入正式版提交。发布范围见 [Web V4 正式版发布范围](docs/formal-web-v4-release-scope-2026-05-22.md)，旧工作树记录见 [旧 apps/web 工作树审计](docs/legacy-web-worktree-audit-2026-05-22.md)。
-
 ### 新版前端单独启动
 
-`apps/web-v4` 不复用旧前端的页面结构，但继续连接同一个 Python API：
+`apps/web-v4` 连接正式 Python API：
 
 ```bash
 cd apps/web-v4
@@ -162,35 +156,6 @@ curl http://127.0.0.1:3030/skills
 正式 API Alembic migration 位于 `apps/api/migrations`；第一版 migration 会执行
 `apps/api/skillhub/infrastructure/db/schema.sql`。
 
-### 旧原型
-
-早期 proof-of-concept 保留在 `demo-backend`、`demo` 和 `prototype` 中作为参考。新的产品开发应以 `apps/api` 和 `apps/web-v4` 为准。
-
-### 外部测评导入冒烟
-
-后端运行后：
-
-```bash
-cd demo-backend
-. .venv/bin/activate
-python -m skillhub_demo.external_runner \
-  --variant-version-id version-a-v1 \
-  --eval-set-version-id evalset-v1 \
-  --fail-case-title-contains 仅重命名
-```
-
-如果要接入真实本地 evaluator，可以使用 `external_command` strategy。命令会从 stdin 接收
-`{"eval_set": ...}`，并输出完整的 `{ "results": { "<case_version_id>": true } }`；每个目标 `case_version_id` 都必须显式返回 `true` 或 `false`。
-[keyword_evaluator.py](examples/evaluators/keyword_evaluator.py) 是一个最小 evaluator 示例。
-
-```bash
-python -m skillhub_demo.external_runner \
-  --variant-version-id version-a-v1 \
-  --eval-set-version-id evalset-v1 \
-  --strategy external_command \
-  --external-command '../demo-backend/.venv/bin/python ../examples/evaluators/keyword_evaluator.py --keyword ownerId'
-```
-
 ## 主要文档
 
 - [MVP spec](docs/MVP_SPEC.md)
@@ -209,7 +174,7 @@ python -m skillhub_demo.external_runner \
 - [Web V4 视觉参考验收记录](docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md)
 - [Web V4 参考图差异清单](docs/formal-web-v4-reference-diff-2026-05-22.md)
 - [Web V4 正式版发布范围](docs/formal-web-v4-release-scope-2026-05-22.md)
-- [旧 apps/web 工作树审计](docs/legacy-web-worktree-audit-2026-05-22.md)
+- [Web V4 代码清理审计](docs/formal-web-v4-codebase-cleanup-2026-05-22.md)
 - [Product completion audit](docs/product-completion-audit-2026-05-08.md)
 - [Bundle diff workbench design](docs/superpowers/specs/2026-05-08-bundle-diff-workbench-design.md)
 - [Roadmap](docs/roadmap.md)

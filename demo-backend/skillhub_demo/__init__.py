@@ -1,2 +1,0 @@
-"""SkillHub demo backend package."""
-

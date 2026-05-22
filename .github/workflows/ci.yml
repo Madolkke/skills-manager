@@ -6,24 +6,6 @@ on:
   pull_request:
 
 jobs:
-  backend:
-    name: Backend tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: demo-backend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Run backend tests
-        run: python -m unittest discover -s tests
-
   formal-api:
     name: Formal API domain tests
     runs-on: ubuntu-latest
@@ -40,37 +22,14 @@ jobs:
         run: python -m pip install -e "apps/api[dev]"
 
       - name: Run formal API domain tests
-        run: PYTHONPATH=apps/api python -m unittest discover -s apps/api/tests
-
-  frontend:
-    name: Demo frontend build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: demo
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: demo/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
+        run: PYTHONPATH=apps/api python -m pytest apps/api/tests
 
   formal-web:
     name: Formal web build
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/web
+        working-directory: apps/web-v4
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,13 +39,16 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: apps/web-v4/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
 
       - name: Build formal web
         run: npm run build

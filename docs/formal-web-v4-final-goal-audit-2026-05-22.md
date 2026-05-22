@@ -10,7 +10,7 @@
 - 视觉目标：`docs/product-ui-reference/01-hub-home.png` 到 `05-variant-management.png`。
 - 视觉基线：`apps/web-v4/e2e/visual-smoke.spec.ts-snapshots/` 下 5 张截图。
 - 正式文档：`README.md`、`docs/formal-web-v4-reference-diff-2026-05-22.md`、`docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md`、`docs/formal-web-v4-release-scope-2026-05-22.md`。
-- 排除范围：旧 `apps/web`、`apps/web-v2`、`apps/web-v3` 历史工作台不属于正式版完成证据；原开发工作树里旧 `apps/web` 的本地脏改动已记录在 `docs/legacy-web-worktree-audit-2026-05-22.md`，不混入正式版发布。
+- 排除范围：旧 `apps/web`、早期 `demo`、`demo-backend` 和 `prototype` 运行时代码不属于正式版完成证据，并已在后续清理中移出主分支。
 
 ## 逐项验收
 
@@ -76,7 +76,7 @@ GitHub 验证：
 
 以下不是当前正式版目标的阻塞项，后续应独立立项：
 
-1. 旧 `apps/web` 本地 redesign 脏改动的归档、迁移或丢弃。
+1. 如果以后确实需要旧工作台或 demo，只能另开独立分支恢复，不回到正式版主流程。
 2. case tags 和多测评集列表。
 3. 跨 Skill 全量测评历史页。
 4. 独立 VariantVersion / EvalSetVersion 详情页。
