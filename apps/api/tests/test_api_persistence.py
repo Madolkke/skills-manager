@@ -2,7 +2,18 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from skillhub.api.main import create_app, create_sqlite_engine
+from skillhub.api.main import create_app, create_sqlite_engine, resolve_database_url
+
+
+def test_create_app_defaults_to_file_sqlite_database(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("SKILLHUB_DATABASE_URL", raising=False)
+    monkeypatch.setenv("SKILLHUB_DATA_DIR", str(tmp_path))
+
+    app = create_app()
+    app.state.engine.dispose()
+
+    assert resolve_database_url().startswith("sqlite:///")
+    assert (tmp_path / "skillhub.sqlite3").exists()
 
 
 def test_sqlite_engine_persists_skill_between_app_instances(tmp_path: Path):

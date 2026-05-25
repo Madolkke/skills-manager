@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { CheckCircle2, Circle, Copy, ListChecks, XCircle } from "lucide-react";
-import { manualResultLabel, type ManualEvalSummary } from "../lib/eval";
+import { ArrowRight, CheckCircle2, Circle, Copy, ListChecks, Save, XCircle } from "lucide-react";
+import { manualResultLabel, type ManualCaseResult, type ManualEvalSummary } from "../lib/eval";
 import { versionName } from "../lib/format";
 import type { EvalSetCase, VariantVersion } from "../types";
 import type { CSSProperties } from "react";
@@ -10,14 +10,18 @@ export function ManualCase({
   version,
   result,
   positionLabel,
+  onActualOutputChange,
   onCopy,
 }: {
   item: EvalSetCase;
   version?: VariantVersion;
-  result?: boolean;
+  result?: ManualCaseResult;
   positionLabel: number;
+  onActualOutputChange: (caseVersionId: string, actualOutput: string) => void;
   onCopy: (label: string, text?: string | null) => void;
 }) {
+  const expectedOutput = item.case_version.expected_output_artifact.content_text;
+  const actualOutput = result?.actualOutput ?? "";
   return (
     <>
       <header className="case-detail-head">
@@ -30,13 +34,18 @@ export function ManualCase({
             <span className="tag-chip">target {versionName(version)}</span>
           </div>
         </div>
-        <div className={clsx("case-result-badge", resultClass(result))}>
+        <div className={clsx("case-result-badge", resultClass(result?.passed))}>
           <ListChecks size={17} />
-          {manualResultLabel(result)}
+          {manualResultLabel(result?.passed)}
         </div>
       </header>
       <EvalText title="Input" text={item.case_version.input_artifact.content_text} onCopy={onCopy} />
-      <EvalText title="Expected output" text={item.case_version.expected_output_artifact.content_text} onCopy={onCopy} />
+      <ActualOutputCompare
+        expectedOutput={expectedOutput}
+        actualOutput={actualOutput}
+        onActualOutputChange={(value) => onActualOutputChange(item.case_version.id, value)}
+        onCopy={onCopy}
+      />
       {item.case_version.notes ? (
         <section className="case-notes">
           <strong>Notes</strong>
@@ -44,6 +53,94 @@ export function ManualCase({
         </section>
       ) : null}
     </>
+  );
+}
+
+export function ManualEvalActionBar({
+  activePassed,
+  busy,
+  canMark,
+  canMoveNext,
+  canRecord,
+  recordHint,
+  onPass,
+  onFail,
+  onNext,
+  onRecord,
+}: {
+  activePassed?: boolean;
+  busy: boolean;
+  canMark: boolean;
+  canMoveNext: boolean;
+  canRecord: boolean;
+  recordHint: string;
+  onPass: () => void;
+  onFail: () => void;
+  onNext: () => void;
+  onRecord: () => void;
+}) {
+  return (
+    <div className="eval-action-bar">
+      <div className="action-buttons">
+        <button className={clsx("pass-button", activePassed === true && "selected")} type="button" disabled={!canMark || busy} onClick={onPass}>
+          <CheckCircle2 size={20} />
+          通过
+          <kbd className="shortcut-badge">P</kbd>
+        </button>
+        <button className={clsx("fail-button", activePassed === false && "selected")} type="button" disabled={!canMark || busy} onClick={onFail}>
+          <XCircle size={20} />
+          不通过
+          <kbd className="shortcut-badge">F</kbd>
+        </button>
+        <button className="secondary-button" type="button" onClick={onNext} disabled={!canMoveNext}>
+          下一条
+          <ArrowRight size={18} />
+          <kbd className="shortcut-badge">N</kbd>
+        </button>
+        <button className="primary-button" type="button" disabled={!canRecord} onClick={onRecord}>
+          <Save size={18} />
+          {busy ? "记录中" : "记录本次测评"}
+          <kbd className="shortcut-badge">S</kbd>
+        </button>
+      </div>
+      <p>{recordHint}</p>
+    </div>
+  );
+}
+
+function ActualOutputCompare({
+  expectedOutput,
+  actualOutput,
+  onActualOutputChange,
+  onCopy,
+}: {
+  expectedOutput?: string | null;
+  actualOutput: string;
+  onActualOutputChange: (value: string) => void;
+  onCopy: (label: string, text?: string | null) => void;
+}) {
+  const expected = expectedOutput ?? "";
+  return (
+    <section className="actual-output-compare" aria-label="Actual output 与 expected output 对比">
+      <div className="compare-pane expected">
+        <header>
+          <h2>Expected output</h2>
+          <button className="inline-copy-button" type="button" disabled={!expected.trim()} onClick={() => onCopy("Expected output", expected)}>
+            <Copy size={14} />
+            复制
+          </button>
+        </header>
+        <pre className={expected ? undefined : "empty"}>{expected || "暂无内容"}</pre>
+      </div>
+      <label className="compare-pane actual">
+        <span>本次运行结果</span>
+        <textarea
+          value={actualOutput}
+          onChange={(event) => onActualOutputChange(event.target.value)}
+          placeholder="粘贴本次运行的实际输出、模型回答或 evaluator 返回内容"
+        />
+      </label>
+    </section>
   );
 }
 

@@ -1,7 +1,7 @@
 import { expect, type APIRequestContext } from "@playwright/test";
 import type { EvalSetVersionDetail, SkillDetail } from "../src/types";
 
-const apiPort = Number(process.env.SKILLHUB_VISUAL_API_PORT ?? 18110);
+const apiPort = Number(process.env.SKILLHUB_VISUAL_API_PORT ?? process.env.SKILLHUB_E2E_API_PORT ?? 18110);
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const actor = "product-operator";
 

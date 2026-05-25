@@ -75,7 +75,9 @@ test("captures the five formal product reference pages", async ({ page, request 
   await expect(page.locator(".variant-detail-panel .timeline-item")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Bundle diff" })).toBeVisible();
   await expect(page.getByRole("button", { name: "查看该版本详情" })).toBeVisible();
+  const diffResponse = page.waitForResponse((response) => response.url().includes("/api/artifacts/diff") && response.ok());
   await page.getByRole("button", { name: "Bundle diff" }).click();
+  await diffResponse;
   await expect(page.locator(".variant-inspector-detail-panel")).toContainText("Bundle diff");
   await expect(page.locator(".variant-inspector-detail-panel")).toContainText("变更文件");
   await page.getByRole("button", { name: "查看该版本详情" }).click();

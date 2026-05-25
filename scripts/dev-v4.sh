@@ -5,7 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_PORT="${SKILLHUB_API_PORT:-8000}"
 WEB_PORT="${SKILLHUB_WEB_PORT:-3030}"
 DATA_DIR="${SKILLHUB_DATA_DIR:-$ROOT_DIR/.data}"
-DATABASE_URL="${SKILLHUB_DATABASE_URL:-sqlite:///$DATA_DIR/skillhub.sqlite3}"
 export UV_NO_CACHE="${UV_NO_CACHE:-1}"
 
 cleanup() {
@@ -20,9 +19,17 @@ trap cleanup EXIT INT TERM
 
 echo "Starting SkillHub API on http://127.0.0.1:${API_PORT}"
 mkdir -p "$DATA_DIR"
+API_DATA_DIR="$DATA_DIR"
+if command -v cygpath >/dev/null 2>&1; then
+  API_DATA_DIR="$(cygpath -w "$DATA_DIR")"
+fi
 (
   cd "$ROOT_DIR/apps/api"
-  SKILLHUB_DATABASE_URL="$DATABASE_URL" uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port "$API_PORT"
+  if [[ -n "${SKILLHUB_DATABASE_URL:-}" ]]; then
+    SKILLHUB_DATABASE_URL="$SKILLHUB_DATABASE_URL" uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port "$API_PORT"
+  else
+    SKILLHUB_DATA_DIR="$API_DATA_DIR" uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port "$API_PORT"
+  fi
 ) &
 API_PID=$!
 

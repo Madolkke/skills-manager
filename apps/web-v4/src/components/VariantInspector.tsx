@@ -1,10 +1,10 @@
 import clsx from "clsx";
 import { ArrowLeftRight, ExternalLink, FileText } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { api, ApiError } from "../lib/api";
 import { humanDate, scoreKind, scoreLabel, variantName, versionName } from "../lib/format";
 import { compactDigest } from "../lib/history";
-import { summarizeBundleDiff, type BundleDiffFile, type BundleDiffResult, type BundleDiffStatus } from "../lib/variant-diff";
-import type { BundleFile, EvalRunRecord, VariantDetail, VariantVersion } from "../types";
+import type { BundleDiff, BundleDiffFile, BundleDiffStatus, BundleFile, EvalRunRecord, VariantDetail, VariantVersion } from "../types";
 import { VariantVersionTrack } from "./VariantVersionTrack";
 
 type VariantInspectorProps = {
@@ -17,14 +17,37 @@ type ActionPanel = "diff" | "detail";
 
 export function VariantInspector({ variant, evalSetName, latestRun }: VariantInspectorProps) {
   const [activePanel, setActivePanel] = useState<ActionPanel | null>(null);
+  const [diff, setDiff] = useState<BundleDiff | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
   const files = variant.current_version?.bundle_files ?? [];
   const previousVersion = previousVariantVersion(variant);
-  const diff = useMemo(
-    () => summarizeBundleDiff(variant.current_version?.bundle_files ?? [], previousVersion?.bundle_files ?? []),
-    [previousVersion?.bundle_files, variant.current_version?.bundle_files],
-  );
 
-  useEffect(() => setActivePanel(null), [variant.id, variant.current_version_id]);
+  useEffect(() => {
+    setActivePanel(null);
+    setDiff(null);
+    setDiffError(null);
+  }, [variant.id, variant.current_version_id]);
+
+  useEffect(() => {
+    if (activePanel !== "diff" || !variant.current_version || !previousVersion) return;
+    let cancelled = false;
+    setDiffLoading(true);
+    setDiffError(null);
+    api.getBundleDiff(previousVersion.id, variant.current_version.id).then((next) => {
+      if (cancelled) return;
+      setDiff(next);
+    }).catch((caught) => {
+      if (cancelled) return;
+      setDiff(null);
+      setDiffError(errorMessage(caught));
+    }).finally(() => {
+      if (!cancelled) setDiffLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePanel, previousVersion, variant.current_version]);
 
   return (
     <div className="inspector-card">
@@ -75,7 +98,7 @@ export function VariantInspector({ variant, evalSetName, latestRun }: VariantIns
         </button>
       </div>
 
-      {activePanel === "diff" ? <VariantBundleDiffPanel diff={diff} current={variant.current_version} previous={previousVersion} /> : null}
+      {activePanel === "diff" ? <VariantBundleDiffPanel diff={diff} loading={diffLoading} error={diffError} current={variant.current_version} previous={previousVersion} /> : null}
       {activePanel === "detail" ? <VariantVersionDetailPanel version={variant.current_version} /> : null}
     </div>
   );
@@ -95,25 +118,44 @@ function BundleFileList({ files }: { files: BundleFile[] }) {
   );
 }
 
-function VariantBundleDiffPanel({ diff, current, previous }: { diff: BundleDiffResult; current: VariantVersion | null; previous?: VariantVersion | null }) {
-  const changedFiles = diff.files.filter((file) => file.status !== "unchanged");
+function VariantBundleDiffPanel({
+  diff,
+  loading,
+  error,
+  current,
+  previous,
+}: {
+  diff: BundleDiff | null;
+  loading: boolean;
+  error: string | null;
+  current: VariantVersion | null;
+  previous?: VariantVersion | null;
+}) {
+  const changedFiles = diff?.files.filter((file) => file.status !== "unchanged") ?? [];
   return (
     <section className="variant-inspector-detail-panel" aria-label="Bundle diff">
       <header>
         <span>Bundle diff</span>
         <strong>{current && previous ? `${versionName(current)} 对比 ${versionName(previous)}` : "当前版本没有上一个版本"}</strong>
       </header>
-      <div className="diff-summary-grid">
-        <DiffMetric label="变更文件" value={diff.summary.changed} tone="changed" />
-        <DiffMetric label="新增" value={diff.summary.added} tone="added" />
-        <DiffMetric label="移除" value={diff.summary.removed} tone="removed" />
-        <DiffMetric label="未变更" value={diff.summary.unchanged} tone="unchanged" />
-      </div>
-      <div className="diff-file-list">
-        {(changedFiles.length > 0 ? changedFiles : diff.files.slice(0, 4)).map((file) => (
-          <DiffFileRow file={file} key={`${file.status}:${file.path}`} />
-        ))}
-      </div>
+      {loading ? <div className="quiet-panel">正在读取后端 Bundle diff...</div> : null}
+      {error ? <div className="quiet-panel">Bundle diff 读取失败：{error}</div> : null}
+      {!loading && !error && !previous ? <div className="quiet-panel">当前版本没有上一个版本，无法生成版本间 diff。</div> : null}
+      {!loading && !error && diff ? (
+        <>
+          <div className="diff-summary-grid">
+            <DiffMetric label="变更文件" value={diff.summary.changed} tone="changed" />
+            <DiffMetric label="新增" value={diff.summary.added} tone="added" />
+            <DiffMetric label="移除" value={diff.summary.removed} tone="removed" />
+            <DiffMetric label="未变更" value={diff.summary.unchanged} tone="unchanged" />
+          </div>
+          <div className="diff-file-list">
+            {(changedFiles.length > 0 ? changedFiles : diff.files.slice(0, 4)).map((file) => (
+              <DiffFileRow file={file} key={`${file.status}:${file.path}`} />
+            ))}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }
@@ -145,12 +187,18 @@ function DiffMetric({ label, value, tone }: { label: string; value: number; tone
 }
 
 function DiffFileRow({ file }: { file: BundleDiffFile }) {
+  const hunk = file.hunks?.[0];
   return (
-    <span className="diff-file-row">
+    <div className="diff-file-row">
       <b className={file.status}>{statusLabel(file.status)}</b>
       <em>{file.path}</em>
-      <small>{formatSize(file.current ?? file.previous)}</small>
-    </span>
+      <small>{formatDiffSize(file)}</small>
+      {hunk ? (
+        <pre>
+          {hunk.lines.slice(0, 6).map((line) => `${linePrefix(line.kind)} ${line.text}`).join("\n")}
+        </pre>
+      ) : null}
+    </div>
   );
 }
 
@@ -187,4 +235,22 @@ function formatSize(file?: BundleFile): string {
   if (!size) return "-";
   if (size < 1024) return `${size} B`;
   return `${Math.round(size / 102.4) / 10} KB`;
+}
+
+function formatDiffSize(file: BundleDiffFile): string {
+  const size = file.right_size_bytes ?? file.left_size_bytes ?? 0;
+  if (!size) return "-";
+  if (size < 1024) return `${size} B`;
+  return `${Math.round(size / 102.4) / 10} KB`;
+}
+
+function linePrefix(kind: string): string {
+  if (kind === "added") return "+";
+  if (kind === "removed") return "-";
+  return " ";
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError || error instanceof Error) return error.message;
+  return "操作失败。";
 }

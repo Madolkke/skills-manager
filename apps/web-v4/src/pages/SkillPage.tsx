@@ -61,7 +61,7 @@ export function SkillPage({ skill, tab, route, knownTags, onTab, onRefresh, onNa
         />
       ) : null}
       {tab === "evalsets" ? <EvalSetsPage skill={skill} selectedCaseId={route.selectedCaseId} onNavigate={onNavigate} onRefresh={onRefresh} onToast={onToast} /> : null}
-      {tab === "evaluate" ? <EvaluatePage skill={skill} onRefresh={onRefresh} onToast={onToast} /> : null}
+      {tab === "evaluate" ? <EvaluatePage skill={skill} onRefresh={onRefresh} onNavigate={onNavigate} onToast={onToast} /> : null}
       {tab === "history" ? <HistoryPage skill={skill} selectedRunId={route.selectedRunId} onNavigate={onNavigate} onToast={onToast} /> : null}
 
       {uploadOpen && tab === "overview" ? (

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
 from os import environ
+from pathlib import Path
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, Mapping
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -40,6 +41,7 @@ EVAL_CASE_TITLE_MAX_LENGTH = 160
 EVAL_CASE_INPUT_MAX_LENGTH = 20_000
 EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH = 10_000
 EVAL_CASE_NOTES_MAX_LENGTH = 2_000
+EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH = 20_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
 PROMOTION_DECISION_NOTE_MAX_LENGTH = 1_000
@@ -50,6 +52,7 @@ EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MA
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
 EvalCaseExpectedOutput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH)]
 EvalCaseNotes = Annotated[str, Field(max_length=EVAL_CASE_NOTES_MAX_LENGTH)]
+EvalCaseActualOutput = Annotated[str, Field(max_length=EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH)]
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
 PromotionDecisionNote = Annotated[str | None, Field(max_length=PROMOTION_DECISION_NOTE_MAX_LENGTH)]
@@ -158,11 +161,16 @@ class RestoreEvalCaseVersionPayload(BaseModel):
     notes: EvalCaseNotes | None = None
 
 
+class ManualEvalResultPayload(BaseModel):
+    passed: bool
+    actual_output: EvalCaseActualOutput = ""
+
+
 class RecordEvalRunPayload(BaseModel):
     variant_version_id: str
     eval_set_version_id: str
     strategy: str = "manual_pass_fail"
-    results: dict[str, bool]
+    results: dict[str, bool | ManualEvalResultPayload]
 
 
 class AcceptEvalRunVerificationPayload(BaseModel):
@@ -191,7 +199,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.state.engine = engine or create_sqlite_engine(environ.get("SKILLHUB_DATABASE_URL", "sqlite:///:memory:"))
+    app.state.engine = engine or create_sqlite_engine(resolve_database_url(environ))
     metadata.create_all(app.state.engine)
 
     @app.exception_handler(NotFoundError)
@@ -736,6 +744,22 @@ def create_local_sqlite_engine() -> Engine:
     return create_sqlite_engine("sqlite:///:memory:")
 
 
+def resolve_database_url(environment: Mapping[str, str] = environ) -> str:
+    if environment.get("SKILLHUB_DATABASE_URL"):
+        return environment["SKILLHUB_DATABASE_URL"]
+    data_dir = Path(environment.get("SKILLHUB_DATA_DIR", default_data_dir()))
+    return sqlite_file_url(data_dir / "skillhub.sqlite3")
+
+
+def default_data_dir() -> Path:
+    return Path(__file__).resolve().parents[4] / ".data"
+
+
+def sqlite_file_url(path: str | Path) -> str:
+    database_path = Path(path).expanduser().resolve()
+    return f"sqlite:///{database_path.as_posix()}"
+
+
 def create_sqlite_engine(database_url: str) -> Engine:
     if database_url == "sqlite:///:memory:":
         engine = create_engine(
@@ -744,9 +768,21 @@ def create_sqlite_engine(database_url: str) -> Engine:
             poolclass=StaticPool,
         )
     else:
+        sqlite_path = sqlite_path_from_url(database_url)
+        if sqlite_path is not None:
+            sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         engine = create_engine(database_url, connect_args={"check_same_thread": False})
     event.listen(engine, "connect", enable_sqlite_foreign_keys)
     return engine
+
+
+def sqlite_path_from_url(database_url: str) -> Path | None:
+    if not database_url.startswith("sqlite:///") or database_url == "sqlite:///:memory:":
+        return None
+    raw_path = database_url.removeprefix("sqlite:///")
+    if not raw_path:
+        return None
+    return Path(raw_path)
 
 
 def enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:

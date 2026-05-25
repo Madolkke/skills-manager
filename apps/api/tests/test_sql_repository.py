@@ -714,6 +714,32 @@ class SqlSkillRepositoryTest(unittest.TestCase):
             second_case.eval_case_version_id: False,
         })
 
+    def test_record_eval_run_persists_actual_output_artifacts(self):
+        skill = self.create_skill()
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="PR: missing owner check",
+            input_text="input",
+            expected_output="expected finding",
+            actor="tester",
+        )
+
+        run = self.repository.record_eval_run(
+            variant_version_id=skill.variant_version_id,
+            eval_set_version_id=case.eval_set_version_id,
+            strategy="manual_pass_fail",
+            results={case.eval_case_version_id: {"passed": True, "actual_output": "actual finding"}},
+            actor="tester",
+        )
+        detail = self.repository.eval_run_detail(run.eval_run_id)
+
+        result = detail.case_results[0]["result"]
+        artifact = detail.case_results[0]["result_artifact"]
+        self.assertTrue(result["passed"])
+        self.assertIsNotNone(result["result_artifact_id"])
+        self.assertEqual(artifact["kind"], "actual_output")
+        self.assertEqual(artifact["content_text"], "actual finding")
+
     def test_record_eval_run_requires_exact_result_keys(self):
         skill = self.create_skill()
         first_case = self.repository.create_eval_case(

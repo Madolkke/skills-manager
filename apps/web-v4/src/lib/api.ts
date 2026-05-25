@@ -1,9 +1,11 @@
 import type {
   BundleSource,
+  BundleDiff,
   EvalCaseHistory,
   EvalRunDetail,
   EvalRunHistory,
   EvalSetVersionDetail,
+  ManualEvalResultPayload,
   SessionInfo,
   SkillDetail,
   SkillSummary,
@@ -31,6 +33,10 @@ export const api = {
   getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
   getEvalRunHistory: (skillId: string) => apiGet<EvalRunHistory>(`/api/skills/${skillId}/eval-runs`),
   getEvalRun: (runId: string) => apiGet<EvalRunDetail>(`/api/eval-runs/${runId}`),
+  getBundleDiff: (leftVariantVersionId: string, rightVariantVersionId: string) =>
+    apiGet<BundleDiff>(
+      `/api/artifacts/diff?left_variant_version_id=${encodeURIComponent(leftVariantVersionId)}&right_variant_version_id=${encodeURIComponent(rightVariantVersionId)}`,
+    ),
   importSkill: (payload: { owner_ref: string; tags: string[]; source: BundleSource }) =>
     apiSend<{ skill_id: string }>("/api/skill-imports", "POST", payload),
   createVariant: (payload: { skill_id: string; tags: string[]; source: BundleSource; make_default?: boolean }) =>
@@ -52,8 +58,8 @@ export const api = {
     variant_version_id: string;
     eval_set_version_id: string;
     strategy: string;
-    results: Record<string, boolean>;
-  }) => apiSend<unknown>("/api/eval-runs", "POST", payload),
+    results: Record<string, ManualEvalResultPayload>;
+  }) => apiSend<{ eval_run_id: string }>("/api/eval-runs", "POST", payload),
 };
 
 async function apiGet<T>(path: string): Promise<T> {

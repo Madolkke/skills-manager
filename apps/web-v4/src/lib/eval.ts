@@ -8,9 +8,15 @@ export type ManualEvalSummary = {
   coverage: number;
 };
 
-export function summarizeManualEval(total: number, results: Record<string, boolean>): ManualEvalSummary {
-  const confirmed = Object.keys(results).length;
-  const passed = Object.values(results).filter(Boolean).length;
+export type ManualCaseResult = {
+  passed?: boolean;
+  actualOutput: string;
+};
+
+export function summarizeManualEval(total: number, results: Record<string, ManualCaseResult>): ManualEvalSummary {
+  const confirmedResults = Object.values(results).filter((result) => result.passed !== undefined);
+  const confirmed = confirmedResults.length;
+  const passed = confirmedResults.filter((result) => result.passed === true).length;
   const failed = confirmed - passed;
   return {
     confirmed,
@@ -23,20 +29,20 @@ export function summarizeManualEval(total: number, results: Record<string, boole
 
 export function nextPendingCaseVersionId(
   cases: EvalSetCase[],
-  results: Record<string, boolean>,
+  results: Record<string, ManualCaseResult>,
   activeCaseVersionId?: string | null,
 ): string | null {
   if (!activeCaseVersionId) {
-    return cases.find((item) => results[item.case_version.id] === undefined)?.case_version.id ?? null;
+    return cases.find((item) => results[item.case_version.id]?.passed === undefined)?.case_version.id ?? null;
   }
 
   const activeIndex = cases.findIndex((item) => item.case_version.id === activeCaseVersionId);
   if (activeIndex === -1) {
-    return cases.find((item) => results[item.case_version.id] === undefined)?.case_version.id ?? null;
+    return cases.find((item) => results[item.case_version.id]?.passed === undefined)?.case_version.id ?? null;
   }
 
   const ordered = [...cases.slice(activeIndex + 1), ...cases.slice(0, activeIndex + 1)];
-  return ordered.find((item) => results[item.case_version.id] === undefined)?.case_version.id ?? null;
+  return ordered.find((item) => results[item.case_version.id]?.passed === undefined)?.case_version.id ?? null;
 }
 
 export function manualResultLabel(value?: boolean): string {

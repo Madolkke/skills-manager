@@ -30,12 +30,14 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
 }
 
 body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
+  overflow-x: hidden;
 }
 
 button,
@@ -44,6 +46,8 @@ select,
 textarea {
   font: inherit;
   letter-spacing: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 button {
