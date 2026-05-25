@@ -129,7 +129,10 @@
   .evidence-hero,
   .bundle-browser,
   .case-version-track,
-  .manual-version-detail-grid {
+  .manual-version-detail-grid,
+  .actual-output-compare,
+  .output-evidence,
+  .variant-upload-panel {
     grid-template-columns: 1fr;
   }
 
@@ -194,5 +197,99 @@
 
   .inspector-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-shell {
+    padding: 14px;
+  }
+
+  .top-bar {
+    height: auto;
+    min-height: 68px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+
+  .brand-rail {
+    height: auto;
+  }
+
+  .hub-hero,
+  .hub-toolbar,
+  .variant-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hero-action,
+  .sort-control {
+    width: 100%;
+  }
+
+  .section-heading h1,
+  .skill-title-block h1 {
+    font-size: 28px;
+  }
+
+  .manual-case-detail,
+  .case-detail,
+  .case-sidebar,
+  .evidence-panel,
+  .version-group,
+  .run-history {
+    padding: 16px;
+  }
+
+  .progress-summary-card,
+  .progress-metrics,
+  .diff-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-metric {
+    border-right: 0;
+    border-bottom: 1px solid var(--soft-line);
+  }
+
+  .diff-metric {
+    border-right: 0;
+    border-bottom: 1px solid var(--soft-line);
+  }
+
+  .progress-metric:last-child,
+  .diff-metric:last-child {
+    border-bottom: 0;
+  }
+
+  .manual-case-row,
+  .diff-file-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .manual-status-dot {
+    display: none;
+  }
+
+  .manual-case-copy strong,
+  .manual-case-copy small span,
+  .diff-file-row em,
+  .bundle-file-list b,
+  .case-row-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .case-toolbar,
+  .mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eval-action-bar {
+    border-radius: var(--radius);
+    padding: 10px;
   }
 }

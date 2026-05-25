@@ -500,7 +500,12 @@ class ApiCommandTest(unittest.TestCase):
                 "variant_version_id": skill["variant_version_id"],
                 "eval_set_version_id": case["eval_set_version_id"],
                 "strategy": "manual_pass_fail",
-                "results": {case["eval_case_version_id"]: True},
+                "results": {
+                    case["eval_case_version_id"]: {
+                        "passed": True,
+                        "actual_output": "Flagged token logging with remediation.",
+                    }
+                },
                 "actor": "tester",
             },
         ).json()
@@ -519,6 +524,7 @@ class ApiCommandTest(unittest.TestCase):
         self.assertEqual(eval_set.json()["cases"][0]["case"]["title"], "PR: token leak")
         self.assertEqual(eval_run.status_code, 200)
         self.assertTrue(eval_run.json()["case_results"][0]["result"]["passed"])
+        self.assertEqual(eval_run.json()["case_results"][0]["result_artifact"]["content_text"], "Flagged token logging with remediation.")
 
     def test_eval_run_history_filters_by_variant_eval_set_strategy_status(self):
         skill = self.create_skill("history-reviewer")

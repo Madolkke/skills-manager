@@ -18,7 +18,7 @@ describe("skill evidence helpers", () => {
   });
 
   it("summarizes manual evaluation progress", () => {
-    expect(summarizeManualEval(3, { a: true, b: false })).toEqual({
+    expect(summarizeManualEval(3, { a: { passed: true, actualOutput: "ok" }, b: { passed: false, actualOutput: "" } })).toEqual({
       confirmed: 2,
       passed: 1,
       failed: 1,
@@ -34,8 +34,12 @@ describe("skill evidence helpers", () => {
       { case_version: { id: "case-v3" } },
     ] as never;
 
-    expect(nextPendingCaseVersionId(cases, { "case-v1": true })).toBe("case-v2");
-    expect(nextPendingCaseVersionId(cases, { "case-v1": true, "case-v2": false, "case-v3": true })).toBeNull();
+    expect(nextPendingCaseVersionId(cases, { "case-v1": { passed: true, actualOutput: "" } })).toBe("case-v2");
+    expect(nextPendingCaseVersionId(cases, {
+      "case-v1": { passed: true, actualOutput: "" },
+      "case-v2": { passed: false, actualOutput: "" },
+      "case-v3": { passed: true, actualOutput: "" },
+    })).toBeNull();
   });
 
   it("moves to the next pending case after the active case before wrapping", () => {
@@ -46,9 +50,13 @@ describe("skill evidence helpers", () => {
       { case_version: { id: "case-v4" } },
     ] as never;
 
-    expect(nextPendingCaseVersionId(cases, { "case-v2": true }, "case-v2")).toBe("case-v3");
+    expect(nextPendingCaseVersionId(cases, { "case-v2": { passed: true, actualOutput: "" } }, "case-v2")).toBe("case-v3");
     expect(
-      nextPendingCaseVersionId(cases, { "case-v2": true, "case-v3": true, "case-v4": true }, "case-v4"),
+      nextPendingCaseVersionId(cases, {
+        "case-v2": { passed: true, actualOutput: "" },
+        "case-v3": { passed: true, actualOutput: "" },
+        "case-v4": { passed: true, actualOutput: "" },
+      }, "case-v4"),
     ).toBe("case-v1");
   });
 

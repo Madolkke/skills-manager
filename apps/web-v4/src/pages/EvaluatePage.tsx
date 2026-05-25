@@ -1,20 +1,17 @@
 import clsx from "clsx";
-import { ArrowRight, CheckCircle2, Database, Info, Package, Save, XCircle } from "lucide-react";
+import { Database, Info, Package } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
-import { ManualCase, ManualProgressPanel } from "../components/ManualEvaluationPanels";
+import { ManualCase, ManualEvalActionBar, ManualProgressPanel } from "../components/ManualEvaluationPanels";
 import { ManualVersionDetailPanel, type ManualVersionDetailFocus } from "../components/ManualVersionDetailPanel";
 import { api, ApiError } from "../lib/api";
-import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval } from "../lib/eval";
+import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval, type ManualCaseResult } from "../lib/eval";
 import { variantName, versionName } from "../lib/format";
+import type { RouteState } from "../lib/navigation";
 import type { EvalSetVersionDetail, SkillDetail, ToastState } from "../types";
 
-type EvaluatePageProps = {
-  skill: SkillDetail;
-  onRefresh: () => Promise<void>;
-  onToast: (toast: ToastState) => void;
-};
+type EvaluatePageProps = { skill: SkillDetail; onRefresh: () => Promise<void>; onNavigate: (next: Partial<RouteState>) => void; onToast: (toast: ToastState) => void };
 
-export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
+export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: EvaluatePageProps) {
   const versions = useMemo(() => skill.variants.flatMap((variant) => variant.versions.map((version) => ({ variant, version }))), [skill.variants]);
   const evalSetVersions = useMemo(
     () => skill.eval_sets.flatMap((set) => set.versions.map((version) => ({ set, version }))),
@@ -25,7 +22,7 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
   const [variantVersionId, setVariantVersionId] = useState(defaultVersionId);
   const [evalSetVersionId, setEvalSetVersionId] = useState(defaultEvalSetVersionId);
   const [detail, setDetail] = useState<EvalSetVersionDetail | null>(null);
-  const [results, setResults] = useState<Record<string, boolean>>({});
+  const [results, setResults] = useState<Record<string, ManualCaseResult>>({});
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [versionDetailFocus, setVersionDetailFocus] = useState<ManualVersionDetailFocus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,6 +33,7 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
   const selectedVersion = versions.find((item) => item.version.id === variantVersionId);
   const selectedEvalSetVersion = evalSetVersions.find((item) => item.version.id === evalSetVersionId);
   const activeResult = active ? results[active.case_version.id] : undefined;
+  const activePassed = activeResult?.passed;
   const canRecord = !busy && Boolean(variantVersionId && evalSetVersionId) && summary.pending === 0 && cases.length > 0;
   const canMoveNext = !busy && summary.pending > 0 && cases.length > 0;
   const progressStyle = { "--coverage": `${summary.coverage}%` } as CSSProperties;
@@ -61,7 +59,23 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
   }, [evalSetVersionId, onToast]);
 
   const mark = useCallback((caseVersionId: string, passed: boolean) => {
-    setResults((current) => ({ ...current, [caseVersionId]: passed }));
+    setResults((current) => ({
+      ...current,
+      [caseVersionId]: {
+        actualOutput: current[caseVersionId]?.actualOutput ?? "",
+        passed,
+      },
+    }));
+  }, []);
+
+  const updateActualOutput = useCallback((caseVersionId: string, actualOutput: string) => {
+    setResults((current) => ({
+      ...current,
+      [caseVersionId]: {
+        actualOutput,
+        passed: current[caseVersionId]?.passed,
+      },
+    }));
   }, []);
 
   const goNext = useCallback(() => {
@@ -84,20 +98,26 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
     if (!variantVersionId || !evalSetVersionId || summary.pending > 0 || cases.length === 0) return;
     setBusy(true);
     try {
-      await api.recordEvalRun({
+      const recorded = await api.recordEvalRun({
         variant_version_id: variantVersionId,
         eval_set_version_id: evalSetVersionId,
         strategy: "manual_pass_fail",
-        results,
+        results: Object.fromEntries(
+          Object.entries(results).map(([caseVersionId, result]) => [
+            caseVersionId,
+            { passed: result.passed === true, actual_output: result.actualOutput },
+          ]),
+        ),
       });
       onToast({ tone: "success", message: "测评结果已记录。" });
       await onRefresh();
+      onNavigate({ tab: "history", selectedRunId: recorded.eval_run_id });
     } catch (caught) {
       onToast({ tone: "danger", message: errorMessage(caught) });
     } finally {
       setBusy(false);
     }
-  }, [cases.length, evalSetVersionId, onRefresh, onToast, results, summary.pending, variantVersionId]);
+  }, [cases.length, evalSetVersionId, onNavigate, onRefresh, onToast, results, summary.pending, variantVersionId]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -205,7 +225,7 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
           {cases.map((item, index) => {
             const result = results[item.case_version.id];
             const position = item.position + 1;
-            const label = manualResultLabel(result);
+            const label = manualResultLabel(result?.passed);
             return (
               <button
                 aria-current={active?.case_version.id === item.case_version.id ? "true" : undefined}
@@ -215,7 +235,7 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
                 key={item.case_version.id}
                 onClick={() => setActiveCaseId(item.case_version.id)}
               >
-                <span className={clsx("manual-status-dot", manualStatusClass(result))} aria-hidden="true" />
+                <span className={clsx("manual-status-dot", manualStatusClass(result?.passed))} aria-hidden="true" />
                 <span className="manual-case-index">#{position}</span>
                 <span className="manual-case-copy">
                   <strong>{item.case.title}</strong>
@@ -231,38 +251,32 @@ export function EvaluatePage({ skill, onRefresh, onToast }: EvaluatePageProps) {
         </aside>
         <section className="manual-case-detail">
           {active ? (
-            <ManualCase item={active} version={selectedVersion?.version} result={activeResult} positionLabel={activePosition} onCopy={copyText} />
+            <ManualCase
+              item={active}
+              version={selectedVersion?.version}
+              result={activeResult}
+              positionLabel={activePosition}
+              onActualOutputChange={updateActualOutput}
+              onCopy={copyText}
+            />
           ) : (
             <div className="quiet-panel">没有可测评的 case。</div>
           )}
         </section>
       </div>
 
-      <div className="eval-action-bar">
-        <div className="action-buttons">
-          <button className={clsx("pass-button", activeResult === true && "selected")} type="button" disabled={!active || busy} onClick={() => active && mark(active.case_version.id, true)}>
-            <CheckCircle2 size={20} />
-            通过
-            <kbd className="shortcut-badge">P</kbd>
-          </button>
-          <button className={clsx("fail-button", activeResult === false && "selected")} type="button" disabled={!active || busy} onClick={() => active && mark(active.case_version.id, false)}>
-            <XCircle size={20} />
-            不通过
-            <kbd className="shortcut-badge">F</kbd>
-          </button>
-          <button className="secondary-button" type="button" onClick={goNext} disabled={!canMoveNext}>
-            下一条
-            <ArrowRight size={18} />
-            <kbd className="shortcut-badge">N</kbd>
-          </button>
-          <button className="primary-button" type="button" disabled={!canRecord} onClick={recordRun}>
-            <Save size={18} />
-            {busy ? "记录中" : "记录本次测评"}
-            <kbd className="shortcut-badge">S</kbd>
-          </button>
-        </div>
-        <p>{recordHint}</p>
-      </div>
+      <ManualEvalActionBar
+        activePassed={activePassed}
+        busy={busy}
+        canMark={Boolean(active)}
+        canMoveNext={canMoveNext}
+        canRecord={canRecord}
+        recordHint={recordHint}
+        onPass={() => active && mark(active.case_version.id, true)}
+        onFail={() => active && mark(active.case_version.id, false)}
+        onNext={goNext}
+        onRecord={recordRun}
+      />
     </div>
   );
 }

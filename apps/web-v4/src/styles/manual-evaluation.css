@@ -9,7 +9,7 @@
   background: white;
   padding: 14px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr) minmax(280px, 0.9fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 14px;
   align-items: stretch;
 }
@@ -71,7 +71,7 @@
   min-height: 112px;
   padding: 16px 22px;
   display: grid;
-  grid-template-columns: minmax(290px, 0.92fr) minmax(320px, 1fr) minmax(360px, 1.24fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   align-items: center;
   gap: 22px;
   margin: 18px 0;
@@ -244,7 +244,7 @@
 
 .manual-eval-grid {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: minmax(min(320px, 100%), 360px) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
 }

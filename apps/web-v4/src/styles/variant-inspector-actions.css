@@ -111,6 +111,17 @@
   color: var(--muted);
 }
 
+.diff-file-row pre {
+  grid-column: 1 / -1;
+  max-height: 150px;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: #273449;
+  padding: 10px;
+  overflow: auto;
+}
+
 .version-detail-list {
   margin: 0;
 }

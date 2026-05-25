@@ -25,6 +25,11 @@ test("operator can complete the formal SkillHub core flow", async ({ page }, tes
   await app.uploadVariantVersion(bundle.path);
   await expect(page.locator(".variant-detail-panel .version-pill")).toHaveText("当前 v2");
   await expect(page.locator(".variant-detail-panel .version-current-summary")).toContainText("当前 v2");
+  const diffResponse = page.waitForResponse((response) => response.url().includes("/api/artifacts/diff") && response.ok());
+  await page.getByRole("button", { name: "Bundle diff" }).click();
+  await diffResponse;
+  await expect(page.locator(".variant-inspector-detail-panel")).toContainText("Bundle diff");
+  await expect(page.locator(".variant-inspector-detail-panel")).toContainText("变更文件");
 
   await app.openTab("测评集");
   await expect(page.getByRole("button", { name: "上传版本", exact: true })).toHaveCount(0);

@@ -200,9 +200,58 @@ export type EvalRunDetail = {
       score?: number;
       created_at?: string;
     };
+    result_artifact: ArtifactRef | null;
     case: EvalSetCase["case"];
     case_version: EvalCaseVersionDetail;
   }>;
+};
+
+export type ManualEvalResultPayload = {
+  passed: boolean;
+  actual_output: string;
+};
+
+export type BundleDiffStatus = "added" | "changed" | "removed" | "unchanged";
+
+export type BundleDiffLine = {
+  kind: "context" | "added" | "removed";
+  old_line: number | null;
+  new_line: number | null;
+  text: string;
+};
+
+export type BundleDiffFile = {
+  path: string;
+  status: BundleDiffStatus;
+  binary: boolean;
+  left_digest: string | null;
+  right_digest: string | null;
+  left_size_bytes: number | null;
+  right_size_bytes: number | null;
+  hunks?: Array<{
+    lines: BundleDiffLine[];
+  }>;
+};
+
+export type BundleDiff = {
+  left: {
+    variant_version_id: string;
+    version_number: number;
+    content_digest: string;
+  };
+  right: {
+    variant_version_id: string;
+    version_number: number;
+    content_digest: string;
+  };
+  summary: {
+    added: number;
+    changed: number;
+    removed: number;
+    unchanged: number;
+    binary: number;
+  };
+  files: BundleDiffFile[];
 };
 
 export type BundleSource =

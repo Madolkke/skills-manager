@@ -897,7 +897,7 @@ class SqlSkillRepository:
         variant_version_id: str,
         eval_set_version_id: str,
         strategy: str,
-        results: dict[str, bool],
+        results: dict[str, Any],
         actor: str,
     ) -> RecordEvalRunResult:
         created_at = utc_now()
@@ -910,13 +910,25 @@ class SqlSkillRepository:
                 raise InvariantError("EvalRun must bind a variant version and eval set version from the same skill.")
             skill_id = variant_version["skill_id"]
             case_version_ids = self._eval_set_case_version_ids(connection, eval_set_version_id)
-            self._validate_eval_run_results(case_version_ids, results)
-            passed_count = sum(1 for case_version_id in case_version_ids if results.get(case_version_id, False))
+            normalized_results = self._normalize_eval_run_results(case_version_ids, results)
+            passed_count = sum(1 for case_version_id in case_version_ids if normalized_results[case_version_id]["passed"])
             failed_count = len(case_version_ids) - passed_count
             summary = {
                 "passed": passed_count,
                 "failed": failed_count,
                 "total": len(case_version_ids),
+            }
+            result_artifact_ids = {
+                case_version_id: self._insert_text_artifact(
+                    connection,
+                    kind="actual_output",
+                    namespace=f"eval_run:{eval_run_id}",
+                    content=result["actual_output"],
+                    actor=actor,
+                    created_at=created_at,
+                )
+                for case_version_id, result in normalized_results.items()
+                if result["actual_output"].strip()
             }
 
             connection.execute(
@@ -940,9 +952,9 @@ class SqlSkillRepository:
                         "run_id": eval_run_id,
                         "skill_id": skill_id,
                         "case_version_id": case_version_id,
-                        "passed": results.get(case_version_id, False),
-                        "score": 1 if results.get(case_version_id, False) else 0,
-                        "result_artifact_id": None,
+                        "passed": normalized_results[case_version_id]["passed"],
+                        "score": 1 if normalized_results[case_version_id]["passed"] else 0,
+                        "result_artifact_id": result_artifact_ids.get(case_version_id),
                         "created_at": created_at,
                     }
                     for case_version_id in case_version_ids
@@ -959,7 +971,7 @@ class SqlSkillRepository:
             total=len(case_version_ids),
         )
 
-    def _validate_eval_run_results(self, case_version_ids: list[str], results: dict[str, bool]) -> None:
+    def _normalize_eval_run_results(self, case_version_ids: list[str], results: dict[str, Any]) -> dict[str, dict[str, Any]]:
         expected_ids = set(case_version_ids)
         result_ids = set(results)
         field_errors = [
@@ -981,6 +993,40 @@ class SqlSkillRepository:
         )
         if field_errors:
             raise FieldInvariantError("EvalRun results must exactly match the eval set version cases.", field_errors)
+        normalized: dict[str, dict[str, Any]] = {}
+        invalid_fields: list[FieldError] = []
+        for case_version_id in case_version_ids:
+            raw_result = results[case_version_id]
+            if hasattr(raw_result, "model_dump"):
+                raw_result = raw_result.model_dump()
+            if isinstance(raw_result, bool):
+                normalized[case_version_id] = {"passed": raw_result, "actual_output": ""}
+                continue
+            if isinstance(raw_result, dict) and isinstance(raw_result.get("passed"), bool):
+                actual_output = raw_result.get("actual_output", "")
+                if actual_output is None:
+                    actual_output = ""
+                if not isinstance(actual_output, str):
+                    invalid_fields.append(
+                        FieldError(
+                            field=f"results.{case_version_id}.actual_output",
+                            message="本次运行结果必须是文本。",
+                            code="eval_run.actual_output_invalid",
+                        )
+                    )
+                    continue
+                normalized[case_version_id] = {"passed": raw_result["passed"], "actual_output": actual_output}
+                continue
+            invalid_fields.append(
+                FieldError(
+                    field=f"results.{case_version_id}",
+                    message="确认该测试用例通过或不通过。",
+                    code="eval_run.result_invalid",
+                )
+            )
+        if invalid_fields:
+            raise FieldInvariantError("EvalRun results must contain pass/fail values.", invalid_fields)
+        return normalized
 
     def list_skills(self) -> list[dict[str, Any]]:
         with self.engine.connect() as connection:
@@ -1191,9 +1237,17 @@ class SqlSkillRepository:
             for result in result_rows:
                 case_version = self._eval_case_version_row(connection, result["case_version_id"])
                 eval_case = self._eval_case_row(connection, case_version["case_id"])
+                result_artifact = None
+                if result["result_artifact_id"] is not None:
+                    result_artifact = (
+                        connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == result["result_artifact_id"]))
+                        .mappings()
+                        .one_or_none()
+                    )
                 case_results.append(
                     {
                         "result": self._row_dict(result),
+                        "result_artifact": self._row_dict(result_artifact) if result_artifact is not None else None,
                         "case": self._row_dict(eval_case),
                         "case_version": self._case_version_detail(connection, case_version),
                     }

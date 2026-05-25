@@ -25,13 +25,14 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
     let cancelled = false;
     api.getEvalRunHistory(skill.skill.id).then((next) => {
       if (!cancelled) setHistory(next);
-    }).catch(() => {
+    }).catch((caught) => {
+      onToast({ tone: "danger", message: errorMessage(caught) });
       if (!cancelled) setHistory({ skill: skill.skill, runs: [] });
     });
     return () => {
       cancelled = true;
     };
-  }, [skill.skill]);
+  }, [onToast, skill.skill]);
 
   useEffect(() => {
     if (!activeRunId) {
@@ -42,13 +43,14 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
     setRun(null);
     api.getEvalRun(activeRunId).then((next) => {
       if (!cancelled) setRun(next);
-    }).catch(() => {
+    }).catch((caught) => {
+      onToast({ tone: "danger", message: errorMessage(caught) });
       if (!cancelled) setRun(null);
     });
     return () => {
       cancelled = true;
     };
-  }, [activeRunId]);
+  }, [activeRunId, onToast]);
 
   const copyText = useCallback(async (label: string, value?: string | null) => {
     if (!value) return;
@@ -154,20 +156,40 @@ function RunEvidencePanel({
       </div>
       <div className="case-evidence-list">
         <h2>Case 结果</h2>
-        {run ? run.case_results.map((item) => (
-          <div className={clsx("case-evidence-row", item.result.passed ? "passed" : "failed")} key={item.case_version.id}>
-            {item.result.passed ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-            <div>
-              <strong>{item.case.title}</strong>
-              <span>
-                case v{item.case_version.version_number} · input {compactDigest(item.case_version.input_artifact.digest)} · expected {compactDigest(item.case_version.expected_output_artifact.digest)}
-              </span>
+        {run ? run.case_results.map((item) => {
+          const actualOutput = item.result_artifact?.content_text ?? "";
+          const expectedOutput = item.case_version.expected_output_artifact.content_text ?? "";
+          return (
+            <div className={clsx("case-evidence-row", item.result.passed ? "passed" : "failed")} key={item.case_version.id}>
+              {item.result.passed ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+              <div className="case-evidence-main">
+                <strong>{item.case.title}</strong>
+                <span>
+                  case v{item.case_version.version_number} · input {compactDigest(item.case_version.input_artifact.digest)} · expected {compactDigest(item.case_version.expected_output_artifact.digest)}
+                </span>
+                {actualOutput ? <OutputEvidence expected={expectedOutput} actual={actualOutput} /> : null}
+              </div>
+              <b>{item.result.passed ? "通过" : "不通过"}</b>
             </div>
-            <b>{item.result.passed ? "通过" : "不通过"}</b>
-          </div>
-        )) : <div className="quiet-panel">正在读取 case 证据...</div>}
+          );
+        }) : <div className="quiet-panel">正在读取 case 证据...</div>}
       </div>
     </section>
+  );
+}
+
+function OutputEvidence({ expected, actual }: { expected: string; actual: string }) {
+  return (
+    <div className="output-evidence">
+      <span>
+        <small>Expected</small>
+        <code>{expected || "暂无内容"}</code>
+      </span>
+      <span>
+        <small>Actual</small>
+        <code>{actual}</code>
+      </span>
+    </div>
   );
 }
 

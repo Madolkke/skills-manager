@@ -69,6 +69,7 @@ export class SkillHubE2E {
 
   async recordManualPass(caseTitle: string): Promise<void> {
     await expect(this.page.locator(".manual-case-detail").getByRole("heading", { name: caseTitle })).toBeVisible();
+    await this.page.locator(".actual-output-compare textarea").fill("Actual output confirms the UI separates management, evaluation, and history evidence.");
     await this.page.locator(".eval-action-bar .pass-button").click();
     await expect(this.page.getByText("1/1 已确认")).toBeVisible();
     await this.page.locator(".eval-action-bar .primary-button").click();
@@ -84,6 +85,7 @@ export class SkillHubE2E {
     const caseEvidence = evidence.locator(".case-evidence-row").filter({ hasText: caseTitle });
     await expect(caseEvidence).toBeVisible();
     await expect(caseEvidence.getByText(/case v2 · input [a-f0-9]{12} · expected [a-f0-9]{12}/)).toBeVisible();
+    await expect(caseEvidence.getByText("Actual output confirms the UI separates management, evaluation, and history evidence.")).toBeVisible();
     await expect(caseEvidence.getByText("通过", { exact: true })).toBeVisible();
   }
 
