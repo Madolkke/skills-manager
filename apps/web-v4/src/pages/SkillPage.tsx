@@ -6,24 +6,23 @@ import { EvalSetsPage } from "./EvalSetsPage";
 import { EvaluatePage } from "./EvaluatePage";
 import { HistoryPage } from "./HistoryPage";
 import { OverviewPage } from "./OverviewPage";
-import { UploadVariantModal } from "./UploadVariantModal";
-import { VariantsPage } from "./VariantsPage";
+import { UploadVersionModal } from "./UploadVersionModal";
+import { VersionsPage } from "./VersionsPage";
 import type { SkillDetail, ToastState } from "../types";
 
 type SkillPageProps = {
   skill: SkillDetail;
   tab: SkillTab;
   route: RouteState;
-  knownTags: string[];
   onTab: (tab: SkillTab) => void;
   onRefresh: () => Promise<void>;
   onNavigate: (next: Partial<RouteState>) => void;
   onToast: (toast: ToastState) => void;
 };
 
-export function SkillPage({ skill, tab, route, knownTags, onTab, onRefresh, onNavigate, onToast }: SkillPageProps) {
+export function SkillPage({ skill, tab, route, onTab, onRefresh, onNavigate, onToast }: SkillPageProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
-  const canUploadVariant = tab === "overview" || tab === "variants";
+  const canUploadVersion = tab === "overview" || tab === "versions";
   const closeUpload = () => setUploadOpen(false);
 
   useEffect(() => {
@@ -40,7 +39,7 @@ export function SkillPage({ skill, tab, route, knownTags, onTab, onRefresh, onNa
     <div className="skill-page">
       <div className="skill-nav-row">
         <SkillTabs active={tab} onChange={onTab} />
-        {canUploadVariant ? (
+        {canUploadVersion ? (
           <button className="primary-button" type="button" onClick={() => setUploadOpen(true)}>
             <Upload size={17} />
             上传版本
@@ -49,11 +48,10 @@ export function SkillPage({ skill, tab, route, knownTags, onTab, onRefresh, onNa
       </div>
 
       {tab === "overview" ? <OverviewPage skill={skill} onNavigate={onNavigate} /> : null}
-      {tab === "variants" ? (
-        <VariantsPage
+      {tab === "versions" ? (
+        <VersionsPage
           skill={skill}
-          selectedVariantId={route.selectedVariantId}
-          knownTags={knownTags}
+          selectedVersionId={route.selectedVersionId}
           uploadOpen={uploadOpen}
           onNavigate={onNavigate}
           onUploadClose={closeUpload}
@@ -65,9 +63,8 @@ export function SkillPage({ skill, tab, route, knownTags, onTab, onRefresh, onNa
       {tab === "history" ? <HistoryPage skill={skill} selectedRunId={route.selectedRunId} onNavigate={onNavigate} onToast={onToast} /> : null}
 
       {uploadOpen && tab === "overview" ? (
-        <UploadVariantModal
+        <UploadVersionModal
           skill={skill}
-          knownTags={knownTags}
           onClose={closeUpload}
           onUploaded={finishUpload}
         />

@@ -8,7 +8,7 @@ class SavedViewConfigTest(unittest.TestCase):
     def test_normalize_saved_view_config_keeps_supported_non_default_strings(self):
         config = normalize_saved_view_config(
             {
-                "variant_version_id": " version-a ",
+                "skill_version_id": " version-a ",
                 "eval_set_version_id": "all",
                 "matrix_show_summary": "false",
                 "compare_candidate_run_id": "run-candidate",
@@ -21,7 +21,7 @@ class SavedViewConfigTest(unittest.TestCase):
         self.assertEqual(
             config,
             {
-                "variant_version_id": "version-a",
+                "skill_version_id": "version-a",
                 "matrix_show_summary": "false",
                 "compare_candidate_run_id": "run-candidate",
             },

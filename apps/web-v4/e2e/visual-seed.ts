@@ -13,10 +13,7 @@ type BundleSource = {
 
 type ImportResult = {
   skill_id: string;
-};
-
-type VariantResult = {
-  variant_id: string;
+  skill_version_id: string;
 };
 
 type EvalCaseResult = {
@@ -32,14 +29,8 @@ export class VisualSeed {
 
   async createProductDataset(): Promise<VisualDataset> {
     await this.createAuxiliarySkills();
-    const primary = await this.importSkill("code-reviewer", "自动化代码审查，指出高风险问题并给出可执行建议。", ["codex", "gpt5.4"], 3);
+    const primary = await this.importSkill("code-reviewer", "自动化代码审查，指出高风险问题并给出可执行建议。", ["codex", "gpt5.4"], 7);
     let detail = await this.getSkill(primary.skill_id);
-
-    await this.createVariant(detail.skill.id, ["codex"], "轻量代码审查，适合快速预检。", 2);
-    await this.createVariant(detail.skill.id, ["codex", "minimax2.7"], "强调上下文整理和变更摘要。", 2);
-    await this.createVariant(detail.skill.id, ["opencode", "minimax2.7"], "适合开源项目维护场景。", 3);
-    await this.createVariant(detail.skill.id, ["opencode"], "以兼容性和低成本为优先。", 2);
-    await this.createVariant(detail.skill.id, ["opencode", "gpt5.4"], "用于高风险安全审查候选。", 1);
 
     const first = await this.createCase(detail.skill.id, {
       title: "PR: missing owner filter",
@@ -74,7 +65,7 @@ export class VisualSeed {
     detail = await this.getSkill(primary.skill_id);
     const evalSetVersionId = detail.summary.primary_eval_set?.current_version_id ?? "";
     const evalSetVersion = await this.getEvalSetVersion(evalSetVersionId);
-    await this.recordRun(detail.summary.default_variant?.current_version_id ?? "", evalSetVersion, (index) => index !== 1);
+    await this.recordRun(detail.summary.current_version?.id ?? "", evalSetVersion, (index) => index !== 1, ["codex", "gpt5.4", "macos"]);
     return { primarySkillId: primary.skill_id };
   }
 
@@ -100,41 +91,22 @@ export class VisualSeed {
     });
     const next = await this.getSkill(imported.skill_id);
     const evalSetVersion = await this.getEvalSetVersion(next.summary.primary_eval_set?.current_version_id ?? "");
-    await this.recordRun(next.summary.default_variant?.current_version_id ?? "", evalSetVersion, () => passed);
+    await this.recordRun(next.summary.current_version?.id ?? "", evalSetVersion, () => passed, tags);
   }
 
-  private async importSkill(slug: string, description: string, tags: string[], versions: number): Promise<ImportResult> {
+  private async importSkill(slug: string, description: string, environmentTags: string[], versions: number): Promise<ImportResult> {
     const imported = await this.post<ImportResult>("/api/skill-imports", {
       owner_ref: "product-operator",
-      tags,
-      source: bundleSource(slug, description, tags, 1),
+      source: bundleSource(slug, description, environmentTags, 1),
     });
-    const detail = await this.getSkill(imported.skill_id);
     for (let version = 2; version <= versions; version += 1) {
-      await this.post("/api/variant-versions", {
-        variant_id: detail.summary.default_variant?.id,
-        source: bundleSource(slug, description, tags, version),
+      await this.post("/api/skill-versions", {
+        skill_id: imported.skill_id,
+        source: bundleSource(slug, description, environmentTags, version),
         make_current: true,
       });
     }
     return imported;
-  }
-
-  private async createVariant(skillId: string, tags: string[], description: string, versions: number): Promise<void> {
-    const slug = `code-reviewer-${tags.join("-").replaceAll(".", "-")}`;
-    const created = await this.post<VariantResult>("/api/variants", {
-      skill_id: skillId,
-      tags,
-      source: bundleSource(slug, description, tags, 1),
-      make_default: false,
-    });
-    for (let version = 2; version <= versions; version += 1) {
-      await this.post("/api/variant-versions", {
-        variant_id: created.variant_id,
-        source: bundleSource(slug, description, tags, version),
-        make_current: true,
-      });
-    }
   }
 
   private async createCase(skillId: string, input: CaseInput): Promise<EvalCaseResult> {
@@ -159,15 +131,30 @@ export class VisualSeed {
   }
 
   private async recordRun(
-    variantVersionId: string,
+    skillVersionId: string,
     evalSetVersion: EvalSetVersionDetail,
     verdict: (index: number) => boolean,
+    environmentTags: string[],
   ): Promise<void> {
-    const results = Object.fromEntries(evalSetVersion.cases.map((item, index) => [item.case_version.id, verdict(index)]));
+    const results = Object.fromEntries(
+      evalSetVersion.cases.map((item, index) => [
+        item.case_version.id,
+        {
+          passed: verdict(index),
+          actual_output: `Actual output for ${item.case.title}`,
+        },
+      ]),
+    );
     await this.post("/api/eval-runs", {
-      variant_version_id: variantVersionId,
+      skill_version_id: skillVersionId,
       eval_set_version_id: evalSetVersion.eval_set_version.id,
       strategy: "manual_pass_fail",
+      environment_tags: environmentTags,
+      run_context: {
+        runner: environmentTags[0] ?? "local",
+        model: environmentTags[1] ?? "manual",
+        os: environmentTags.includes("windows") ? "windows" : "macos",
+      },
       results,
     });
   }

@@ -3,7 +3,7 @@ import type { SkillTab } from "../lib/navigation";
 
 const labels: Record<SkillTab, string> = {
   overview: "概览",
-  variants: "变体",
+  versions: "版本",
   evalsets: "测评集",
   evaluate: "测评",
   history: "历史",

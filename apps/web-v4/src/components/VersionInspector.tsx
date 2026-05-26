@@ -2,41 +2,41 @@ import clsx from "clsx";
 import { ArrowLeftRight, ExternalLink, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import { humanDate, scoreKind, scoreLabel, variantName, versionName } from "../lib/format";
+import { humanDate, scoreKind, scoreLabel, versionName } from "../lib/format";
 import { compactDigest } from "../lib/history";
-import type { BundleDiff, BundleDiffFile, BundleDiffStatus, BundleFile, EvalRunRecord, VariantDetail, VariantVersion } from "../types";
-import { VariantVersionTrack } from "./VariantVersionTrack";
+import type { BundleDiff, BundleDiffFile, BundleDiffStatus, BundleFile, EvalRunRecord, SkillDetail, SkillVersion } from "../types";
+import { SkillVersionTrack } from "./SkillVersionTrack";
 
-type VariantInspectorProps = {
-  variant: VariantDetail;
+type VersionInspectorProps = {
+  skill: SkillDetail;
+  version: SkillVersion;
   evalSetName: string;
   latestRun: EvalRunRecord | null;
 };
 
 type ActionPanel = "diff" | "detail";
 
-export function VariantInspector({ variant, evalSetName, latestRun }: VariantInspectorProps) {
+export function VersionInspector({ skill, version, evalSetName, latestRun }: VersionInspectorProps) {
   const [activePanel, setActivePanel] = useState<ActionPanel | null>(null);
   const [diff, setDiff] = useState<BundleDiff | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
-  const files = variant.current_version?.bundle_files ?? [];
-  const previousVersion = previousVariantVersion(variant);
+  const files = version.bundle_files ?? [];
+  const previousVersion = previousSkillVersion(skill, version);
 
   useEffect(() => {
     setActivePanel(null);
     setDiff(null);
     setDiffError(null);
-  }, [variant.id, variant.current_version_id]);
+  }, [version.id]);
 
   useEffect(() => {
-    if (activePanel !== "diff" || !variant.current_version || !previousVersion) return;
+    if (activePanel !== "diff" || !previousVersion) return;
     let cancelled = false;
     setDiffLoading(true);
     setDiffError(null);
-    api.getBundleDiff(previousVersion.id, variant.current_version.id).then((next) => {
-      if (cancelled) return;
-      setDiff(next);
+    api.getBundleDiff(previousVersion.id, version.id).then((next) => {
+      if (!cancelled) setDiff(next);
     }).catch((caught) => {
       if (cancelled) return;
       setDiff(null);
@@ -47,24 +47,17 @@ export function VariantInspector({ variant, evalSetName, latestRun }: VariantIns
     return () => {
       cancelled = true;
     };
-  }, [activePanel, previousVersion, variant.current_version]);
+  }, [activePanel, previousVersion, version.id]);
 
   return (
     <div className="inspector-card">
-      <div className="variant-inspector-head">
+      <div className="version-inspector-head">
         <div>
-          <h2>{variantName(variant)}</h2>
-          <span className="version-pill">当前 {versionName(variant.current_version)}</span>
+          <h2>{versionName(version)}</h2>
+          <span className="version-pill">{version.id === skill.skill.current_version_id ? "当前版本" : "历史版本"}</span>
         </div>
       </div>
-      <p>{variant.summary}</p>
-      <div className="tag-row">
-        {variant.tags.map((tag) => (
-          <span className="tag-chip" key={tag}>
-            {tag}
-          </span>
-        ))}
-      </div>
+      <p>{version.change_summary}</p>
 
       <div className="inspector-metrics">
         <span>
@@ -79,7 +72,7 @@ export function VariantInspector({ variant, evalSetName, latestRun }: VariantIns
 
       <section className="inspector-section">
         <h3>版本历史</h3>
-        <VariantVersionTrack variant={variant} />
+        <SkillVersionTrack skill={skill} />
       </section>
 
       <section className="inspector-section">
@@ -87,7 +80,7 @@ export function VariantInspector({ variant, evalSetName, latestRun }: VariantIns
         {files.length > 0 ? <BundleFileList files={files} /> : <div className="quiet-panel">当前版本没有可预览文件。</div>}
       </section>
 
-      <div className="inspector-actions" role="group" aria-label="变体版本操作">
+      <div className="inspector-actions" role="group" aria-label="SkillVersion 操作">
         <button className="secondary-button" type="button" aria-pressed={activePanel === "diff"} onClick={() => setActivePanel(togglePanel(activePanel, "diff"))}>
           <ArrowLeftRight size={16} />
           Bundle diff
@@ -98,8 +91,8 @@ export function VariantInspector({ variant, evalSetName, latestRun }: VariantIns
         </button>
       </div>
 
-      {activePanel === "diff" ? <VariantBundleDiffPanel diff={diff} loading={diffLoading} error={diffError} current={variant.current_version} previous={previousVersion} /> : null}
-      {activePanel === "detail" ? <VariantVersionDetailPanel version={variant.current_version} /> : null}
+      {activePanel === "diff" ? <VersionBundleDiffPanel diff={diff} loading={diffLoading} error={diffError} current={version} previous={previousVersion} /> : null}
+      {activePanel === "detail" ? <VersionDetailPanel version={version} /> : null}
     </div>
   );
 }
@@ -118,7 +111,7 @@ function BundleFileList({ files }: { files: BundleFile[] }) {
   );
 }
 
-function VariantBundleDiffPanel({
+function VersionBundleDiffPanel({
   diff,
   loading,
   error,
@@ -128,15 +121,15 @@ function VariantBundleDiffPanel({
   diff: BundleDiff | null;
   loading: boolean;
   error: string | null;
-  current: VariantVersion | null;
-  previous?: VariantVersion | null;
+  current: SkillVersion;
+  previous?: SkillVersion | null;
 }) {
   const changedFiles = diff?.files.filter((file) => file.status !== "unchanged") ?? [];
   return (
-    <section className="variant-inspector-detail-panel" aria-label="Bundle diff">
+    <section className="version-inspector-detail-panel" aria-label="Bundle diff">
       <header>
         <span>Bundle diff</span>
-        <strong>{current && previous ? `${versionName(current)} 对比 ${versionName(previous)}` : "当前版本没有上一个版本"}</strong>
+        <strong>{previous ? `${versionName(current)} 对比 ${versionName(previous)}` : "当前版本没有上一个版本"}</strong>
       </header>
       {loading ? <div className="quiet-panel">正在读取后端 Bundle diff...</div> : null}
       {error ? <div className="quiet-panel">Bundle diff 读取失败：{error}</div> : null}
@@ -160,18 +153,18 @@ function VariantBundleDiffPanel({
   );
 }
 
-function VariantVersionDetailPanel({ version }: { version: VariantVersion | null }) {
+function VersionDetailPanel({ version }: { version: SkillVersion }) {
   return (
-    <section className="variant-inspector-detail-panel" aria-label="VariantVersion 详情">
+    <section className="version-inspector-detail-panel" aria-label="SkillVersion 详情">
       <header>
-        <span>VariantVersion 详情</span>
+        <span>SkillVersion 详情</span>
         <strong>{versionName(version)}</strong>
       </header>
       <dl className="version-detail-list">
-        <DetailItem label="创建者" value={version?.created_by ?? "-"} />
-        <DetailItem label="创建时间" value={humanDate(version?.created_at)} />
-        <DetailItem label="内容 digest" value={compactDigest(version?.content_digest)} mono />
-        <DetailItem label="Bundle 文件" value={`${version?.bundle_files?.length ?? 0} 个文件`} />
+        <DetailItem label="创建者" value={version.created_by} />
+        <DetailItem label="创建时间" value={humanDate(version.created_at)} />
+        <DetailItem label="内容 digest" value={compactDigest(version.content_digest)} mono />
+        <DetailItem label="Bundle 文件" value={`${version.bundle_files?.length ?? 0} 个文件`} />
       </dl>
     </section>
   );
@@ -193,11 +186,7 @@ function DiffFileRow({ file }: { file: BundleDiffFile }) {
       <b className={file.status}>{statusLabel(file.status)}</b>
       <em>{file.path}</em>
       <small>{formatDiffSize(file)}</small>
-      {hunk ? (
-        <pre>
-          {hunk.lines.slice(0, 6).map((line) => `${linePrefix(line.kind)} ${line.text}`).join("\n")}
-        </pre>
-      ) : null}
+      {hunk ? <pre>{hunk.lines.slice(0, 6).map((line) => `${linePrefix(line.kind)} ${line.text}`).join("\n")}</pre> : null}
     </div>
   );
 }
@@ -211,10 +200,8 @@ function DetailItem({ label, value, mono }: { label: string; value: string; mono
   );
 }
 
-function previousVariantVersion(variant: VariantDetail): VariantVersion | null {
-  const current = variant.current_version;
-  if (!current) return null;
-  return [...variant.versions]
+function previousSkillVersion(skill: SkillDetail, current: SkillVersion): SkillVersion | null {
+  return [...skill.versions]
     .filter((version) => version.version_number < current.version_number)
     .sort((left, right) => right.version_number - left.version_number)[0] ?? null;
 }

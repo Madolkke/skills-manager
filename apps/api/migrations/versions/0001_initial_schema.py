@@ -29,7 +29,6 @@ def downgrade() -> None:
         drop table if exists jobs cascade;
         drop table if exists saved_views cascade;
         drop table if exists accepted_verifications cascade;
-        drop table if exists promotion_decisions cascade;
         drop table if exists case_results cascade;
         drop table if exists eval_runs cascade;
         drop table if exists eval_set_case_versions cascade;
@@ -37,10 +36,8 @@ def downgrade() -> None:
         drop table if exists eval_case_versions cascade;
         drop table if exists eval_cases cascade;
         drop table if exists eval_sets cascade;
-        drop table if exists variant_versions cascade;
-        drop table if exists variants cascade;
+        drop table if exists skill_versions cascade;
         drop table if exists skills cascade;
-        drop table if exists tag_sets cascade;
         drop table if exists artifacts cascade;
         """
     )

@@ -56,7 +56,7 @@ export function HubPage({ skills, actor, loading, searchFocusSignal, onOpenSkill
 
         <label className="search-field">
           <Search size={22} />
-          <input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 skill、owner、tag" aria-label="搜索 Skill" />
+          <input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 skill、owner、版本说明" aria-label="搜索 Skill" />
         </label>
 
         <div className="hub-toolbar">
@@ -124,9 +124,9 @@ export function HubPage({ skills, actor, loading, searchFocusSignal, onOpenSkill
 }
 
 function SkillCard({ item, onClick }: { item: SkillSummary; onClick: () => void }) {
-  const status = scoreKind(item.latest_accepted_eval_run);
-  const tags = item.default_variant?.tags ?? [];
-  const extraTags = Math.max(0, tags.length - 3);
+  const run = item.summary.latest_accepted_eval_run;
+  const version = item.summary.current_version;
+  const status = scoreKind(run);
   return (
     <button className="skill-card" type="button" onClick={onClick}>
       <div className="card-body">
@@ -136,22 +136,14 @@ function SkillCard({ item, onClick }: { item: SkillSummary; onClick: () => void 
         </div>
         <div className="skill-card-head">
           <h3>{slugTitle(item.skill.slug)}</h3>
-          <span className={clsx("score-chip", status)}>{scoreLabel(item.latest_accepted_eval_run)}</span>
+          <span className={clsx("score-chip", status)}>{scoreLabel(run)}</span>
         </div>
-        <p>{item.default_variant?.summary ?? "尚未写入说明。"}</p>
-        <div className="tag-row">
-          {tags.slice(0, 3).map((tag) => (
-            <span className="tag-chip" key={tag}>
-              {tag}
-            </span>
-          ))}
-          {extraTags > 0 ? <span className="tag-chip muted">+{extraTags}</span> : null}
-        </div>
+        <p>{version?.change_summary ?? "尚未写入说明。"}</p>
       </div>
       <div className="card-metrics">
-        <Metric label="验证得分" value={scoreLabel(item.latest_accepted_eval_run)} tone={status} />
-        <Metric label="测评集版本" value={item.primary_eval_set?.current_version ? `v${item.primary_eval_set.current_version.version_number}` : "-"} />
-        <Metric label="当前版本" value={versionName(item.default_variant?.current_version)} />
+        <Metric label="验证得分" value={scoreLabel(run)} tone={status} />
+        <Metric label="测评集版本" value={item.summary.primary_eval_set?.current_version ? `v${item.summary.primary_eval_set.current_version.version_number}` : "-"} />
+        <Metric label="当前版本" value={versionName(version)} />
         {status === "empty" ? <Circle className="status-ring empty" size={23} /> : <CheckCircle2 className="status-ring verified" size={23} />}
       </div>
     </button>
@@ -177,7 +169,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
 }
 
 function RecentRunRow({ item, onClick }: { item: SkillSummary; onClick: () => void }) {
-  const run = item.latest_accepted_eval_run;
+  const run = item.summary.latest_accepted_eval_run;
   return (
     <button className="recent-row" type="button" onClick={onClick}>
       <div className="recent-row-main">
@@ -186,7 +178,7 @@ function RecentRunRow({ item, onClick }: { item: SkillSummary; onClick: () => vo
           <b className={scoreKind(run)}>{scoreLabel(run)}</b>
         </div>
         <span className="recent-version-line">
-          当前 {versionName(item.default_variant?.current_version)} · {evalSetVersionLabel(item)}
+          当前 {versionName(item.summary.current_version)} · {evalSetVersionLabel(item)}
         </span>
         <small className="recent-actor-line">
           <span>操作者 {run?.created_by ?? item.skill.owner_ref}</span>
@@ -200,10 +192,10 @@ function RecentRunRow({ item, onClick }: { item: SkillSummary; onClick: () => vo
 function filterSkills(skills: SkillSummary[], query: string, filter: FilterKey, actor: string): SkillSummary[] {
   const normalized = query.trim().toLowerCase();
   return skills.filter((item) => {
-    const text = [item.skill.slug, item.skill.owner_ref, item.default_variant?.summary, ...(item.default_variant?.tags ?? [])].join(" ").toLowerCase();
+    const text = [item.skill.slug, item.skill.owner_ref, item.summary.current_version?.change_summary, item.summary.current_version?.content_digest].join(" ").toLowerCase();
     if (normalized && !text.includes(normalized)) return false;
-    if (filter === "verified") return scoreKind(item.latest_accepted_eval_run) !== "empty";
-    if (filter === "untested") return scoreKind(item.latest_accepted_eval_run) === "empty";
+    if (filter === "verified") return scoreKind(item.summary.latest_accepted_eval_run) !== "empty";
+    if (filter === "untested") return scoreKind(item.summary.latest_accepted_eval_run) === "empty";
     if (filter === "mine") return item.skill.owner_ref === actor;
     return true;
   });
@@ -212,8 +204,8 @@ function filterSkills(skills: SkillSummary[], query: string, filter: FilterKey, 
 function skillCounts(skills: SkillSummary[], actor: string) {
   return {
     all: skills.length,
-    verified: skills.filter((item) => scoreKind(item.latest_accepted_eval_run) !== "empty").length,
-    untested: skills.filter((item) => scoreKind(item.latest_accepted_eval_run) === "empty").length,
+    verified: skills.filter((item) => scoreKind(item.summary.latest_accepted_eval_run) !== "empty").length,
+    untested: skills.filter((item) => scoreKind(item.summary.latest_accepted_eval_run) === "empty").length,
     mine: skills.filter((item) => item.skill.owner_ref === actor).length,
   };
 }
@@ -227,24 +219,24 @@ function sortSkills(skills: SkillSummary[], sortKey: SortKey): SkillSummary[] {
 
 function recentEvalSkills(skills: SkillSummary[]): SkillSummary[] {
   return skills
-    .filter((item) => item.latest_accepted_eval_run)
-    .sort((left, right) => Date.parse(right.latest_accepted_eval_run?.created_at ?? "") - Date.parse(left.latest_accepted_eval_run?.created_at ?? ""))
+    .filter((item) => item.summary.latest_accepted_eval_run)
+    .sort((left, right) => Date.parse(right.summary.latest_accepted_eval_run?.created_at ?? "") - Date.parse(left.summary.latest_accepted_eval_run?.created_at ?? ""));
 }
 
 function evalSetVersionLabel(item: SkillSummary): string {
-  const name = item.primary_eval_set?.name ?? "未绑定测评集";
-  const version = item.primary_eval_set?.current_version?.version_number;
+  const name = item.summary.primary_eval_set?.name ?? "未绑定测评集";
+  const version = item.summary.primary_eval_set?.current_version?.version_number;
   return version ? `${name} v${version}` : name;
 }
 
 function scoreValue(item: SkillSummary): number {
-  const run = item.latest_accepted_eval_run;
+  const run = item.summary.latest_accepted_eval_run;
   if (!run?.summary?.total) return -1;
   return ((run.summary.passed ?? 0) / run.summary.total) * 100;
 }
 
 function updatedTime(item: SkillSummary): number {
-  const dates = [item.skill.updated_at, item.default_variant?.updated_at, item.default_variant?.current_version?.created_at, item.latest_accepted_eval_run?.created_at]
+  const dates = [item.skill.updated_at, item.summary.current_version?.created_at, item.summary.latest_accepted_eval_run?.created_at]
     .map((date) => Date.parse(date ?? ""))
     .filter(Number.isFinite);
   return dates.length ? Math.max(...dates) : 0;

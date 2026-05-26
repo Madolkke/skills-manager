@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.pool import StaticPool
 
-from skillhub.application.skill_imports import parse_skill_import_source
 from skillhub.api.auth import (
     ActorContext,
     DEFAULT_LOCAL_ACTOR,
@@ -24,6 +23,7 @@ from skillhub.api.auth import (
     set_actor_cookie,
     verify_local_session_access_code,
 )
+from skillhub.application.skill_imports import parse_skill_import_source
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
@@ -35,7 +35,6 @@ TAG_PATTERN = r"^[A-Za-z0-9._-]+$"
 IDENTITY_REF_PATTERN = r"^[A-Za-z0-9._@-]{1,120}$"
 SkillSlug = Annotated[str, Field(min_length=1, max_length=64, pattern=SLUG_PATTERN)]
 TagValue = Annotated[str, Field(min_length=1, max_length=64, pattern=TAG_PATTERN)]
-TagsPayload = Annotated[list[TagValue], Field(min_length=1)]
 IdentityRef = Annotated[str, Field(min_length=1, max_length=120, pattern=IDENTITY_REF_PATTERN)]
 EVAL_CASE_TITLE_MAX_LENGTH = 160
 EVAL_CASE_INPUT_MAX_LENGTH = 20_000
@@ -44,9 +43,6 @@ EVAL_CASE_NOTES_MAX_LENGTH = 2_000
 EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH = 20_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
-PROMOTION_DECISION_NOTE_MAX_LENGTH = 1_000
-VARIANT_LABEL_MAX_LENGTH = 80
-VARIANT_SUMMARY_MAX_LENGTH = 1_000
 VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
 EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MAX_LENGTH)]
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
@@ -55,9 +51,6 @@ EvalCaseNotes = Annotated[str, Field(max_length=EVAL_CASE_NOTES_MAX_LENGTH)]
 EvalCaseActualOutput = Annotated[str, Field(max_length=EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH)]
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
-PromotionDecisionNote = Annotated[str | None, Field(max_length=PROMOTION_DECISION_NOTE_MAX_LENGTH)]
-VariantLabel = Annotated[str, Field(min_length=1, max_length=VARIANT_LABEL_MAX_LENGTH)]
-VariantSummary = Annotated[str, Field(min_length=1, max_length=VARIANT_SUMMARY_MAX_LENGTH)]
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
 
 
@@ -71,54 +64,26 @@ class ContentRefPayload(BaseModel):
 class CreateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: IdentityRef
-    variant_name: str
-    variant_label: VariantLabel
-    variant_summary: VariantSummary
-    tags: TagsPayload
     content_ref: ContentRefPayload
     change_summary: VersionChangeSummary
 
 
 class ImportSkillPayload(BaseModel):
     owner_ref: IdentityRef
-    tags: TagsPayload
     source: dict[str, Any]
-    variant_label: VariantLabel | None = None
 
 
-class CreateVariantVersionPayload(BaseModel):
-    variant_id: str
+class CreateSkillVersionPayload(BaseModel):
+    skill_id: str
     content_ref: ContentRefPayload | None = None
     source: dict[str, Any] | None = None
     change_summary: VersionChangeSummary | None = None
     make_current: bool = False
 
 
-class CreateVariantPayload(BaseModel):
-    skill_id: str
-    name: str | None = None
-    label: VariantLabel | None = None
-    summary: VariantSummary | None = None
-    tags: TagsPayload
-    content_ref: ContentRefPayload | None = None
-    source: dict[str, Any] | None = None
-    change_summary: VersionChangeSummary | None = None
-    make_default: bool = False
-
-
-class PromoteVariantVersionPayload(BaseModel):
-    variant_id: str
-    version_id: str
-    evidence_eval_run_id: str | None = None
-    eval_set_version_id: str | None = None
-    decision_note: PromotionDecisionNote = None
-    accept_risk: bool = False
-
-
 class UpdateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: IdentityRef
-    default_variant_id: str | None = None
 
 
 class AssignSkillRolePayload(BaseModel):
@@ -167,9 +132,11 @@ class ManualEvalResultPayload(BaseModel):
 
 
 class RecordEvalRunPayload(BaseModel):
-    variant_version_id: str
+    skill_version_id: str
     eval_set_version_id: str
     strategy: str = "manual_pass_fail"
+    environment_tags: list[TagValue] = Field(default_factory=list)
+    run_context: dict[str, Any] = Field(default_factory=dict)
     results: dict[str, bool | ManualEvalResultPayload]
 
 
@@ -214,10 +181,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def validation_error_handler(_request, exc: RequestValidationError):
         return JSONResponse(
             status_code=422,
-            content={
-                "detail": "请求字段不完整或格式不正确。",
-                "field_errors": request_validation_field_errors(exc.errors()),
-            },
+            content={"detail": "请求字段不完整或格式不正确。", "field_errors": request_validation_field_errors(exc.errors())},
         )
 
     @app.exception_handler(PermissionDeniedError)
@@ -252,6 +216,19 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def skill_detail(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.skill_detail(skill_id))
 
+    @app.patch("/api/skills/{skill_id}")
+    def update_skill(skill_id: str, payload: UpdateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref))
+
+    @app.delete("/api/skills/{skill_id}")
+    def archive_skill(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        repository.archive_skill(skill_id=skill_id, actor=actor.id)
+        return {"ok": True}
+
     @app.get("/api/skills/{skill_id}/role-assignments")
     def skill_role_assignments(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.list_skill_role_assignments(skill_id=skill_id))
@@ -262,9 +239,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(
-            repository.skill_capabilities(skill_id=skill_id, actor=actor.id, subject_type=actor.subject_type)
-        )
+        return result_payload(repository.skill_capabilities(skill_id=skill_id, actor=actor.id, subject_type=actor.subject_type))
 
     @app.get("/api/skills/{skill_id}/audit-events")
     def skill_audit_events(
@@ -313,7 +288,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/api/skills/{skill_id}/eval-runs")
     def eval_run_history(
         skill_id: str,
-        variant_version_id: str | None = None,
+        skill_version_id: str | None = None,
         eval_set_version_id: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
@@ -323,7 +298,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return result_payload(
             repository.list_eval_runs_for_skill(
                 skill_id=skill_id,
-                variant_version_id=variant_version_id,
+                skill_version_id=skill_version_id,
                 eval_set_version_id=eval_set_version_id,
                 strategy=strategy,
                 status=status,
@@ -334,7 +309,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/api/skills/{skill_id}/eval-run-matrix")
     def eval_run_matrix(
         skill_id: str,
-        variant_version_id: str | None = None,
+        skill_version_id: str | None = None,
         eval_set_version_id: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
@@ -344,7 +319,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return result_payload(
             repository.eval_run_matrix_for_skill(
                 skill_id=skill_id,
-                variant_version_id=variant_version_id,
+                skill_version_id=skill_version_id,
                 eval_set_version_id=eval_set_version_id,
                 strategy=strategy,
                 status=status,
@@ -353,11 +328,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         )
 
     @app.get("/api/skills/{skill_id}/saved-views")
-    def saved_views(
-        skill_id: str,
-        view_type: str = "run_history",
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
+    def saved_views(skill_id: str, view_type: str = "run_history", repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.list_saved_views(skill_id=skill_id, view_type=view_type))
 
     @app.post("/api/saved-views")
@@ -381,10 +352,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return result_payload(repository.delete_saved_view(saved_view_id))
 
     @app.get("/api/eval-set-versions/{eval_set_version_id}")
-    def eval_set_version_detail(
-        eval_set_version_id: str,
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
+    def eval_set_version_detail(eval_set_version_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.eval_set_version_detail(eval_set_version_id))
 
     @app.get("/api/eval-runs/compare")
@@ -393,12 +361,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         candidate_run_id: str,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(
-            repository.compare_eval_runs(
-                baseline_run_id=baseline_run_id,
-                candidate_run_id=candidate_run_id,
-            )
-        )
+        return result_payload(repository.compare_eval_runs(baseline_run_id=baseline_run_id, candidate_run_id=candidate_run_id))
 
     @app.get("/api/eval-runs/{eval_run_id}")
     def eval_run_detail(eval_run_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
@@ -410,30 +373,12 @@ def create_app(engine: Engine | None = None) -> FastAPI:
 
     @app.get("/api/artifacts/diff")
     def artifact_diff(
-        left_variant_version_id: str,
-        right_variant_version_id: str,
+        left_skill_version_id: str,
+        right_skill_version_id: str,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(
-            repository.bundle_diff(
-                left_variant_version_id=left_variant_version_id,
-                right_variant_version_id=right_variant_version_id,
-            )
-        )
-
-    @app.get("/api/variants/{variant_id}/promotion-review")
-    def promotion_review(
-        variant_id: str,
-        candidate_version_id: str,
-        eval_set_version_id: str | None = None,
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        return result_payload(
-            repository.promotion_review(
-                variant_id=variant_id,
-                candidate_version_id=candidate_version_id,
-                eval_set_version_id=eval_set_version_id,
-            )
+            repository.bundle_diff(left_skill_version_id=left_skill_version_id, right_skill_version_id=right_skill_version_id)
         )
 
     @app.post("/api/skills")
@@ -446,10 +391,6 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             repository.create_skill(
                 slug=payload.slug,
                 owner_ref=payload.owner_ref,
-                variant_name=payload.variant_name,
-                variant_label=payload.variant_label,
-                variant_summary=payload.variant_summary,
-                tags=payload.tags,
                 content_ref=content_ref(payload.content_ref),
                 change_summary=payload.change_summary,
                 actor=actor.id,
@@ -463,7 +404,6 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         bundle = parse_skill_import_payload(payload.source)
-        variant_label = payload.variant_label or variant_label_from_tags(payload.tags)
         artifact = repository.create_text_artifact(
             kind="skill_bundle",
             namespace=f"skill-import:{bundle.slug}",
@@ -473,10 +413,6 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         result = repository.create_skill(
             slug=bundle.slug,
             owner_ref=payload.owner_ref,
-            variant_name=variant_label,
-            variant_label=variant_label,
-            variant_summary=bundle.description,
-            tags=payload.tags,
             content_ref=ContentRef(
                 kind="artifact",
                 locator=f"artifact:{artifact['id']}",
@@ -496,9 +432,9 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             "bundle_digest": bundle.digest,
         }
 
-    @app.post("/api/variant-versions")
-    def create_variant_version(
-        payload: CreateVariantVersionPayload,
+    @app.post("/api/skill-versions")
+    def create_skill_version(
+        payload: CreateSkillVersionPayload,
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
@@ -507,23 +443,18 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             bundle = parse_skill_import_source(payload.source)
             artifact = repository.create_text_artifact(
                 kind="skill_bundle",
-                namespace=f"variant-version-import:{bundle.slug}",
+                namespace=f"skill-version-import:{bundle.slug}",
                 content=bundle.manifest_text,
                 actor=actor.id,
             )
-            content = ContentRef(
-                kind="artifact",
-                locator=f"artifact:{artifact['id']}",
-                digest=artifact["digest"],
-                path=bundle.entry_path,
-            )
+            content = ContentRef(kind="artifact", locator=f"artifact:{artifact['id']}", digest=artifact["digest"], path=bundle.entry_path)
         elif payload.content_ref is not None:
             content = content_ref(payload.content_ref)
         else:
-            raise InvariantError("Variant version requires either content_ref or standard skill bundle source.")
+            raise InvariantError("Skill version requires either content_ref or standard skill bundle source.")
         return result_payload(
-            repository.create_variant_version(
-                variant_id=payload.variant_id,
+            repository.create_skill_version(
+                skill_id=payload.skill_id,
                 content_ref=content,
                 change_summary=payload.change_summary
                 or (f"Uploaded standard skill bundle with {bundle.file_count} files." if bundle else "Updated skill version."),
@@ -531,88 +462,6 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 make_current=payload.make_current,
             )
         )
-
-    @app.post("/api/variants")
-    def create_variant(
-        payload: CreateVariantPayload,
-        actor: ActorContext = Depends(actor_dependency),
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        bundle = None
-        if payload.source is not None:
-            bundle = parse_skill_import_source(payload.source)
-            artifact = repository.create_text_artifact(
-                kind="skill_bundle",
-                namespace=f"variant-import:{bundle.slug}",
-                content=bundle.manifest_text,
-                actor=actor.id,
-            )
-            content = ContentRef(
-                kind="artifact",
-                locator=f"artifact:{artifact['id']}",
-                digest=artifact["digest"],
-                path=bundle.entry_path,
-            )
-        elif payload.content_ref is not None:
-            content = content_ref(payload.content_ref)
-        else:
-            raise InvariantError("Variant requires either content_ref or standard skill bundle source.")
-        label = payload.label or variant_label_from_tags(payload.tags)
-        return result_payload(
-            repository.create_variant(
-                skill_id=payload.skill_id,
-                name=payload.name or label,
-                label=label,
-                summary=payload.summary or (bundle.description if bundle else label),
-                tags=payload.tags,
-                content_ref=content,
-                change_summary=payload.change_summary
-                or (f"Uploaded standard skill bundle with {bundle.file_count} files." if bundle else "Created variant version."),
-                actor=actor.id,
-                make_default=payload.make_default,
-            )
-        )
-
-    @app.post("/api/variants/promotions")
-    def promote_variant_version(
-        payload: PromoteVariantVersionPayload,
-        actor: ActorContext = Depends(actor_dependency),
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        decision = repository.promote_variant_version(
-            variant_id=payload.variant_id,
-            version_id=payload.version_id,
-            evidence_eval_run_id=payload.evidence_eval_run_id,
-            eval_set_version_id=payload.eval_set_version_id,
-            decision_note=payload.decision_note,
-            accept_risk=payload.accept_risk,
-            actor=actor.id,
-        )
-        return {"ok": True, "promotion_decision": decision}
-
-    @app.patch("/api/skills/{skill_id}")
-    def update_skill(
-        skill_id: str,
-        payload: UpdateSkillPayload,
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        return result_payload(
-            repository.update_skill(
-                skill_id=skill_id,
-                slug=payload.slug,
-                owner_ref=payload.owner_ref,
-                default_variant_id=payload.default_variant_id,
-            )
-        )
-
-    @app.delete("/api/skills/{skill_id}")
-    def archive_skill(
-        skill_id: str,
-        actor: ActorContext = Depends(actor_dependency),
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        repository.archive_skill(skill_id=skill_id, actor=actor.id)
-        return {"ok": True}
 
     @app.post("/api/eval-cases")
     def create_eval_case(
@@ -637,13 +486,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(
-            repository.create_eval_cases_batch(
-                skill_id=payload.skill_id,
-                cases=[case.model_dump() for case in payload.cases],
-                actor=actor.id,
-            )
-        )
+        return result_payload(repository.create_eval_cases_batch(skill_id=payload.skill_id, cases=[case.model_dump() for case in payload.cases], actor=actor.id))
 
     @app.post("/api/eval-case-versions")
     def create_eval_case_version(
@@ -692,12 +535,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(
-            repository.restore_eval_case_version(
-                case_id=case_id,
-                source_case_version_id=payload.source_case_version_id,
-                actor=actor.id,
-                notes=payload.notes,
-            )
+            repository.restore_eval_case_version(case_id=case_id, source_case_version_id=payload.source_case_version_id, actor=actor.id, notes=payload.notes)
         )
 
     @app.delete("/api/eval-cases/{case_id}")
@@ -716,11 +554,13 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     ):
         return result_payload(
             repository.record_eval_run(
-                variant_version_id=payload.variant_version_id,
+                skill_version_id=payload.skill_version_id,
                 eval_set_version_id=payload.eval_set_version_id,
                 strategy=payload.strategy,
                 results=payload.results,
                 actor=actor.id,
+                environment_tags=payload.environment_tags,
+                run_context=payload.run_context,
             )
         )
 
@@ -730,11 +570,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        accepted = repository.accept_eval_run_verification(
-            eval_run_id=payload.eval_run_id,
-            note=payload.note,
-            actor=actor.id,
-        )
+        accepted = repository.accept_eval_run_verification(eval_run_id=payload.eval_run_id, note=payload.note, actor=actor.id)
         return {"ok": True, "accepted_verification": accepted}
 
     return app
@@ -762,11 +598,7 @@ def sqlite_file_url(path: str | Path) -> str:
 
 def create_sqlite_engine(database_url: str) -> Engine:
     if database_url == "sqlite:///:memory:":
-        engine = create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
+        engine = create_engine(database_url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
     else:
         sqlite_path = sqlite_path_from_url(database_url)
         if sqlite_path is not None:
@@ -795,10 +627,6 @@ def repository_dependency(request: Request) -> SqlSkillRepository:
 
 def content_ref(payload: ContentRefPayload) -> ContentRef:
     return ContentRef(kind=payload.kind, locator=payload.locator, digest=payload.digest, path=payload.path)  # type: ignore[arg-type]
-
-
-def variant_label_from_tags(tags: list[str]) -> str:
-    return " + ".join(tags) if tags else "default"
 
 
 def result_payload(result: Any) -> Any:
@@ -870,10 +698,8 @@ def request_validation_message(field: str, error_type: str) -> str:
         return f"填写 {label}"
     if field == "slug" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
         return "Skill ID 只能使用小写字母、数字和连字符，且必须以字母或数字开头，最多 64 个字符。"
-    if field == "tags" and error_type == "too_short":
-        return "至少填写一个约束标签。"
-    if field == "tags" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
-        return "约束标签只能使用字母、数字、点、下划线和连字符，每个最多 64 个字符。"
+    if field == "environment_tags" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
+        return "运行环境标签只能使用字母、数字、点、下划线和连字符，每个最多 64 个字符。"
     if field == "owner_ref" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
         return "归属只能使用字母、数字、点、下划线、@ 和连字符，最多 120 个字符。"
     if field == "subject_id" and error_type in {"string_pattern_mismatch", "string_too_long", "string_too_short"}:
@@ -884,12 +710,6 @@ def request_validation_message(field: str, error_type: str) -> str:
         return "填写保存视图名称。"
     if field == "note" and error_type == "string_too_long":
         return f"验证说明最多 {ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH} 个字符。"
-    if field == "decision_note" and error_type == "string_too_long":
-        return f"设为当前版本说明最多 {PROMOTION_DECISION_NOTE_MAX_LENGTH} 个字符。"
-    if field in {"variant_label", "label"} and error_type == "string_too_long":
-        return f"变体名称最多 {VARIANT_LABEL_MAX_LENGTH} 个字符。"
-    if field in {"variant_summary", "summary"} and error_type == "string_too_long":
-        return f"说明最多 {VARIANT_SUMMARY_MAX_LENGTH} 个字符。"
     if field == "change_summary" and error_type == "string_too_long":
         return f"版本说明最多 {VERSION_CHANGE_SUMMARY_MAX_LENGTH} 个字符。"
     return f"{label} 格式不正确。"
@@ -950,49 +770,28 @@ def prefixed_label(label: str) -> str:
 API_FIELD_LABELS = {
     "slug": "Skill ID",
     "owner_ref": "归属",
-    "variant_label": "变体名称",
-    "variant_summary": "变体简介",
-    "label": "变体名称",
-    "summary": "说明",
-    "tags": "约束标签",
+    "skill_version_id": "SkillVersion",
+    "eval_set_version_id": "EvalSetVersion",
+    "environment_tags": "运行环境标签",
     "change_summary": "版本说明",
     "name": "保存视图名称",
     "note": "验证说明",
-    "decision_note": "设为当前版本说明",
     "subject_id": "成员",
 }
 
 
 SKILL_IMPORT_ERROR_MESSAGES = {
-    "Skill bundle must contain SKILL.md at its root.": (
-        "选择的 Skill bundle 根目录必须包含 SKILL.md。",
-        "skill_import.skill_md_missing",
-    ),
+    "Skill bundle must contain SKILL.md at its root.": ("选择的 Skill bundle 根目录必须包含 SKILL.md。", "skill_import.skill_md_missing"),
     "SKILL.md must be UTF-8 text.": ("SKILL.md 必须是 UTF-8 文本。", "skill_import.skill_md_not_utf8"),
-    "SKILL.md must start with YAML frontmatter.": (
-        "SKILL.md 必须以 YAML frontmatter 开头。",
-        "skill_import.frontmatter_missing",
-    ),
-    "SKILL.md frontmatter cannot be empty.": (
-        "SKILL.md frontmatter 不能是空的。",
-        "skill_import.frontmatter_empty",
-    ),
-    "SKILL.md frontmatter must end with ---.": (
-        "SKILL.md frontmatter 必须用 --- 结束。",
-        "skill_import.frontmatter_unclosed",
-    ),
+    "SKILL.md must start with YAML frontmatter.": ("SKILL.md 必须以 YAML frontmatter 开头。", "skill_import.frontmatter_missing"),
+    "SKILL.md frontmatter cannot be empty.": ("SKILL.md frontmatter 不能是空的。", "skill_import.frontmatter_empty"),
+    "SKILL.md frontmatter must end with ---.": ("SKILL.md frontmatter 必须用 --- 结束。", "skill_import.frontmatter_unclosed"),
     "Skill name must be lowercase letters, numbers, and hyphens, up to 64 characters.": (
         "SKILL.md frontmatter name 只能使用小写字母、数字和连字符，且必须以字母或数字开头，最多 64 个字符。",
         "skill_import.name_invalid",
     ),
-    "Skill description is required.": (
-        "SKILL.md frontmatter 需要 description。",
-        "skill_import.description_required",
-    ),
-    "Skill description must be 1024 characters or fewer.": (
-        "SKILL.md frontmatter description 最多 1024 个字符。",
-        "skill_import.description_too_long",
-    ),
+    "Skill description is required.": ("SKILL.md frontmatter 需要 description。", "skill_import.description_required"),
+    "Skill description must be 1024 characters or fewer.": ("SKILL.md frontmatter description 最多 1024 个字符。", "skill_import.description_too_long"),
     "Skill import zip is not readable.": ("选择的 zip 不是可读取的 Skill bundle。", "skill_import.zip_unreadable"),
 }
 

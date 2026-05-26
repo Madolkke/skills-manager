@@ -13,64 +13,34 @@ create table artifacts (
   constraint artifacts_locator_digest_unique unique (locator, digest)
 );
 
-create table tag_sets (
-  id text primary key,
-  tags text[] not null,
-  normalized_hash text not null unique,
-  created_at timestamptz not null default now(),
-  constraint tag_sets_tags_not_empty check (cardinality(tags) > 0)
-);
-
 create table skills (
   id text primary key,
   slug text not null unique,
   owner_ref text not null,
-  default_variant_id text,
+  current_version_id text,
   lifecycle_status text not null default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))
 );
 
-create table variants (
+create table skill_versions (
   id text primary key,
   skill_id text not null references skills(id),
-  name text not null,
-  label text not null,
-  summary text not null,
-  tag_set_id text not null references tag_sets(id),
-  current_version_id text,
-  lifecycle_status text not null default 'active',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint variants_lifecycle_status_check check (lifecycle_status in ('active', 'archived')),
-  constraint variants_id_skill_unique unique (id, skill_id),
-  constraint variants_skill_tag_set_unique unique (skill_id, tag_set_id)
-);
-
-create table variant_versions (
-  id text primary key,
-  skill_id text not null,
-  variant_id text not null,
   version_number integer not null,
   content_ref jsonb not null,
   content_digest text not null,
   change_summary text not null,
   created_at timestamptz not null default now(),
   created_by text not null,
-  constraint variant_versions_version_number_positive check (version_number > 0),
-  constraint variant_versions_variant_version_unique unique (variant_id, version_number),
-  constraint variant_versions_id_skill_unique unique (id, skill_id),
-  constraint variant_versions_variant_skill_fkey foreign key (variant_id, skill_id) references variants(id, skill_id)
+  constraint skill_versions_version_number_positive check (version_number > 0),
+  constraint skill_versions_skill_version_unique unique (skill_id, version_number),
+  constraint skill_versions_id_skill_unique unique (id, skill_id)
 );
 
 alter table skills
-  add constraint skills_default_variant_fkey
-  foreign key (default_variant_id, id) references variants(id, skill_id);
-
-alter table variants
-  add constraint variants_current_version_fkey
-  foreign key (current_version_id, skill_id) references variant_versions(id, skill_id);
+  add constraint skills_current_version_fkey
+  foreign key (current_version_id, id) references skill_versions(id, skill_id);
 
 create table eval_sets (
   id text primary key,
@@ -150,17 +120,20 @@ create table eval_set_case_versions (
 create table eval_runs (
   id text primary key,
   skill_id text not null,
-  variant_version_id text not null,
+  skill_version_id text not null,
   eval_set_version_id text not null,
   strategy text not null,
   status text not null,
+  environment_tags text[] not null default '{}',
+  run_context jsonb not null default '{}'::jsonb,
+  run_context_hash text not null,
   summary jsonb not null default '{}'::jsonb,
   result_artifact_id text references artifacts(id),
   created_at timestamptz not null default now(),
   created_by text not null,
   constraint eval_runs_status_check check (status in ('queued', 'running', 'finished', 'failed')),
   constraint eval_runs_id_skill_unique unique (id, skill_id),
-  constraint eval_runs_variant_version_skill_fkey foreign key (variant_version_id, skill_id) references variant_versions(id, skill_id),
+  constraint eval_runs_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
   constraint eval_runs_eval_set_version_skill_fkey foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id)
 );
 
@@ -178,44 +151,19 @@ create table case_results (
   constraint case_results_case_skill_fkey foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)
 );
 
-create table promotion_decisions (
-  id text primary key,
-  skill_id text not null,
-  variant_id text not null,
-  from_version_id text,
-  to_version_id text not null,
-  eval_set_version_id text not null,
-  evidence_eval_run_id text not null,
-  baseline_eval_run_id text,
-  readiness_status text not null,
-  summary jsonb not null default '{}'::jsonb,
-  decision_note text not null default '',
-  created_at timestamptz not null default now(),
-  created_by text not null,
-  constraint promotion_decisions_readiness_status_check check (readiness_status in ('ready', 'risky', 'unverified', 'blocked')),
-  constraint promotion_decisions_id_skill_unique unique (id, skill_id),
-  constraint promotion_decisions_variant_skill_fkey foreign key (variant_id, skill_id) references variants(id, skill_id),
-  constraint promotion_decisions_from_version_skill_fkey foreign key (from_version_id, skill_id) references variant_versions(id, skill_id),
-  constraint promotion_decisions_to_version_skill_fkey foreign key (to_version_id, skill_id) references variant_versions(id, skill_id),
-  constraint promotion_decisions_eval_set_version_skill_fkey foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id),
-  constraint promotion_decisions_evidence_run_skill_fkey foreign key (evidence_eval_run_id, skill_id) references eval_runs(id, skill_id),
-  constraint promotion_decisions_baseline_run_skill_fkey foreign key (baseline_eval_run_id, skill_id) references eval_runs(id, skill_id)
-);
-
 create table accepted_verifications (
   id text primary key,
   skill_id text not null,
-  variant_id text not null,
-  variant_version_id text not null,
+  skill_version_id text not null,
   eval_set_version_id text not null,
+  run_context_hash text not null,
   eval_run_id text not null,
   note text not null default '',
   created_at timestamptz not null default now(),
   created_by text not null,
   constraint accepted_verifications_id_skill_unique unique (id, skill_id),
-  constraint accepted_verifications_variant_eval_set_unique unique (variant_id, eval_set_version_id),
-  constraint accepted_verifications_variant_skill_fkey foreign key (variant_id, skill_id) references variants(id, skill_id),
-  constraint accepted_verifications_variant_version_skill_fkey foreign key (variant_version_id, skill_id) references variant_versions(id, skill_id),
+  constraint accepted_verifications_context_unique unique (skill_id, skill_version_id, eval_set_version_id, run_context_hash),
+  constraint accepted_verifications_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
   constraint accepted_verifications_eval_set_version_skill_fkey foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id),
   constraint accepted_verifications_eval_run_skill_fkey foreign key (eval_run_id, skill_id) references eval_runs(id, skill_id)
 );
@@ -270,10 +218,7 @@ create table audit_events (
 );
 
 create index artifacts_namespace_idx on artifacts (namespace);
-create index variants_skill_id_idx on variants (skill_id);
-create index variants_tag_set_id_idx on variants (tag_set_id);
-create index variant_versions_skill_id_idx on variant_versions (skill_id);
-create index variant_versions_variant_id_idx on variant_versions (variant_id);
+create index skill_versions_skill_id_idx on skill_versions (skill_id);
 create index eval_sets_skill_id_idx on eval_sets (skill_id);
 create index eval_cases_skill_id_idx on eval_cases (skill_id);
 create index eval_case_versions_skill_id_idx on eval_case_versions (skill_id);
@@ -283,14 +228,12 @@ create index eval_set_versions_eval_set_id_idx on eval_set_versions (eval_set_id
 create index eval_set_case_versions_skill_id_idx on eval_set_case_versions (skill_id);
 create index eval_set_case_versions_case_version_id_idx on eval_set_case_versions (case_version_id);
 create index eval_runs_skill_id_created_at_idx on eval_runs (skill_id, created_at desc);
-create index eval_runs_variant_version_id_idx on eval_runs (variant_version_id);
+create index eval_runs_skill_version_id_idx on eval_runs (skill_version_id);
 create index eval_runs_eval_set_version_id_idx on eval_runs (eval_set_version_id);
+create index eval_runs_context_hash_idx on eval_runs (run_context_hash);
 create index case_results_skill_id_idx on case_results (skill_id);
 create index case_results_case_version_id_idx on case_results (case_version_id);
-create index promotion_decisions_variant_created_at_idx on promotion_decisions (variant_id, created_at desc);
-create index promotion_decisions_to_version_id_idx on promotion_decisions (to_version_id);
-create index promotion_decisions_evidence_eval_run_id_idx on promotion_decisions (evidence_eval_run_id);
-create index accepted_verifications_variant_eval_set_idx on accepted_verifications (variant_id, eval_set_version_id);
+create index accepted_verifications_context_idx on accepted_verifications (skill_id, skill_version_id, eval_set_version_id, run_context_hash);
 create index accepted_verifications_eval_run_id_idx on accepted_verifications (eval_run_id);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index jobs_status_created_at_idx on jobs (status, created_at);

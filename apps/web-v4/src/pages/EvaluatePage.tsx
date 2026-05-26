@@ -1,26 +1,29 @@
 import clsx from "clsx";
-import { Database, Info, Package } from "lucide-react";
+import { Info } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { EvaluationContextCard, type EvaluationRunContextDraft } from "../components/EvaluationContextCard";
+import { EvaluationVersionSelectors } from "../components/EvaluationVersionSelectors";
 import { ManualCase, ManualEvalActionBar, ManualProgressPanel } from "../components/ManualEvaluationPanels";
 import { ManualVersionDetailPanel, type ManualVersionDetailFocus } from "../components/ManualVersionDetailPanel";
 import { api, ApiError } from "../lib/api";
 import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval, type ManualCaseResult } from "../lib/eval";
-import { variantName, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { EvalSetVersionDetail, SkillDetail, ToastState } from "../types";
 
 type EvaluatePageProps = { skill: SkillDetail; onRefresh: () => Promise<void>; onNavigate: (next: Partial<RouteState>) => void; onToast: (toast: ToastState) => void };
 
 export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: EvaluatePageProps) {
-  const versions = useMemo(() => skill.variants.flatMap((variant) => variant.versions.map((version) => ({ variant, version }))), [skill.variants]);
+  const versions = skill.versions;
   const evalSetVersions = useMemo(
     () => skill.eval_sets.flatMap((set) => set.versions.map((version) => ({ set, version }))),
     [skill.eval_sets],
   );
-  const defaultVersionId = skill.summary.default_variant?.current_version_id ?? versions[0]?.version.id ?? "";
+  const defaultVersionId = skill.skill.current_version_id ?? versions[0]?.id ?? "";
   const defaultEvalSetVersionId = skill.summary.primary_eval_set?.current_version_id ?? "";
-  const [variantVersionId, setVariantVersionId] = useState(defaultVersionId);
+  const [skillVersionId, setSkillVersionId] = useState(defaultVersionId);
   const [evalSetVersionId, setEvalSetVersionId] = useState(defaultEvalSetVersionId);
+  const [environmentTags, setEnvironmentTags] = useState<string[]>([]);
+  const [runContext, setRunContext] = useState<EvaluationRunContextDraft>({ os: "", runner: "", model: "" });
   const [detail, setDetail] = useState<EvalSetVersionDetail | null>(null);
   const [results, setResults] = useState<Record<string, ManualCaseResult>>({});
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
@@ -30,11 +33,11 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
   const summary = summarizeManualEval(cases.length, results);
   const active = cases.find((item) => item.case_version.id === activeCaseId) ?? cases[0] ?? null;
   const activePosition = active ? cases.findIndex((item) => item.case_version.id === active.case_version.id) + 1 : 0;
-  const selectedVersion = versions.find((item) => item.version.id === variantVersionId);
+  const selectedVersion = versions.find((version) => version.id === skillVersionId);
   const selectedEvalSetVersion = evalSetVersions.find((item) => item.version.id === evalSetVersionId);
   const activeResult = active ? results[active.case_version.id] : undefined;
   const activePassed = activeResult?.passed;
-  const canRecord = !busy && Boolean(variantVersionId && evalSetVersionId) && summary.pending === 0 && cases.length > 0;
+  const canRecord = !busy && Boolean(skillVersionId && evalSetVersionId) && summary.pending === 0 && cases.length > 0;
   const canMoveNext = !busy && summary.pending > 0 && cases.length > 0;
   const progressStyle = { "--coverage": `${summary.coverage}%` } as CSSProperties;
   const recordHint = manualRecordHint(cases.length, summary.pending);
@@ -95,13 +98,15 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
   }, [onToast]);
 
   const recordRun = useCallback(async () => {
-    if (!variantVersionId || !evalSetVersionId || summary.pending > 0 || cases.length === 0) return;
+    if (!skillVersionId || !evalSetVersionId || summary.pending > 0 || cases.length === 0) return;
     setBusy(true);
     try {
       const recorded = await api.recordEvalRun({
-        variant_version_id: variantVersionId,
+        skill_version_id: skillVersionId,
         eval_set_version_id: evalSetVersionId,
         strategy: "manual_pass_fail",
+        environment_tags: environmentTags,
+        run_context: compactRunContext(runContext),
         results: Object.fromEntries(
           Object.entries(results).map(([caseVersionId, result]) => [
             caseVersionId,
@@ -117,7 +122,7 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
     } finally {
       setBusy(false);
     }
-  }, [cases.length, evalSetVersionId, onNavigate, onRefresh, onToast, results, summary.pending, variantVersionId]);
+  }, [cases.length, environmentTags, evalSetVersionId, onNavigate, onRefresh, onToast, results, runContext, skillVersionId, summary.pending]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -155,55 +160,34 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
   return (
     <div className="evaluate-page">
       <section className="evaluation-selectors">
-        <div className="evaluation-selector-card">
-          <label className="selector-title" htmlFor="variant-version-select">
-            <Package size={18} />
-            变体版本
-          </label>
-          <div className="selector-control-row">
-            <select id="variant-version-select" value={variantVersionId} onChange={(event) => setVariantVersionId(event.target.value)} disabled={versions.length === 0}>
-              {versions.length === 0 ? <option value="">暂无可选版本</option> : null}
-              {versions.map(({ variant, version }) => (
-                <option value={version.id} key={version.id}>
-                  {variantName(variant)} {versionName(version)}
-                </option>
-              ))}
-            </select>
-            <button className="selector-detail-button" type="button" aria-label="查看变体版本详情" aria-pressed={versionDetailFocus === "variant"} onClick={() => setVersionDetailFocus("variant")}>
-              查看详情
-            </button>
-          </div>
-        </div>
-        <div className="evaluation-selector-card">
-          <label className="selector-title" htmlFor="eval-set-version-select">
-            <Database size={18} />
-            测评集版本
-          </label>
-          <div className="selector-control-row">
-            <select id="eval-set-version-select" value={evalSetVersionId} onChange={(event) => setEvalSetVersionId(event.target.value)} disabled={evalSetVersions.length === 0}>
-              {evalSetVersions.length === 0 ? <option value="">暂无测评集版本</option> : null}
-              {evalSetVersions.map(({ set, version }) => (
-                <option value={version.id} key={version.id}>
-                  {set.name} v{version.version_number}
-                </option>
-              ))}
-            </select>
-            <button className="selector-detail-button" type="button" aria-label="查看测评集版本详情" aria-pressed={versionDetailFocus === "evalset"} onClick={() => setVersionDetailFocus("evalset")}>
-              查看详情
-            </button>
-          </div>
-        </div>
+        <EvaluationVersionSelectors
+          versions={versions}
+          evalSetVersions={evalSetVersions}
+          skillVersionId={skillVersionId}
+          evalSetVersionId={evalSetVersionId}
+          versionDetailFocus={versionDetailFocus}
+          onSkillVersionChange={setSkillVersionId}
+          onEvalSetVersionChange={setEvalSetVersionId}
+          onVersionDetailFocusChange={setVersionDetailFocus}
+        />
+        <EvaluationContextCard
+          environmentTags={environmentTags}
+          runContext={runContext}
+          latestRuns={skill.latest_eval_runs}
+          onEnvironmentTagsChange={setEnvironmentTags}
+          onRunContextChange={setRunContext}
+        />
         <div className="info-box">
           <Info size={18} />
           <div>
             <strong>在此页面执行人工测评</strong>
-            <p>选择确切的变体版本与测评集版本，逐条标记通过/不通过后记录本次结果。</p>
+            <p>选择确切的 SkillVersion 与 EvalSetVersion，逐条输入本次运行结果并记录环境上下文。</p>
           </div>
         </div>
         {versionDetailFocus ? (
           <ManualVersionDetailPanel
             focus={versionDetailFocus}
-            variantVersion={selectedVersion}
+            skillVersion={selectedVersion}
             evalSetVersion={selectedEvalSetVersion}
             evalSetDetail={detail}
             onClose={() => setVersionDetailFocus(null)}
@@ -253,7 +237,7 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
           {active ? (
             <ManualCase
               item={active}
-              version={selectedVersion?.version}
+              version={selectedVersion}
               result={activeResult}
               positionLabel={activePosition}
               onActualOutputChange={updateActualOutput}
@@ -290,6 +274,10 @@ function manualStatusClass(value?: boolean): string {
   if (value === true) return "passed";
   if (value === false) return "failed";
   return "pending";
+}
+
+function compactRunContext(context: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(context).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value.length > 0));
 }
 
 function errorMessage(error: unknown): string {

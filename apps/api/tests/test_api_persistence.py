@@ -25,17 +25,12 @@ def test_sqlite_engine_persists_skill_between_app_instances(tmp_path: Path):
         json={
             "slug": "persistent-reviewer",
             "owner_ref": "skillhub-lab",
-            "variant_name": "Default",
-            "variant_label": "Baseline",
-            "variant_summary": "Persistent skill.",
-            "tags": ["codex"],
             "content_ref": {
                 "kind": "skill_bundle",
                 "locator": "memory:persistent-reviewer",
                 "digest": "digest-persistent",
             },
             "change_summary": "Initial persistent skill.",
-            "actor": "tester",
         },
     )
     assert response.status_code == 200

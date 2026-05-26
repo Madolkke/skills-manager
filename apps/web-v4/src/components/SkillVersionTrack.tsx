@@ -1,19 +1,19 @@
 import clsx from "clsx";
 import { humanDate } from "../lib/format";
-import type { VariantDetail } from "../types";
+import type { SkillDetail } from "../types";
 
-type VariantVersionTrackProps = {
-  variant: VariantDetail;
+type SkillVersionTrackProps = {
+  skill: SkillDetail;
 };
 
-export function VariantVersionTrack({ variant }: VariantVersionTrackProps) {
-  const current = variant.versions.find((version) => version.id === variant.current_version_id) ?? variant.current_version ?? variant.versions.at(-1);
+export function SkillVersionTrack({ skill }: SkillVersionTrackProps) {
+  const current = skill.versions.find((version) => version.id === skill.skill.current_version_id) ?? skill.summary.current_version ?? skill.versions.at(-1);
 
   return (
     <div className="inspector-version-history">
-      <ol className="inspector-version-track" aria-label="变体版本历史">
-        {variant.versions.map((version) => {
-          const currentStep = version.id === variant.current_version_id;
+      <ol className="inspector-version-track" aria-label="Skill 版本历史">
+        {skill.versions.map((version) => {
+          const currentStep = version.id === skill.skill.current_version_id;
           return (
             <li className={clsx("version-track-step", currentStep && "current")} aria-current={currentStep ? "step" : undefined} key={version.id}>
               <span>v{version.version_number}</span>

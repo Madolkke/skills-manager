@@ -1,10 +1,10 @@
-export type SkillTab = "overview" | "variants" | "evalsets" | "evaluate" | "history";
+export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history";
 
 export type RouteState = {
   skillId: string | null;
   tab: SkillTab;
   selectedCaseId: string | null;
-  selectedVariantId: string | null;
+  selectedVersionId: string | null;
   selectedRunId: string | null;
 };
 
@@ -14,7 +14,7 @@ export function readRoute(): RouteState {
     skillId: url.searchParams.get("skill"),
     tab: normalizeTab(url.searchParams.get("tab")),
     selectedCaseId: url.searchParams.get("case"),
-    selectedVariantId: url.searchParams.get("variant"),
+    selectedVersionId: url.searchParams.get("version"),
     selectedRunId: url.searchParams.get("run"),
   };
 }
@@ -28,13 +28,13 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
   if (route.skillId) url.searchParams.set("skill", route.skillId);
   if (route.skillId && route.tab !== "overview") url.searchParams.set("tab", route.tab);
   if (route.selectedCaseId) url.searchParams.set("case", route.selectedCaseId);
-  if (route.selectedVariantId) url.searchParams.set("variant", route.selectedVariantId);
+  if (route.selectedVersionId) url.searchParams.set("version", route.selectedVersionId);
   if (route.selectedRunId) url.searchParams.set("run", route.selectedRunId);
   window.history.pushState(route, "", url);
   return route;
 }
 
 function normalizeTab(value: string | null): SkillTab {
-  if (value === "variants" || value === "evalsets" || value === "evaluate" || value === "history") return value;
+  if (value === "versions" || value === "evalsets" || value === "evaluate" || value === "history") return value;
   return "overview";
 }

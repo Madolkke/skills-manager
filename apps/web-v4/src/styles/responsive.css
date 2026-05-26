@@ -1,21 +1,21 @@
 @media (max-width: 1280px) {
   .hub-page,
   .overview-grid,
-  .variants-layout,
-  .variants-layout.with-upload-panel,
+  .versions-layout,
+  .versions-layout.with-upload-panel,
   .history-layout {
     grid-template-columns: 1fr;
   }
 
   .recent-panel,
-  .variant-upload-panel,
-  .variant-detail-panel,
+  .version-upload-panel,
+  .version-detail-panel,
   .run-history {
     position: static;
   }
 
   .skill-grid,
-  .variant-grid {
+  .version-grid {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 
@@ -121,7 +121,7 @@
   }
 
   .skill-grid,
-  .variant-grid,
+  .version-grid,
   .evalset-layout,
   .manual-eval-grid,
   .evaluation-selectors,
@@ -132,7 +132,7 @@
   .manual-version-detail-grid,
   .actual-output-compare,
   .output-evidence,
-  .variant-upload-panel {
+  .version-upload-panel {
     grid-template-columns: 1fr;
   }
 
@@ -189,7 +189,7 @@
     grid-template-columns: 1fr;
   }
 
-  .variant-list-row {
+  .version-list-row {
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 16px;
@@ -218,7 +218,7 @@
 
   .hub-hero,
   .hub-toolbar,
-  .variant-toolbar {
+  .version-toolbar {
     align-items: stretch;
     flex-direction: column;
   }

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BrandRail } from "./components/BrandRail";
 import { Toast } from "./components/Toast";
 import { TopBar } from "./components/TopBar";
 import { api, ApiError } from "./lib/api";
-import { allKnownTags } from "./lib/format";
 import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/navigation";
 import { HubPage } from "./pages/HubPage";
 import { NewSkillModal } from "./pages/NewSkillModal";
@@ -21,7 +20,6 @@ export default function App() {
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [searchFocusSignal, setSearchFocusSignal] = useState(0);
 
-  const knownTags = useMemo(() => allKnownTags(skills), [skills]);
   const actor = session?.actor ?? "product-operator";
 
   const load = useCallback(async () => {
@@ -50,9 +48,9 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((next: Partial<RouteState>) => setRoute(writeRoute(next)), []);
-  const openSkill = useCallback((skillId: string) => navigate({ skillId, tab: "overview", selectedCaseId: null, selectedRunId: null }), [navigate]);
-  const setTab = useCallback((tab: SkillTab) => navigate({ tab, selectedCaseId: null, selectedRunId: null }), [navigate]);
-  const goHome = useCallback(() => navigate({ skillId: null, tab: "overview", selectedCaseId: null, selectedVariantId: null, selectedRunId: null }), [navigate]);
+  const openSkill = useCallback((skillId: string) => navigate({ skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
+  const setTab = useCallback((tab: SkillTab) => navigate({ tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
+  const goHome = useCallback(() => navigate({ skillId: null, tab: "overview", selectedCaseId: null, selectedVersionId: null, selectedRunId: null }), [navigate]);
   const focusHubSearch = useCallback(() => {
     goHome();
     setSearchFocusSignal((value) => value + 1);
@@ -78,7 +76,6 @@ export default function App() {
               skill={skill}
               tab={route.tab}
               route={route}
-              knownTags={knownTags}
               onTab={setTab}
               onRefresh={load}
               onNavigate={navigate}
@@ -99,12 +96,11 @@ export default function App() {
       {newSkillOpen ? (
         <NewSkillModal
           actor={actor}
-          knownTags={knownTags}
           onClose={() => setNewSkillOpen(false)}
           onCreated={async (skillId) => {
             setNewSkillOpen(false);
             setToast({ tone: "success", message: "Skill 已创建。" });
-            navigate({ skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVariantId: null });
+            navigate({ skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
           }}
         />
       ) : null}

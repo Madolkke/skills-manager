@@ -1,11 +1,6 @@
-import type { EvalRunRecord, SkillSummary, VariantDetail, VariantVersion } from "../types";
+import type { EvalRunRecord, SkillVersion } from "../types";
 
-export function variantName(variant?: VariantDetail | null): string {
-  if (!variant) return "未选择";
-  return variant.tags.length > 0 ? variant.tags.join(" + ") : variant.name;
-}
-
-export function versionName(version?: VariantVersion | null): string {
+export function versionName(version?: SkillVersion | null): string {
   return version ? `v${version.version_number}` : "-";
 }
 
@@ -30,18 +25,6 @@ export function humanDate(value?: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
-}
-
-export function allKnownTags(skills: SkillSummary[]): string[] {
-  const tags = new Set<string>();
-  for (const item of skills) for (const tag of item.default_variant?.tags ?? []) tags.add(tag);
-  return Array.from(tags).sort((left, right) => left.localeCompare(right));
-}
-
-export function sameTags(left: string[], right: string[]): boolean {
-  const a = [...left].sort();
-  const b = [...right].sort();
-  return a.length === b.length && a.every((tag, index) => tag === b[index]);
 }
 
 export function slugTitle(slug: string): string {

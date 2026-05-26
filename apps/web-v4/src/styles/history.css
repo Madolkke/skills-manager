@@ -94,17 +94,39 @@
   top: 12px;
 }
 
-.evidence-meta-row {
+.evidence-meta-row,
+.evidence-context-row {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 18px;
   font-weight: 740;
 }
 
-.evidence-meta-row span {
+.evidence-meta-row span,
+.evidence-context-row span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.evidence-context-row {
+  gap: 8px;
+  align-items: center;
+}
+
+.context-row-title {
+  color: #334155;
+  font-weight: 820;
+  margin-right: 4px;
+}
+
+.context-chip {
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: #fbfdff;
+  color: #52627b;
+  padding: 5px 9px;
+  overflow-wrap: anywhere;
 }
 
 .case-evidence-list,

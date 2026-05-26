@@ -19,33 +19,17 @@ export type BundleFile = {
   binary?: boolean;
 };
 
-export type VariantVersion = {
+export type SkillVersion = {
   id: string;
   skill_id: string;
-  variant_id: string;
   version_number: number;
   content_ref: ContentRef;
   content_digest: string;
   change_summary: string;
   created_at?: string;
   created_by: string;
+  bundle_artifact?: ArtifactRef;
   bundle_files?: BundleFile[];
-};
-
-export type VariantDetail = {
-  id: string;
-  skill_id: string;
-  name: string;
-  label: string;
-  summary: string;
-  tag_set_id: string;
-  current_version_id: string | null;
-  lifecycle_status: string;
-  created_at?: string;
-  updated_at?: string;
-  tags: string[];
-  current_version: VariantVersion | null;
-  versions: VariantVersion[];
 };
 
 export type EvalSetVersion = {
@@ -74,7 +58,7 @@ export type SkillRecord = {
   id: string;
   slug: string;
   owner_ref: string;
-  default_variant_id: string | null;
+  current_version_id: string | null;
   lifecycle_status: string;
   created_at?: string;
   updated_at?: string;
@@ -83,10 +67,13 @@ export type SkillRecord = {
 export type EvalRunRecord = {
   id: string;
   skill_id: string;
-  variant_version_id: string;
+  skill_version_id: string;
   eval_set_version_id: string;
   strategy: string;
   status: string;
+  environment_tags: string[];
+  run_context: Record<string, unknown>;
+  run_context_hash: string;
   summary: { passed?: number; failed?: number; total?: number };
   result_artifact_id: string | null;
   created_at?: string;
@@ -95,15 +82,18 @@ export type EvalRunRecord = {
 
 export type SkillSummary = {
   skill: SkillRecord;
-  default_variant: VariantDetail | null;
-  primary_eval_set: EvalSetSummary | null;
-  latest_accepted_eval_run: EvalRunRecord | null;
+  summary: {
+    skill: SkillRecord;
+    current_version: SkillVersion | null;
+    primary_eval_set: EvalSetSummary | null;
+    latest_accepted_eval_run: EvalRunRecord | null;
+  };
 };
 
 export type SkillDetail = {
   skill: SkillRecord;
-  summary: SkillSummary;
-  variants: VariantDetail[];
+  summary: SkillSummary["summary"];
+  versions: SkillVersion[];
   eval_sets: EvalSetSummary[];
   latest_eval_runs: EvalRunRecord[];
   role_assignments: unknown[];
@@ -174,8 +164,7 @@ export type EvalCaseHistory = {
 
 export type EvalRunContext = {
   eval_run: EvalRunRecord;
-  variant: VariantDetail;
-  variant_version: VariantVersion;
+  skill_version: SkillVersion;
   eval_set: Omit<EvalSetSummary, "current_version" | "versions">;
   eval_set_version: EvalSetVersion;
   accepted_verification?: unknown | null;
@@ -189,7 +178,7 @@ export type EvalRunHistory = {
 export type EvalRunDetail = {
   eval_run: EvalRunRecord;
   skill: SkillRecord;
-  variant_version: VariantVersion;
+  skill_version: SkillVersion;
   eval_set_version: EvalSetVersion;
   case_results: Array<{
     result: {
@@ -235,12 +224,12 @@ export type BundleDiffFile = {
 
 export type BundleDiff = {
   left: {
-    variant_version_id: string;
+    skill_version_id: string;
     version_number: number;
     content_digest: string;
   };
   right: {
-    variant_version_id: string;
+    skill_version_id: string;
     version_number: number;
     content_digest: string;
   };
@@ -258,7 +247,4 @@ export type BundleSource =
   | { kind: "files"; name: string; files: Array<{ path: string; content_text?: string; content_base64?: string }> }
   | { kind: "zip"; name: string; zip_base64: string };
 
-export type ToastState = {
-  tone: "success" | "danger" | "info";
-  message: string;
-} | null;
+export type ToastState = { tone: "success" | "danger" | "info"; message: string } | null;

@@ -11,10 +11,8 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             set(metadata.tables),
             {
                 "artifacts",
-                "tag_sets",
                 "skills",
-                "variants",
-                "variant_versions",
+                "skill_versions",
                 "eval_sets",
                 "eval_set_versions",
                 "eval_cases",
@@ -25,7 +23,6 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "jobs",
                 "saved_views",
                 "role_assignments",
-                "promotion_decisions",
                 "accepted_verifications",
                 "audit_events",
             },
@@ -42,9 +39,9 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
     def test_eval_run_same_skill_composite_foreign_keys_are_mapped(self):
         self.assert_foreign_key(
             "eval_runs",
-            "eval_runs_variant_version_skill_fkey",
-            ("variant_version_id", "skill_id"),
-            "variant_versions",
+            "eval_runs_skill_version_skill_fkey",
+            ("skill_version_id", "skill_id"),
+            "skill_versions",
             ("id", "skill_id"),
         )
         self.assert_foreign_key(
@@ -72,67 +69,45 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         )
 
     def test_version_uniqueness_constraints_are_mapped(self):
-        self.assert_unique_constraint("variant_versions", "variant_versions_variant_version_unique", ("variant_id", "version_number"))
+        self.assert_unique_constraint("skill_versions", "skill_versions_skill_version_unique", ("skill_id", "version_number"))
         self.assert_unique_constraint("eval_case_versions", "eval_case_versions_case_version_unique", ("case_id", "version_number"))
         self.assert_unique_constraint("eval_set_versions", "eval_set_versions_eval_set_version_unique", ("eval_set_id", "version_number"))
 
     def test_query_indexes_are_mapped(self):
         for table_name, index_name in [
-            ("variants", "variants_skill_id_idx"),
-            ("variant_versions", "variant_versions_variant_id_idx"),
+            ("skill_versions", "skill_versions_skill_id_idx"),
             ("eval_case_versions", "eval_case_versions_case_id_idx"),
             ("eval_set_versions", "eval_set_versions_eval_set_id_idx"),
-            ("eval_runs", "eval_runs_variant_version_id_idx"),
+            ("eval_runs", "eval_runs_skill_version_id_idx"),
             ("eval_runs", "eval_runs_eval_set_version_id_idx"),
+            ("eval_runs", "eval_runs_context_hash_idx"),
             ("case_results", "case_results_case_version_id_idx"),
-            ("promotion_decisions", "promotion_decisions_variant_created_at_idx"),
-            ("accepted_verifications", "accepted_verifications_variant_eval_set_idx"),
+            ("accepted_verifications", "accepted_verifications_context_idx"),
             ("saved_views", "saved_views_skill_type_idx"),
             ("jobs", "jobs_status_created_at_idx"),
         ]:
             self.assertIn(index_name, self.index_names(table_name))
 
-    def test_promotion_decisions_link_to_exact_evidence(self):
+    def test_skills_link_to_current_skill_version(self):
         self.assert_foreign_key(
-            "promotion_decisions",
-            "promotion_decisions_variant_skill_fkey",
-            ("variant_id", "skill_id"),
-            "variants",
-            ("id", "skill_id"),
-        )
-        self.assert_foreign_key(
-            "promotion_decisions",
-            "promotion_decisions_to_version_skill_fkey",
-            ("to_version_id", "skill_id"),
-            "variant_versions",
-            ("id", "skill_id"),
-        )
-        self.assert_foreign_key(
-            "promotion_decisions",
-            "promotion_decisions_evidence_run_skill_fkey",
-            ("evidence_eval_run_id", "skill_id"),
-            "eval_runs",
+            "skills",
+            "skills_current_version_fkey",
+            ("current_version_id", "id"),
+            "skill_versions",
             ("id", "skill_id"),
         )
 
     def test_accepted_verifications_link_to_exact_run_pointer(self):
         self.assert_unique_constraint(
             "accepted_verifications",
-            "accepted_verifications_variant_eval_set_unique",
-            ("variant_id", "eval_set_version_id"),
+            "accepted_verifications_context_unique",
+            ("skill_id", "skill_version_id", "eval_set_version_id", "run_context_hash"),
         )
         self.assert_foreign_key(
             "accepted_verifications",
-            "accepted_verifications_variant_skill_fkey",
-            ("variant_id", "skill_id"),
-            "variants",
-            ("id", "skill_id"),
-        )
-        self.assert_foreign_key(
-            "accepted_verifications",
-            "accepted_verifications_variant_version_skill_fkey",
-            ("variant_version_id", "skill_id"),
-            "variant_versions",
+            "accepted_verifications_skill_version_skill_fkey",
+            ("skill_version_id", "skill_id"),
+            "skill_versions",
             ("id", "skill_id"),
         )
         self.assert_foreign_key(

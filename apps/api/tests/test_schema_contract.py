@@ -14,35 +14,41 @@ class SchemaContractTest(unittest.TestCase):
 
     def test_core_tables_exist(self):
         for table in [
+            "artifacts",
             "skills",
-            "tag_sets",
-            "variants",
-            "variant_versions",
+            "skill_versions",
             "eval_sets",
-            "eval_set_versions",
             "eval_cases",
             "eval_case_versions",
+            "eval_set_versions",
             "eval_set_case_versions",
             "eval_runs",
             "case_results",
-            "artifacts",
+            "accepted_verifications",
+            "saved_views",
             "jobs",
             "role_assignments",
             "audit_events",
         ]:
             self.assertIn(f"create table {table}", self.normalized)
+        for removed_table in ["tag_sets", "variants", "variant_versions", "promotion_decisions"]:
+            self.assertNotIn(f"create table {removed_table}", self.normalized)
 
     def test_run_same_skill_invariant_is_enforced_by_composite_foreign_keys(self):
         self.assertIn(
-            "foreign key (variant_version_id, skill_id) references variant_versions(id, skill_id)",
+            "foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id)",
             self.normalized,
         )
         self.assertIn(
             "foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id)",
             self.normalized,
         )
-        self.assertIn("constraint variant_versions_id_skill_unique unique (id, skill_id)", self.normalized)
+        self.assertIn("constraint skill_versions_id_skill_unique unique (id, skill_id)", self.normalized)
         self.assertIn("constraint eval_set_versions_id_skill_unique unique (id, skill_id)", self.normalized)
+        self.assertIn(
+            "foreign key (current_version_id, id) references skill_versions(id, skill_id)",
+            self.normalized,
+        )
 
     def test_eval_set_membership_references_case_versions_not_cases(self):
         self.assertIn("create table eval_set_case_versions", self.normalized)
@@ -66,21 +72,49 @@ class SchemaContractTest(unittest.TestCase):
 
     def test_append_only_version_uniqueness_constraints_exist(self):
         for constraint in [
-            "unique (variant_id, version_number)",
+            "unique (skill_id, version_number)",
             "unique (case_id, version_number)",
             "unique (eval_set_id, version_number)",
             "primary key (run_id, case_version_id)",
         ]:
             self.assertIn(constraint, self.normalized)
 
+    def test_eval_runs_store_run_context(self):
+        table_sql = self._table_sql("eval_runs")
+        for snippet in [
+            "skill_version_id text not null",
+            "environment_tags text[] not null",
+            "run_context jsonb not null",
+            "run_context_hash text not null",
+        ]:
+            self.assertIn(snippet, table_sql)
+        for index in [
+            "create index eval_runs_skill_version_id_idx",
+            "create index eval_runs_context_hash_idx",
+        ]:
+            self.assertIn(index, self.normalized)
+
+    def test_accepted_verifications_are_scoped_to_run_context(self):
+        table_sql = self._table_sql("accepted_verifications")
+        for snippet in [
+            "skill_version_id text not null",
+            "run_context_hash text not null",
+            "unique (skill_id, skill_version_id, eval_set_version_id, run_context_hash)",
+        ]:
+            self.assertIn(snippet, table_sql)
+        self.assertIn(
+            "foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id)",
+            self.normalized,
+        )
+
     def test_foreign_key_columns_have_indexes(self):
         for index in [
-            "create index variants_skill_id_idx",
-            "create index variant_versions_variant_id_idx",
+            "create index skill_versions_skill_id_idx",
             "create index eval_case_versions_case_id_idx",
             "create index eval_set_versions_eval_set_id_idx",
-            "create index eval_runs_variant_version_id_idx",
+            "create index eval_runs_skill_version_id_idx",
             "create index eval_runs_eval_set_version_id_idx",
+            "create index eval_runs_context_hash_idx",
             "create index case_results_case_version_id_idx",
         ]:
             self.assertIn(index, self.normalized)

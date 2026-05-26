@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 
@@ -50,35 +50,15 @@ class Skill:
     id: str
     slug: str
     owner_ref: str
-    default_variant_id: str | None
-    created_at: datetime
-    lifecycle_status: LifecycleStatus = "active"
-
-
-@dataclass(frozen=True)
-class TagSet:
-    id: str
-    tags: tuple[str, ...]
-    normalized_hash: str
-
-
-@dataclass(frozen=True)
-class Variant:
-    id: str
-    skill_id: str
-    name: str
-    label: str
-    summary: str
-    tag_set_id: str
     current_version_id: str | None
     created_at: datetime
     lifecycle_status: LifecycleStatus = "active"
 
 
 @dataclass(frozen=True)
-class VariantVersion:
+class SkillVersion:
     id: str
-    variant_id: str
+    skill_id: str
     version_number: int
     content_ref: ContentRef
     change_summary: str
@@ -130,12 +110,15 @@ class EvalCaseVersion:
 @dataclass(frozen=True)
 class EvalRun:
     id: str
-    variant_version_id: str
+    skill_version_id: str
     eval_set_version_id: str
     strategy: str
     status: EvalRunStatus
     created_at: datetime
     created_by: str
+    environment_tags: tuple[str, ...] = ()
+    run_context: dict[str, Any] | None = None
+    run_context_hash: str = ""
 
 
 @dataclass(frozen=True)
