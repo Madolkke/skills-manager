@@ -6,15 +6,14 @@ Permission = str
 VALID_ROLES: set[Role] = {"owner", "maintainer", "evaluator", "viewer"}
 
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
-    "owner": {"role.manage", "variant.promote", "verification.accept"},
-    "maintainer": {"variant.promote", "verification.accept"},
+    "owner": {"role.manage", "verification.accept"},
+    "maintainer": {"verification.accept"},
     "evaluator": set(),
     "viewer": set(),
 }
 
 PERMISSION_LABELS: dict[Permission, str] = {
     "role.manage": "owner",
-    "variant.promote": "owner or maintainer",
     "verification.accept": "owner or maintainer",
 }
 

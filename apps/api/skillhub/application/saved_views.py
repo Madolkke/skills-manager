@@ -9,7 +9,7 @@ SUPPORTED_SAVED_VIEW_TYPES = frozenset({"run_history"})
 
 SAVED_VIEW_CONFIG_KEYS = frozenset(
     {
-        "variant_version_id",
+        "skill_version_id",
         "eval_set_version_id",
         "strategy",
         "status",
