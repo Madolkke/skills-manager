@@ -1,15 +1,12 @@
 import clsx from "clsx";
 import { Database, Package, X } from "lucide-react";
-import { humanDate, variantName, versionName } from "../lib/format";
+import { humanDate, versionName } from "../lib/format";
 import { compactDigest } from "../lib/history";
-import type { EvalSetSummary, EvalSetVersion, EvalSetVersionDetail, VariantDetail, VariantVersion } from "../types";
+import type { EvalSetSummary, EvalSetVersion, EvalSetVersionDetail, SkillVersion } from "../types";
 
-export type ManualVersionDetailFocus = "variant" | "evalset";
+export type ManualVersionDetailFocus = "skill" | "evalset";
 
-type VariantSelection = {
-  variant: VariantDetail;
-  version: VariantVersion;
-};
+type SkillVersionSelection = SkillVersion;
 
 type EvalSetSelection = {
   set: EvalSetSummary;
@@ -18,7 +15,7 @@ type EvalSetSelection = {
 
 type ManualVersionDetailPanelProps = {
   focus: ManualVersionDetailFocus;
-  variantVersion?: VariantSelection;
+  skillVersion?: SkillVersionSelection;
   evalSetVersion?: EvalSetSelection;
   evalSetDetail: EvalSetVersionDetail | null;
   onClose: () => void;
@@ -27,9 +24,8 @@ type ManualVersionDetailPanelProps = {
 /**
  * Shows the exact version bindings used by the current manual evaluation.
  */
-export function ManualVersionDetailPanel({ focus, variantVersion, evalSetVersion, evalSetDetail, onClose }: ManualVersionDetailPanelProps) {
-  const variant = variantVersion?.variant;
-  const version = variantVersion?.version;
+export function ManualVersionDetailPanel({ focus, skillVersion, evalSetVersion, evalSetDetail, onClose }: ManualVersionDetailPanelProps) {
+  const version = skillVersion;
   const evalVersion = evalSetVersion?.version;
   const evalSet = evalSetDetail?.eval_set ?? evalSetVersion?.set;
   const caseCount = evalSetDetail?.cases.length ?? 0;
@@ -46,13 +42,12 @@ export function ManualVersionDetailPanel({ focus, variantVersion, evalSetVersion
         </button>
       </header>
       <div className="manual-version-detail-grid">
-        <article className={clsx("version-detail-card", focus === "variant" && "active")}>
+        <article className={clsx("version-detail-card", focus === "skill" && "active")}>
           <h3>
             <Package size={17} />
-            VariantVersion
+            SkillVersion
           </h3>
           <dl>
-            <DetailItem label="变体" value={variantName(variant)} />
             <DetailItem label="版本" value={versionName(version)} />
             <DetailItem label="创建者" value={version?.created_by ?? "-"} />
             <DetailItem label="内容 digest" value={compactDigest(version?.content_digest)} mono />

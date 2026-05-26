@@ -1,20 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
 import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval } from "../lib/eval";
-import { sameTags, scoreKind, scoreLabel } from "../lib/format";
+import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
-import { summarizeBundleDiff } from "../lib/variant-diff";
+import { summarizeBundleDiff } from "../lib/bundle-diff";
 
 describe("skill evidence helpers", () => {
   it("distinguishes untested cards from verified cards", () => {
     expect(scoreKind(null)).toBe("empty");
     expect(scoreLabel(null)).toBe("未测");
     expect(scoreKind({ summary: { passed: 1, failed: 0, total: 1 } } as never)).toBe("verified");
-  });
-
-  it("matches variants by tag set instead of input order", () => {
-    expect(sameTags(["codex", "gpt5.4"], ["gpt5.4", "codex"])).toBe(true);
-    expect(sameTags(["codex"], ["codex", "gpt5.4"])).toBe(false);
   });
 
   it("summarizes manual evaluation progress", () => {
@@ -102,7 +97,7 @@ describe("skill evidence helpers", () => {
     expect(examples.children[0]).toMatchObject({ type: "file", name: "pr.diff", path: "code-reviewer/examples/pr.diff" });
   });
 
-  it("summarizes bundle file diff against the previous variant version", () => {
+  it("summarizes bundle file diff against the previous skill version", () => {
     const diff = summarizeBundleDiff(
       [
         { path: "code-reviewer/SKILL.md", sha256: "new-skill", size_bytes: 420 },

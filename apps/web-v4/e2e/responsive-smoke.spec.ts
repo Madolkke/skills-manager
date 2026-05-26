@@ -11,8 +11,8 @@ test("formal pages keep key content inside a 320px viewport", async ({ page, req
   await openAndCheck(page, `/skills?skill=${dataset.primarySkillId}&tab=evaluate`);
   await openAndCheck(page, `/skills?skill=${dataset.primarySkillId}&tab=history`);
 
-  await page.goto(`/skills?skill=${dataset.primarySkillId}&tab=variants`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "变体" })).toBeVisible();
+  await page.goto(`/skills?skill=${dataset.primarySkillId}&tab=versions`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "版本", exact: true })).toBeVisible();
   const diffResponse = page.waitForResponse((response) => response.url().includes("/api/artifacts/diff") && response.ok());
   await page.getByRole("button", { name: "Bundle diff" }).click();
   await diffResponse;

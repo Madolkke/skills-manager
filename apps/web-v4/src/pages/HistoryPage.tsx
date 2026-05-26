@@ -1,8 +1,8 @@
 import clsx from "clsx";
-import { CheckCircle2, Clock3, Copy, FileCheck2, GitCommitHorizontal, Link2, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, Copy, FileCheck2, GitCommitHorizontal, Link2, Tags, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api";
-import { humanDate, scoreKind, variantName, versionName } from "../lib/format";
+import { humanDate, scoreKind, versionName } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import type { RouteState } from "../lib/navigation";
 import type { EvalRunDetail, EvalRunHistory, SkillDetail, ToastState } from "../types";
@@ -68,7 +68,7 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
         <header className="section-heading">
           <div>
             <h1>历史与证据链</h1>
-            <p>每次测评记录绑定 exact VariantVersion + EvalSetVersion；证据链保留版本、digest、case version 与人工判定结果。</p>
+            <p>每次测评记录绑定 exact SkillVersion + EvalSetVersion，并保存运行环境、actual output 与人工判定结果。</p>
           </div>
           <button className="secondary-button" type="button" onClick={() => onNavigate({ tab: "evaluate", selectedRunId: null })}>
             进入测评
@@ -81,7 +81,7 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
           <div className="history-empty">
             <FileCheck2 size={24} />
             <strong>还没有测评记录</strong>
-            <p>先在“测评”页选择变体版本与测评集版本，逐 case 标记后记录结果。</p>
+            <p>先在“测评”页选择 Skill 版本与测评集版本，逐 case 标记后记录结果。</p>
           </div>
         )}
 
@@ -103,7 +103,7 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
             onClick={() => onNavigate({ selectedRunId: item.eval_run.id })}
           >
             <span className={clsx("run-score", scoreKind(item.eval_run))}>{runScoreText(item.eval_run.summary)}</span>
-            <strong>{variantName(item.variant)} {versionName(item.variant_version)}</strong>
+            <strong>{versionName(item.skill_version)}</strong>
             <small>{item.eval_set.name} v{item.eval_set_version.version_number} · {humanDate(item.eval_run.created_at)}</small>
           </button>
         ))}
@@ -136,10 +136,10 @@ function RunEvidencePanel({
         </div>
         <EvidenceCard title="测评 Run" value={context.eval_run.id} meta={`${context.eval_run.strategy} · ${context.eval_run.status}`} onCopy={onCopy} />
         <EvidenceCard
-          title="VariantVersion"
-          value={`${variantName(context.variant)} ${versionName(context.variant_version)}`}
-          meta={compactDigest(context.variant_version.content_digest)}
-          copyValue={context.variant_version.id}
+          title="SkillVersion"
+          value={versionName(context.skill_version)}
+          meta={compactDigest(context.skill_version.content_digest)}
+          copyValue={context.skill_version.id}
           onCopy={onCopy}
         />
         <EvidenceCard
@@ -154,6 +154,7 @@ function RunEvidencePanel({
         <span><Clock3 size={15} />{humanDate(context.eval_run.created_at)}</span>
         <span><Link2 size={15} />created by {context.eval_run.created_by}</span>
       </div>
+      <RunContextRow tags={context.eval_run.environment_tags} context={context.eval_run.run_context} />
       <div className="case-evidence-list">
         <h2>Case 结果</h2>
         {run ? run.case_results.map((item) => {
@@ -175,6 +176,18 @@ function RunEvidencePanel({
         }) : <div className="quiet-panel">正在读取 case 证据...</div>}
       </div>
     </section>
+  );
+}
+
+function RunContextRow({ tags, context }: { tags: string[]; context: Record<string, unknown> }) {
+  const entries = Object.entries(context).filter(([, value]) => value !== null && value !== undefined && String(value).trim().length > 0);
+  if (tags.length === 0 && entries.length === 0) return null;
+  return (
+    <div className="evidence-context-row" aria-label="运行环境">
+      <span className="context-row-title"><Tags size={15} />运行环境</span>
+      {tags.map((tag) => <span className="tag-chip" key={`tag:${tag}`}>{tag}</span>)}
+      {entries.map(([key, value]) => <span className="context-chip" key={key}>{key}: {String(value)}</span>)}
+    </div>
   );
 }
 
@@ -222,27 +235,25 @@ function VersionHistory({ skill, onCopy }: { skill: SkillDetail; onCopy: (label:
   return (
     <section className="version-history">
       <header className="history-section-head">
-        <h2>变体版本链</h2>
-        <p>每个变体独立追踪版本；当前版本用于默认测评选择。</p>
+        <h2>Skill 版本链</h2>
+        <p>每个 SkillVersion 都是不可变快照；环境差异记录在 EvalRun 上。</p>
       </header>
-      {skill.variants.map((variant) => (
-        <div className="version-group" key={variant.id}>
-          <h3>{variantName(variant)}</h3>
-          <div className="version-stack">
-            {variant.versions.map((version) => (
-              <div className={clsx("version-row", version.id === variant.current_version_id && "current")} key={version.id}>
-                <GitCommitHorizontal size={18} />
-                <strong>{versionName(version)}</strong>
-                <span>{version.change_summary}</span>
-                <small>{compactDigest(version.content_digest)}</small>
-                <button className="icon-button mini" type="button" aria-label={`复制 ${versionName(version)} digest`} onClick={() => onCopy("版本 digest", version.content_digest)}>
-                  <Copy size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
+      <div className="version-group">
+        <h3>{skill.skill.slug}</h3>
+        <div className="version-stack">
+          {skill.versions.map((version) => (
+            <div className={clsx("version-row", version.id === skill.skill.current_version_id && "current")} key={version.id}>
+              <GitCommitHorizontal size={18} />
+              <strong>{versionName(version)}</strong>
+              <span>{version.change_summary}</span>
+              <small>{compactDigest(version.content_digest)}</small>
+              <button className="icon-button mini" type="button" aria-label={`复制 ${versionName(version)} digest`} onClick={() => onCopy("版本 digest", version.content_digest)}>
+                <Copy size={14} />
+              </button>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </section>
   );
 }

@@ -11,11 +11,10 @@ export class SkillHubE2E {
     await expect(this.page.getByRole("heading", { name: "SkillHub" })).toBeVisible();
   }
 
-  async createSkill(tag: string, bundlePath: string): Promise<void> {
+  async createSkill(bundlePath: string): Promise<void> {
     await this.page.getByRole("button", { name: "新建 Skill", exact: true }).first().click();
     const dialog = this.dialog("新建 Skill");
     await expect(dialog).toBeVisible();
-    await this.addTag(dialog, tag);
     await dialog.locator('input[name="folder_files"]').setInputFiles(bundlePath);
     await dialog.getByRole("button", { name: "创建 Skill", exact: true }).click();
     await expect(dialog).toBeHidden();
@@ -28,10 +27,10 @@ export class SkillHubE2E {
     await expect(this.page.getByText("checklist.md").first()).toBeVisible();
   }
 
-  async uploadVariantVersion(bundlePath: string): Promise<void> {
+  async uploadSkillVersion(bundlePath: string): Promise<void> {
     await this.page.getByRole("button", { name: "上传版本", exact: true }).first().click();
     await expect(this.page.getByRole("dialog", { name: "上传版本" })).toHaveCount(0);
-    const panel = this.page.locator(".variant-upload-panel");
+    const panel = this.page.locator(".version-upload-panel");
     await expect(panel.getByRole("heading", { name: "上传新版本" })).toBeVisible();
     await panel.locator('input[name="folder_files"]').setInputFiles(bundlePath);
     await panel.getByRole("button", { name: "确认上传", exact: true }).click();
@@ -67,6 +66,17 @@ export class SkillHubE2E {
     await expect(this.page.locator(".case-detail .tag-row").getByText(`case v${version}`, { exact: true })).toBeVisible();
   }
 
+  async setRunEnvironment(tags: string[], context: { os?: string; runner?: string; model?: string }): Promise<void> {
+    for (const tag of tags) {
+      const input = this.page.locator(".evaluation-context-card .tag-box input");
+      await input.fill(tag);
+      await input.press("Enter");
+    }
+    if (context.os) await this.page.locator("#run-context-os").fill(context.os);
+    if (context.runner) await this.page.locator(".context-field-grid input").nth(1).fill(context.runner);
+    if (context.model) await this.page.locator(".context-field-grid input").nth(2).fill(context.model);
+  }
+
   async recordManualPass(caseTitle: string): Promise<void> {
     await expect(this.page.locator(".manual-case-detail").getByRole("heading", { name: caseTitle })).toBeVisible();
     await this.page.locator(".actual-output-compare textarea").fill("Actual output confirms the UI separates management, evaluation, and history evidence.");
@@ -79,8 +89,12 @@ export class SkillHubE2E {
   async expectHistoryEvidence(caseTitle: string): Promise<void> {
     await expect(this.page.getByRole("heading", { name: "历史与证据链" })).toBeVisible();
     const evidence = this.page.locator(".evidence-panel");
-    await expect(evidence.locator(".evidence-card").filter({ hasText: "VariantVersion" })).toBeVisible();
+    await expect(evidence.locator(".evidence-card").filter({ hasText: "SkillVersion" })).toBeVisible();
     await expect(evidence.locator(".evidence-card").filter({ hasText: "EvalSetVersion" })).toBeVisible();
+    await expect(evidence.locator(".evidence-context-row")).toContainText("codex");
+    await expect(evidence.locator(".evidence-context-row")).toContainText("windows");
+    await expect(evidence.locator(".evidence-context-row")).toContainText("os: windows");
+    await expect(evidence.locator(".evidence-context-row")).toContainText("runner: local");
     await expect(evidence.getByRole("heading", { name: "Case 结果" })).toBeVisible();
     const caseEvidence = evidence.locator(".case-evidence-row").filter({ hasText: caseTitle });
     await expect(caseEvidence).toBeVisible();
@@ -97,11 +111,6 @@ export class SkillHubE2E {
     return this.page.getByRole("dialog", { name });
   }
 
-  private async addTag(dialog: Locator, tag: string): Promise<void> {
-    const input = dialog.locator(".tag-box input");
-    await input.fill(tag);
-    await input.press("Enter");
-  }
 }
 
 export class SkillBundleFixture {
@@ -111,7 +120,7 @@ export class SkillBundleFixture {
     this.path = path;
   }
 
-  write(skillSlug: string, tag: string, version: number): void {
+  write(skillSlug: string, version: number): void {
     mkdirSync(join(this.path, "references"), { recursive: true });
     writeFileSync(
       join(this.path, "SKILL.md"),
@@ -119,7 +128,7 @@ export class SkillBundleFixture {
     );
     writeFileSync(
       join(this.path, "references", "checklist.md"),
-      `# Formal workflow checklist\n\n- version: ${version}\n- tag: ${tag}\n- temp: ${tmpdir()}\n`,
+      `# Formal workflow checklist\n\n- version: ${version}\n- temp: ${tmpdir()}\n`,
     );
   }
 }

@@ -13,7 +13,7 @@ test("captures the five formal product reference pages", async ({ page, request 
   await open(page, "/skills");
   await expect(page.getByRole("heading", { name: "SkillHub" })).toBeVisible();
   await expect(page.locator(".skill-card").first()).toContainText("维护者 product-operator");
-  await expect(page.locator(".recent-row").first()).toContainText(/Primary v\d+/);
+  await expect(page.locator(".recent-row").first()).toContainText(/当前 v\d+/);
   await expect(page.locator(".recent-row").first()).toContainText("操作者 product-operator");
   await expect(page.locator(".recent-list")).toHaveAttribute("aria-label", "最近测评，显示 6 / 7 条");
   await expect(page.locator(".recent-row")).toHaveCount(6);
@@ -47,10 +47,10 @@ test("captures the five formal product reference pages", async ({ page, request 
 
   await open(page, `/skills?skill=${dataset.primarySkillId}&tab=evaluate`);
   await expect(page.getByRole("heading", { name: "PR: missing owner filter" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "查看变体版本详情" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "查看 Skill 版本详情" })).toBeVisible();
   await expect(page.getByRole("button", { name: "查看测评集版本详情" })).toBeVisible();
-  await page.getByRole("button", { name: "查看变体版本详情" }).click();
-  await expect(page.locator(".manual-version-detail-panel")).toContainText("VariantVersion");
+  await page.getByRole("button", { name: "查看 Skill 版本详情" }).click();
+  await expect(page.locator(".manual-version-detail-panel")).toContainText("SkillVersion");
   await expect(page.locator(".manual-version-detail-panel")).toContainText("内容 digest");
   await page.getByRole("button", { name: "查看测评集版本详情" }).click();
   await expect(page.locator(".manual-version-detail-panel")).toContainText("EvalSetVersion");
@@ -67,27 +67,27 @@ test("captures the five formal product reference pages", async ({ page, request 
   await expect(manualRows.nth(1).locator(".manual-case-index")).toHaveText("#2");
   await capture(page, "04-manual-evaluation.png");
 
-  await open(page, `/skills?skill=${dataset.primarySkillId}&tab=variants`);
-  await expect(page.getByRole("heading", { name: "变体" })).toBeVisible();
-  await expect(page.locator(".variant-detail-panel .inspector-version-track")).toBeVisible();
-  await expect(page.locator(".variant-detail-panel .version-track-step.current")).toContainText("当前");
-  await expect(page.locator(".variant-detail-panel .version-current-summary")).toContainText(/当前 v\d+/);
-  await expect(page.locator(".variant-detail-panel .timeline-item")).toHaveCount(0);
+  await open(page, `/skills?skill=${dataset.primarySkillId}&tab=versions`);
+  await expect(page.getByRole("heading", { name: "版本", exact: true })).toBeVisible();
+  await expect(page.locator(".version-detail-panel .inspector-version-track")).toBeVisible();
+  await expect(page.locator(".version-detail-panel .version-track-step.current")).toContainText("当前");
+  await expect(page.locator(".version-detail-panel .version-current-summary")).toContainText(/当前 v\d+/);
+  await expect(page.locator(".version-detail-panel .timeline-item")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Bundle diff" })).toBeVisible();
   await expect(page.getByRole("button", { name: "查看该版本详情" })).toBeVisible();
   const diffResponse = page.waitForResponse((response) => response.url().includes("/api/artifacts/diff") && response.ok());
   await page.getByRole("button", { name: "Bundle diff" }).click();
   await diffResponse;
-  await expect(page.locator(".variant-inspector-detail-panel")).toContainText("Bundle diff");
-  await expect(page.locator(".variant-inspector-detail-panel")).toContainText("变更文件");
+  await expect(page.locator(".version-inspector-detail-panel")).toContainText("Bundle diff");
+  await expect(page.locator(".version-inspector-detail-panel")).toContainText("变更文件");
   await page.getByRole("button", { name: "查看该版本详情" }).click();
-  await expect(page.locator(".variant-inspector-detail-panel")).toContainText("VariantVersion 详情");
-  await expect(page.locator(".variant-inspector-detail-panel")).toContainText("内容 digest");
+  await expect(page.locator(".version-inspector-detail-panel")).toContainText("SkillVersion 详情");
+  await expect(page.locator(".version-inspector-detail-panel")).toContainText("内容 digest");
   await page.getByRole("button", { name: "查看该版本详情" }).click();
-  await expect(page.locator(".variant-inspector-detail-panel")).toHaveCount(0);
+  await expect(page.locator(".version-inspector-detail-panel")).toHaveCount(0);
   await page.getByRole("button", { name: "上传版本", exact: true }).click();
-  await expect(page.locator(".variant-upload-panel").getByRole("heading", { name: "上传新版本" })).toBeVisible();
-  await capture(page, "05-variant-management.png");
+  await expect(page.locator(".version-upload-panel").getByRole("heading", { name: "上传新版本" })).toBeVisible();
+  await capture(page, "05-version-management.png");
 
   expect(consoleMessages).toEqual([]);
 });

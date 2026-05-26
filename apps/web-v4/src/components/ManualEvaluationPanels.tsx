@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { ArrowRight, CheckCircle2, Circle, Copy, ListChecks, Save, XCircle } from "lucide-react";
 import { manualResultLabel, type ManualCaseResult, type ManualEvalSummary } from "../lib/eval";
 import { versionName } from "../lib/format";
-import type { EvalSetCase, VariantVersion } from "../types";
+import type { EvalSetCase, SkillVersion } from "../types";
 import type { CSSProperties } from "react";
 
 export function ManualCase({
@@ -14,7 +14,7 @@ export function ManualCase({
   onCopy,
 }: {
   item: EvalSetCase;
-  version?: VariantVersion;
+  version?: SkillVersion;
   result?: ManualCaseResult;
   positionLabel: number;
   onActualOutputChange: (caseVersionId: string, actualOutput: string) => void;

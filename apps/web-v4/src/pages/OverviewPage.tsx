@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, ExternalLink, GitCompareArrows } from "lucide-react";
 import { BundleBrowser } from "../components/BundleBrowser";
-import { compactText, humanDate, scoreKind, scoreLabel, slugTitle, variantName, versionName } from "../lib/format";
+import { compactText, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { SkillDetail } from "../types";
 
@@ -10,8 +10,7 @@ type OverviewPageProps = {
 };
 
 export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
-  const variant = skill.summary.default_variant;
-  const version = variant?.current_version;
+  const version = skill.summary.current_version;
   const evalSet = skill.summary.primary_eval_set;
   const run = skill.summary.latest_accepted_eval_run;
   const files = version?.bundle_files ?? [];
@@ -38,17 +37,9 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
           </dl>
           <div className="skill-title-copy">
             <h1>{slugTitle(skill.skill.slug)}</h1>
-            <p>{compactText(variant?.summary, "这个 Skill 还没有说明。")}</p>
-            <div className="tag-row">
-              {(variant?.tags ?? []).map((tag) => (
-                <span className="tag-chip" key={tag}>
-                  {tag}
-                </span>
-              ))}
-            </div>
+            <p>{compactText(version?.change_summary, "这个 Skill 还没有说明。")}</p>
           </div>
         </div>
-        <Metric label="默认变体" value={variantName(variant)} compact />
         <Metric label="当前版本" value={versionName(version)} hint={version?.created_at ? `更新于 ${humanDate(version.created_at)}` : undefined} />
         <Metric label="验证分数" value={scoreLabel(run)} tone={scoreKind(run)} hint={run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "尚无测评"} />
         <Metric label="测评集" value={evalSet?.name ?? "未创建"} hint={evalSet?.current_version ? `当前 v${evalSet.current_version.version_number}` : "无版本"} />
@@ -58,7 +49,7 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
         <div className="panel-title-row">
           <h2>Skill bundle</h2>
           <div className="button-row">
-            <button className="secondary-button" type="button" onClick={() => onNavigate({ tab: "variants" })}>
+            <button className="secondary-button" type="button" onClick={() => onNavigate({ tab: "versions" })}>
               版本管理
               <GitCompareArrows size={16} />
             </button>
@@ -88,10 +79,6 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
           <div>
             <dt>测评集</dt>
             <dd>{evalSet ? `${evalSet.name} ${evalSetVersion}`.trim() : "-"}</dd>
-          </div>
-          <div>
-            <dt>变体</dt>
-            <dd>{variantName(variant)}</dd>
           </div>
           <div>
             <dt>版本</dt>

@@ -33,16 +33,14 @@ export const api = {
   getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
   getEvalRunHistory: (skillId: string) => apiGet<EvalRunHistory>(`/api/skills/${skillId}/eval-runs`),
   getEvalRun: (runId: string) => apiGet<EvalRunDetail>(`/api/eval-runs/${runId}`),
-  getBundleDiff: (leftVariantVersionId: string, rightVariantVersionId: string) =>
+  getBundleDiff: (leftSkillVersionId: string, rightSkillVersionId: string) =>
     apiGet<BundleDiff>(
-      `/api/artifacts/diff?left_variant_version_id=${encodeURIComponent(leftVariantVersionId)}&right_variant_version_id=${encodeURIComponent(rightVariantVersionId)}`,
+      `/api/artifacts/diff?left_skill_version_id=${encodeURIComponent(leftSkillVersionId)}&right_skill_version_id=${encodeURIComponent(rightSkillVersionId)}`,
     ),
-  importSkill: (payload: { owner_ref: string; tags: string[]; source: BundleSource }) =>
-    apiSend<{ skill_id: string }>("/api/skill-imports", "POST", payload),
-  createVariant: (payload: { skill_id: string; tags: string[]; source: BundleSource; make_default?: boolean }) =>
-    apiSend<unknown>("/api/variants", "POST", payload),
-  createVariantVersion: (payload: { variant_id: string; source: BundleSource; make_current?: boolean }) =>
-    apiSend<unknown>("/api/variant-versions", "POST", payload),
+  importSkill: (payload: { owner_ref: string; source: BundleSource }) =>
+    apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
+  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean }) =>
+    apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
   createEvalCase: (payload: {
     skill_id: string;
     title: string;
@@ -55,9 +53,11 @@ export const api = {
     payload: { title: string; input_text: string; expected_output: string; notes?: string; make_current: boolean },
   ) => apiSend<unknown>(`/api/eval-cases/${caseId}`, "PATCH", { ...payload, case_id: caseId }),
   recordEvalRun: (payload: {
-    variant_version_id: string;
+    skill_version_id: string;
     eval_set_version_id: string;
     strategy: string;
+    environment_tags: string[];
+    run_context: Record<string, unknown>;
     results: Record<string, ManualEvalResultPayload>;
   }) => apiSend<{ eval_run_id: string }>("/api/eval-runs", "POST", payload),
 };
