@@ -49,69 +49,37 @@ artifacts = Table(
     UniqueConstraint("locator", "digest", name="artifacts_locator_digest_unique"),
 )
 
-tag_sets = Table(
-    "tag_sets",
-    metadata,
-    Column("id", Text, primary_key=True),
-    Column("tags", ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False),
-    Column("normalized_hash", Text, nullable=False, unique=True),
-    timestamp_column(),
-)
-
 skills = Table(
     "skills",
     metadata,
     Column("id", Text, primary_key=True),
     Column("slug", Text, nullable=False, unique=True),
     Column("owner_ref", Text, nullable=False),
-    Column("default_variant_id", Text),
+    Column("current_version_id", Text),
     Column("lifecycle_status", Text, nullable=False, server_default=text("'active'")),
     timestamp_column(),
     timestamp_column("updated_at"),
     CheckConstraint("lifecycle_status in ('active', 'archived')", name="skills_lifecycle_status_check"),
 )
 
-variants = Table(
-    "variants",
+skill_versions = Table(
+    "skill_versions",
     metadata,
     Column("id", Text, primary_key=True),
     Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
-    Column("name", Text, nullable=False),
-    Column("label", Text, nullable=False),
-    Column("summary", Text, nullable=False),
-    Column("tag_set_id", Text, ForeignKey("tag_sets.id"), nullable=False),
-    Column("current_version_id", Text),
-    Column("lifecycle_status", Text, nullable=False, server_default=text("'active'")),
-    timestamp_column(),
-    timestamp_column("updated_at"),
-    CheckConstraint("lifecycle_status in ('active', 'archived')", name="variants_lifecycle_status_check"),
-    UniqueConstraint("id", "skill_id", name="variants_id_skill_unique"),
-    UniqueConstraint("skill_id", "tag_set_id", name="variants_skill_tag_set_unique"),
-)
-
-variant_versions = Table(
-    "variant_versions",
-    metadata,
-    Column("id", Text, primary_key=True),
-    Column("skill_id", Text, nullable=False),
-    Column("variant_id", Text, nullable=False),
     Column("version_number", Integer, nullable=False),
     Column("content_ref", JSONB().with_variant(JSON(), "sqlite"), nullable=False),
     Column("content_digest", Text, nullable=False),
     Column("change_summary", Text, nullable=False),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
-    CheckConstraint("version_number > 0", name="variant_versions_version_number_positive"),
-    UniqueConstraint("variant_id", "version_number", name="variant_versions_variant_version_unique"),
-    UniqueConstraint("id", "skill_id", name="variant_versions_id_skill_unique"),
-    ForeignKeyConstraint(["variant_id", "skill_id"], ["variants.id", "variants.skill_id"], name="variant_versions_variant_skill_fkey"),
+    CheckConstraint("version_number > 0", name="skill_versions_version_number_positive"),
+    UniqueConstraint("skill_id", "version_number", name="skill_versions_skill_version_unique"),
+    UniqueConstraint("id", "skill_id", name="skill_versions_id_skill_unique"),
 )
 
 skills.append_constraint(
-    ForeignKeyConstraint(["default_variant_id", "id"], ["variants.id", "variants.skill_id"], name="skills_default_variant_fkey")
-)
-variants.append_constraint(
-    ForeignKeyConstraint(["current_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="variants_current_version_fkey")
+    ForeignKeyConstraint(["current_version_id", "id"], ["skill_versions.id", "skill_versions.skill_id"], name="skills_current_version_fkey")
 )
 
 eval_sets = Table(
@@ -204,17 +172,20 @@ eval_runs = Table(
     metadata,
     Column("id", Text, primary_key=True),
     Column("skill_id", Text, nullable=False),
-    Column("variant_version_id", Text, nullable=False),
+    Column("skill_version_id", Text, nullable=False),
     Column("eval_set_version_id", Text, nullable=False),
     Column("strategy", Text, nullable=False),
     Column("status", Text, nullable=False),
+    Column("environment_tags", ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("run_context", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("run_context_hash", Text, nullable=False),
     Column("summary", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
     Column("result_artifact_id", Text, ForeignKey("artifacts.id")),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
     CheckConstraint("status in ('queued', 'running', 'finished', 'failed')", name="eval_runs_status_check"),
     UniqueConstraint("id", "skill_id", name="eval_runs_id_skill_unique"),
-    ForeignKeyConstraint(["variant_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="eval_runs_variant_version_skill_fkey"),
+    ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="eval_runs_skill_version_skill_fkey"),
     ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="eval_runs_eval_set_version_skill_fkey"),
 )
 
@@ -234,48 +205,21 @@ case_results = Table(
     ForeignKeyConstraint(["case_version_id", "skill_id"], ["eval_case_versions.id", "eval_case_versions.skill_id"], name="case_results_case_skill_fkey"),
 )
 
-promotion_decisions = Table(
-    "promotion_decisions",
-    metadata,
-    Column("id", Text, primary_key=True),
-    Column("skill_id", Text, nullable=False),
-    Column("variant_id", Text, nullable=False),
-    Column("from_version_id", Text),
-    Column("to_version_id", Text, nullable=False),
-    Column("eval_set_version_id", Text, nullable=False),
-    Column("evidence_eval_run_id", Text, nullable=False),
-    Column("baseline_eval_run_id", Text),
-    Column("readiness_status", Text, nullable=False),
-    Column("summary", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
-    Column("decision_note", Text, nullable=False, server_default=text("''")),
-    timestamp_column(),
-    Column("created_by", Text, nullable=False),
-    CheckConstraint("readiness_status in ('ready', 'risky', 'unverified', 'blocked')", name="promotion_decisions_readiness_status_check"),
-    UniqueConstraint("id", "skill_id", name="promotion_decisions_id_skill_unique"),
-    ForeignKeyConstraint(["variant_id", "skill_id"], ["variants.id", "variants.skill_id"], name="promotion_decisions_variant_skill_fkey"),
-    ForeignKeyConstraint(["from_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="promotion_decisions_from_version_skill_fkey"),
-    ForeignKeyConstraint(["to_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="promotion_decisions_to_version_skill_fkey"),
-    ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="promotion_decisions_eval_set_version_skill_fkey"),
-    ForeignKeyConstraint(["evidence_eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="promotion_decisions_evidence_run_skill_fkey"),
-    ForeignKeyConstraint(["baseline_eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="promotion_decisions_baseline_run_skill_fkey"),
-)
-
 accepted_verifications = Table(
     "accepted_verifications",
     metadata,
     Column("id", Text, primary_key=True),
     Column("skill_id", Text, nullable=False),
-    Column("variant_id", Text, nullable=False),
-    Column("variant_version_id", Text, nullable=False),
+    Column("skill_version_id", Text, nullable=False),
     Column("eval_set_version_id", Text, nullable=False),
+    Column("run_context_hash", Text, nullable=False),
     Column("eval_run_id", Text, nullable=False),
     Column("note", Text, nullable=False, server_default=text("''")),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
     UniqueConstraint("id", "skill_id", name="accepted_verifications_id_skill_unique"),
-    UniqueConstraint("variant_id", "eval_set_version_id", name="accepted_verifications_variant_eval_set_unique"),
-    ForeignKeyConstraint(["variant_id", "skill_id"], ["variants.id", "variants.skill_id"], name="accepted_verifications_variant_skill_fkey"),
-    ForeignKeyConstraint(["variant_version_id", "skill_id"], ["variant_versions.id", "variant_versions.skill_id"], name="accepted_verifications_variant_version_skill_fkey"),
+    UniqueConstraint("skill_id", "skill_version_id", "eval_set_version_id", "run_context_hash", name="accepted_verifications_context_unique"),
+    ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="accepted_verifications_skill_version_skill_fkey"),
     ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="accepted_verifications_eval_set_version_skill_fkey"),
     ForeignKeyConstraint(["eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="accepted_verifications_eval_run_skill_fkey"),
 )
@@ -338,10 +282,7 @@ audit_events = Table(
 )
 
 Index("artifacts_namespace_idx", artifacts.c.namespace)
-Index("variants_skill_id_idx", variants.c.skill_id)
-Index("variants_tag_set_id_idx", variants.c.tag_set_id)
-Index("variant_versions_skill_id_idx", variant_versions.c.skill_id)
-Index("variant_versions_variant_id_idx", variant_versions.c.variant_id)
+Index("skill_versions_skill_id_idx", skill_versions.c.skill_id)
 Index("eval_sets_skill_id_idx", eval_sets.c.skill_id)
 Index("eval_cases_skill_id_idx", eval_cases.c.skill_id)
 Index("eval_case_versions_skill_id_idx", eval_case_versions.c.skill_id)
@@ -351,14 +292,12 @@ Index("eval_set_versions_eval_set_id_idx", eval_set_versions.c.eval_set_id)
 Index("eval_set_case_versions_skill_id_idx", eval_set_case_versions.c.skill_id)
 Index("eval_set_case_versions_case_version_id_idx", eval_set_case_versions.c.case_version_id)
 Index("eval_runs_skill_id_created_at_idx", eval_runs.c.skill_id, eval_runs.c.created_at.desc())
-Index("eval_runs_variant_version_id_idx", eval_runs.c.variant_version_id)
+Index("eval_runs_skill_version_id_idx", eval_runs.c.skill_version_id)
 Index("eval_runs_eval_set_version_id_idx", eval_runs.c.eval_set_version_id)
+Index("eval_runs_context_hash_idx", eval_runs.c.run_context_hash)
 Index("case_results_skill_id_idx", case_results.c.skill_id)
 Index("case_results_case_version_id_idx", case_results.c.case_version_id)
-Index("promotion_decisions_variant_created_at_idx", promotion_decisions.c.variant_id, promotion_decisions.c.created_at.desc())
-Index("promotion_decisions_to_version_id_idx", promotion_decisions.c.to_version_id)
-Index("promotion_decisions_evidence_eval_run_id_idx", promotion_decisions.c.evidence_eval_run_id)
-Index("accepted_verifications_variant_eval_set_idx", accepted_verifications.c.variant_id, accepted_verifications.c.eval_set_version_id)
+Index("accepted_verifications_context_idx", accepted_verifications.c.skill_id, accepted_verifications.c.skill_version_id, accepted_verifications.c.eval_set_version_id, accepted_verifications.c.run_context_hash)
 Index("accepted_verifications_eval_run_id_idx", accepted_verifications.c.eval_run_id)
 Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
 Index("jobs_status_created_at_idx", jobs.c.status, jobs.c.created_at)
