@@ -33,10 +33,19 @@
 - SQLite 启动和 repository dependency 移到 `skillhub.api.database`。
 - 错误响应和字段校验文案移到 `skillhub.api.responses`。
 - 路由按职责拆到 `routes_core.py`、`routes_history.py` 和 `routes_commands.py`。
+- `SqlSkillRepository` 保留兼容入口，具体实现拆到 `repository_parts/`：
+  - `skill_commands.py`：Skill 和 SkillVersion 写入。
+  - `eval_case_commands.py`、`eval_run_commands.py`、`artifact_commands.py`：测评用例、运行记录和 artifact 写入。
+  - `read_models.py`、`detail_queries.py`、`run_history_queries.py`、`case_history_queries.py`、`diff_queries.py`：页面读模型、历史和 diff 查询。
+  - `roles.py`：角色、权限和审计事件。
+  - `core_helpers.py`、`bundle_diff.py`：共享 SQL helper 和 bundle diff 计算。
+- SQLAlchemy table metadata 的 index 注册拆到 `infrastructure.db.indexes`。
+- in-memory domain 测试 workspace 拆到 `application.in_memory_workspace`。
+- 过大的 API/repository 测试文件拆成共享测试基类和按职责命名的测试模块，单文件断言密度降低，测试语义不变。
 
 ## 保留的技术债
 
-`apps/api/skillhub/infrastructure/db/repositories.py` 仍然过大，下一轮应按写入命令、读模型、权限、artifact/diff 拆分。当前清理只拆 API 边界，避免在删除历史噪音的同一轮引入 repository 行为风险。
+当前代码、文档和测试文件均已控制在 300 行以内。后续如果某个页面或测试模块继续增长，应按页面子组件、命令域或读模型职责拆分，而不是压缩断言或混合职责。
 
 ## 验收
 

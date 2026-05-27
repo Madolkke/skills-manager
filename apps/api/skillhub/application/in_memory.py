@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from typing import Any
 
+from skillhub.application.in_memory_workspace import InMemoryWorkspace
 from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import (
     ArtifactRef,
@@ -21,18 +22,6 @@ from skillhub.domain.models import (
     normalize_tags,
     utc_now,
 )
-
-
-@dataclass
-class InMemoryWorkspace:
-    skills: dict[str, Skill] = field(default_factory=dict)
-    skill_versions: dict[str, SkillVersion] = field(default_factory=dict)
-    eval_sets: dict[str, EvalSet] = field(default_factory=dict)
-    eval_set_versions: dict[str, EvalSetVersion] = field(default_factory=dict)
-    eval_cases: dict[str, EvalCase] = field(default_factory=dict)
-    eval_case_versions: dict[str, EvalCaseVersion] = field(default_factory=dict)
-    eval_runs: dict[str, EvalRun] = field(default_factory=dict)
-    case_results: list[CaseResult] = field(default_factory=list)
 
 
 class SkillHubService:
