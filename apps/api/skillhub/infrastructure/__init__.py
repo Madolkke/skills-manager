@@ -1,1 +1,1 @@
-"""Infrastructure adapters for the formal SkillHub API."""
+"""Infrastructure adapters for the SkillHub API."""

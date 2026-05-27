@@ -11,7 +11,7 @@
 - 历史页、run 详情、case result 和 actual vs expected。
 - 后端真实 bundle diff。
 - 文件型 SQLite 默认持久化和干净 clone 自动建库。
-- Web V4 正式工作台、E2E、视觉和小窗口冒烟。
+- Web 正式工作台、E2E、视觉和小窗口冒烟。
 
 ## 下一阶段
 
@@ -39,6 +39,6 @@
 
 - 不恢复 Variant。
 - 不恢复旧 demo/prototype runtime。
-- 不恢复 Ralph/.agent 任务体系到主分支。
+- 不恢复历史任务体系到主分支。
 - 不把运行环境标签放进内容版本。
 - 不把 Git branch 当作 `SkillVersion` locator。

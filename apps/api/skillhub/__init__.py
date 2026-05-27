@@ -1,1 +1,1 @@
-"""Formal SkillHub API package."""
+"""SkillHub API package."""

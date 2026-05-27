@@ -3,12 +3,12 @@ apps/api/*.egg-info/
 apps/api/**/__pycache__/
 apps/api/**/*.pyc
 
-apps/web-v4/node_modules/
-apps/web-v4/dist/
-apps/web-v4/.vite/
-apps/web-v4/*.tsbuildinfo
-apps/web-v4/playwright-report/
-apps/web-v4/test-results/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+apps/web/*.tsbuildinfo
+apps/web/playwright-report/
+apps/web/test-results/
 
 .data/
 .uv-cache/

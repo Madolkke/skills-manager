@@ -9,7 +9,7 @@
 - `EvalSetVersion` 是测试用例集合快照；未被任何 `EvalRun` 使用的当前版本作为工作版本，新增或编辑 case 不会刷出无意义版本，一旦有运行记录就自动保留历史快照。
 - `EvalRun` 记录一次 exact `SkillVersion + EvalSetVersion + run_context` 的通过/不通过结果、本次运行实际输出和 actual vs expected 证据。
 - 运行环境标签只属于 `EvalRun`，例如 runner、model、OS 或 sandbox；同一个 `SkillVersion` 可以在不同环境下留下多次可追溯结果。
-- Web V4 首页提供 Skill 搜索、筛选、维护者、当前版本、测评集版本、验证状态和可展开的最近测评入口。
+- Web 首页提供 Skill 搜索、筛选、维护者、当前版本、测评集版本、验证状态和可展开的最近测评入口。
 - 新建 Skill 只需要上传标准 Skill bundle；名称和说明优先从 `SKILL.md` frontmatter 读取。
 - `版本` 页展示 Skill 的不可变版本线、当前版本、bundle 文件摘要、后端 `GET /api/artifacts/diff` 返回的真实 diff 和版本详情。
 - `测评集` 页只管理 case 和 case version；新增或编辑 case 会先更新当前工作版，已有运行记录时才生成新的 `EvalSetVersion`。
@@ -18,7 +18,7 @@
 
 ## 快速开始
 
-正式版工作区位于 `apps/api` 和 `apps/web-v4`。主分支只保留当前正式版运行时代码、验证脚本和权威文档；旧前端工作台、早期 demo、prototype、Ralph/.agent 任务体系和历史截图已经移除。
+正式版工作区位于 `apps/api` 和 `apps/web`。主分支只保留当前正式版运行时代码、验证脚本和权威文档；旧前端工作台、早期 demo、prototype 和历史任务体系已经移除。
 
 ### 一键本地运行
 
@@ -29,9 +29,9 @@ bash scripts/dev.sh
 这个命令会启动：
 
 - API: `http://127.0.0.1:8000`
-- Web V4: `http://127.0.0.1:3030/skills`
+- Web: `http://127.0.0.1:3030/skills`
 
-脚本使用 `uv` 运行 Python API，并在 `apps/web-v4/node_modules` 缺失时安装前端依赖。脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。
+脚本使用 `uv` 运行 Python API，并在 `apps/web/node_modules` 缺失时安装前端依赖。脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。
 
 本地 API 数据默认持久化到 `.data/skillhub.sqlite3`。从干净 `git clone` 启动时不需要提前创建数据库文件，API 会自动创建 SQLite 文件和 schema；`bash scripts/dev.sh` 在 macOS、Linux 和 Windows Git Bash 下默认都会落到文件型 SQLite，不会回退到 `sqlite:///:memory:`。
 
@@ -59,7 +59,7 @@ uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port 8000
 终端 2：
 
 ```bash
-cd apps/web-v4
+cd apps/web
 npm install
 VITE_SKILLHUB_API_URL=http://127.0.0.1:8000 \
 npm run dev -- --host 127.0.0.1 --port 3030
@@ -111,7 +111,7 @@ uv run pytest
 ```
 
 ```bash
-cd apps/web-v4
+cd apps/web
 npm run test
 npm run lint
 npm run build
@@ -119,16 +119,16 @@ npm run e2e
 npm run e2e:visual
 ```
 
-`npm run e2e` 会用临时 SQLite 数据库启动 API 和 Web V4，执行一次从新建 Skill 到历史证据链的正式流程冒烟，并额外用 `320x820` viewport 覆盖小窗口溢出回归。详见 [Web V4 E2E smoke](apps/web-v4/e2e/formal-flow.md)。
+`npm run e2e` 会用临时 SQLite 数据库启动 API 和 Web，执行一次从新建 Skill 到历史证据链的正式流程冒烟，并额外用 `320x820` viewport 覆盖小窗口溢出回归。详见 [Web E2E smoke](apps/web/e2e/core-flow.md)。
 
-`npm run e2e:visual` 会用固定 seed 和 `1586x992` viewport 截取 5 个正式页面，防止 UI 布局、actual output 对比和 diff 入口偏离当前基线。详见 [Web V4 视觉 Smoke](apps/web-v4/e2e/visual-smoke.md)。
+`npm run e2e:visual` 会用固定 seed 和 `1586x992` viewport 截取 5 个正式页面，防止 UI 布局、actual output 对比和 diff 入口偏离当前基线。详见 [Web 视觉 Smoke](apps/web/e2e/visual-smoke.md)。
 
 ## 主要文档
 
 - [API contract](docs/api-contract.md)
-- [Formal architecture v0.1](docs/formal-architecture-v0.1.md)
-- [Formal tech stack](docs/formal-tech-stack.md)
-- [Formal UI design v0.1](docs/formal-ui-design.md)
-- [代码库质量审计](docs/codebase-quality-audit-2026-05-27.md)
-- [Web V4 E2E smoke](apps/web-v4/e2e/formal-flow.md)
-- [Web V4 视觉 Smoke](apps/web-v4/e2e/visual-smoke.md)
+- [架构说明](docs/architecture.md)
+- [技术栈](docs/tech-stack.md)
+- [UI 设计规格](docs/ui-design.md)
+- [验证与仓库约定](docs/verification.md)
+- [Web E2E smoke](apps/web/e2e/core-flow.md)
+- [Web 视觉 Smoke](apps/web/e2e/visual-smoke.md)

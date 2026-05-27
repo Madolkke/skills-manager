@@ -1,8 +1,8 @@
 import unittest
 
-from skillhub.application.in_memory import InMemoryWorkspace, SkillHubService
 from skillhub.domain.errors import InvariantError
 from skillhub.domain.models import ContentRef
+from tests.fakes.in_memory import InMemoryWorkspace, SkillHubService
 
 
 def content_ref(name: str) -> ContentRef:

@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  formal-api:
-    name: Formal API domain tests
+  api:
+    name: API tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,18 +18,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install formal API dependencies
+      - name: Install API dependencies
         run: python -m pip install -e "apps/api[dev]"
 
-      - name: Run formal API domain tests
+      - name: Run API tests
         run: PYTHONPATH=apps/api python -m pytest apps/api/tests
 
-  formal-web:
-    name: Formal web build
+  web:
+    name: Web build
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/web-v4
+        working-directory: apps/web
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: apps/web-v4/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -50,5 +50,5 @@ jobs:
       - name: Test
         run: npm run test
 
-      - name: Build formal web
+      - name: Build web
         run: npm run build

@@ -1,0 +1,115 @@
+@media (max-width: 560px) {
+  .page-shell {
+    padding: 14px;
+  }
+
+  .top-bar {
+    height: auto;
+    min-height: 68px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+
+  .brand-rail {
+    height: auto;
+  }
+
+  .hub-hero,
+  .hub-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hero-action,
+  .sort-control {
+    width: 100%;
+  }
+
+  .section-heading h1,
+  .skill-title-block h1 {
+    font-size: 28px;
+  }
+
+  .manual-case-detail,
+  .case-detail,
+  .case-sidebar,
+  .evidence-panel,
+  .version-group,
+  .run-history {
+    padding: 16px;
+  }
+
+  .progress-summary-card,
+  .progress-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .commit-diff-head,
+  .commit-diff-stats {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .progress-metric {
+    border-right: 0;
+    border-bottom: 1px solid var(--soft-line);
+  }
+
+  .progress-metric:last-child {
+    border-bottom: 0;
+  }
+
+  .manual-case-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .manual-status-dot {
+    display: none;
+  }
+
+  .manual-case-copy strong,
+  .manual-case-copy small span,
+  .case-row-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .case-toolbar,
+  .mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eval-action-bar {
+    border-radius: var(--radius);
+    padding: 10px;
+  }
+
+  .version-files-panel {
+    padding: 16px;
+  }
+
+  .version-name-editor {
+    grid-template-columns: 1fr 42px 42px;
+  }
+
+  .code-preview {
+    overflow-x: auto;
+  }
+
+  .code-line {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .code-line span {
+    padding: 0 10px;
+  }
+
+  .code-line code {
+    min-width: 0;
+    padding-right: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

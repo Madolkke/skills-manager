@@ -1,7 +1,7 @@
 [project]
 name = "skillhub-api"
 version = "0.1.0"
-description = "Formal SkillHub API skeleton"
+description = "SkillHub API"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.13",

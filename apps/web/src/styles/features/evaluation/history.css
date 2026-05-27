@@ -1,0 +1,246 @@
+.history-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.history-workspace,
+.version-history {
+  min-width: 0;
+  display: grid;
+  gap: 24px;
+}
+
+.history-workspace .section-heading .secondary-button {
+  white-space: nowrap;
+}
+
+.evidence-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+
+.evidence-hero {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.85fr) repeat(3, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.evidence-score,
+.evidence-card {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 16px;
+}
+
+.evidence-score {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+
+.evidence-score strong {
+  font-size: 30px;
+}
+
+.evidence-score span,
+.evidence-card span,
+.evidence-card small,
+.evidence-meta-row,
+.case-evidence-row span,
+.history-section-head p,
+.run-history-head p,
+.run-row small,
+.version-row span,
+.version-row small {
+  color: var(--muted);
+}
+
+.evidence-score.verified strong {
+  color: var(--green);
+}
+
+.evidence-score.warning strong {
+  color: var(--amber);
+}
+
+.evidence-card {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding-right: 54px;
+}
+
+.evidence-card strong,
+.evidence-card small,
+.version-row span,
+.version-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evidence-card .icon-button {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+}
+
+.evidence-meta-row,
+.evidence-context-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  font-weight: 740;
+}
+
+.evidence-meta-row span,
+.evidence-context-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evidence-context-row {
+  gap: 8px;
+  align-items: center;
+}
+
+.context-row-title {
+  color: #334155;
+  font-weight: 820;
+  margin-right: 4px;
+}
+
+.context-chip {
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: #fbfdff;
+  color: #52627b;
+  padding: 5px 9px;
+  overflow-wrap: anywhere;
+}
+
+.case-evidence-list,
+.version-stack,
+.run-history {
+  display: grid;
+  gap: 12px;
+}
+
+.case-evidence-list h2,
+.history-section-head h2,
+.run-history h2 {
+  font-size: 18px;
+}
+
+.case-evidence-row {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.case-evidence-row.passed svg {
+  color: var(--green);
+}
+
+.case-evidence-row.failed svg {
+  color: var(--red);
+}
+
+.case-result-head,
+.case-result-title,
+.result-text-panel header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.case-result-head {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.case-result-title {
+  gap: 9px;
+}
+
+.case-result-title span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 820;
+}
+
+.case-result-title strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.case-evidence-main {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.case-evidence-main > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-result-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.result-text-panel {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.result-text-panel header {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.result-text-panel small {
+  color: var(--muted);
+  font-weight: 820;
+}
+
+.result-text-panel.muted code {
+  color: var(--muted);
+}
+
+.result-text-panel code {
+  min-width: 0;
+  color: #24324a;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.case-evidence-row b {
+  color: #334155;
+}
