@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | 概览 | 解释 Skill 身份和当前状态 | owner、当前版本、主测评集、最近 run、bundle 文件树。 |
 | 版本 | 管理不可变 SkillVersion | 版本号、digest、bundle 文件、真实 diff、当前版本指针。 |
-| 测评集 | 管理 case 和 EvalSetVersion | case version、expected output、当前测评集快照。 |
+| 测评集 | 管理 case 和 EvalSetVersion | case version、expected output、当前测评集工作版和已运行快照。 |
 | 测评 | 记录一次 exact run | SkillVersion、EvalSetVersion、环境标签、actual output、actual vs expected。 |
 | 历史 | 查看证据链 | EvalRun、case result、run context、artifact digest、actual output。 |
 
@@ -65,7 +65,7 @@ Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 测评集页负责测试数据版本：
 
 - case 列表显示 position、title、case version、状态。
-- 新增、编辑、恢复和归档 case 都必须生成或保留可追溯版本。
+- 新增、编辑、恢复和归档 case 都必须保留 case version；当前 EvalSetVersion 没有运行记录时作为工作版更新，已有运行记录时创建新快照。
 - expected output 是一等字段，不能藏在备注里。
 
 ### 测评
@@ -73,7 +73,7 @@ Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 测评页负责记录当前运行结果：
 
 - 用户必须选择 exact `SkillVersion + EvalSetVersion`。
-- 运行环境标签、OS、runner、model 记录到本次 `EvalRun`。
+- 运行环境标签记录到本次 `EvalRun`。
 - 每个 case 都可以输入 actual output，并在界面中对比 expected output。
 - 未完成所有 case 的 pass/fail 标记前不能提交 run。
 
@@ -92,8 +92,8 @@ Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 | --- | --- |
 | `BrandRail` / `TopBar` | 全局导航、搜索和主动作入口。 |
 | `BundleBrowser` | bundle 文件树和文件预览。 |
-| `SkillVersionTrack` | 版本线和 current pointer。 |
-| `VersionInspector` | 版本详情和真实 diff。 |
+| `BundleDiffPanel` | 版本间真实 diff。 |
+| `EvalSetVersionNameEditor` | 测评集版本命名。 |
 | `CaseVersionRoadmap` | case version 可追溯视图。 |
 | `EvaluationContextCard` | 本次 run 的环境和绑定信息。 |
 | `ManualEvaluationPanels` | actual output、pass/fail 和对比状态。 |

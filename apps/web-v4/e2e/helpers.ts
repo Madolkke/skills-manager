@@ -50,15 +50,15 @@ export class SkillHubE2E {
   }
 
   async editCaseToVersion2(): Promise<void> {
-    await this.page.getByRole("button", { name: "编辑为新版本", exact: true }).click();
-    const dialog = this.dialog("编辑为新版本");
+    await this.page.getByRole("button", { name: "编辑 case", exact: true }).click();
+    const dialog = this.dialog("编辑 case");
     await expect(dialog).toBeVisible();
     await dialog
       .locator("textarea")
       .nth(1)
       .fill("The UI exposes clear management, manual evaluation, and history evidence boundaries, with case v2 evidence.");
     await dialog.locator("input").nth(1).fill("case v2 evidence");
-    await dialog.getByRole("button", { name: "保存新版本", exact: true }).click();
+    await dialog.getByRole("button", { name: "保存 case version", exact: true }).click();
     await expect(dialog).toBeHidden();
   }
 
@@ -66,15 +66,12 @@ export class SkillHubE2E {
     await expect(this.page.locator(".case-detail .tag-row").getByText(`case v${version}`, { exact: true })).toBeVisible();
   }
 
-  async setRunEnvironment(tags: string[], context: { os?: string; runner?: string; model?: string }): Promise<void> {
+  async setRunEnvironment(tags: string[]): Promise<void> {
     for (const tag of tags) {
       const input = this.page.locator(".evaluation-context-card .tag-box input");
       await input.fill(tag);
       await input.press("Enter");
     }
-    if (context.os) await this.page.locator("#run-context-os").fill(context.os);
-    if (context.runner) await this.page.locator(".context-field-grid input").nth(1).fill(context.runner);
-    if (context.model) await this.page.locator(".context-field-grid input").nth(2).fill(context.model);
   }
 
   async recordManualPass(caseTitle: string): Promise<void> {
@@ -93,8 +90,6 @@ export class SkillHubE2E {
     await expect(evidence.locator(".evidence-card").filter({ hasText: "EvalSetVersion" })).toBeVisible();
     await expect(evidence.locator(".evidence-context-row")).toContainText("codex");
     await expect(evidence.locator(".evidence-context-row")).toContainText("windows");
-    await expect(evidence.locator(".evidence-context-row")).toContainText("os: windows");
-    await expect(evidence.locator(".evidence-context-row")).toContainText("runner: local");
     await expect(evidence.getByRole("heading", { name: "Case 结果" })).toBeVisible();
     const caseEvidence = evidence.locator(".case-evidence-row").filter({ hasText: caseTitle });
     await expect(caseEvidence).toBeVisible();

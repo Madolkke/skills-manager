@@ -99,11 +99,21 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             expected_output="Flag token logging.",
             actor="tester",
         )
+        second_case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="Tenant scope",
+            input_text="Project.all()",
+            expected_output="Flag missing tenant scope.",
+            actor="tester",
+        )
         run = self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_version_id=second_case.eval_set_version_id,
             strategy="manual_pass_fail",
-            results={case.eval_case_version_id: {"passed": True, "actual_output": "Flagged token logging."}},
+            results={
+                case.eval_case_version_id: {"passed": True, "actual_output": "Flagged token logging."},
+                second_case.eval_case_version_id: {"passed": False, "actual_output": "No tenant finding."},
+            },
             actor="tester",
             environment_tags=["linux"],
             run_context={"os": "linux"},
@@ -116,6 +126,8 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         self.assertEqual(detail.case_results[0]["result"]["passed"], True)
         self.assertEqual(detail.case_results[0]["result_artifact"]["content_text"], "Flagged token logging.")
         self.assertEqual(detail.case_results[0]["case_version"]["expected_output_artifact"]["content_text"], "Flag token logging.")
+        self.assertEqual([item["position"] for item in detail.case_results], [0, 1])
+        self.assertEqual([item["case"]["title"] for item in detail.case_results], ["Token logging", "Tenant scope"])
 
     def test_eval_run_history_filters_by_skill_version_and_context(self):
         skill = self.create_skill()

@@ -9,7 +9,7 @@
 | `Skill` | 稳定入口，保存 slug、owner、lifecycle 和 `current_version_id`。 |
 | `SkillVersion` | 不可变 Skill bundle 内容快照，同一 Skill 内 version number 递增。 |
 | `EvalCaseVersion` | 不可变测试用例快照，保存 input、expected output 和 notes。 |
-| `EvalSetVersion` | 不可变 case version 列表快照。 |
+| `EvalSetVersion` | case version 列表快照；未被 `EvalRun` 使用的当前版本可作为工作版更新，已有运行记录后变为历史快照。 |
 | `EvalRun` | 一次 exact `SkillVersion + EvalSetVersion + run_context` 的测评事实。 |
 | `CaseResult` | 某次 run 中某个 case version 的 pass/fail 和 actual output。 |
 | `AcceptedVerification` | 把一次 finished run 接受为当前上下文验证依据。 |
@@ -125,10 +125,10 @@
 | `DELETE /api/skills/{skill_id}` | 归档 Skill。 |
 | `POST /api/skills/{skill_id}/role-assignments` | 添加 role assignment。 |
 | `DELETE /api/role-assignments/{id}` | 撤销 role assignment。 |
-| `POST /api/eval-cases` | 创建 case 和 case version，并生成新 EvalSetVersion。 |
-| `POST /api/eval-cases/batch` | 批量创建 case，只生成一个新 EvalSetVersion。 |
-| `POST /api/eval-case-versions` | 创建新的 case version。 |
-| `PATCH /api/eval-cases/{case_id}` | 编辑 case 为新版本。 |
+| `POST /api/eval-cases` | 创建 case 和 case version；当前 EvalSetVersion 无运行记录时原地更新，有运行记录时创建新快照。 |
+| `POST /api/eval-cases/batch` | 批量创建 case；同样遵循当前 EvalSetVersion 的工作版/已锁定规则。 |
+| `POST /api/eval-case-versions` | 创建新的 case version；必要时创建新 EvalSetVersion。 |
+| `PATCH /api/eval-cases/{case_id}` | 编辑 case 并生成新的 case version。 |
 | `POST /api/eval-cases/{case_id}/restores` | 从历史 case version 恢复。 |
 | `DELETE /api/eval-cases/{case_id}` | 归档 case。 |
 | `POST /api/eval-runs` | 记录手工 pass/fail run、运行环境和 actual output。 |

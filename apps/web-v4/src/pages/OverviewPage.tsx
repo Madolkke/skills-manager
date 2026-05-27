@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, ExternalLink, GitCompareArrows } from "lucide-react";
 import { BundleBrowser } from "../components/BundleBrowser";
-import { compactText, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
+import { compactText, evalSetVersionName, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { SkillDetail } from "../types";
 
@@ -14,7 +14,7 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
   const evalSet = skill.summary.primary_eval_set;
   const run = skill.summary.latest_accepted_eval_run;
   const files = version?.bundle_files ?? [];
-  const evalSetVersion = evalSet?.current_version ? `v${evalSet.current_version.version_number}` : "";
+  const evalSetVersion = evalSetVersionName(evalSet?.current_version);
   const lifecycleLabel = skillLifecycleLabel(skill.skill.lifecycle_status);
 
   return (
@@ -42,7 +42,7 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
         </div>
         <Metric label="当前版本" value={versionName(version)} hint={version?.created_at ? `更新于 ${humanDate(version.created_at)}` : undefined} />
         <Metric label="验证分数" value={scoreLabel(run)} tone={scoreKind(run)} hint={run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "尚无测评"} />
-        <Metric label="测评集" value={evalSet?.name ?? "未创建"} hint={evalSet?.current_version ? `当前 v${evalSet.current_version.version_number}` : "无版本"} />
+        <Metric label="测评集" value={evalSet?.name ?? "未创建"} hint={evalSet?.current_version ? `当前 ${evalSetVersionName(evalSet.current_version)}` : "无版本"} />
       </section>
 
       <section className="primary-panel bundle-panel">

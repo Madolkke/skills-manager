@@ -118,16 +118,10 @@ class SkillHubService:
         self.workspace.eval_cases[case.id] = replace(case, current_version_id=case_version.id)
         self.workspace.eval_case_versions[case_version.id] = case_version
 
-        next_set_version = EvalSetVersion(
-            id=new_id("evalsetver"),
-            eval_set_id=eval_set.id,
-            version_number=current_set_version.version_number + 1,
+        return self._update_current_eval_set_cases(
+            skill_id=skill_id,
             case_version_ids=(*current_set_version.case_version_ids, case_version.id),
-            created_at=now,
         )
-        self.workspace.eval_set_versions[next_set_version.id] = next_set_version
-        self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=next_set_version.id)
-        return next_set_version
 
     def create_eval_case_version(
         self,
@@ -205,16 +199,26 @@ class SkillHubService:
             case_version_id if self._eval_case_version(item).case_id == case_id else item
             for item in current_set_version.case_version_ids
         )
-        next_set_version = EvalSetVersion(
-            id=new_id("evalsetver"),
-            eval_set_id=eval_set.id,
-            version_number=current_set_version.version_number + 1,
-            case_version_ids=next_case_version_ids,
-            created_at=utc_now(),
-        )
-        self.workspace.eval_set_versions[next_set_version.id] = next_set_version
-        self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=next_set_version.id)
-        return next_set_version
+        return self._update_current_eval_set_cases(skill_id=skill_id, case_version_ids=next_case_version_ids)
+
+    def _update_current_eval_set_cases(self, skill_id: str, case_version_ids: tuple[str, ...]) -> EvalSetVersion:
+        eval_set = self._primary_eval_set(skill_id)
+        current_set_version = self._eval_set_version(eval_set.current_version_id)
+        if any(run.eval_set_version_id == current_set_version.id for run in self.workspace.eval_runs.values()):
+            next_set_version = EvalSetVersion(
+                id=new_id("evalsetver"),
+                eval_set_id=eval_set.id,
+                version_number=current_set_version.version_number + 1,
+                case_version_ids=case_version_ids,
+                created_at=utc_now(),
+            )
+            self.workspace.eval_set_versions[next_set_version.id] = next_set_version
+            self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=next_set_version.id)
+            return next_set_version
+        updated_set_version = replace(current_set_version, case_version_ids=case_version_ids)
+        self.workspace.eval_set_versions[current_set_version.id] = updated_set_version
+        self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=current_set_version.id)
+        return updated_set_version
 
     def _artifact(self, kind: str, content: str) -> ArtifactRef:
         digest = digest_text(content)

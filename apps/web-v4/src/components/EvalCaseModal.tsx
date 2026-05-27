@@ -7,6 +7,7 @@ export type EvalCaseFormData = {
   input_text: string;
   expected_output: string;
   notes: string;
+  eval_set_version_display_name: string;
 };
 
 type EvalCaseModalProps = {
@@ -22,11 +23,12 @@ export function EvalCaseModal({ caseItem, busy, onClose, onSubmit }: EvalCaseMod
     input_text: caseItem?.case_version.input_artifact.content_text ?? "",
     expected_output: caseItem?.case_version.expected_output_artifact.content_text ?? "",
     notes: caseItem?.case_version.notes ?? "",
+    eval_set_version_display_name: "",
   }));
   const editing = Boolean(caseItem);
 
   return (
-    <Modal title={editing ? "编辑为新版本" : "添加 case"} description="每次保存都会形成可追溯的 case version。" onClose={onClose}>
+    <Modal title={editing ? "编辑 case" : "添加 case"} description="保存后会形成 case version；已有运行记录的测评集会保留历史快照。" onClose={onClose}>
       <form
         className="form-stack"
         onSubmit={(event) => {
@@ -50,12 +52,21 @@ export function EvalCaseModal({ caseItem, busy, onClose, onSubmit }: EvalCaseMod
           Notes
           <input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="来源或维护说明，可选" />
         </label>
+        <label className="field-label">
+          测评集版本名称（可选）
+          <input
+            value={form.eval_set_version_display_name}
+            maxLength={80}
+            onChange={(event) => setForm({ ...form, eval_set_version_display_name: event.target.value })}
+            placeholder={editing ? "例如 tightened expected output" : "例如 first regression cases"}
+          />
+        </label>
         <div className="modal-actions">
           <button className="secondary-button" type="button" onClick={onClose}>
             取消
           </button>
           <button className="primary-button" type="submit" disabled={busy}>
-            {busy ? "保存中..." : editing ? "保存新版本" : "添加 case"}
+            {busy ? "保存中..." : editing ? "保存 case version" : "添加 case"}
           </button>
         </div>
       </form>

@@ -65,7 +65,7 @@ erDiagram
 - `Skill` 是稳定入口，保存 `current_version_id`。
 - `SkillVersion` 是不可变内容快照，append-only。
 - `EvalCaseVersion` 是不可变测试用例快照。
-- `EvalSetVersion` 是不可变 case version 列表快照。
+- `EvalSetVersion` 是 case version 列表快照；未被 `EvalRun` 使用的当前版本是可编辑工作版，首次运行后锁定为历史快照。
 - `EvalRun` 是一次 exact `SkillVersion + EvalSetVersion + run_context` 的证据。
 - `CaseResult` 只记录该 run 下某个 case version 的最终结果和 actual output artifact。
 - `AcceptedVerification` 指向一次 finished run，并按 `run_context_hash` 区分不同运行环境。
@@ -178,10 +178,10 @@ apps/api/skillhub/
 | `PATCH /api/skills/{skill_id}` | 更新 Skill 元数据或当前版本指针 |
 | `DELETE /api/skills/{skill_id}` | 归档 Skill |
 | `POST /api/skill-versions` | 创建不可变 SkillVersion，可选择是否 make current |
-| `POST /api/eval-cases` | 创建 case 和 case version，并生成新 eval set version |
-| `POST /api/eval-cases/batch` | 批量创建 case，只生成一个新 eval set version |
-| `POST /api/eval-case-versions` | 修正 case 内容，生成新 case version 和 eval set version |
-| `PATCH /api/eval-cases/{case_id}` | 编辑 case 为新版本 |
+| `POST /api/eval-cases` | 创建 case 和 case version；当前 EvalSetVersion 未运行时原地更新，已运行时生成新快照 |
+| `POST /api/eval-cases/batch` | 批量创建 case；同样遵循工作版/已锁定规则 |
+| `POST /api/eval-case-versions` | 修正 case 内容，生成新 case version；必要时生成新 eval set version |
+| `PATCH /api/eval-cases/{case_id}` | 编辑 case 并生成新 case version |
 | `POST /api/eval-cases/{case_id}/restores` | 从历史 case version 恢复 |
 | `DELETE /api/eval-cases/{case_id}` | 归档 case |
 | `POST /api/eval-runs` | 记录手工 pass/fail run、运行环境和 actual output |
@@ -233,7 +233,7 @@ sequenceDiagram
 
 - `SkillVersion` 创建后不更新内容字段。
 - `EvalCaseVersion` 创建后不更新 input、expected output 和 notes。
-- `EvalSetVersion` 创建后不更新包含的 case version 列表。
+- 未被任何 `EvalRun` 使用的当前 `EvalSetVersion` 可以更新包含的 case version 列表；已有运行记录的 `EvalSetVersion` 不再更新，后续 case 变更创建新快照。
 - `EvalRun` finished 后不改 `skill_version_id`、`eval_set_version_id`、`strategy`、`environment_tags` 或 `run_context_hash`。
 - `Skill.current_version_id` 只能指向同一 Skill 下的 `SkillVersion`。
 - `EvalRun.skill_version_id` 和 `EvalRun.eval_set_version_id` 必须属于同一个 Skill。

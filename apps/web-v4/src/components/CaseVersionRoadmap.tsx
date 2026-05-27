@@ -47,7 +47,7 @@ export function CaseVersionRoadmap({ history, currentVersionId }: CaseVersionRoa
             <article className="case-version-card">
               <strong>v{nextVersionNumber}</strong>
               <span>待创建</span>
-              <p>编辑当前 case 后会生成新的 case version，并更新当前 EvalSetVersion。</p>
+              <p>编辑当前 case 后会生成新的 case version，并更新测评集工作版。</p>
               <small>case v{nextVersionNumber}</small>
             </article>
           </li>

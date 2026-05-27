@@ -6,13 +6,13 @@
 
 - `Skill` 是 SkillHub 中稳定可搜索的入口。
 - `SkillVersion` 是不可变 Skill bundle 内容快照，可以来自标准 Skill 文件夹或 zip 导入后的 `skill_bundle` artifact。
-- `EvalSetVersion` 是测试用例集合快照。
+- `EvalSetVersion` 是测试用例集合快照；未被任何 `EvalRun` 使用的当前版本作为工作版本，新增或编辑 case 不会刷出无意义版本，一旦有运行记录就自动保留历史快照。
 - `EvalRun` 记录一次 exact `SkillVersion + EvalSetVersion + run_context` 的通过/不通过结果、本次运行实际输出和 actual vs expected 证据。
 - 运行环境标签只属于 `EvalRun`，例如 runner、model、OS 或 sandbox；同一个 `SkillVersion` 可以在不同环境下留下多次可追溯结果。
 - Web V4 首页提供 Skill 搜索、筛选、维护者、当前版本、测评集版本、验证状态和可展开的最近测评入口。
 - 新建 Skill 只需要上传标准 Skill bundle；名称和说明优先从 `SKILL.md` frontmatter 读取。
 - `版本` 页展示 Skill 的不可变版本线、当前版本、bundle 文件摘要、后端 `GET /api/artifacts/diff` 返回的真实 diff 和版本详情。
-- `测评集` 页只管理 case 和 case version；新增或编辑 case 会生成新的 `EvalSetVersion`。
+- `测评集` 页只管理 case 和 case version；新增或编辑 case 会先更新当前工作版，已有运行记录时才生成新的 `EvalSetVersion`。
 - `测评` 页选择 exact `SkillVersion + EvalSetVersion`，输入运行环境标签和本次运行结果，逐条对照 expected output 后记录 `EvalRun`。
 - `历史` 页展示 `SkillVersion`、`EvalSetVersion`、运行环境、case version、artifact digest、actual output 与 expected output 的证据链。
 
@@ -70,9 +70,9 @@ npm run dev -- --host 127.0.0.1 --port 3030
 1. 打开 `http://127.0.0.1:3030/skills`。
 2. 点 `新建 Skill`，上传根目录包含 `SKILL.md` 的文件夹或 zip。
 3. 在 `概览` 查看根目录、维护者、状态、当前版本、测评集和可展开的 bundle 文件树。
-4. 在 `版本` 页查看版本线和 bundle 摘要；点击 `Bundle diff` 使用后端 diff read model 查看增删改和 hunk；点击 `上传版本` 追加新的不可变 `SkillVersion`。
-5. 在 `测评集` 页点击 `添加 case` 新增用例；点击 `编辑为新版本` 创建新的 case version 并更新当前 `EvalSetVersion`。
-6. 在 `测评` 页选择 exact `SkillVersion + EvalSetVersion`，输入运行环境标签、OS、Runner、Model，逐条输入本次运行结果，和 expected output 对照后标记通过或不通过。
+4. 在 `版本` 页查看版本线、bundle 摘要和后端 diff read model 返回的增删改 hunk；点击 `上传版本` 追加新的不可变 `SkillVersion`。
+5. 在 `测评集` 页点击 `添加 case` 新增用例；点击 `编辑 case` 创建新的 case version，并在当前测评集工作版中生效。
+6. 在 `测评` 页选择 exact `SkillVersion + EvalSetVersion`，输入运行环境标签，逐条输入本次运行结果，和 expected output 对照后标记通过或不通过。
 7. 在 `历史` 页查看 run、运行环境、case result、actual output 和 expected output 的证据链；刷新或重启后仍应能看到同一批数据。
 
 `SKILL.md` 必须以 frontmatter 开头：
@@ -94,8 +94,8 @@ description: Review pull requests for auth and data access regressions.
 | --- | --- | --- | --- |
 | 1 | Hub 首页 | 点击 `新建 Skill`，上传标准 Skill 文件夹或 zip | 创建后进入 Skill 详情页；首页可搜索到该 Skill；卡片能看到维护者、当前版本和测评集版本 |
 | 2 | Skill 概览 | 查看 summary 身份卡；展开 bundle 文件夹并切换文件 | 显示真实根目录、维护者和状态；右侧显示对应文件内容、路径和 digest |
-| 3 | 版本 | 查看右侧版本线；点击 `Bundle diff` / `查看该版本详情`；上传新版 bundle | 追加新的 `SkillVersion`；当前版本在线性历史中清晰标出；inspector 使用后端 diff 数据展示变更文件、hunk 与 digest |
-| 4 | 测评集 | 新增 case；再编辑已有 case 为新版本 | case version 增加；当前 `EvalSetVersion` 更新；case 列表能按序号、版本和状态扫读 |
+| 3 | 版本 | 查看版本节点、bundle 内容和 diff；上传新版 bundle | 追加新的 `SkillVersion`；当前版本在线性历史中清晰标出；页面直接使用后端 diff 数据展示变更文件、hunk 与 digest |
+| 4 | 测评集 | 新增 case；再编辑已有 case | case version 增加；未运行的当前测评集工作版不额外刷版本；已有运行记录后再改会生成新的 `EvalSetVersion` |
 | 5 | 测评 | 选择 exact `SkillVersion + EvalSetVersion`，输入运行环境与 actual output，逐 case 标记结果 | 详情区显示真实绑定信息；每个 case 都能对比 actual vs expected；未全部确认前不能记录 |
 | 6 | 历史 | 打开 `历史` tab，选择刚记录的 run | 展示 run、运行环境、`SkillVersion`、`EvalSetVersion`、case result、artifact digest、actual output 与版本链 |
 

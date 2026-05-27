@@ -79,6 +79,10 @@ class SchemaContractTest(unittest.TestCase):
         ]:
             self.assertIn(constraint, self.normalized)
 
+    def test_versions_have_optional_display_names(self):
+        self.assertIn("display_name text", self._table_sql("skill_versions"))
+        self.assertIn("display_name text", self._table_sql("eval_set_versions"))
+
     def test_eval_runs_store_run_context(self):
         table_sql = self._table_sql("eval_runs")
         for snippet in [

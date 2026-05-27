@@ -13,7 +13,7 @@ from skillhub.api.auth import (
 )
 from skillhub.api.database import repository_dependency
 from skillhub.api.responses import result_payload
-from skillhub.api.schemas import AssignSkillRolePayload, SetSessionPayload, UpdateSkillPayload
+from skillhub.api.schemas import AssignSkillRolePayload, SetSessionPayload, UpdateSkillPayload, UpdateVersionDisplayNamePayload
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
 
@@ -49,6 +49,22 @@ def register_core_routes(app: FastAPI) -> None:
     @app.patch("/api/skills/{skill_id}")
     def update_skill(skill_id: str, payload: UpdateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref))
+
+    @app.patch("/api/skill-versions/{skill_version_id}")
+    def update_skill_version_name(
+        skill_version_id: str,
+        payload: UpdateVersionDisplayNamePayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.update_skill_version_name(skill_version_id=skill_version_id, display_name=payload.display_name))
+
+    @app.patch("/api/eval-set-versions/{eval_set_version_id}")
+    def update_eval_set_version_name(
+        eval_set_version_id: str,
+        payload: UpdateVersionDisplayNamePayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.update_eval_set_version_name(eval_set_version_id=eval_set_version_id, display_name=payload.display_name))
 
     @app.delete("/api/skills/{skill_id}")
     def archive_skill(

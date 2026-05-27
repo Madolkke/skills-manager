@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, select
 
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef, digest_text, new_id
@@ -163,51 +163,6 @@ class CoreHelperMixin:
             default=0,
         )
 
-    def _create_eval_set_version(
-        self,
-        connection,
-        *,
-        skill_id: str,
-        eval_set_id: str,
-        case_version_ids: list[str],
-        created_at: datetime,
-        actor: str,
-    ) -> str:
-        eval_set_version_id = new_id("evalsetver")
-        connection.execute(
-            insert(tables.eval_set_versions).values(
-                id=eval_set_version_id,
-                skill_id=skill_id,
-                eval_set_id=eval_set_id,
-                version_number=self._next_eval_set_version_number(connection, eval_set_id),
-                created_at=created_at,
-                created_by=actor,
-            )
-        )
-        if case_version_ids:
-            connection.execute(
-                insert(tables.eval_set_case_versions),
-                [
-                    {"eval_set_version_id": eval_set_version_id, "skill_id": skill_id, "case_version_id": case_version_id, "position": position}
-                    for position, case_version_id in enumerate(case_version_ids)
-                ],
-            )
-        connection.execute(
-            update(tables.eval_sets)
-            .where(tables.eval_sets.c.id == eval_set_id)
-            .values(current_version_id=eval_set_version_id, updated_at=created_at)
-        )
-        return eval_set_version_id
-
-    def _eval_set_case_version_ids(self, connection, eval_set_version_id: str) -> list[str]:
-        return list(
-            connection.execute(
-                select(tables.eval_set_case_versions.c.case_version_id)
-                .where(tables.eval_set_case_versions.c.eval_set_version_id == eval_set_version_id)
-                .order_by(tables.eval_set_case_versions.c.position)
-            ).scalars()
-        )
-
     def _insert_text_artifact(
         self,
         connection,
@@ -265,3 +220,10 @@ class CoreHelperMixin:
 
     def _row_dict(self, row) -> dict[str, Any]:
         return dict(row)
+
+
+def clean_display_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    clean = value.strip()
+    return clean or None

@@ -15,6 +15,56 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(detail["versions"][0]["id"], skill["skill_version_id"])
         self.assertEqual(eval_set["cases"][0]["case_version"]["id"], case["eval_case_version_id"])
 
+    def test_versions_can_be_named_and_renamed(self):
+        skill = self.create_skill("named-versions")
+        case = self.create_eval_case(skill["skill_id"])
+
+        skill_version = self.client.patch(
+            f"/api/skill-versions/{skill['skill_version_id']}",
+            json={"display_name": "stable baseline"},
+        )
+        eval_set_version = self.client.patch(
+            f"/api/eval-set-versions/{case['eval_set_version_id']}",
+            json={"display_name": "smoke suite"},
+        )
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+
+        self.assertEqual(skill_version.status_code, 200)
+        self.assertEqual(eval_set_version.status_code, 200)
+        self.assertEqual(detail["summary"]["current_version"]["display_name"], "stable baseline")
+        self.assertEqual(detail["summary"]["primary_eval_set"]["current_version"]["display_name"], "smoke suite")
+
+    def test_eval_cases_update_current_eval_set_version_until_run_history_exists(self):
+        skill = self.create_skill("evalset-working-version")
+        detail_before = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+        current_eval_set_version_id = detail_before["summary"]["primary_eval_set"]["current_version_id"]
+
+        first_case = self.create_eval_case(skill["skill_id"])
+        second_case = self.create_eval_case(skill["skill_id"])
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+        eval_set_detail = self.client.get(f"/api/eval-set-versions/{second_case['eval_set_version_id']}").json()
+
+        self.assertEqual(first_case["eval_set_version_id"], current_eval_set_version_id)
+        self.assertEqual(second_case["eval_set_version_id"], current_eval_set_version_id)
+        self.assertEqual(detail["summary"]["primary_eval_set"]["current_version"]["version_number"], 1)
+        self.assertEqual(len(detail["summary"]["primary_eval_set"]["versions"]), 1)
+        self.assertEqual([item["case_version"]["id"] for item in eval_set_detail["cases"]], [first_case["eval_case_version_id"], second_case["eval_case_version_id"]])
+
+    def test_eval_case_change_creates_new_eval_set_version_after_run_history_exists(self):
+        skill = self.create_skill("evalset-locked-version")
+        first_case = self.create_eval_case(skill["skill_id"])
+        self.record_run(skill["skill_version_id"], first_case["eval_set_version_id"], first_case["eval_case_version_id"], True)
+
+        second_case = self.create_eval_case(skill["skill_id"])
+        old_eval_set_detail = self.client.get(f"/api/eval-set-versions/{first_case['eval_set_version_id']}").json()
+        new_eval_set_detail = self.client.get(f"/api/eval-set-versions/{second_case['eval_set_version_id']}").json()
+
+        self.assertNotEqual(second_case["eval_set_version_id"], first_case["eval_set_version_id"])
+        self.assertEqual(old_eval_set_detail["eval_set_version"]["version_number"], 1)
+        self.assertEqual(new_eval_set_detail["eval_set_version"]["version_number"], 2)
+        self.assertEqual(len(old_eval_set_detail["cases"]), 1)
+        self.assertEqual(len(new_eval_set_detail["cases"]), 2)
+
     def test_skill_capabilities_do_not_expose_variant_promote(self):
         skill = self.create_skill("capability-contract")
 

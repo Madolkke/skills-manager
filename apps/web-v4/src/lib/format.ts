@@ -1,7 +1,16 @@
 import type { EvalRunRecord, SkillVersion } from "../types";
 
 export function versionName(version?: SkillVersion | null): string {
-  return version ? `v${version.version_number}` : "-";
+  return namedVersion(version);
+}
+
+export function evalSetVersionName(version?: { version_number: number; display_name?: string | null } | null): string {
+  return namedVersion(version);
+}
+
+function namedVersion(version?: { version_number: number; display_name?: string | null } | null): string {
+  if (!version) return "-";
+  return version.display_name?.trim() || `v${version.version_number}`;
 }
 
 export function scoreLabel(run?: EvalRunRecord | null): string {

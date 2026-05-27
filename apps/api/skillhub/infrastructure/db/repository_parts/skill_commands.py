@@ -19,6 +19,7 @@ class SkillCommandMixin:
         owner_ref: str,
         content_ref: ContentRef,
         change_summary: str,
+        display_name: str | None = None,
         actor: str,
     ) -> CreateSkillResult:
         created_at = utc_now()
@@ -45,6 +46,7 @@ class SkillCommandMixin:
                         id=skill_version_id,
                         skill_id=skill_id,
                         version_number=1,
+                        display_name=display_name,
                         content_ref=self._content_ref_payload(content_ref),
                         content_digest=content_ref.digest,
                         change_summary=change_summary,
@@ -75,6 +77,7 @@ class SkillCommandMixin:
                         skill_id=skill_id,
                         eval_set_id=eval_set_id,
                         version_number=1,
+                        display_name=None,
                         created_at=created_at,
                         created_by=actor,
                     )
@@ -122,6 +125,7 @@ class SkillCommandMixin:
         change_summary: str,
         actor: str,
         make_current: bool,
+        display_name: str | None = None,
     ) -> CreateSkillVersionResult:
         created_at = utc_now()
         skill_version_id = new_id("skillver")
@@ -133,6 +137,7 @@ class SkillCommandMixin:
                     id=skill_version_id,
                     skill_id=skill_id,
                     version_number=version_number,
+                    display_name=display_name,
                     content_ref=self._content_ref_payload(content_ref),
                     content_digest=content_ref.digest,
                     change_summary=change_summary,
@@ -147,6 +152,26 @@ class SkillCommandMixin:
                     .values(current_version_id=skill_version_id, updated_at=created_at)
                 )
         return CreateSkillVersionResult(skill_id=skill_id, skill_version_id=skill_version_id, version_number=version_number)
+
+    def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None) -> dict[str, Any]:
+        with self.engine.begin() as connection:
+            self._skill_version_row(connection, skill_version_id)
+            connection.execute(
+                update(tables.skill_versions)
+                .where(tables.skill_versions.c.id == skill_version_id)
+                .values(display_name=clean_display_name(display_name))
+            )
+            return self._row_dict(self._skill_version_row(connection, skill_version_id))
+
+    def update_eval_set_version_name(self, *, eval_set_version_id: str, display_name: str | None) -> dict[str, Any]:
+        with self.engine.begin() as connection:
+            self._eval_set_version_row(connection, eval_set_version_id)
+            connection.execute(
+                update(tables.eval_set_versions)
+                .where(tables.eval_set_versions.c.id == eval_set_version_id)
+                .values(display_name=clean_display_name(display_name))
+            )
+            return self._row_dict(self._eval_set_version_row(connection, eval_set_version_id))
 
     def update_skill(self, *, skill_id: str, slug: str, owner_ref: str) -> dict[str, Any]:
         updated_at = utc_now()
@@ -183,3 +208,10 @@ class SkillCommandMixin:
                     created_at=updated_at,
                 )
             )
+
+
+def clean_display_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    clean = value.strip()
+    return clean or None

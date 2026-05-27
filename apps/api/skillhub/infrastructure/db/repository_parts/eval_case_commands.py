@@ -39,12 +39,13 @@ class EvalCaseCommandMixin:
                 for case_version_id in self._eval_set_case_version_ids(connection, current_eval_set_version["id"])
                 if self._eval_case_version_row(connection, case_version_id)["case_id"] != case_id
             ]
-            eval_set_version_id = self._create_eval_set_version(
+            eval_set_version_id = self._update_current_eval_set_cases(
                 connection,
                 skill_id=skill_id,
                 eval_set_id=eval_set["id"],
+                current_eval_set_version_id=current_eval_set_version["id"],
                 case_version_ids=next_case_version_ids,
-                created_at=updated_at,
+                updated_at=updated_at,
                 actor=actor,
             )
         return CreateEvalCaseResult(skill_id, eval_set["id"], eval_set_version_id, case_id, eval_case["current_version_id"], "", "")
@@ -58,6 +59,7 @@ class EvalCaseCommandMixin:
         expected_output: str,
         actor: str,
         notes: str | None = None,
+        eval_set_version_display_name: str | None = None,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
         eval_case_id = new_id("case")
@@ -105,16 +107,18 @@ class EvalCaseCommandMixin:
                 .where(tables.eval_cases.c.id == eval_case_id)
                 .values(current_version_id=eval_case_version_id, updated_at=created_at)
             )
-            eval_set_version_id = self._create_eval_set_version(
+            eval_set_version_id = self._update_current_eval_set_cases(
                 connection,
                 skill_id=skill_id,
                 eval_set_id=eval_set["id"],
+                current_eval_set_version_id=current_eval_set_version["id"],
                 case_version_ids=[
                     *self._eval_set_case_version_ids(connection, current_eval_set_version["id"]),
                     eval_case_version_id,
                 ],
-                created_at=created_at,
+                updated_at=created_at,
                 actor=actor,
+                display_name=eval_set_version_display_name,
             )
         return CreateEvalCaseResult(
             skill_id,
@@ -185,15 +189,16 @@ class EvalCaseCommandMixin:
                 created_cases.append(
                     CreatedEvalCaseResult(eval_case_id, eval_case_version_id, input_artifact_id, expected_output_artifact_id)
                 )
-            eval_set_version_id = self._create_eval_set_version(
+            eval_set_version_id = self._update_current_eval_set_cases(
                 connection,
                 skill_id=skill_id,
                 eval_set_id=eval_set["id"],
+                current_eval_set_version_id=current_eval_set_version["id"],
                 case_version_ids=[
                     *self._eval_set_case_version_ids(connection, current_eval_set_version["id"]),
                     *[item.eval_case_version_id for item in created_cases],
                 ],
-                created_at=created_at,
+                updated_at=created_at,
                 actor=actor,
             )
         return CreateEvalCasesBatchResult(skill_id, eval_set["id"], eval_set_version_id, tuple(created_cases))
@@ -206,6 +211,7 @@ class EvalCaseCommandMixin:
         expected_output: str,
         actor: str,
         notes: str | None = None,
+        eval_set_version_display_name: str | None = None,
         make_current: bool = True,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
@@ -247,18 +253,20 @@ class EvalCaseCommandMixin:
                     .values(current_version_id=eval_case_version_id, updated_at=created_at)
                 )
                 current_eval_set_version = self._eval_set_version_row(connection, eval_set["current_version_id"])
-                eval_set_version_id = self._create_eval_set_version(
+                eval_set_version_id = self._update_current_eval_set_cases(
                     connection,
                     skill_id=skill_id,
                     eval_set_id=eval_set["id"],
+                    current_eval_set_version_id=current_eval_set_version["id"],
                     case_version_ids=[
                         eval_case_version_id
                         if self._eval_case_version_row(connection, item)["case_id"] == case_id
                         else item
                         for item in self._eval_set_case_version_ids(connection, current_eval_set_version["id"])
                     ],
-                    created_at=created_at,
+                    updated_at=created_at,
                     actor=actor,
+                    display_name=eval_set_version_display_name,
                 )
         return CreateEvalCaseResult(
             skill_id, eval_set["id"], eval_set_version_id, case_id, eval_case_version_id, input_artifact_id, expected_output_artifact_id

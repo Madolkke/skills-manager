@@ -14,6 +14,7 @@ from skillhub.api.routes_commands import register_command_routes
 from skillhub.api.routes_core import register_core_routes
 from skillhub.api.routes_history import register_history_routes
 from skillhub.domain.errors import InvariantError, NotFoundError, PermissionDeniedError
+from skillhub.infrastructure.db.schema_compat import ensure_sqlite_schema_compatibility
 from skillhub.infrastructure.db.tables import metadata
 
 
@@ -37,6 +38,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     )
     app.state.engine = engine or create_sqlite_engine(resolve_database_url(environ))
     metadata.create_all(app.state.engine)
+    ensure_sqlite_schema_compatibility(app.state.engine)
     register_exception_handlers(app)
     register_core_routes(app)
     register_history_routes(app)

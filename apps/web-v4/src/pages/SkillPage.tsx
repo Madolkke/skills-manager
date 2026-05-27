@@ -56,6 +56,8 @@ export function SkillPage({ skill, tab, route, onTab, onRefresh, onNavigate, onT
           onNavigate={onNavigate}
           onUploadClose={closeUpload}
           onUploaded={finishUpload}
+          onRefresh={onRefresh}
+          onToast={onToast}
         />
       ) : null}
       {tab === "evalsets" ? <EvalSetsPage skill={skill} selectedCaseId={route.selectedCaseId} onNavigate={onNavigate} onRefresh={onRefresh} onToast={onToast} /> : null}

@@ -2,6 +2,7 @@ import type {
   BundleSource,
   BundleDiff,
   EvalCaseHistory,
+  EvalCaseMutationResult,
   EvalRunDetail,
   EvalRunHistory,
   EvalSetVersionDetail,
@@ -37,21 +38,33 @@ export const api = {
     apiGet<BundleDiff>(
       `/api/artifacts/diff?left_skill_version_id=${encodeURIComponent(leftSkillVersionId)}&right_skill_version_id=${encodeURIComponent(rightSkillVersionId)}`,
     ),
-  importSkill: (payload: { owner_ref: string; source: BundleSource }) =>
+  importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string }) =>
     apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
-  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean }) =>
+  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string }) =>
     apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
+  updateSkillVersionName: (versionId: string, displayName: string | null) =>
+    apiSend<unknown>(`/api/skill-versions/${versionId}`, "PATCH", { display_name: displayName }),
+  updateEvalSetVersionName: (versionId: string, displayName: string | null) =>
+    apiSend<unknown>(`/api/eval-set-versions/${versionId}`, "PATCH", { display_name: displayName }),
   createEvalCase: (payload: {
     skill_id: string;
     title: string;
     input_text: string;
     expected_output: string;
     notes?: string;
-  }) => apiSend<unknown>("/api/eval-cases", "POST", payload),
+    eval_set_version_display_name?: string;
+  }) => apiSend<EvalCaseMutationResult>("/api/eval-cases", "POST", payload),
   updateEvalCase: (
     caseId: string,
-    payload: { title: string; input_text: string; expected_output: string; notes?: string; make_current: boolean },
-  ) => apiSend<unknown>(`/api/eval-cases/${caseId}`, "PATCH", { ...payload, case_id: caseId }),
+    payload: {
+      title: string;
+      input_text: string;
+      expected_output: string;
+      notes?: string;
+      make_current: boolean;
+      eval_set_version_display_name?: string;
+    },
+  ) => apiSend<EvalCaseMutationResult>(`/api/eval-cases/${caseId}`, "PATCH", { ...payload, case_id: caseId }),
   recordEvalRun: (payload: {
     skill_version_id: string;
     eval_set_version_id: string;

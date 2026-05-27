@@ -113,7 +113,9 @@ class ReadModelMixin:
     def _skill_version_detail(self, connection, version) -> dict[str, Any]:
         detail = self._row_dict(version)
         content_ref = detail.get("content_ref") or {}
-        locator = content_ref.get("locator") if isinstance(content_ref, dict) else None
+        if not isinstance(content_ref, dict):
+            return detail
+        locator = content_ref.get("locator")
         if content_ref.get("kind") == "artifact" and isinstance(locator, str) and locator.startswith("artifact:"):
             artifact_id = locator.split(":", 1)[1]
             artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id)).mappings().one_or_none()

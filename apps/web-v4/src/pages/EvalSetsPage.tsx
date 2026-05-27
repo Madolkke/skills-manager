@@ -3,8 +3,9 @@ import { Copy, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CaseVersionRoadmap } from "../components/CaseVersionRoadmap";
 import { EvalCaseModal, type EvalCaseFormData } from "../components/EvalCaseModal";
+import { EvalSetVersionNameEditor } from "../components/EvalSetVersionNameEditor";
 import { api, ApiError } from "../lib/api";
-import { compactText, humanDate } from "../lib/format";
+import { compactText, evalSetVersionName, humanDate } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { EvalCaseHistory, EvalSetCase, EvalSetVersionDetail, SkillDetail, ToastState } from "../types";
 
@@ -20,19 +21,33 @@ type CaseSortKey = "position" | "title" | "version";
 
 export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onToast }: EvalSetsPageProps) {
   const evalSet = skill.summary.primary_eval_set;
-  const versionId = evalSet?.current_version_id;
+  const [versionId, setVersionId] = useState(evalSet?.current_version_id ?? "");
   const [detail, setDetail] = useState<EvalSetVersionDetail | null>(null);
   const [query, setQuery] = useState("");
   const [caseFilter, setCaseFilter] = useState<"all" | "active">("all");
   const [caseSort, setCaseSort] = useState<CaseSortKey>("position");
   const [editor, setEditor] = useState<EvalSetCase | "new" | null>(null);
   const [history, setHistory] = useState<EvalCaseHistory | null>(null);
+  const [detailRevision, setDetailRevision] = useState(0);
   const [busy, setBusy] = useState(false);
+  const selectedVersion = evalSet?.versions.find((version) => version.id === versionId) ?? evalSet?.current_version ?? null;
+  const viewingCurrent = Boolean(versionId && versionId === evalSet?.current_version_id);
 
   useEffect(() => {
-    if (!versionId) return;
+    const currentVersionId = evalSet?.current_version_id ?? "";
+    if (!currentVersionId) return;
+    if (!versionId || !evalSet?.versions.some((version) => version.id === versionId)) {
+      setVersionId(currentVersionId);
+    }
+  }, [evalSet, versionId]);
+
+  useEffect(() => {
+    if (!versionId) {
+      setDetail(null);
+      return;
+    }
     api.getEvalSetVersion(versionId).then(setDetail).catch((error) => onToast({ tone: "danger", message: errorMessage(error) }));
-  }, [onToast, versionId]);
+  }, [detailRevision, onToast, versionId]);
 
   const cases = useMemo(() => sortCases(filterCases(detail?.cases ?? [], query, caseFilter), caseSort), [caseFilter, caseSort, detail, query]);
   const selected = cases.find((item) => item.case.id === selectedCaseId) ?? cases[0] ?? null;
@@ -53,15 +68,35 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
   async function saveCase(form: EvalCaseFormData) {
     setBusy(true);
     try {
-      if (editor === "new") await api.createEvalCase({ skill_id: skill.skill.id, ...form });
-      else if (editor) await api.updateEvalCase(editor.case.id, { ...form, make_current: true });
+      const payload = { ...form, eval_set_version_display_name: cleanName(form.eval_set_version_display_name) };
+      const saved = editor === "new"
+        ? await api.createEvalCase({ skill_id: skill.skill.id, ...payload })
+        : editor
+          ? await api.updateEvalCase(editor.case.id, { ...payload, make_current: true })
+          : null;
+      if (saved) {
+        setVersionId(saved.eval_set_version_id);
+        onNavigate({ selectedCaseId: saved.eval_case_id });
+        setDetailRevision((value) => value + 1);
+      }
       setEditor(null);
-      onToast({ tone: "success", message: "测评集已更新为新版本。" });
+      onToast({ tone: "success", message: "Case 已保存。" });
       await onRefresh();
     } catch (caught) {
       onToast({ tone: "danger", message: errorMessage(caught) });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function renameEvalSetVersion(displayName: string | null) {
+    if (!selectedVersion) return;
+    try {
+      await api.updateEvalSetVersionName(selectedVersion.id, displayName);
+      onToast({ tone: "success", message: "测评集版本名称已更新。" });
+      await onRefresh();
+    } catch (caught) {
+      onToast({ tone: "danger", message: errorMessage(caught) });
     }
   }
 
@@ -72,14 +107,31 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
         <div className="evalset-card">
           <div className="evalset-title-row">
             <span className="green-dot" />
-            <span>当前 EvalSetVersion</span>
+            <span>{viewingCurrent ? "当前 EvalSetVersion" : "历史 EvalSetVersion"}</span>
           </div>
-          <h1>{evalSet?.name ?? "Regression Set"} v{evalSet?.current_version?.version_number ?? "-"}</h1>
+          <EvalSetVersionNameEditor version={selectedVersion} evalSetName={evalSet?.name ?? "Regression Set"} onSave={renameEvalSetVersion} />
           <div className="mini-grid">
             <span>Cases<b>{detail?.cases.length ?? 0}</b></span>
-            <span>版本<b>v{evalSet?.current_version?.version_number ?? "-"}</b></span>
-            <span>更新时间<b>{humanDate(evalSet?.current_version?.created_at)}</b></span>
+            <span>状态<b>{viewingCurrent ? "当前" : "历史"}</b></span>
+            <span>更新时间<b>{humanDate(selectedVersion?.created_at)}</b></span>
           </div>
+        </div>
+        <div className="evalset-version-list" aria-label="测评集历史版本">
+          <strong>版本历史</strong>
+          {evalSet?.versions.map((version) => (
+            <button
+              className={clsx("evalset-version-row", version.id === versionId && "active")}
+              type="button"
+              key={version.id}
+              onClick={() => {
+                setVersionId(version.id);
+                onNavigate({ selectedCaseId: null });
+              }}
+            >
+              <span>{evalSetVersionName(version)}</span>
+              <small>{version.id === evalSet.current_version_id ? "当前" : humanDate(version.created_at)}</small>
+            </button>
+          ))}
         </div>
         <label className="search-field compact">
           <Search size={18} />
@@ -99,10 +151,16 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
               <option value="version">按版本排序</option>
             </select>
           </label>
+          {viewingCurrent ? (
           <button className="primary-button" type="button" onClick={() => setEditor("new")}>
             <Plus size={17} />
             添加
           </button>
+          ) : (
+            <button className="secondary-button" type="button" onClick={() => setVersionId(evalSet?.current_version_id ?? "")}>
+              当前版本
+            </button>
+          )}
         </div>
         <div className="case-list">
           {cases.map((item) => {
@@ -151,8 +209,8 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
                 </div>
               </div>
               <div className="button-row">
-                <button className="primary-button" type="button" onClick={() => setEditor(selected)}>
-                  编辑为新版本
+                <button className="primary-button" type="button" disabled={!viewingCurrent} onClick={() => setEditor(selected)}>
+                  编辑 case
                 </button>
               </div>
             </header>
@@ -213,4 +271,9 @@ function caseLifecycleLabel(status: string): string {
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError || error instanceof Error) return error.message;
   return "操作失败。";
+}
+
+function cleanName(value: string): string | undefined {
+  const clean = value.trim();
+  return clean || undefined;
 }

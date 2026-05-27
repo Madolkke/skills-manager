@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { CheckCircle2, Circle, Grid2X2, List, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
+import { evalSetVersionName, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { SkillSummary } from "../types";
 
 type HubPageProps = {
@@ -142,7 +142,7 @@ function SkillCard({ item, onClick }: { item: SkillSummary; onClick: () => void 
       </div>
       <div className="card-metrics">
         <Metric label="验证得分" value={scoreLabel(run)} tone={status} />
-        <Metric label="测评集版本" value={item.summary.primary_eval_set?.current_version ? `v${item.summary.primary_eval_set.current_version.version_number}` : "-"} />
+        <Metric label="测评集版本" value={evalSetVersionName(item.summary.primary_eval_set?.current_version)} />
         <Metric label="当前版本" value={versionName(version)} />
         {status === "empty" ? <Circle className="status-ring empty" size={23} /> : <CheckCircle2 className="status-ring verified" size={23} />}
       </div>
@@ -225,8 +225,8 @@ function recentEvalSkills(skills: SkillSummary[]): SkillSummary[] {
 
 function evalSetVersionLabel(item: SkillSummary): string {
   const name = item.summary.primary_eval_set?.name ?? "未绑定测评集";
-  const version = item.summary.primary_eval_set?.current_version?.version_number;
-  return version ? `${name} v${version}` : name;
+  const version = item.summary.primary_eval_set?.current_version;
+  return version ? `${name} ${evalSetVersionName(version)}` : name;
 }
 
 function scoreValue(item: SkillSummary): number {

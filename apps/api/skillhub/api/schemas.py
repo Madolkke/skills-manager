@@ -22,6 +22,7 @@ EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH = 20_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
 VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
+VERSION_DISPLAY_NAME_MAX_LENGTH = 80
 
 EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MAX_LENGTH)]
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
@@ -31,6 +32,7 @@ EvalCaseActualOutput = Annotated[str, Field(max_length=EVAL_CASE_ACTUAL_OUTPUT_M
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
+VersionDisplayName = Annotated[str, Field(min_length=1, max_length=VERSION_DISPLAY_NAME_MAX_LENGTH)]
 
 
 class ContentRefPayload(BaseModel):
@@ -45,11 +47,13 @@ class CreateSkillPayload(BaseModel):
     owner_ref: IdentityRef
     content_ref: ContentRefPayload
     change_summary: VersionChangeSummary
+    display_name: VersionDisplayName | None = None
 
 
 class ImportSkillPayload(BaseModel):
     owner_ref: IdentityRef
     source: dict[str, Any]
+    display_name: VersionDisplayName | None = None
 
 
 class CreateSkillVersionPayload(BaseModel):
@@ -57,7 +61,12 @@ class CreateSkillVersionPayload(BaseModel):
     content_ref: ContentRefPayload | None = None
     source: dict[str, Any] | None = None
     change_summary: VersionChangeSummary | None = None
+    display_name: VersionDisplayName | None = None
     make_current: bool = False
+
+
+class UpdateVersionDisplayNamePayload(BaseModel):
+    display_name: VersionDisplayName | None = None
 
 
 class UpdateSkillPayload(BaseModel):
@@ -77,6 +86,7 @@ class CreateEvalCasePayload(BaseModel):
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
     notes: EvalCaseNotes | None = None
+    eval_set_version_display_name: VersionDisplayName | None = None
 
 
 class CreateEvalCaseItemPayload(BaseModel):
@@ -97,6 +107,7 @@ class CreateEvalCaseVersionPayload(BaseModel):
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
     notes: EvalCaseNotes | None = None
+    eval_set_version_display_name: VersionDisplayName | None = None
     make_current: bool = True
 
 

@@ -1,11 +1,4 @@
-.versions-layout.with-upload-panel {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 300px) 360px;
-  gap: 18px;
-}
-
 .version-upload-panel {
-  position: sticky;
-  top: 106px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: white;

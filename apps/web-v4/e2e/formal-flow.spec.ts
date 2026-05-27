@@ -21,14 +21,13 @@ test("operator can complete the formal SkillHub core flow", async ({ page }, tes
   bundle.write(skillSlug, 2);
   await app.openTab("版本");
   await expect(page.getByRole("button", { name: "上传版本", exact: true })).toHaveCount(1);
-  await app.uploadSkillVersion(bundle.path);
-  await expect(page.locator(".version-detail-panel .version-pill")).toHaveText("当前版本");
-  await expect(page.locator(".version-detail-panel .version-current-summary")).toContainText("当前 v2");
   const diffResponse = page.waitForResponse((response) => response.url().includes("/api/artifacts/diff") && response.ok());
-  await page.getByRole("button", { name: "Bundle diff" }).click();
+  await app.uploadSkillVersion(bundle.path);
   await diffResponse;
-  await expect(page.locator(".version-inspector-detail-panel")).toContainText("Bundle diff");
-  await expect(page.locator(".version-inspector-detail-panel")).toContainText("变更文件");
+  await expect(page.locator(".version-summary-panel")).toContainText("当前版本");
+  await expect(page.locator(".version-summary-panel")).toContainText("v2");
+  await expect(page.locator(".commit-diff-panel")).toContainText("Bundle diff");
+  await expect(page.locator(".commit-diff-panel .commit-file").first()).toBeVisible();
 
   await app.openTab("测评集");
   await expect(page.getByRole("button", { name: "上传版本", exact: true })).toHaveCount(0);
@@ -49,7 +48,7 @@ test("operator can complete the formal SkillHub core flow", async ({ page }, tes
 
   await app.openTab("测评");
   await expect(page.getByRole("button", { name: "上传版本", exact: true })).toHaveCount(0);
-  await app.setRunEnvironment(["codex", "windows"], { os: "windows", runner: "local", model: "gpt-5" });
+  await app.setRunEnvironment(["codex", "windows"]);
   await app.recordManualPass(caseTitle);
 
   await app.openTab("历史");

@@ -19,7 +19,7 @@ Playwright 会自动启动两个本地服务：
 ## 覆盖范围
 
 1. 从 Hub 首页新建 Skill，并上传标准 Skill 文件夹。
-2. 在 Skill `版本` 页打开页面内上传面板，上传新版 bundle，追加 `SkillVersion`，再点击 `Bundle diff` 等待后端 `/api/artifacts/diff` 返回并展示真实变更文件。
+2. 在 Skill `版本` 页打开页面内上传面板，上传新版 bundle，追加 `SkillVersion`，并确认页面直接展示后端 `/api/artifacts/diff` 返回的真实变更文件。
 3. 在测评集页新增 case，再编辑为新的 case version，并确认版本历史以连接式 roadmap 展示。
 4. 在独立测评页选择 exact `SkillVersion + EvalSetVersion`，输入运行环境标签、本次运行结果，和 expected output 对照后手动标记通过并记录结果。
 5. 在历史页确认 `SkillVersion`、`EvalSetVersion`、运行环境、case result、actual output artifact 和 digest 证据链可见。

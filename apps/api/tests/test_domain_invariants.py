@@ -60,7 +60,7 @@ class DomainInvariantTest(unittest.TestCase):
         self.assertEqual(run.environment_tags, ("codex", "windows"))
         self.assertEqual(self.workspace.case_results[0].passed, True)
 
-    def test_eval_case_version_creates_new_eval_set_snapshot_without_mutating_history(self):
+    def test_eval_case_version_updates_current_eval_set_until_it_has_run_history(self):
         skill_id = self.create_skill()
         first_set = self.service.create_eval_case(
             skill_id=skill_id,
@@ -70,6 +70,37 @@ class DomainInvariantTest(unittest.TestCase):
         )
         old_case_version_id = first_set.case_version_ids[0]
         case = next(iter(self.workspace.eval_cases.values()))
+
+        new_case_version = self.service.create_eval_case_version(
+            case_id=case.id,
+            input_text="new input",
+            expected_output="new expectation",
+        )
+        latest_eval_set = next(item for item in self.workspace.eval_sets.values() if item.skill_id == skill_id)
+        latest_set_version = self.workspace.eval_set_versions[latest_eval_set.current_version_id]
+
+        self.assertEqual(first_set.case_version_ids, (old_case_version_id,))
+        self.assertEqual(latest_set_version.case_version_ids, (new_case_version.id,))
+        self.assertEqual(first_set.id, latest_set_version.id)
+
+    def test_eval_case_version_creates_new_eval_set_snapshot_after_run_history_exists(self):
+        skill_id = self.create_skill()
+        skill = self.workspace.skills[skill_id]
+        first_set = self.service.create_eval_case(
+            skill_id=skill_id,
+            title="PR: null nickname",
+            input_text="old input",
+            expected_output="old expectation",
+        )
+        old_case_version_id = first_set.case_version_ids[0]
+        case = next(iter(self.workspace.eval_cases.values()))
+        self.service.record_eval_run(
+            skill_version_id=skill.current_version_id,
+            eval_set_version_id=first_set.id,
+            strategy="manual_pass_fail",
+            results={old_case_version_id: True},
+            actor="tester",
+        )
 
         new_case_version = self.service.create_eval_case_version(
             case_id=case.id,

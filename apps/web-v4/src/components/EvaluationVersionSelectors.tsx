@@ -1,5 +1,5 @@
 import { Database, Package } from "lucide-react";
-import { versionName } from "../lib/format";
+import { evalSetVersionName, versionName } from "../lib/format";
 import type { EvalSetSummary, EvalSetVersion, SkillVersion } from "../types";
 import type { ManualVersionDetailFocus } from "./ManualVersionDetailPanel";
 
@@ -74,7 +74,7 @@ export function EvaluationVersionSelectors({
             {evalSetVersions.length === 0 ? <option value="">暂无测评集版本</option> : null}
             {evalSetVersions.map(({ set, version }) => (
               <option value={version.id} key={version.id}>
-                {set.name} v{version.version_number}
+                {set.name} {evalSetVersionName(version)}
               </option>
             ))}
           </select>

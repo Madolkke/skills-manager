@@ -36,6 +36,7 @@ def register_command_routes(app: FastAPI) -> None:
                 owner_ref=payload.owner_ref,
                 content_ref=content_ref(payload.content_ref),
                 change_summary=payload.change_summary,
+                display_name=payload.display_name,
                 actor=actor.id,
             )
         )
@@ -63,6 +64,7 @@ def register_command_routes(app: FastAPI) -> None:
                 path=bundle.entry_path,
             ),
             change_summary=f"Imported standard skill bundle with {bundle.file_count} files.",
+            display_name=payload.display_name,
             actor=actor.id,
         )
         return {
@@ -101,6 +103,7 @@ def register_command_routes(app: FastAPI) -> None:
                 content_ref=content,
                 change_summary=payload.change_summary
                 or (f"Uploaded standard skill bundle with {bundle.file_count} files." if bundle else "Updated skill version."),
+                display_name=payload.display_name,
                 actor=actor.id,
                 make_current=payload.make_current,
             )
@@ -120,6 +123,7 @@ def register_command_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 actor=actor.id,
                 notes=payload.notes,
+                eval_set_version_display_name=payload.eval_set_version_display_name,
             )
         )
 
@@ -146,6 +150,7 @@ def register_command_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 actor=actor.id,
                 notes=payload.notes,
+                eval_set_version_display_name=payload.eval_set_version_display_name,
                 make_current=payload.make_current,
             )
         )
@@ -166,6 +171,7 @@ def register_command_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 actor=actor.id,
                 notes=payload.notes,
+                eval_set_version_display_name=payload.eval_set_version_display_name,
                 make_current=payload.make_current,
             )
         )

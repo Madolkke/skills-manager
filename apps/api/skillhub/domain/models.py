@@ -64,6 +64,7 @@ class SkillVersion:
     change_summary: str
     created_at: datetime
     created_by: str
+    display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,7 @@ class EvalSetVersion:
     version_number: int
     case_version_ids: tuple[str, ...]
     created_at: datetime
+    display_name: str | None = None
 
 
 @dataclass(frozen=True)

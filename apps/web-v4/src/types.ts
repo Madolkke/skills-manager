@@ -23,6 +23,7 @@ export type SkillVersion = {
   id: string;
   skill_id: string;
   version_number: number;
+  display_name?: string | null;
   content_ref: ContentRef;
   content_digest: string;
   change_summary: string;
@@ -37,6 +38,7 @@ export type EvalSetVersion = {
   skill_id: string;
   eval_set_id: string;
   version_number: number;
+  display_name?: string | null;
   created_at?: string;
   created_by: string;
 };
@@ -147,6 +149,14 @@ export type EvalSetVersionDetail = {
   cases: EvalSetCase[];
 };
 
+export type EvalCaseMutationResult = {
+  skill_id: string;
+  eval_set_id: string;
+  eval_set_version_id: string;
+  eval_case_id: string;
+  eval_case_version_id: string;
+};
+
 export type EvalCaseHistory = {
   case: EvalSetCase["case"];
   versions: Array<{
@@ -181,8 +191,8 @@ export type EvalRunDetail = {
   skill_version: SkillVersion;
   eval_set_version: EvalSetVersion;
   case_results: Array<{
+    position: number;
     result: {
-      id: string;
       run_id: string;
       case_version_id: string;
       passed: boolean;

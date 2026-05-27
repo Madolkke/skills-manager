@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { Info } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
-import { EvaluationContextCard, type EvaluationRunContextDraft } from "../components/EvaluationContextCard";
+import { EvaluationContextCard } from "../components/EvaluationContextCard";
 import { EvaluationVersionSelectors } from "../components/EvaluationVersionSelectors";
 import { ManualCase, ManualEvalActionBar, ManualProgressPanel } from "../components/ManualEvaluationPanels";
 import { ManualVersionDetailPanel, type ManualVersionDetailFocus } from "../components/ManualVersionDetailPanel";
@@ -23,7 +23,6 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
   const [skillVersionId, setSkillVersionId] = useState(defaultVersionId);
   const [evalSetVersionId, setEvalSetVersionId] = useState(defaultEvalSetVersionId);
   const [environmentTags, setEnvironmentTags] = useState<string[]>([]);
-  const [runContext, setRunContext] = useState<EvaluationRunContextDraft>({ os: "", runner: "", model: "" });
   const [detail, setDetail] = useState<EvalSetVersionDetail | null>(null);
   const [results, setResults] = useState<Record<string, ManualCaseResult>>({});
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
@@ -106,7 +105,7 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
         eval_set_version_id: evalSetVersionId,
         strategy: "manual_pass_fail",
         environment_tags: environmentTags,
-        run_context: compactRunContext(runContext),
+        run_context: {},
         results: Object.fromEntries(
           Object.entries(results).map(([caseVersionId, result]) => [
             caseVersionId,
@@ -122,7 +121,7 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
     } finally {
       setBusy(false);
     }
-  }, [cases.length, environmentTags, evalSetVersionId, onNavigate, onRefresh, onToast, results, runContext, skillVersionId, summary.pending]);
+  }, [cases.length, environmentTags, evalSetVersionId, onNavigate, onRefresh, onToast, results, skillVersionId, summary.pending]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -172,10 +171,8 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
         />
         <EvaluationContextCard
           environmentTags={environmentTags}
-          runContext={runContext}
           latestRuns={skill.latest_eval_runs}
           onEnvironmentTagsChange={setEnvironmentTags}
-          onRunContextChange={setRunContext}
         />
         <div className="info-box">
           <Info size={18} />
@@ -274,10 +271,6 @@ function manualStatusClass(value?: boolean): string {
   if (value === true) return "passed";
   if (value === false) return "failed";
   return "pending";
-}
-
-function compactRunContext(context: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(Object.entries(context).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value.length > 0));
 }
 
 function errorMessage(error: unknown): string {

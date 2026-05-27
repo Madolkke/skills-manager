@@ -38,6 +38,80 @@
   font-size: 25px;
 }
 
+.evalset-name-row,
+.evalset-name-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.evalset-name-row h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.evalset-name-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px 38px;
+}
+
+.evalset-name-editor input {
+  min-width: 0;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 10px;
+  font-weight: 820;
+}
+
+.evalset-version-list {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  display: grid;
+  overflow: hidden;
+}
+
+.evalset-version-list > strong {
+  padding: 12px 14px;
+  color: #53637b;
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.evalset-version-row {
+  min-height: 48px;
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.evalset-version-row:last-child {
+  border-bottom: 0;
+}
+
+.evalset-version-row.active {
+  background: #f4f8ff;
+  color: var(--blue);
+}
+
+.evalset-version-row span {
+  font-weight: 820;
+  overflow-wrap: anywhere;
+}
+
+.evalset-version-row small {
+  color: var(--muted);
+  font-weight: 720;
+  text-align: right;
+}
+
 .evalset-title-row {
   display: grid;
   grid-template-columns: 10px 1fr;
