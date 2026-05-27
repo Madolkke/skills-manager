@@ -1,116 +1,80 @@
 # Storage Adapter Contract
 
-This document sketches the storage adapter boundary for skill bundle content. The current demo has a file-backed `ArtifactStore`; future adapters can target Git, object storage, or hybrid storage without changing the core Skill / Variant / Eval model.
+本文档定义 SkillHub 内容存储边界。数据库保存事实关系，Artifact adapter 保存不可变内容。当前实现仍可使用数据库内 artifact 记录，后续可以替换为文件系统、对象存储或 Git adapter。
 
-## Current Boundary
+## 存储对象
 
-Domain state stores only:
+Artifact adapter 负责：
 
-- `Artifact.id`
-- `Artifact.kind`
-- `Artifact.content_hash`
-- `Artifact.media_type`
-- `Artifact.content` as a locator
-- `VariantVersion.content_ref`
+- 标准 Skill bundle 文件树。
+- Eval case input。
+- Expected output。
+- Actual output。
+- 外部 runner 原始报告、日志和 transcript。
 
-The actual skill bundle bytes live behind `ArtifactStore`.
+数据库只保存：
 
-Current implementation:
+- `artifact_id`
+- `kind`
+- `locator`
+- `digest`
+- `media_type`
+- `size`
+- `created_at`
+- `created_by`
 
-```text
-HTTP
-  -> Repository
-    -> SkillHubStore for domain rules
-    -> SQLite / JSON for state
-    -> ArtifactStore for bundle content
-```
-
-## Minimal Interface
-
-The stable interface should stay small:
+## 最小接口
 
 ```python
 class ArtifactStore(Protocol):
-    label: str
-
-    def write_text(self, namespace: str, content_hash: str, content: str) -> str:
+    def put_blob(self, namespace: str, content: bytes, media_type: str) -> ArtifactRef:
         ...
 
-    def read_text(self, locator: str) -> str:
+    def put_tree(self, namespace: str, files: list[BundleFileInput]) -> ArtifactRef:
+        ...
+
+    def read_blob(self, ref: ArtifactRef) -> bytes:
+        ...
+
+    def read_tree(self, ref: ArtifactRef) -> list[BundleFile]:
         ...
 ```
 
-Required semantics:
+要求：
 
-- `write_text` is content-addressed and idempotent.
-- `content_hash` is computed before writing.
-- returned `locator` is immutable.
-- `read_text(locator)` returns the exact bytes represented by the hash.
-- path traversal and ambiguous locator formats are rejected.
+- 写入必须返回不可变 locator。
+- digest 在写入前或写入时计算，并在读取时可校验。
+- 路径必须标准化，拒绝 path traversal。
+- 同一内容重复写入应该是幂等的。
+- adapter 不保存 Skill、EvalRun 或权限关系。
 
-## Git Adapter Draft
+## 文件和对象存储
 
-Git is useful when we want native file diff, history, branch, PR, fork, and review workflows.
-
-For 1.0, skill bundle snapshots should be stored as normalized file trees. A single JSON blob is acceptable only for demo, migration, or compatibility paths. File-tree storage keeps diffs, review, import/export, and standard skill folder semantics aligned.
-
-Proposed locator:
+本地文件系统和 S3-compatible object storage 都应满足同一 locator 语义：
 
 ```text
-git:<remote-or-local-repo>#<commit-sha>:<path>
+file:<absolute-or-data-root-relative-path>#sha256:<digest>
+object:<bucket>/<key>#sha256:<digest>
 ```
 
-Example:
+生产部署优先使用对象存储；本地开发可以继续使用 `.data` 下的文件型实现。
+
+## Git Adapter
+
+Git adapter 只能作为内容 adapter：
+
+- locator 必须指向 commit SHA 和路径。
+- 不允许使用 branch name 作为不可变内容引用。
+- fork、PR、review 是协作层概念，不进入核心 `SkillVersion` 模型。
+
+示例：
 
 ```text
-git:skills-content.git#abc1234:bundles/code-reviewer/
+git:ssh://git.example/skills.git#abc1234:bundles/code-reviewer/
 ```
 
-Adapter responsibilities:
+## 当前约束
 
-- materialize a normalized skill folder into a Git tree.
-- create a commit for each immutable bundle snapshot.
-- return a locator containing commit SHA and bundle path.
-- read bundle content at an exact commit, never from a moving branch.
-- expose optional diff helpers later, but keep `ArtifactStore` minimal.
-
-Do not use Git branch names as immutable content locators. Branches are collaboration pointers; `VariantVersion.content_ref` must point to immutable content.
-
-## Object Storage Adapter Draft
-
-Object storage is useful for simple immutable blobs and large assets.
-
-Proposed locator:
-
-```text
-object:<bucket>/<key>#<sha256>
-```
-
-Example:
-
-```text
-object:skillhub-artifacts/skill-bundles/4f9a...json#4f9a...
-```
-
-Adapter responsibilities:
-
-- write content under a content-addressed key.
-- verify returned object hash / etag where possible.
-- read by exact object key and verify digest.
-- support later migration to CDN or signed URLs.
-
-## Hybrid Strategy
-
-A pragmatic formal version can use both:
-
-- Git adapter for human-editable skill folders and PR review.
-- Object storage for large generated assets, reports, logs, and binary attachments.
-- Database stores only locator, digest, media type, and ownership metadata.
-
-This keeps the platform model stable while allowing content storage to evolve.
-
-## Open Decisions
-
-- Whether Git commits are created by the platform or imported from user-owned repos.
-- Whether object storage should be local-first for single-user deployments.
-- How to authorize reads/writes once multi-user permissions exist.
+- `SkillVersion.content_ref` 指向不可变 Skill bundle。
+- Bundle diff 只比较同一 Skill 的两个 `SkillVersion`。
+- actual output 必须作为 run 证据保存，不能只存在浏览器状态。

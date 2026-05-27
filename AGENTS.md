@@ -2,8 +2,6 @@
 
 Always apply these standards to all code you write.
 
-For Ralph's Docker Sandboxes naming conventions (per-agent + per-project, used at startup and during cleanup), see @RALPH.md.
-
 ## 文档语言
 
 - 默认使用中文编写产品文档、规格文档、计划、审计记录、README 更新和用户可见说明。
@@ -32,10 +30,6 @@ Signs a file needs splitting:
 - Scrolling to find what you need
 - "Utils" file becoming a junk drawer
 - Component doing data fetching + transformation + rendering
-
-## Task Execution
-
-- **One task per invocation.** When working from `.agent/tasks.json`, complete exactly one task, commit, and stop. Never batch multiple tasks.
 
 ## Code Style
 

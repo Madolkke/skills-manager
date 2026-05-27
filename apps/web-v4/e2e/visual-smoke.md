@@ -1,6 +1,6 @@
 # Web V4 视觉 Smoke
 
-这组 Playwright 截图基线覆盖 `docs/product-ui-reference/` 对应的 5 个正式版页面：
+这组 Playwright 截图基线覆盖 5 个正式版页面：
 
 1. Hub 首页
 2. Skill 概览
@@ -33,4 +33,4 @@ npm run e2e -- --config playwright.visual.config.ts
 
 ## 边界
 
-这些截图是当前 Web V4 的回归基线，用来防止布局、层级、主要控件和页面密度意外倒退。它们不是“逐像素复刻参考图”的证明；正式验收口径见 [Web V4 视觉参考验收记录](../../../docs/formal-web-v4-visual-reference-acceptance-2026-05-22.md)。
+这些截图是当前 Web V4 的回归基线，用来防止布局、层级、主要控件和页面密度意外倒退。正式验收口径以 README 的核心验收清单和本测试断言为准。
