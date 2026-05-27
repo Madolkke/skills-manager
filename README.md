@@ -18,7 +18,7 @@
 
 ## 快速开始
 
-正式版工作区位于 `apps/api` 和 `apps/web-v4`。旧前端工作台、早期 demo 和 prototype 运行时代码已经从主分支移除；后续产品开发以这两个目录为准。
+正式版工作区位于 `apps/api` 和 `apps/web-v4`。主分支只保留当前正式版运行时代码、验证脚本和权威文档；旧前端工作台、早期 demo、prototype、Ralph/.agent 任务体系和历史截图已经移除。
 
 ### 一键本地运行
 
@@ -129,37 +129,6 @@ npm run e2e:visual
 - [Formal architecture v0.1](docs/formal-architecture-v0.1.md)
 - [Formal tech stack](docs/formal-tech-stack.md)
 - [Formal UI design v0.1](docs/formal-ui-design.md)
+- [代码库质量审计](docs/codebase-quality-audit-2026-05-27.md)
 - [Web V4 E2E smoke](apps/web-v4/e2e/formal-flow.md)
 - [Web V4 视觉 Smoke](apps/web-v4/e2e/visual-smoke.md)
-- [模型收口正式审计](docs/formal-web-v4-remove-variants-audit-2026-05-26.md)
-- [SkillHub 正式版问题收口审计](docs/formal-web-v4-formal-issue-closure-2026-05-25.md)
-- [Ralph Loop 运行说明](RALPH.md)
-
-## Ralph Loop
-
-项目已安装 Ralph Loop 配置，任务定义在 `.agent/tasks.json` 和 `.agent/tasks/`。
-
-运行前需要 Docker Sandboxes 登录：
-
-```bash
-sbx login
-```
-
-如果使用项目本地下载的 `sbx` 二进制：
-
-```bash
-PATH="$PWD/.tools/sbx/bin:$PATH" ./ralph.sh --agent codex
-```
-
-当前 Codex 沙箱里需要把 `sbx` 状态写到可写目录：
-
-```bash
-HOME=/private/tmp/skillhub-sbx-home PATH="$PWD/.tools/sbx/bin:$PATH" sbx login
-HOME=/private/tmp/skillhub-sbx-home PATH="$PWD/.tools/sbx/bin:$PATH" ./ralph.sh --agent codex
-```
-
-如果只想验证一轮：
-
-```bash
-PATH="$PWD/.tools/sbx/bin:$PATH" ./ralph.sh --agent codex --once
-```

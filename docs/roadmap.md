@@ -1,105 +1,44 @@
-# SkillHub Demo Roadmap
+# SkillHub Roadmap
 
-This document captures the current demo boundary and the next steps toward a formal product.
+本文档只记录当前正式版之后的产品方向，不再保留 demo 或 Variant 时代计划。
 
-## Current State
+## 已收口
 
-The demo now proves the core loop:
+- 标准 Skill bundle 导入。
+- 不可变 `SkillVersion`。
+- case 和 `EvalSetVersion` 版本化。
+- 手工 `EvalRun`，包含运行环境标签和 actual output。
+- 历史页、run 详情、case result 和 actual vs expected。
+- 后端真实 bundle diff。
+- 文件型 SQLite 默认持久化和干净 clone 自动建库。
+- Web V4 正式工作台、E2E、视觉和小窗口冒烟。
 
-- Hub lists skills.
-- `Skill` points to a default `Variant`.
-- `Variant` points to a current immutable `VariantVersion`.
-- `VariantVersion.content_ref` points to skill content.
-- `EvalSetVersion` snapshots eval case membership and order.
-- `EvalRun` records pass/fail results for one `VariantVersion + EvalSetVersion`.
-- Case-level results are visible from eval result pages.
-- Skill bundle content can be imported, viewed, and diffed.
-- Archive/deprecate exists for Skill and Variant without hard delete.
+## 下一阶段
 
-## Backend Boundary
+1. **Repository 拆分**
 
-Current shape:
+   `apps/api/skillhub/infrastructure/db/repositories.py` 仍然过大。下一轮应按写入命令、读模型、权限、diff/artifact 拆成多个协作模块，同时保持现有 API contract 不变。
 
-```text
-HTTP API
-  -> Repository
-    -> SkillHubStore domain rules
-    -> SQLite app_state snapshot
-    -> SQLite normalized read tables
-    -> ArtifactStore bundle content
-```
+2. **外部 Eval Runner**
 
-Important properties:
+   定义 `EvalStrategy` registry，让外部命令或脚本能生成标准 `{ passed, actual_output }` case result，再通过现有 `POST /api/eval-runs` 写入。
 
-- Domain facts remain append-friendly.
-- The default runtime store is SQLite.
-- JSON mode remains available for disposable local experiments.
-- Core read paths use SQL read models.
-- Write paths go through Repository mutation.
-- Skill bundle content is behind `ArtifactStore`.
-- GitHub Actions runs backend tests and frontend build on push and PR.
+3. **Artifact Adapter**
 
-## Closed MVP Items
+   把当前数据库内 artifact 记录抽象成 file/object storage adapter，保留 digest、media type、size 和 immutable locator 语义。
 
-- Multi-skill flow.
-- Variant creation.
-- Variant version publishing.
-- Eval case creation.
-- Eval set versioning.
-- Manual pass/fail eval runs.
-- Result detail by case.
-- Skill bundle import and detail view.
-- Bundle diff from immutable snapshots.
-- SQLite persistence.
-- SQL read models for hub, skill, variant, eval set, and eval result.
-- Archive/restore controls for Skill and Variant in the demo UI.
-- Minimal CI.
+4. **密集历史视图**
 
-## Intentional Gaps
+   历史和 run matrix 可以引入表格组件，支持更强的列配置、排序和导出。
 
-These are not bugs in the demo; they are product decisions deferred until the model is stable:
+5. **权限和团队化**
 
-- Multi-user auth and permissions.
-- Fork / PR collaboration flow.
-- Automatic eval execution.
-- LLM judge / rubric strategies.
-- Upgrade agent / optimizer strategies.
-- Rich multidimensional table views.
-- Production UI design.
-- Real Git adapter.
-- Real object storage adapter.
-- Formal migrations beyond the first v2 schema migration.
+   当前本地 actor 机制足够单机使用。团队化前需要补组织、成员、OIDC 和 audit export。
 
-## Next Implementation Order
+## 明确不做
 
-1. Adapter hardening
-
-   Define concrete `GitArtifactStore` and `ObjectArtifactStore` contracts, but keep the current file-backed store as the default local mode.
-
-2. Eval strategy plugins
-
-   Add a strategy registry around eval execution. Manual pass/fail remains one strategy; future strategies can call scripts, external tools, LLM judges, or human review queues.
-
-3. Upgrade experiment model
-
-   Introduce an `Experiment` or `UpgradeAttempt` object to record proposed content changes, eval before/after, and final promotion decision.
-
-4. Permission model
-
-   Add owners, roles, and publish/archive permissions before fork/PR collaboration.
-
-5. Formal frontend rebuild
-
-   Rebuild the UI around the proven information architecture: hub, variant page, eval set detail, eval result detail, and management console.
-
-## Product Thesis
-
-The platform should not compete with GitHub as a generic code host. It should use Git-like ideas where they help, but its main value is eval-backed skill reliability:
-
-- content is versioned,
-- variants represent best-known answers under constraints,
-- eval set versions make progress measurable,
-- every promotion can be checked against previous expectations,
-- bad cases become durable eval cases instead of anecdotes.
-
-Distribution is only the visible tip. The real product is the reliability layer under every published skill.
+- 不恢复 Variant。
+- 不恢复旧 demo/prototype runtime。
+- 不恢复 Ralph/.agent 任务体系到主分支。
+- 不把运行环境标签放进内容版本。
+- 不把 Git branch 当作 `SkillVersion` locator。

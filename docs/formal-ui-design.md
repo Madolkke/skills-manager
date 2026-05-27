@@ -1,336 +1,106 @@
-# SkillHub 正式版 UI 设计规格 v0.1
+# SkillHub 正式版 UI 设计规格
 
-本文档定义正式版 UI 的产品结构和页面契约。目标不是美化当前 demo，而是为正式 Next.js 前端提供清晰的信息架构：普通用户看到的是一个好用的 SkillHub，高级用户可以一路钻到 variant version、eval set version、eval run 和 case result 的证据链。
+本文档定义当前 Web V4 的页面契约。UI 围绕 `SkillVersion + EvalSetVersion + run_context` 证据链组织，不再使用 Variant、promotion 或 tags-as-version 的概念。
 
-## 1. 设计结论
-
-正式 UI 采用“双层产品”：
+## 信息架构
 
 ```text
-上层：普通 SkillHub
-用户能搜索、浏览、打开 skill，看到它是做什么的、默认版本是什么、是否验证过。
+/skills
+  Hub 首页：搜索、筛选、最近测评、当前验证状态。
 
-下层：Skill 实验平台
-维护者能管理 variant、version、eval set、case、eval run，并用证据决定是否 promotion。
+/skills/:skillId
+  Skill 工作台：概览、版本、测评集、测评、历史。
 ```
 
-核心原则：
+页面内 tab 是正式产品结构：
 
-- `Skill` 是 Hub 入口，默认指向一个 `Variant`。
-- `Variant` 是某组 tags 约束下维护者认可的解。
-- `VariantVersion` 是不可变内容快照。
-- `EvalSetVersion` 是不可变测试集快照。
-- `EvalRun` 是 exact `VariantVersion + EvalSetVersion` 的一次结果。
-- UI 不展示 parent/child 族谱，因为 variant 没有血缘关系；只展示 tags 约束空间和各自历史版本。
-- bad case 不作为一级对象；它进入 eval case 后才成为平台证据。
-- 首页不做“推荐算法”；显示默认 variant 的显式验证摘要。
-
-## 2. 信息架构
-
-```mermaid
-flowchart TD
-  Hub["/skills\nHub/Search"] --> Skill["/skills/:skillId\nSkill Page = Default Variant Page"]
-  Hub --> Variant["/variants/:variantId\nVariant Page"]
-  Skill --> VariantMap["Variant Map\nby tags"]
-  VariantMap --> Variant
-  Skill --> Version["/variants/:variantId/versions/:versionId\nVariant Version Page"]
-  Variant --> Version
-  Skill --> EvalSet["/eval-sets/:evalSetId/versions/:versionId\nEval Set Version Page"]
-  Variant --> EvalRun["/eval-runs/:runId\nEval Run Detail"]
-  EvalSet --> EvalRun
-  Skill --> Manage["/manage\nManagement Console"]
-  Manage --> Commands["Create / update / run / promote"]
-```
-
-页面解释：
-
-| 页面 | 用途 | 主要用户 |
+| Tab | 目标 | 必须展示的证据 |
 | --- | --- | --- |
-| Hub/Search | 找 skill，像主流 skillhub 一样浏览 | 使用者 |
-| Skill Page | 解释 skill 用途，默认展示 default variant | 使用者、维护者 |
-| Variant Page | 展示某个 tags 组合下的当前解和证据 | 使用者、维护者 |
-| Variant Version Page | 展示历史版本内容、变更摘要、该版本测评 | 维护者 |
-| Eval Set Version Page | 展示某一版测试集的具体 case 内容 | 维护者、评审者 |
-| Eval Run Detail | 展示一次测评的总分和逐 case pass/fail | 维护者、评审者 |
-| Management Console | 创建、编辑、运行、promotion | 维护者 |
+| 概览 | 解释 Skill 身份和当前状态 | owner、当前版本、主测评集、最近 run、bundle 文件树。 |
+| 版本 | 管理不可变 SkillVersion | 版本号、digest、bundle 文件、真实 diff、当前版本指针。 |
+| 测评集 | 管理 case 和 EvalSetVersion | case version、expected output、当前测评集快照。 |
+| 测评 | 记录一次 exact run | SkillVersion、EvalSetVersion、环境标签、actual output、actual vs expected。 |
+| 历史 | 查看证据链 | EvalRun、case result、run context、artifact digest、actual output。 |
 
-## 3. 页面设计
+## 布局原则
 
-### 3.1 Hub/Search
+- 页面首屏展示可操作产品，不做营销式落地页。
+- 表格和列表用于可比较信息，单个对象摘要才使用 card。
+- 不做卡片套卡片；页面 section 保持全宽布局。
+- 小窗口从 `320px` 开始不能出现关键内容穿出、遮挡或不可操作。
+- 长文本默认换行或在容器内滚动，按钮和 tab 不允许因文本撑破布局。
+- 版本、case、run 这类固定格式对象要有稳定尺寸，避免 hover、loading 或动态标签造成布局跳动。
 
-Hub 首屏要像普通 skillhub，不要一上来堆实验细节。
+## 页面契约
 
-布局：
+### Hub
 
-- 顶部：产品名、搜索框、namespace/owner 过滤、登录/管理入口。
-- 主体：skill 列表，默认 table/card hybrid。
-- 右侧或顶部过滤：tags、owner、verification status、updated time。
-- 每条 skill 展示：
-  - skill slug/name。
-  - 一句话说明。
-  - default variant 的 tags。
-  - default variant current version。
-  - 主 eval set current version。
-  - latest accepted eval run 的 pass rate、strategy、时间。
-  - 未验证时明确显示 `Unverified`，不要假装有分数。
+Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 
-Hub 验证摘要定义：
+- 搜索和 owner/status 筛选。
+- 每个 Skill 展示 slug、description、owner、current version、primary eval set、latest accepted run。
+- 最近测评默认显示有限条数，并可展开查看全部。
+- 空状态优先提供 `新建 Skill`，不显示无用说明。
 
-```text
-default variant current version
-在 primary eval set current version
-上的 latest accepted eval run
-```
+### 概览
 
-如果任一对象不存在，就显示缺失状态：
+概览负责回答“这个 Skill 是什么，当前可用证据是什么”：
 
-| 缺失 | UI 文案 |
-| --- | --- |
-| 没有 default variant | No default variant |
-| 没有 current version | No current version |
-| 没有 current eval set version | No eval set snapshot |
-| 没有 eval run | Unverified |
+- 身份卡：slug、owner、lifecycle、root path。
+- 当前版本卡：version number、digest、created_by、change summary。
+- Bundle browser：目录树、文件内容、digest。
+- 最近测评：run context、pass/fail、actual output 摘要。
 
-### 3.2 Skill Page / Variant Page
+### 版本
 
-Skill Page 和 Variant Page 使用同一个页面模板。区别只是入口：
+版本页负责不可变内容线：
 
-- `/skills/:skillId` 默认解析到该 skill 的 `default_variant_id`。
-- `/variants/:variantId` 直接展示指定 variant。
-- `/variants/:variantId/versions/:versionId` 展示同一页面结构，但选中历史 version。
+- 版本线必须清楚标出 current version。
+- `Bundle diff` 使用后端 `GET /api/artifacts/diff` 的真实数据。
+- 上传版本只创建新的 `SkillVersion`，是否设为 current 由显式选项控制。
+- 不展示 Variant、promotion 或默认 Variant。
 
-页面结构：
+### 测评集
 
-```text
-Header
-  skill name / variant label / tags / lifecycle / current version
+测评集页负责测试数据版本：
 
-Primary Summary
-  这个 skill 做什么
-  当前 variant 适用什么约束
-  当前验证摘要
-  主要操作：Use / View Files / Run Eval / New Version / Promote
+- case 列表显示 position、title、case version、状态。
+- 新增、编辑、恢复和归档 case 都必须生成或保留可追溯版本。
+- expected output 是一等字段，不能藏在备注里。
 
-Content
-  skill bundle file tree
-  selected file content
-  content digest / locator
+### 测评
 
-Evidence
-  current eval summary
-  latest eval runs
-  eval set overview
+测评页负责记录当前运行结果：
 
-Variant Space
-  tags 约束地图
-  variant list/table
+- 用户必须选择 exact `SkillVersion + EvalSetVersion`。
+- 运行环境标签、OS、runner、model 记录到本次 `EvalRun`。
+- 每个 case 都可以输入 actual output，并在界面中对比 expected output。
+- 未完成所有 case 的 pass/fail 标记前不能提交 run。
 
-History
-  version timeline
-  每条 version 的 change_summary、created_by、created_at、digest、eval summary
-```
+### 历史
 
-Variant Space 不做 parent/child 图。推荐两种表现可以共存：
+历史页负责事后审计：
 
-- 默认：二维 tags map，把 tag 作为轴/分组，variant 是点。
-- 高级：多维表格，列出所有 variant，按 tags、current version、latest score、updated time 查询。
+- run 列表可按 SkillVersion、EvalSetVersion、strategy、status 过滤。
+- run 详情展示 run context、summary、case result 和 artifact digest。
+- actual output 与 expected output 必须同屏可比。
+- 刷新或重启后同一历史数据仍可见。
 
-示意：
-
-```mermaid
-flowchart LR
-  Codex["tag: codex"] --> A["Variant A\ncodex"]
-  GPT54["tag: gpt5.4"] --> B["Variant B\ncodex + gpt5.4"]
-  Codex --> B
-  OpenCode["tag: opencode"] --> C["Variant C\nopencode + minimax2.7"]
-  Mini["tag: minimax2.7"] --> C
-```
-
-这不是血缘图，只表达约束归属。
-
-### 3.3 Eval Set Version Page
-
-这个页面必须严谨，因为 eval set version 的内容可能变化，不能只显示 case 数量。
-
-页面结构：
-
-- Header：eval set name、version number、created_at、created_by、case count。
-- Snapshot Summary：该版本是否 current、属于哪个 skill。
-- Case Table：
-  - position。
-  - case title。
-  - case version number。
-  - input artifact。
-  - expected output artifact。
-  - notes。
-  - 在最近一次相关 eval run 中的 pass/fail。
-- Case Detail Drawer：
-  - input 内容。
-  - expected output 内容。
-  - artifact digest。
-  - 历史 case versions。
-
-v0.1 API 目前只返回 artifact metadata；正式 UI 要通过 artifact read API 拉取具体文件或文本内容。
-
-### 3.4 Eval Run Detail
-
-Eval Run Detail 是证据页，不是 dashboard。
-
-页面结构：
-
-- Header：strategy、status、created_by、created_at。
-- Binding：variant version、eval set version、skill。
-- Score：passed、failed、total、pass rate。
-- Case Result Table：
-  - case title。
-  - case version。
-  - passed / failed。
-  - score。
-  - input / expected output quick view。
-  - result artifact / logs。
-- Actions：
-  - rerun same binding。
-  - export result。
-  - open variant version。
-  - open eval set version。
-
-MVP pass/fail 只有一层，不做“遗漏空值检查”这种检查项层级。类似“遗漏空值检查”的内容只能是 case title 或 case notes。
-
-### 3.5 Management Console
-
-管理台先服务单用户，权限模型保留但 UI 不复杂化。
-
-第一版提供四类命令：
-
-| 区域 | 操作 |
-| --- | --- |
-| Skill | create skill，更新描述，切换 default variant |
-| Variant | create variant，create variant version，promote version |
-| Eval Set | create case，create case version，查看 eval set snapshots |
-| Eval Run | 手工 pass/fail，导入外部结果，查看 job 状态 |
-
-管理台可以是 command-first，不要强行把所有 CRUD 铺成大表单。推荐模式：
-
-```text
-选择对象 -> 选择命令 -> 填最少字段 -> 预览影响 -> 提交
-```
-
-## 4. 组件边界
+## 组件边界
 
 | 组件 | 责任 |
 | --- | --- |
-| `SkillHubTable` | Hub 列表、搜索、过滤 |
-| `VerificationSummary` | 显式展示 latest accepted eval run 语义 |
-| `VariantHeader` | skill/variant/version 的统一头部 |
-| `ContentFileTree` | skill bundle 文件树和文件内容 |
-| `VariantTagMap` | tags 约束空间，不表达 lineage |
-| `VariantTable` | 多维查询入口 |
-| `VersionTimeline` | variant 自己的历史版本 |
-| `EvalSetSnapshotTable` | eval set version 的 case 快照 |
-| `CaseDetailDrawer` | case input/expected/result 详情 |
-| `EvalRunSummary` | pass/fail 总览 |
-| `CaseResultTable` | 逐 case 测评结果 |
-| `CommandPanel` | 管理命令入口 |
+| `BrandRail` / `TopBar` | 全局导航、搜索和主动作入口。 |
+| `BundleBrowser` | bundle 文件树和文件预览。 |
+| `SkillVersionTrack` | 版本线和 current pointer。 |
+| `VersionInspector` | 版本详情和真实 diff。 |
+| `CaseVersionRoadmap` | case version 可追溯视图。 |
+| `EvaluationContextCard` | 本次 run 的环境和绑定信息。 |
+| `ManualEvaluationPanels` | actual output、pass/fail 和对比状态。 |
 
-组件设计要求：
+## 验收口径
 
-- 卡片只用于单个对象摘要，不做卡片套卡片。
-- 表格用于可比较数据，别用一堆小卡片替代表格。
-- 状态 badge 必须来自明确字段，不要推断过度。
-- tags 是核心索引，要可点击过滤。
-- digest、locator、version id 默认折叠，点击展开。
-
-## 5. 数据契约
-
-正式前端优先消费页面级 read model，不让前端拼底层关系。
-
-现有 formal API 已具备最小查询端点：
-
-| Endpoint | 页面 |
-| --- | --- |
-| `GET /api/skills` | Hub/Search |
-| `GET /api/skills/{skill_id}` | Skill Page |
-| `GET /api/eval-set-versions/{eval_set_version_id}` | Eval Set Version Page |
-| `GET /api/eval-runs/{eval_run_id}` | Eval Run Detail |
-
-下一步正式 UI 还需要补：
-
-| Endpoint | 原因 |
-| --- | --- |
-| `GET /api/variants/{variant_id}` | 直接打开 variant page |
-| `GET /api/variants/{variant_id}/versions/{version_id}` | 历史版本页 |
-| `GET /api/artifacts/{artifact_id}/files` | 显示 skill 文件树和具体内容 |
-| `GET /api/artifacts/{artifact_id}/content` | 显示 case input/expected 文本 |
-| `GET /api/artifacts/diff?left=&right=` | 版本 diff |
-| `GET /api/query/variants` | 多维表格查询 |
-
-## 6. 状态模型
-
-UI 状态尽量少：
-
-| 状态 | 用在 | 含义 |
-| --- | --- | --- |
-| `active` | skill/variant/eval set/case | 正常可用 |
-| `archived` | skill/variant/eval set/case | 不再默认显示 |
-| `current` | version 指针 | 当前被维护者认可 |
-| `historical` | version | 旧快照 |
-| `verified` | verification summary | 有匹配 exact binding 的成功 eval run |
-| `failed` | verification summary | latest run 有失败 case |
-| `unverified` | verification summary | 没有可用 eval run |
-
-不要再引入太多中间状态。候选版本就是普通 `VariantVersion`，只是不被 `current_version_id` 指向。
-
-## 7. 视觉方向
-
-正式版是工程工具，不是营销站。
-
-视觉关键词：
-
-- 信息密度适中。
-- 类 GitHub/Linear 的清晰对象页。
-- 白底或浅灰底为主，少量高对比强调色。
-- 表格、时间线、文件树、详情抽屉是主要形态。
-- 验证结果要醒目，但不能压过 skill 本身说明。
-
-布局建议：
-
-- 桌面：左侧导航 + 中间主内容 + 右侧证据摘要。
-- 移动：顶部导航 + 分段 tabs，表格横向滚动或转为紧凑列表。
-- 文件树和 case detail 使用 resizable split pane。
-- Variant Space 默认在页面中段，不放首屏抢主叙事。
-
-避免：
-
-- 炫技式 3D lineage 图。
-- 把 tags map 做成复杂知识图谱。
-- 在 Hub 首页展示大量内部 ID。
-- 把 bad case 做成产品中心。
-- 在 demo 前端继续投入视觉债务。
-
-## 8. MVP 验收标准
-
-正式 UI v0.1 完成时，必须能跑通这些路径：
-
-1. 用户打开 Hub，能找到 `code-reviewer` 和其他 skill。
-2. 用户进入 skill page，能理解它做什么，并看到 default variant。
-3. 用户能从 skill page 点击某个 variant，进入同模板页面。
-4. 用户能查看该 variant 的当前版本和历史版本。
-5. 用户能打开当前 eval set version，看到具体 case 内容，而不是只看到数量。
-6. 用户能打开 latest eval run，看到每条 case 的 pass/fail。
-7. 维护者能创建新 variant version，运行或导入 pass/fail，确认后 promote。
-8. 任意 eval result 页面都能说明自己绑定的 exact `VariantVersion + EvalSetVersion`。
-
-只要这 8 条成立，产品闭环就成立。之后再做权限、PR、Git-backed adapter、自动评测和自动升级。
-
-## 9. 开发顺序
-
-推荐顺序：
-
-1. 完成 artifact read API，让 UI 能显示 skill 文件树和 case 文本。
-2. 完成 variant/version read API。
-3. 搭 Next.js 正式项目骨架。
-4. 先做 Hub、Skill/Variant、Eval Set Version、Eval Run 四个读页面。
-5. 再做 Management Console 的最小命令流。
-6. 最后接 diff、多维表格、job/worker 状态。
-
-不要先做大而全设计系统。先把对象、证据、命令流跑顺，再收敛视觉组件。
+- `npm run e2e` 通过正式流程冒烟。
+- `npm run e2e:visual` 通过 5 个页面视觉基线。
+- `responsive-smoke.spec.ts` 覆盖 `320px` 小窗口。
+- README 的核心验收清单全部可手工复现。

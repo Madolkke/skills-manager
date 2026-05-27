@@ -1,28 +1,8 @@
-demo/node_modules/
-demo/dist/
-demo/.vite/
-demo/*.tsbuildinfo
-demo/vite.config.js
-demo/vite.config.d.ts
-
-demo-backend/.venv/
-demo-backend/**/__pycache__/
-demo-backend/**/*.pyc
-demo-backend/data/*.tmp
-
 apps/api/.venv/
 apps/api/*.egg-info/
 apps/api/**/__pycache__/
 apps/api/**/*.pyc
 
-apps/web/.next/
-apps/web/.next-dev/
-apps/web/playwright-report/
-apps/web/test-results/
-apps/web-v3/node_modules/
-apps/web-v3/dist/
-apps/web-v3/.vite/
-apps/web-v3/*.tsbuildinfo
 apps/web-v4/node_modules/
 apps/web-v4/dist/
 apps/web-v4/.vite/
@@ -34,5 +14,3 @@ apps/web-v4/test-results/
 .uv-cache/
 .tools/
 .DS_Store
-.superpowers/
-.agent/recordings/
