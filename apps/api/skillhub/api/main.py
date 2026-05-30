@@ -28,14 +28,11 @@ __all__ = [
 ]
 
 DEFAULT_CORS_ALLOW_ORIGIN_REGEX = (
-    r"https?://("
+    r"https?://(?:"
     r"localhost|"
-    r"127(?:\.\d{1,3}){3}|"
-    r"0\.0\.0\.0|"
-    r"10(?:\.\d{1,3}){3}|"
-    r"192\.168(?:\.\d{1,3}){2}|"
-    r"172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}|"
-    r"[A-Za-z0-9-]+\.local"
+    r"(?:\d{1,3}\.){3}\d{1,3}|"
+    r"\[[0-9A-Fa-f:.]+\]|"
+    r"[A-Za-z0-9.-]+"
     r")(?::\d+)?"
 )
 
@@ -47,6 +44,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         allow_origins=cors_allow_origins(environ),
         allow_origin_regex=cors_allow_origin_regex(environ),
         allow_credentials=True,
+        allow_private_network=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )

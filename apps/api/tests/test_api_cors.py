@@ -20,6 +20,25 @@ def test_cors_allows_private_lan_browser_origins():
     engine.dispose()
 
 
+def test_cors_allows_lan_hostnames_and_private_network_preflight():
+    engine = create_sqlite_engine("sqlite:///:memory:")
+    client = TestClient(create_app(engine))
+
+    response = client.options(
+        "/api/skills",
+        headers={
+            "Origin": "http://skillhub-office-lan:3030",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Private-Network": "true",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://skillhub-office-lan:3030"
+    assert response.headers["access-control-allow-private-network"] == "true"
+    engine.dispose()
+
+
 def test_cors_allows_custom_origin_list(monkeypatch):
     monkeypatch.setenv("SKILLHUB_CORS_ALLOW_ORIGINS", "http://skillhub.test:3030")
     engine = create_sqlite_engine("sqlite:///:memory:")
