@@ -32,6 +32,14 @@ bash scripts/dev.sh
 
 脚本默认只设置 `SKILLHUB_DATA_DIR`，不设置 `SKILLHUB_DATABASE_URL`。API 通过该目录生成文件型 SQLite URL，避免 Windows 路径被误判后回退到 `sqlite:///:memory:`。
 
+局域网共享时使用：
+
+```bash
+SKILLHUB_HOST=0.0.0.0 bash scripts/dev.sh
+```
+
+Web 默认根据浏览器当前 hostname 推导 API 地址，避免其他电脑访问时仍请求访问者自己的 `127.0.0.1`。API 默认 CORS 允许 localhost、127.0.0.1 和常见私有网段；自定义域名通过 `SKILLHUB_CORS_ALLOW_ORIGINS` 或 `SKILLHUB_CORS_ALLOW_ORIGIN_REGEX` 配置。
+
 ## 后续可替换点
 
 | 能力 | 现在 | 后续方向 |

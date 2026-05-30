@@ -4,6 +4,7 @@ import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summariz
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
+import { resolveApiBaseUrl } from "../lib/api";
 
 describe("skill evidence helpers", () => {
   it("distinguishes untested cards from verified cards", () => {
@@ -118,5 +119,19 @@ describe("skill evidence helpers", () => {
       "removed:code-reviewer/tests/legacy.md",
       "unchanged:code-reviewer/prompts/review.md",
     ]);
+  });
+
+  it("derives the API URL from the current browser host for LAN users", () => {
+    expect(resolveApiBaseUrl({
+      location: { protocol: "http:", hostname: "192.168.1.20" },
+      configuredPort: "18000",
+    })).toBe("http://192.168.1.20:18000");
+  });
+
+  it("keeps an explicit API URL when one is configured", () => {
+    expect(resolveApiBaseUrl({
+      configuredUrl: "http://api.skillhub.test:9000/",
+      location: { protocol: "http:", hostname: "192.168.1.20" },
+    })).toBe("http://api.skillhub.test:9000");
   });
 });

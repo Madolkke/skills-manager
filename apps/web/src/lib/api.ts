@@ -12,7 +12,27 @@ import type {
   SkillSummary,
 } from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_SKILLHUB_API_URL ?? "http://127.0.0.1:8000";
+const API_BASE_URL = resolveApiBaseUrl({
+  configuredUrl: import.meta.env.VITE_SKILLHUB_API_URL,
+  configuredPort: import.meta.env.VITE_SKILLHUB_API_PORT,
+  location: typeof window === "undefined" ? undefined : window.location,
+});
+
+type ApiBaseUrlInput = {
+  configuredUrl?: string;
+  configuredPort?: string;
+  location?: Pick<Location, "protocol" | "hostname">;
+};
+
+export function resolveApiBaseUrl({ configuredUrl, configuredPort, location }: ApiBaseUrlInput): string {
+  const explicitUrl = configuredUrl?.trim();
+  if (explicitUrl) return explicitUrl.replace(/\/+$/, "");
+
+  const port = configuredPort?.trim() || "8000";
+  const protocol = location?.protocol === "https:" ? "https:" : "http:";
+  const hostname = location?.hostname || "127.0.0.1";
+  return `${protocol}//${hostname}:${port}`;
+}
 
 export class ApiError extends Error {
   readonly fieldErrors: Record<string, string>;

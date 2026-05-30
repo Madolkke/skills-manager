@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from os import environ
+from typing import Mapping
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -26,12 +27,25 @@ __all__ = [
     "resolve_database_url",
 ]
 
+DEFAULT_CORS_ALLOW_ORIGIN_REGEX = (
+    r"https?://("
+    r"localhost|"
+    r"127(?:\.\d{1,3}){3}|"
+    r"0\.0\.0\.0|"
+    r"10(?:\.\d{1,3}){3}|"
+    r"192\.168(?:\.\d{1,3}){2}|"
+    r"172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}|"
+    r"[A-Za-z0-9-]+\.local"
+    r")(?::\d+)?"
+)
+
 
 def create_app(engine: Engine | None = None) -> FastAPI:
     app = FastAPI(title="SkillHub API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r"http://(127\.0\.0\.1|localhost):\d+",
+        allow_origins=cors_allow_origins(environ),
+        allow_origin_regex=cors_allow_origin_regex(environ),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -44,6 +58,15 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     register_history_routes(app)
     register_command_routes(app)
     return app
+
+
+def cors_allow_origins(environment: Mapping[str, str]) -> list[str]:
+    value = environment.get("SKILLHUB_CORS_ALLOW_ORIGINS", "")
+    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
+
+
+def cors_allow_origin_regex(environment: Mapping[str, str]) -> str:
+    return environment.get("SKILLHUB_CORS_ALLOW_ORIGIN_REGEX", DEFAULT_CORS_ALLOW_ORIGIN_REGEX)
 
 
 def register_exception_handlers(app: FastAPI) -> None:

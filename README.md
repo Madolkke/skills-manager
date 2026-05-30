@@ -37,6 +37,22 @@ bash scripts/dev.sh
 
 可以用 `SKILLHUB_DATA_DIR` 覆盖数据目录；只有需要完整自定义连接串时才设置 `SKILLHUB_DATABASE_URL`。本地开发默认 actor 是 `product-operator`。
 
+### 局域网访问
+
+如果要让同一局域网里的其他电脑访问，启动时绑定到所有网卡：
+
+```bash
+SKILLHUB_HOST=0.0.0.0 bash scripts/dev.sh
+```
+
+其他电脑访问：
+
+```text
+http://<启动机器的局域网 IP>:3030/skills
+```
+
+前端默认会用浏览器当前访问的 hostname 推导 API 地址，例如打开 `http://192.168.1.20:3030/skills` 时会请求 `http://192.168.1.20:8000`，不会再请求访问者自己电脑的 `127.0.0.1`。后端默认允许 localhost 和常见私有网段来源的 CORS；如果使用自定义域名，可以设置 `SKILLHUB_CORS_ALLOW_ORIGINS` 或 `SKILLHUB_CORS_ALLOW_ORIGIN_REGEX`。
+
 启动后检查：
 
 ```bash
@@ -61,8 +77,14 @@ uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port 8000
 ```bash
 cd apps/web
 npm install
-VITE_SKILLHUB_API_URL=http://127.0.0.1:8000 \
 npm run dev -- --host 127.0.0.1 --port 3030
+```
+
+手动局域网运行时，把两个服务都绑定到 `0.0.0.0`，并设置 `VITE_SKILLHUB_API_PORT`：
+
+```bash
+cd apps/web
+VITE_SKILLHUB_API_PORT=8000 npm run dev -- --host 0.0.0.0 --port 3030
 ```
 
 ## 建议试用路径
