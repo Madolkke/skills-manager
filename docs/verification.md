@@ -27,7 +27,7 @@ npm run e2e:visual
 - 运行时代码只放在 `apps/api` 和 `apps/web`。
 - 本地持久化数据只放在 `.data/`，该目录不提交。
 - 依赖、构建产物、Playwright report 和 test results 不提交。
-- 历史迁移文件保留，因为它们负责把旧数据库升级到当前 schema。
+- 当前开发阶段不使用 Alembic migration 流程，数据库由启动时 schema 初始化管理。
 - 测试 fake 放在 `apps/api/tests/fakes`，不放入 production application 层。
 
 ## 清理规则

@@ -254,9 +254,9 @@ sequenceDiagram
 
 前端只能根据 `SkillCapabilities` 展示或禁用动作；后端 mutation endpoint 必须重新校验权限。
 
-## 10. 存储和 migration
+## 10. 存储
 
-当前本地默认使用文件型 SQLite，生产可迁移到 PostgreSQL 兼容 DDL：
+当前本地默认使用文件型 SQLite，数据库在启动时通过 SQLAlchemy metadata 初始化：
 
 - `skills.current_version_id`
 - `skill_versions`
@@ -267,13 +267,7 @@ sequenceDiagram
 - `accepted_verifications.skill_version_id`
 - `accepted_verifications.run_context_hash`
 
-在线迁移行为：
-
-- 把旧内容快照复制为 `skill_versions`。
-- 为每个 Skill 重新分配线性 `version_number`。
-- 把旧运行约束标签迁移到历史 `EvalRun.environment_tags`。
-- 为每条历史 run 计算 `run_context_hash`。
-- 移除旧内容分组表和旧设为当前决策表。
+当前项目仍处于开发阶段，不启用独立 Alembic migration 流程。schema 初始化和 SQLite 兼容补丁由启动代码处理。
 
 ## 11. 读模型
 

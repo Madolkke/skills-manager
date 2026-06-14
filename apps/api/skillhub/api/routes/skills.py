@@ -1,46 +1,67 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI
 
-from skillhub.api.auth import (
-    ActorContext,
-    DEFAULT_LOCAL_ACTOR,
-    actor_dependency,
-    clear_actor_cookie,
-    normalize_actor,
-    set_actor_cookie,
-    verify_local_session_access_code,
-)
+from skillhub.api.auth import ActorContext, actor_dependency
 from skillhub.api.database import repository_dependency
-from skillhub.api.responses import result_payload
-from skillhub.api.schemas import AssignSkillRolePayload, SetSessionPayload, UpdateSkillPayload, UpdateVersionDisplayNamePayload
+from skillhub.api.responses import parse_skill_import_payload, result_payload
+from skillhub.api.schemas import AssignSkillRolePayload, CreateSkillPayload, ImportSkillPayload, UpdateSkillPayload, content_ref
+from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
 
-def register_core_routes(app: FastAPI) -> None:
-    @app.get("/health")
-    def health() -> dict[str, bool]:
-        return {"ok": True}
-
-    @app.get("/api/session")
-    def current_session(actor: ActorContext = Depends(actor_dependency)):
-        return {"actor": actor.id, "subject_type": actor.subject_type}
-
-    @app.post("/api/session")
-    def set_session(payload: SetSessionPayload, response: Response):
-        verify_local_session_access_code(payload.access_code)
-        actor = normalize_actor(payload.actor)
-        set_actor_cookie(response, actor)
-        return {"actor": actor, "subject_type": "user"}
-
-    @app.delete("/api/session")
-    def clear_session(response: Response):
-        clear_actor_cookie(response)
-        return {"actor": DEFAULT_LOCAL_ACTOR, "subject_type": "user"}
-
+def register_skill_routes(app: FastAPI) -> None:
     @app.get("/api/skills")
     def list_skills(repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.list_skills())
+
+    @app.post("/api/skills")
+    def create_skill(
+        payload: CreateSkillPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.create_skill(
+                slug=payload.slug,
+                owner_ref=payload.owner_ref,
+                content_ref=content_ref(payload.content_ref),
+                change_summary=payload.change_summary,
+                display_name=payload.display_name,
+                actor=actor.id,
+            )
+        )
+
+    @app.post("/api/skill-imports")
+    def import_skill(
+        payload: ImportSkillPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        bundle = parse_skill_import_payload(payload.source)
+        artifact = repository.create_text_artifact(
+            kind="skill_bundle",
+            namespace=f"skill-import:{bundle.slug}",
+            content=bundle.manifest_text,
+            actor=actor.id,
+        )
+        result = repository.create_skill(
+            slug=bundle.slug,
+            owner_ref=payload.owner_ref,
+            content_ref=ContentRef(kind="artifact", locator=f"artifact:{artifact['id']}", digest=artifact["digest"], path=bundle.entry_path),
+            change_summary=f"Imported standard skill bundle with {bundle.file_count} files.",
+            display_name=payload.display_name,
+            actor=actor.id,
+        )
+        return {
+            **result_payload(result),
+            "slug": bundle.slug,
+            "description": bundle.description,
+            "file_count": bundle.file_count,
+            "entry_path": bundle.entry_path,
+            "bundle_artifact_id": artifact["id"],
+            "bundle_digest": bundle.digest,
+        }
 
     @app.get("/api/skills/{skill_id}")
     def skill_detail(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
@@ -49,14 +70,6 @@ def register_core_routes(app: FastAPI) -> None:
     @app.patch("/api/skills/{skill_id}")
     def update_skill(skill_id: str, payload: UpdateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref))
-
-    @app.patch("/api/skill-versions/{skill_version_id}")
-    def update_skill_version_name(
-        skill_version_id: str,
-        payload: UpdateVersionDisplayNamePayload,
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        return result_payload(repository.update_skill_version_name(skill_version_id=skill_version_id, display_name=payload.display_name))
 
     @app.delete("/api/skills/{skill_id}")
     def archive_skill(
@@ -89,13 +102,7 @@ def register_core_routes(app: FastAPI) -> None:
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(
-            repository.list_skill_audit_events(
-                skill_id=skill_id,
-                limit=max(1, min(limit, 200)),
-                actor=actor,
-                action=action,
-                resource_type=resource_type,
-            )
+            repository.list_skill_audit_events(skill_id=skill_id, limit=max(1, min(limit, 200)), actor=actor, action=action, resource_type=resource_type)
         )
 
     @app.post("/api/skills/{skill_id}/role-assignments")

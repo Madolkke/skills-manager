@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 
 from skillhub.infrastructure.db import tables
-from .results import EvalRunDetail, EvalSetDetail
+from skillhub.infrastructure.db.repository_impl.shared.results import EvalRunDetail, EvalSetDetail
 
 
 class DetailQueryMixin:
@@ -27,8 +27,20 @@ class DetailQueryMixin:
                 .mappings()
                 .all()
             }
+            eval_set_cases = (
+                connection.execute(
+                    select(tables.eval_set_cases.c.case_version_id, tables.eval_set_cases.c.position)
+                    .where(tables.eval_set_cases.c.eval_set_id == eval_run["eval_set_id"])
+                    .order_by(tables.eval_set_cases.c.position)
+                )
+                .mappings()
+                .all()
+            )
             case_results = []
-            for position, result in enumerate(result_rows.values()):
+            for membership in eval_set_cases:
+                result = result_rows.get(membership["case_version_id"])
+                if result is None:
+                    continue
                 case_version = self._eval_case_version_row(connection, result["case_version_id"])
                 eval_case = self._eval_case_row(connection, case_version["case_id"])
                 result_artifact = None
@@ -44,7 +56,7 @@ class DetailQueryMixin:
                         "result_artifact": self._row_dict(result_artifact) if result_artifact is not None else None,
                         "case": self._row_dict(eval_case),
                         "case_version": self._case_version_detail(connection, case_version),
-                        "position": position,
+                        "position": membership["position"],
                     }
                 )
             skill_version_detail = self._skill_version_detail(connection, skill_version)

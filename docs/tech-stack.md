@@ -7,7 +7,7 @@
 | 层 | 选择 | 当前职责 |
 | --- | --- | --- |
 | API | FastAPI + Pydantic v2 | HTTP 契约、actor context、字段校验、错误映射。 |
-| 数据层 | SQLAlchemy 2 + Alembic | SQLite/PostgreSQL 兼容 schema、迁移和 repository。 |
+| 数据层 | SQLAlchemy 2 | SQLite/PostgreSQL 兼容 schema 和 repository。 |
 | 本地数据库 | 文件型 SQLite | 默认写入 `.data/skillhub.sqlite3`，干净 clone 后自动建库。 |
 | Web | React + Vite + TypeScript | Web 正式工作台，入口为 `apps/web`。 |
 | UI 组件 | 本地组件 + CSS 分层 | Hub、版本、测评集、测评、历史和 diff 页面。 |

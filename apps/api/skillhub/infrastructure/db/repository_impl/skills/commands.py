@@ -7,8 +7,8 @@ from sqlalchemy.exc import IntegrityError
 
 from skillhub.domain.models import ContentRef, new_id, utc_now
 from skillhub.infrastructure.db import tables
-from .errors import skill_slug_conflict
-from .results import CreateSkillResult, CreateSkillVersionResult
+from skillhub.infrastructure.db.repository_impl.shared.errors import skill_slug_conflict
+from skillhub.infrastructure.db.repository_impl.shared.results import CreateSkillResult, CreateSkillVersionResult
 
 
 class SkillCommandMixin:

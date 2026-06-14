@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import delete, insert, select, update
 
 from skillhub.infrastructure.db import tables

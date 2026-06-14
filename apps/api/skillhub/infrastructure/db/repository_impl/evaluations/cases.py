@@ -7,7 +7,7 @@ from sqlalchemy import insert, update
 from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import new_id, utc_now
 from skillhub.infrastructure.db import tables
-from .results import CreateEvalCaseResult, CreateEvalCasesBatchResult, CreatedEvalCaseResult
+from skillhub.infrastructure.db.repository_impl.shared.results import CreateEvalCaseResult, CreateEvalCasesBatchResult, CreatedEvalCaseResult
 
 
 class EvalCaseCommandMixin:

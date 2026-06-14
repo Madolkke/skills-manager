@@ -7,7 +7,7 @@ from sqlalchemy import insert
 from skillhub.domain.errors import InvariantError
 from skillhub.domain.models import new_id, normalize_tags, utc_now
 from skillhub.infrastructure.db import tables
-from .results import RecordEvalRunResult
+from skillhub.infrastructure.db.repository_impl.shared.results import RecordEvalRunResult
 
 
 class EvalRunCommandMixin:
