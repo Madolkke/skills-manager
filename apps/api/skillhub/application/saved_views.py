@@ -10,7 +10,7 @@ SUPPORTED_SAVED_VIEW_TYPES = frozenset({"run_history"})
 SAVED_VIEW_CONFIG_KEYS = frozenset(
     {
         "skill_version_id",
-        "eval_set_version_id",
+        "eval_set_id",
         "strategy",
         "status",
         "matrix_case_query",

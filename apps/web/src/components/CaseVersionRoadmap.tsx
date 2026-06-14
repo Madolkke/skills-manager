@@ -14,7 +14,7 @@ export function CaseVersionRoadmap({ history, currentVersionId }: CaseVersionRoa
 
   return (
     <section className="case-version-history">
-      <h2>版本历史</h2>
+      <h2>Case 版本记录</h2>
       <ol className="case-version-track" aria-label="Case version history">
         {versions.map((item) => {
           const current = item.case_version.id === currentVersionId;
@@ -47,7 +47,7 @@ export function CaseVersionRoadmap({ history, currentVersionId }: CaseVersionRoa
             <article className="case-version-card">
               <strong>v{nextVersionNumber}</strong>
               <span>待创建</span>
-              <p>编辑当前 case 后会生成新的 case version，并更新测评集工作版。</p>
+              <p>编辑当前 case 后会生成新的 case version，并更新测评集。</p>
               <small>case v{nextVersionNumber}</small>
             </article>
           </li>

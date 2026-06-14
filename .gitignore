@@ -2,6 +2,9 @@ apps/api/.venv/
 apps/api/*.egg-info/
 apps/api/**/__pycache__/
 apps/api/**/*.pyc
+apps/api/.pytest_cache/
+apps/api/.mypy_cache/
+apps/api/.ruff_cache/
 
 apps/web/node_modules/
 apps/web/dist/
@@ -13,4 +16,12 @@ apps/web/test-results/
 .data/
 .uv-cache/
 .tools/
+
+.env
+.env.*
+
+.vscode/
+.idea/
+
 .DS_Store
+Thumbs.db

@@ -10,7 +10,7 @@ class ApiBundleContractTest(ApiCommandTestCase):
             "/api/eval-runs",
             json={
                 "variant_version_id": skill["skill_version_id"],
-                "eval_set_version_id": case["eval_set_version_id"],
+                "eval_set_id": case["eval_set_id"],
                 "results": {case["eval_case_version_id"]: True},
             },
         )

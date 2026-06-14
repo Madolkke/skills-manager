@@ -44,7 +44,7 @@
 
 .overview-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: 1fr;
   gap: 24px;
 }
 
@@ -160,51 +160,4 @@
   color: var(--amber);
 }
 
-.reliability-panel {
-  padding: 26px;
-  align-self: start;
-}
 
-.score-large {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 26px 0;
-}
-
-.score-large strong {
-  font-size: 42px;
-}
-
-.score-large span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--green);
-  background: var(--green-soft);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-weight: 760;
-}
-
-.reliability-panel dl {
-  display: grid;
-  gap: 16px;
-  margin: 0 0 24px;
-}
-
-.reliability-panel div {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.reliability-panel dt {
-  color: var(--muted);
-}
-
-.reliability-panel dd {
-  margin: 0;
-  font-weight: 760;
-  text-align: right;
-}

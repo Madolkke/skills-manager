@@ -1,81 +1,6 @@
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
   background: var(--surface);
-}
-
-.brand-rail {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 28px;
-  padding: 18px 14px;
-  background: #ffffff;
-  color: #50617a;
-  border-right: 1px solid var(--soft-line);
-}
-
-.brand-mark {
-  width: 52px;
-  height: 52px;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: #0f172a;
-  box-shadow: 0 10px 24px rgb(15 23 42 / 14%);
-  font-weight: 800;
-  font-size: 20px;
-}
-
-.rail-nav,
-.rail-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  align-items: center;
-}
-
-.rail-footer {
-  margin-top: auto;
-}
-
-.rail-button,
-.rail-collapse {
-  width: 48px;
-  height: 48px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: #5d6d86;
-  background: transparent;
-  display: grid;
-  place-items: center;
-}
-
-.rail-button.active,
-.rail-button:hover {
-  background: #f2f6ff;
-  border-color: #d9e5ff;
-  color: var(--blue);
-}
-
-.rail-collapse {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #ffffff;
-  color: #52627b;
-}
-
-.rail-collapse:hover {
-  border-color: #c8d5e7;
-  color: var(--blue);
-  background: #f8fbff;
 }
 
 .app-main {
@@ -118,42 +43,163 @@
   flex: 1;
 }
 
-.actor-menu {
+.top-bar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+.actor-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
   color: var(--ink);
 }
 
 .actor-dot {
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border-radius: 999px;
+  border: 0;
   background: var(--navy);
   color: white;
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actor-dot:hover {
+  opacity: 0.85;
+}
+
+.actor-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: white;
+  border: 1px solid var(--soft-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+  padding: 6px 0;
+  z-index: 20;
+}
+
+.actor-dropdown-header {
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.actor-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.actor-dropdown-item:hover {
+  background: var(--surface);
 }
 
 .page-shell {
   padding: 28px 32px 44px;
 }
 
-.hub-shell .page-shell {
-  padding-top: 34px;
+.workflow-shell {
+  min-height: 100vh;
 }
 
-.rail-is-collapsed {
-  grid-template-columns: 68px minmax(0, 1fr);
+.workflow-shell-page {
+  min-height: calc(100vh - 78px);
+  padding: 0;
 }
 
-.rail-is-collapsed .brand-rail {
-  padding-inline: 8px;
+
+.workflow-page {
+  min-height: calc(100vh - 78px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 24px 28px;
+  box-sizing: border-box;
 }
 
-.rail-is-collapsed .brand-mark,
-.rail-is-collapsed .rail-button {
-  width: 42px;
-  height: 42px;
+.workflow-page-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
 }
+
+.workflow-page-hero h1 {
+  margin: 4px 0 10px;
+}
+
+.workflow-eyebrow {
+  margin: 0;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workflow-page-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.workflow-frame-shell {
+  flex: 1;
+  min-height: 0;
+  border: 1px dashed var(--soft-line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 248, 255, 0.95));
+  overflow: hidden;
+}
+
+.workflow-frame-placeholder {
+  height: 100%;
+  min-height: 460px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+
+.workflow-frame-placeholder strong {
+  font-size: 20px;
+}
+
+.workflow-frame-placeholder dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.workflow-frame-placeholder dt {
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workflow-frame-placeholder dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+

@@ -17,14 +17,14 @@ class RunHistoryQueryMixin:
         *,
         skill_id: str,
         skill_version_id: str | None = None,
-        eval_set_version_id: str | None = None,
+        eval_set_id: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
         with self.engine.connect() as connection:
             skill = self._skill_row(connection, skill_id)
-            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_version_id, strategy, status, limit)
+            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, strategy, status, limit)
             runs = [self._eval_run_context_row(connection, row, include_accepted=True) for row in rows]
         return {"skill": self._row_dict(skill), "runs": runs}
 
@@ -33,16 +33,16 @@ class RunHistoryQueryMixin:
         *,
         skill_id: str,
         skill_version_id: str | None = None,
-        eval_set_version_id: str | None = None,
+        eval_set_id: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
         with self.engine.connect() as connection:
             skill = self._skill_row(connection, skill_id)
-            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_version_id, strategy, status, limit)
+            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, strategy, status, limit)
             runs = [self._eval_run_context_row(connection, row, include_accepted=False) for row in rows]
-            eval_set_cases_by_run = {row["id"]: self._eval_set_cases(connection, row["eval_set_version_id"]) for row in rows}
+            eval_set_cases_by_run = {row["id"]: self._eval_set_cases(connection, row["eval_set_id"]) for row in rows}
             results_by_run = {
                 row["id"]: [
                     self._row_dict(result)
@@ -60,24 +60,22 @@ class RunHistoryQueryMixin:
             candidate_run = self._eval_run_row(connection, candidate_run_id)
             if baseline_run["skill_id"] != candidate_run["skill_id"]:
                 raise InvariantError("Run comparison requires runs from the same skill.")
-            if baseline_run["eval_set_version_id"] != candidate_run["eval_set_version_id"]:
-                raise InvariantError("Run comparison requires the same EvalSetVersion.")
+            if baseline_run["eval_set_id"] != candidate_run["eval_set_id"]:
+                raise InvariantError("Run comparison requires the same eval set.")
             if baseline_run["status"] != "finished" or candidate_run["status"] != "finished":
                 raise InvariantError("Run comparison requires finished runs.")
             skill = self._skill_row(connection, baseline_run["skill_id"])
-            eval_set_version = self._eval_set_version_row(connection, baseline_run["eval_set_version_id"])
-            eval_set = connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_version["eval_set_id"])).mappings().one()
+            eval_set = self._eval_set_row(connection, baseline_run["eval_set_id"])
             baseline_version = self._skill_version_row(connection, baseline_run["skill_version_id"])
             candidate_version = self._skill_version_row(connection, candidate_run["skill_version_id"])
             case_comparisons, comparison_summary = build_run_case_comparisons(
-                eval_set_cases=self._eval_set_cases(connection, eval_set_version["id"]),
+                eval_set_cases=self._eval_set_cases(connection, eval_set["id"]),
                 baseline_results=self._case_results_by_case_version(connection, baseline_run["id"]),
                 candidate_results=self._case_results_by_case_version(connection, candidate_run["id"]),
             )
             return {
                 "skill": self._row_dict(skill),
                 "eval_set": self._row_dict(eval_set),
-                "eval_set_version": self._row_dict(eval_set_version),
                 "baseline": {"eval_run": self._row_dict(baseline_run), "skill_version": self._row_dict(baseline_version)},
                 "candidate": {"eval_run": self._row_dict(candidate_run), "skill_version": self._row_dict(candidate_version)},
                 "summary": build_run_comparison_summary(
@@ -97,14 +95,14 @@ class RunHistoryQueryMixin:
                 raise InvariantError("Accepted verification requires a finished eval run.")
             self._require_skill_permission(connection, skill_id=eval_run["skill_id"], actor=actor, permission="verification.accept")
             skill_version = self._skill_version_row(connection, eval_run["skill_version_id"])
-            eval_set_version = self._eval_set_version_row(connection, eval_run["eval_set_version_id"])
-            if skill_version["skill_id"] != eval_run["skill_id"] or eval_set_version["skill_id"] != eval_run["skill_id"]:
+            eval_set = self._eval_set_row(connection, eval_run["eval_set_id"])
+            if skill_version["skill_id"] != eval_run["skill_id"] or eval_set["skill_id"] != eval_run["skill_id"]:
                 raise InvariantError("Accepted verification requires same-skill records.")
 
             values = {
                 "skill_id": eval_run["skill_id"],
                 "skill_version_id": skill_version["id"],
-                "eval_set_version_id": eval_set_version["id"],
+                "eval_set_id": eval_set["id"],
                 "run_context_hash": eval_run["run_context_hash"],
                 "eval_run_id": eval_run["id"],
                 "note": note.strip(),
@@ -115,7 +113,7 @@ class RunHistoryQueryMixin:
                 connection,
                 skill_id=eval_run["skill_id"],
                 skill_version_id=skill_version["id"],
-                eval_set_version_id=eval_set_version["id"],
+                eval_set_id=eval_set["id"],
                 run_context_hash=eval_run["run_context_hash"],
             )
             if existing is None:
@@ -135,7 +133,7 @@ class RunHistoryQueryMixin:
                         "accepted_verification_id": accepted_id,
                         "eval_run_id": eval_run["id"],
                         "skill_version_id": skill_version["id"],
-                        "eval_set_version_id": eval_set_version["id"],
+                        "eval_set_id": eval_set["id"],
                         "run_context_hash": eval_run["run_context_hash"],
                     },
                     created_at=accepted_at,
@@ -149,7 +147,7 @@ class RunHistoryQueryMixin:
         connection,
         skill_id: str,
         skill_version_id: str | None,
-        eval_set_version_id: str | None,
+        eval_set_id: str | None,
         strategy: str | None,
         status: str | None,
         limit: int,
@@ -157,8 +155,8 @@ class RunHistoryQueryMixin:
         query = select(tables.eval_runs).where(tables.eval_runs.c.skill_id == skill_id)
         if skill_version_id:
             query = query.where(tables.eval_runs.c.skill_version_id == skill_version_id)
-        if eval_set_version_id:
-            query = query.where(tables.eval_runs.c.eval_set_version_id == eval_set_version_id)
+        if eval_set_id:
+            query = query.where(tables.eval_runs.c.eval_set_id == eval_set_id)
         if strategy:
             query = query.where(tables.eval_runs.c.strategy == strategy)
         if status:
@@ -171,24 +169,22 @@ class RunHistoryQueryMixin:
 
     def _eval_run_context_row(self, connection, run, *, include_accepted: bool) -> dict[str, Any]:
         skill_version = self._skill_version_row(connection, run["skill_version_id"])
-        eval_set_version = self._eval_set_version_row(connection, run["eval_set_version_id"])
-        eval_set = connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_version["eval_set_id"])).mappings().one()
+        eval_set = self._eval_set_row(connection, run["eval_set_id"])
         row = {
             "eval_run": self._row_dict(run),
             "skill_version": self._row_dict(skill_version),
             "eval_set": self._row_dict(eval_set),
-            "eval_set_version": self._row_dict(eval_set_version),
         }
         if include_accepted:
             row["accepted_verification"] = self._accepted_verification_for_eval_run(connection, run["id"])
         return row
 
-    def _latest_finished_run(self, connection, *, skill_version_id: str, eval_set_version_id: str):
+    def _latest_finished_run(self, connection, *, skill_version_id: str, eval_set_id: str):
         return (
             connection.execute(
                 select(tables.eval_runs)
                 .where(tables.eval_runs.c.skill_version_id == skill_version_id)
-                .where(tables.eval_runs.c.eval_set_version_id == eval_set_version_id)
+                .where(tables.eval_runs.c.eval_set_id == eval_set_id)
                 .where(tables.eval_runs.c.status == "finished")
                 .order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id))
                 .limit(1)

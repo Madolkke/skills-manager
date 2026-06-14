@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from skillhub.domain.errors import NotFoundError
 from skillhub.domain.models import ContentRef
-from skillhub.infrastructure.db.tables import eval_set_versions, eval_sets, skill_versions, skills
+from skillhub.infrastructure.db.tables import eval_sets, skill_versions, skills
 
 from tests.repository_test_case import SqlRepositoryTestCase
 
@@ -23,16 +23,13 @@ class SqlRepositorySkillVersionTest(SqlRepositoryTestCase):
                 select(skill_versions).where(skill_versions.c.id == result.skill_version_id)
             ).mappings().one()
             eval_set = connection.execute(select(eval_sets).where(eval_sets.c.id == result.eval_set_id)).mappings().one()
-            eval_set_version = connection.execute(
-                select(eval_set_versions).where(eval_set_versions.c.id == result.eval_set_version_id)
-            ).mappings().one()
 
         self.assertEqual(skill["current_version_id"], result.skill_version_id)
         self.assertEqual(version["skill_id"], result.skill_id)
         self.assertEqual(version["version_number"], 1)
         self.assertEqual(version["content_ref"]["kind"], "skill_bundle")
-        self.assertEqual(eval_set["current_version_id"], result.eval_set_version_id)
-        self.assertEqual(eval_set_version["version_number"], 1)
+        self.assertEqual(eval_set["skill_id"], result.skill_id)
+        self.assertEqual(eval_set["name"], "Primary")
 
     def test_candidate_skill_version_does_not_move_current_pointer(self):
         skill = self.create_skill()

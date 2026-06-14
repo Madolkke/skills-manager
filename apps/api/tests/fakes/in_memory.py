@@ -13,7 +13,6 @@ from skillhub.domain.models import (
     EvalCaseVersion,
     EvalRun,
     EvalSet,
-    EvalSetVersion,
     Skill,
     SkillVersion,
     digest_text,
@@ -53,19 +52,10 @@ class SkillHubService:
             skill_id=skill.id,
             name="Primary",
             description="Primary regression suite",
-            current_version_id=None,
             created_at=now,
         )
         self.workspace.eval_sets[eval_set.id] = eval_set
-        eval_set_version = EvalSetVersion(
-            id=new_id("evalsetver"),
-            eval_set_id=eval_set.id,
-            version_number=1,
-            case_version_ids=(),
-            created_at=now,
-        )
-        self.workspace.eval_set_versions[eval_set_version.id] = eval_set_version
-        self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=eval_set_version.id)
+        self.workspace.eval_set_cases[eval_set.id] = ()
         return replace(self.workspace.skills[skill.id], current_version_id=version.id)
 
     def create_skill_version(
@@ -100,10 +90,9 @@ class SkillHubService:
         input_text: str,
         expected_output: str,
         notes: str | None = None,
-    ) -> EvalSetVersion:
+    ) -> EvalSet:
         self._skill(skill_id)
         eval_set = self._primary_eval_set(skill_id)
-        current_set_version = self._eval_set_version(eval_set.current_version_id)
         now = utc_now()
         case = EvalCase(id=new_id("case"), skill_id=skill_id, title=title, current_version_id="", created_at=now)
         case_version = EvalCaseVersion(
@@ -120,7 +109,7 @@ class SkillHubService:
 
         return self._update_current_eval_set_cases(
             skill_id=skill_id,
-            case_version_ids=(*current_set_version.case_version_ids, case_version.id),
+            case_version_ids=(*self.workspace.eval_set_cases[eval_set.id], case_version.id),
         )
 
     def create_eval_case_version(
@@ -145,14 +134,14 @@ class SkillHubService:
         self.workspace.eval_case_versions[version.id] = version
         if make_current:
             self.workspace.eval_cases[case_id] = replace(case, current_version_id=version.id)
-            self._append_eval_set_version_with_case_replacement(case.skill_id, case_id, version.id)
+            self._replace_eval_set_case_version(case.skill_id, case_id, version.id)
         return version
 
     def record_eval_run(
         self,
         *,
         skill_version_id: str,
-        eval_set_version_id: str,
+        eval_set_id: str,
         strategy: str,
         results: dict[str, bool],
         actor: str,
@@ -160,17 +149,16 @@ class SkillHubService:
         run_context: dict[str, Any] | None = None,
     ) -> EvalRun:
         skill_version = self._skill_version(skill_version_id)
-        eval_set_version = self._eval_set_version(eval_set_version_id)
-        eval_set = self._eval_set(eval_set_version.eval_set_id)
+        eval_set = self._eval_set(eval_set_id)
         if eval_set.skill_id != skill_version.skill_id:
-            raise InvariantError("EvalRun must bind a skill version and eval set version from the same skill.")
+            raise InvariantError("EvalRun must bind a skill version and eval set from the same skill.")
 
         tags = normalize_tags(environment_tags or [])
         context = self._canonical_json(run_context or {})
         run = EvalRun(
             id=new_id("evalrun"),
             skill_version_id=skill_version_id,
-            eval_set_version_id=eval_set_version_id,
+            eval_set_id=eval_set_id,
             strategy=strategy,
             status="finished",
             created_at=utc_now(),
@@ -180,45 +168,30 @@ class SkillHubService:
             run_context_hash=self._run_context_hash(tags, context),
         )
         self.workspace.eval_runs[run.id] = run
-        for case_version_id in eval_set_version.case_version_ids:
+        for case_version_id in self.workspace.eval_set_cases[eval_set.id]:
             passed = bool(results.get(case_version_id, False))
             self.workspace.case_results.append(
                 CaseResult(run_id=run.id, case_version_id=case_version_id, passed=passed, score=1 if passed else 0)
             )
         return run
 
-    def _append_eval_set_version_with_case_replacement(
+    def _replace_eval_set_case_version(
         self,
         skill_id: str,
         case_id: str,
         case_version_id: str,
-    ) -> EvalSetVersion:
+    ) -> EvalSet:
         eval_set = self._primary_eval_set(skill_id)
-        current_set_version = self._eval_set_version(eval_set.current_version_id)
         next_case_version_ids = tuple(
             case_version_id if self._eval_case_version(item).case_id == case_id else item
-            for item in current_set_version.case_version_ids
+            for item in self.workspace.eval_set_cases[eval_set.id]
         )
         return self._update_current_eval_set_cases(skill_id=skill_id, case_version_ids=next_case_version_ids)
 
-    def _update_current_eval_set_cases(self, skill_id: str, case_version_ids: tuple[str, ...]) -> EvalSetVersion:
+    def _update_current_eval_set_cases(self, skill_id: str, case_version_ids: tuple[str, ...]) -> EvalSet:
         eval_set = self._primary_eval_set(skill_id)
-        current_set_version = self._eval_set_version(eval_set.current_version_id)
-        if any(run.eval_set_version_id == current_set_version.id for run in self.workspace.eval_runs.values()):
-            next_set_version = EvalSetVersion(
-                id=new_id("evalsetver"),
-                eval_set_id=eval_set.id,
-                version_number=current_set_version.version_number + 1,
-                case_version_ids=case_version_ids,
-                created_at=utc_now(),
-            )
-            self.workspace.eval_set_versions[next_set_version.id] = next_set_version
-            self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=next_set_version.id)
-            return next_set_version
-        updated_set_version = replace(current_set_version, case_version_ids=case_version_ids)
-        self.workspace.eval_set_versions[current_set_version.id] = updated_set_version
-        self.workspace.eval_sets[eval_set.id] = replace(eval_set, current_version_id=current_set_version.id)
-        return updated_set_version
+        self.workspace.eval_set_cases[eval_set.id] = case_version_ids
+        return eval_set
 
     def _artifact(self, kind: str, content: str) -> ArtifactRef:
         digest = digest_text(content)
@@ -261,14 +234,6 @@ class SkillHubService:
             return self.workspace.eval_sets[eval_set_id]
         except KeyError as exc:
             raise NotFoundError(f"EvalSet not found: {eval_set_id}") from exc
-
-    def _eval_set_version(self, version_id: str | None) -> EvalSetVersion:
-        if version_id is None:
-            raise NotFoundError("EvalSet has no current version.")
-        try:
-            return self.workspace.eval_set_versions[version_id]
-        except KeyError as exc:
-            raise NotFoundError(f"EvalSetVersion not found: {version_id}") from exc
 
     def _eval_case(self, case_id: str) -> EvalCase:
         try:

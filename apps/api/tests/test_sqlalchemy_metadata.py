@@ -14,10 +14,9 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "skills",
                 "skill_versions",
                 "eval_sets",
-                "eval_set_versions",
                 "eval_cases",
                 "eval_case_versions",
-                "eval_set_case_versions",
+                "eval_set_cases",
                 "eval_runs",
                 "case_results",
                 "jobs",
@@ -46,9 +45,9 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         )
         self.assert_foreign_key(
             "eval_runs",
-            "eval_runs_eval_set_version_skill_fkey",
-            ("eval_set_version_id", "skill_id"),
-            "eval_set_versions",
+            "eval_runs_eval_set_skill_fkey",
+            ("eval_set_id", "skill_id"),
+            "eval_sets",
             ("id", "skill_id"),
         )
 
@@ -71,15 +70,13 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
     def test_version_uniqueness_constraints_are_mapped(self):
         self.assert_unique_constraint("skill_versions", "skill_versions_skill_version_unique", ("skill_id", "version_number"))
         self.assert_unique_constraint("eval_case_versions", "eval_case_versions_case_version_unique", ("case_id", "version_number"))
-        self.assert_unique_constraint("eval_set_versions", "eval_set_versions_eval_set_version_unique", ("eval_set_id", "version_number"))
 
     def test_query_indexes_are_mapped(self):
         for table_name, index_name in [
             ("skill_versions", "skill_versions_skill_id_idx"),
             ("eval_case_versions", "eval_case_versions_case_id_idx"),
-            ("eval_set_versions", "eval_set_versions_eval_set_id_idx"),
             ("eval_runs", "eval_runs_skill_version_id_idx"),
-            ("eval_runs", "eval_runs_eval_set_version_id_idx"),
+            ("eval_runs", "eval_runs_eval_set_id_idx"),
             ("eval_runs", "eval_runs_context_hash_idx"),
             ("case_results", "case_results_case_version_id_idx"),
             ("accepted_verifications", "accepted_verifications_context_idx"),
@@ -101,7 +98,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         self.assert_unique_constraint(
             "accepted_verifications",
             "accepted_verifications_context_unique",
-            ("skill_id", "skill_version_id", "eval_set_version_id", "run_context_hash"),
+            ("skill_id", "skill_version_id", "eval_set_id", "run_context_hash"),
         )
         self.assert_foreign_key(
             "accepted_verifications",
@@ -112,9 +109,9 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         )
         self.assert_foreign_key(
             "accepted_verifications",
-            "accepted_verifications_eval_set_version_skill_fkey",
-            ("eval_set_version_id", "skill_id"),
-            "eval_set_versions",
+            "accepted_verifications_eval_set_skill_fkey",
+            ("eval_set_id", "skill_id"),
+            "eval_sets",
             ("id", "skill_id"),
         )
         self.assert_foreign_key(

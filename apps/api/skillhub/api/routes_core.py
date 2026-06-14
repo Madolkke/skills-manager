@@ -58,14 +58,6 @@ def register_core_routes(app: FastAPI) -> None:
     ):
         return result_payload(repository.update_skill_version_name(skill_version_id=skill_version_id, display_name=payload.display_name))
 
-    @app.patch("/api/eval-set-versions/{eval_set_version_id}")
-    def update_eval_set_version_name(
-        eval_set_version_id: str,
-        payload: UpdateVersionDisplayNamePayload,
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        return result_payload(repository.update_eval_set_version_name(eval_set_version_id=eval_set_version_id, display_name=payload.display_name))
-
     @app.delete("/api/skills/{skill_id}")
     def archive_skill(
         skill_id: str,

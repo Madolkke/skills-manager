@@ -7,20 +7,28 @@ import type { BundleDiff, BundleDiffFile, BundleDiffLine, BundleDiffStatus, Skil
 type BundleDiffPanelProps = {
   current: SkillVersion;
   previous?: SkillVersion | null;
+  versions: SkillVersion[];
 };
 
-export function BundleDiffPanel({ current, previous }: BundleDiffPanelProps) {
+export function BundleDiffPanel({ current, previous, versions }: BundleDiffPanelProps) {
+  const [baseVersionId, setBaseVersionId] = useState(previous?.id ?? "");
   const [diff, setDiff] = useState<BundleDiff | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const compareOptions = versions.filter((version) => version.id !== current.id);
+  const baseVersion = compareOptions.find((version) => version.id === baseVersionId) ?? null;
+
+  useEffect(() => {
+    setBaseVersionId(previous?.id ?? "");
+  }, [current.id, previous?.id]);
 
   useEffect(() => {
     setDiff(null);
     setError(null);
-    if (!previous) return;
+    if (!baseVersion) return;
     let cancelled = false;
     setLoading(true);
-    api.getBundleDiff(previous.id, current.id).then((next) => {
+    api.getBundleDiff(baseVersion.id, current.id).then((next) => {
       if (!cancelled) setDiff(next);
     }).catch((caught) => {
       if (!cancelled) setError(errorMessage(caught));
@@ -30,7 +38,7 @@ export function BundleDiffPanel({ current, previous }: BundleDiffPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [current.id, previous]);
+  }, [baseVersion, current.id]);
 
   const changedFiles = diff?.files.filter((file) => file.status !== "unchanged") ?? [];
 
@@ -39,20 +47,34 @@ export function BundleDiffPanel({ current, previous }: BundleDiffPanelProps) {
       <header className="commit-diff-head">
         <div>
           <span>Bundle diff</span>
-          <h2>{previous ? `${versionName(current)} 对比 ${versionName(previous)}` : "初始版本"}</h2>
+          <h2>{baseVersion ? `${versionName(current)} 对比 ${versionName(baseVersion)}` : "初始版本"}</h2>
         </div>
-        {diff ? (
-          <div className="commit-diff-stats" aria-label="变更摘要">
-            <DiffStat label="变更" value={diff.summary.changed} tone="changed" />
-            <DiffStat label="新增" value={diff.summary.added} tone="added" />
-            <DiffStat label="移除" value={diff.summary.removed} tone="removed" />
-          </div>
-        ) : null}
+        <div className="commit-diff-tools">
+          {compareOptions.length > 0 ? (
+            <label className="diff-version-select">
+              <span>对比版本</span>
+              <select value={baseVersionId} onChange={(event) => setBaseVersionId(event.target.value)}>
+                {compareOptions.map((version) => (
+                  <option value={version.id} key={version.id}>
+                    {versionName(version)}{version.id === previous?.id ? "（前一个）" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {diff ? (
+            <div className="commit-diff-stats" aria-label="变更摘要">
+              <DiffStat label="变更" value={diff.summary.changed} tone="changed" />
+              <DiffStat label="新增" value={diff.summary.added} tone="added" />
+              <DiffStat label="移除" value={diff.summary.removed} tone="removed" />
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {loading ? <div className="quiet-panel">正在读取后端 Bundle diff...</div> : null}
       {error ? <div className="quiet-panel">Bundle diff 读取失败：{error}</div> : null}
-      {!loading && !error && !previous ? <div className="quiet-panel">这是第一个 SkillVersion，没有可比较的上一个版本。</div> : null}
+      {!loading && !error && compareOptions.length === 0 ? <div className="quiet-panel">这是第一个 SkillVersion，没有可比较的版本。</div> : null}
       {!loading && !error && diff ? (
         <div className="commit-file-list">
           {(changedFiles.length > 0 ? changedFiles : diff.files).map((file) => (

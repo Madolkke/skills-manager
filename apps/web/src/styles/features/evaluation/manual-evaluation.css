@@ -45,6 +45,18 @@
   font-weight: 760;
 }
 
+.selector-static-value {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--ink);
+  padding: 0 12px;
+  font-weight: 760;
+}
+
 .info-box {
   min-width: 0;
   border: 1px solid #cfe0ff;

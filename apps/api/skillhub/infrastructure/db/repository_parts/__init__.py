@@ -7,7 +7,7 @@ from .results import (
     CreateSkillResult,
     CreateSkillVersionResult,
     EvalRunDetail,
-    EvalSetVersionDetail,
+    EvalSetDetail,
     RecordEvalRunResult,
 )
 
@@ -18,6 +18,6 @@ __all__ = [
     "CreateSkillResult",
     "CreateSkillVersionResult",
     "EvalRunDetail",
-    "EvalSetVersionDetail",
+    "EvalSetDetail",
     "RecordEvalRunResult",
 ]

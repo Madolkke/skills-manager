@@ -25,16 +25,14 @@ class CaseHistoryQueryMixin:
                 memberships = (
                     connection.execute(
                         select(
-                            tables.eval_set_case_versions.c.eval_set_version_id,
-                            tables.eval_set_case_versions.c.position,
-                            tables.eval_set_versions.c.eval_set_id,
-                            tables.eval_set_versions.c.version_number,
-                            tables.eval_set_versions.c.created_at,
-                            tables.eval_set_versions.c.created_by,
+                            tables.eval_set_cases.c.eval_set_id,
+                            tables.eval_set_cases.c.position,
+                            tables.eval_sets.c.name,
+                            tables.eval_sets.c.created_at,
                         )
-                        .join(tables.eval_set_versions, tables.eval_set_case_versions.c.eval_set_version_id == tables.eval_set_versions.c.id)
-                        .where(tables.eval_set_case_versions.c.case_version_id == case_version["id"])
-                        .order_by(desc(tables.eval_set_versions.c.version_number))
+                        .join(tables.eval_sets, tables.eval_set_cases.c.eval_set_id == tables.eval_sets.c.id)
+                        .where(tables.eval_set_cases.c.case_version_id == case_version["id"])
+                        .order_by(tables.eval_sets.c.name)
                     )
                     .mappings()
                     .all()
@@ -42,14 +40,12 @@ class CaseHistoryQueryMixin:
                 versions.append(
                     {
                         "case_version": self._case_version_detail(connection, case_version),
-                        "included_in_eval_set_versions": [
+                        "included_in_eval_sets": [
                             {
-                                "id": membership["eval_set_version_id"],
                                 "eval_set_id": membership["eval_set_id"],
-                                "version_number": membership["version_number"],
+                                "name": membership["name"],
                                 "position": membership["position"],
                                 "created_at": membership["created_at"],
-                                "created_by": membership["created_by"],
                             }
                             for membership in memberships
                         ],

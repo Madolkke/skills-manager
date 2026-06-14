@@ -26,7 +26,6 @@ class SkillCommandMixin:
         skill_id = new_id("skill")
         skill_version_id = new_id("skillver")
         eval_set_id = new_id("evalset")
-        eval_set_version_id = new_id("evalsetver")
 
         try:
             with self.engine.begin() as connection:
@@ -65,27 +64,10 @@ class SkillCommandMixin:
                         skill_id=skill_id,
                         name="Primary",
                         description="Primary regression suite",
-                        current_version_id=None,
                         lifecycle_status="active",
                         created_at=created_at,
                         updated_at=created_at,
                     )
-                )
-                connection.execute(
-                    insert(tables.eval_set_versions).values(
-                        id=eval_set_version_id,
-                        skill_id=skill_id,
-                        eval_set_id=eval_set_id,
-                        version_number=1,
-                        display_name=None,
-                        created_at=created_at,
-                        created_by=actor,
-                    )
-                )
-                connection.execute(
-                    update(tables.eval_sets)
-                    .where(tables.eval_sets.c.id == eval_set_id)
-                    .values(current_version_id=eval_set_version_id, updated_at=created_at)
                 )
                 self._grant_skill_role(
                     connection,
@@ -113,7 +95,6 @@ class SkillCommandMixin:
             skill_id=skill_id,
             skill_version_id=skill_version_id,
             eval_set_id=eval_set_id,
-            eval_set_version_id=eval_set_version_id,
             version_number=1,
         )
 
@@ -162,16 +143,6 @@ class SkillCommandMixin:
                 .values(display_name=clean_display_name(display_name))
             )
             return self._row_dict(self._skill_version_row(connection, skill_version_id))
-
-    def update_eval_set_version_name(self, *, eval_set_version_id: str, display_name: str | None) -> dict[str, Any]:
-        with self.engine.begin() as connection:
-            self._eval_set_version_row(connection, eval_set_version_id)
-            connection.execute(
-                update(tables.eval_set_versions)
-                .where(tables.eval_set_versions.c.id == eval_set_version_id)
-                .values(display_name=clean_display_name(display_name))
-            )
-            return self._row_dict(self._eval_set_version_row(connection, eval_set_version_id))
 
     def update_skill(self, *, skill_id: str, slug: str, owner_ref: str) -> dict[str, Any]:
         updated_at = utc_now()

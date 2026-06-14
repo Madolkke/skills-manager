@@ -9,7 +9,7 @@ class SavedViewConfigTest(unittest.TestCase):
         config = normalize_saved_view_config(
             {
                 "skill_version_id": " version-a ",
-                "eval_set_version_id": "all",
+                "eval_set_id": "all",
                 "matrix_show_summary": "false",
                 "compare_candidate_run_id": "run-candidate",
                 "unknown": "kept?",

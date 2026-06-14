@@ -158,7 +158,7 @@ API_FIELD_LABELS = {
     "slug": "Skill ID",
     "owner_ref": "归属",
     "skill_version_id": "SkillVersion",
-    "eval_set_version_id": "EvalSetVersion",
+    "eval_set_id": "测评集",
     "environment_tags": "运行环境标签",
     "change_summary": "版本说明",
     "name": "保存视图名称",

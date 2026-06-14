@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { FileText, Pencil, Save, X } from "lucide-react";
+import { FileText, Pencil, Save, SquarePen, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BundleBrowser } from "../components/BundleBrowser";
 import { BundleDiffPanel } from "../components/BundleDiffPanel";
@@ -8,6 +8,7 @@ import { compactText, humanDate, scoreKind, scoreLabel, versionName } from "../l
 import { compactDigest } from "../lib/history";
 import type { RouteState } from "../lib/navigation";
 import type { EvalRunRecord, SkillDetail, SkillVersion, ToastState } from "../types";
+import { SkillEditForm } from "./SkillEditForm";
 import { VersionUploadForm } from "./VersionUploadForm";
 
 type VersionsPageProps = {
@@ -22,6 +23,7 @@ type VersionsPageProps = {
 };
 
 export function VersionsPage({ skill, selectedVersionId, uploadOpen, onNavigate, onUploadClose, onUploaded, onRefresh, onToast }: VersionsPageProps) {
+  const [editOpen, setEditOpen] = useState(false);
   const selected = skill.versions.find((version) => version.id === selectedVersionId) ?? skill.summary.current_version ?? skill.versions[0] ?? null;
   const previous = selected ? previousSkillVersion(skill.versions, selected) : null;
   const evalSetName = skill.summary.primary_eval_set?.name ?? "未绑定";
@@ -38,6 +40,16 @@ export function VersionsPage({ skill, selectedVersionId, uploadOpen, onNavigate,
       onToast({ tone: "danger", message: errorMessage(caught) });
     }
   }
+
+  async function finishEdit() {
+    setEditOpen(false);
+    onToast({ tone: "success", message: "Skill 已保存为新版本。" });
+    await onRefresh();
+  }
+
+  useEffect(() => {
+    if (uploadOpen) setEditOpen(false);
+  }, [uploadOpen]);
 
   if (!selected) return <div className="quiet-panel">还没有版本。</div>;
 
@@ -98,18 +110,39 @@ export function VersionsPage({ skill, selectedVersionId, uploadOpen, onNavigate,
         </section>
       ) : null}
 
+      {editOpen ? (
+        <section className="version-upload-panel" aria-label="编辑 Skill 内容">
+          <div className="version-upload-head">
+            <div>
+              <h2>编辑 Skill</h2>
+              <p>基于当前选中的不可变版本创建新 SkillVersion。</p>
+            </div>
+            <button className="icon-button" type="button" aria-label="关闭编辑面板" onClick={() => setEditOpen(false)}>
+              <X size={18} />
+            </button>
+          </div>
+          <SkillEditForm key={selected.id} skill={skill} version={selected} actionsClassName="version-upload-actions" onCancel={() => setEditOpen(false)} onSaved={finishEdit} />
+        </section>
+      ) : null}
+
       <section className="version-files-panel">
         <div className="panel-title-row">
           <h2>Bundle 内容</h2>
-          <span className="version-meta-line">
-            <FileText size={16} />
-            {files.length} 个文件 · {humanDate(selected.created_at)}
-          </span>
+          <div className="button-row">
+            <span className="version-meta-line">
+              <FileText size={16} />
+              {files.length} 个文件 · {humanDate(selected.created_at)}
+            </span>
+            <button className="secondary-button" type="button" onClick={() => { onUploadClose(); setEditOpen(true); }}>
+              <SquarePen size={16} />
+              编辑 Skill
+            </button>
+          </div>
         </div>
         <BundleBrowser files={files} rootLabel={skill.skill.slug} />
       </section>
 
-      <BundleDiffPanel current={selected} previous={previous} />
+      <BundleDiffPanel current={selected} previous={previous} versions={skill.versions} />
     </div>
   );
 }

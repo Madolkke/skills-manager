@@ -10,8 +10,7 @@ from skillhub.infrastructure.db.tables import (
     eval_case_versions,
     eval_cases,
     eval_runs,
-    eval_set_case_versions,
-    eval_set_versions,
+    eval_set_cases,
     eval_sets,
     jobs,
     role_assignments,
@@ -26,13 +25,11 @@ Index("eval_sets_skill_id_idx", eval_sets.c.skill_id)
 Index("eval_cases_skill_id_idx", eval_cases.c.skill_id)
 Index("eval_case_versions_skill_id_idx", eval_case_versions.c.skill_id)
 Index("eval_case_versions_case_id_idx", eval_case_versions.c.case_id)
-Index("eval_set_versions_skill_id_idx", eval_set_versions.c.skill_id)
-Index("eval_set_versions_eval_set_id_idx", eval_set_versions.c.eval_set_id)
-Index("eval_set_case_versions_skill_id_idx", eval_set_case_versions.c.skill_id)
-Index("eval_set_case_versions_case_version_id_idx", eval_set_case_versions.c.case_version_id)
+Index("eval_set_cases_skill_id_idx", eval_set_cases.c.skill_id)
+Index("eval_set_cases_case_version_id_idx", eval_set_cases.c.case_version_id)
 Index("eval_runs_skill_id_created_at_idx", eval_runs.c.skill_id, eval_runs.c.created_at.desc())
 Index("eval_runs_skill_version_id_idx", eval_runs.c.skill_version_id)
-Index("eval_runs_eval_set_version_id_idx", eval_runs.c.eval_set_version_id)
+Index("eval_runs_eval_set_id_idx", eval_runs.c.eval_set_id)
 Index("eval_runs_context_hash_idx", eval_runs.c.run_context_hash)
 Index("case_results_skill_id_idx", case_results.c.skill_id)
 Index("case_results_case_version_id_idx", case_results.c.case_version_id)
@@ -40,7 +37,7 @@ Index(
     "accepted_verifications_context_idx",
     accepted_verifications.c.skill_id,
     accepted_verifications.c.skill_version_id,
-    accepted_verifications.c.eval_set_version_id,
+    accepted_verifications.c.eval_set_id,
     accepted_verifications.c.run_context_hash,
 )
 Index("accepted_verifications_eval_run_id_idx", accepted_verifications.c.eval_run_id)

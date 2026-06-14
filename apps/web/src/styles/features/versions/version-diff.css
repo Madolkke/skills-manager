@@ -33,6 +33,31 @@
   overflow: hidden;
 }
 
+.commit-diff-tools {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.diff-version-select {
+  min-width: 220px;
+  display: grid;
+  gap: 6px;
+}
+
+.diff-version-select span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.diff-version-select select {
+  min-height: 38px;
+  padding: 7px 10px;
+}
+
 .commit-diff-stat {
   min-width: 72px;
   padding: 8px 10px;

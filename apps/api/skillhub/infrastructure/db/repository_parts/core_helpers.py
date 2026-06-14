@@ -25,11 +25,11 @@ class CoreHelperMixin:
             if case_version_id not in result_ids
         ]
         field_errors.extend(
-            FieldError(field=f"results.{case_version_id}", message="测试结果不属于当前 EvalSetVersion。", code="eval_run.result_unexpected")
+            FieldError(field=f"results.{case_version_id}", message="测试结果不属于当前测评集。", code="eval_run.result_unexpected")
             for case_version_id in sorted(result_ids - expected_ids)
         )
         if field_errors:
-            raise FieldInvariantError("EvalRun results must exactly match the eval set version cases.", field_errors)
+            raise FieldInvariantError("EvalRun results must exactly match the eval set cases.", field_errors)
         normalized: dict[str, dict[str, Any]] = {}
         invalid_fields: list[FieldError] = []
         for case_version_id in case_version_ids:
@@ -97,10 +97,10 @@ class CoreHelperMixin:
             raise NotFoundError(f"Primary EvalSet not found for skill: {skill_id}")
         return row
 
-    def _eval_set_version_row(self, connection, eval_set_version_id: str):
-        row = connection.execute(select(tables.eval_set_versions).where(tables.eval_set_versions.c.id == eval_set_version_id)).mappings().one_or_none()
+    def _eval_set_row(self, connection, eval_set_id: str):
+        row = connection.execute(select(tables.eval_sets).where(tables.eval_sets.c.id == eval_set_id)).mappings().one_or_none()
         if row is None:
-            raise NotFoundError(f"EvalSetVersion not found: {eval_set_version_id}")
+            raise NotFoundError(f"EvalSet not found: {eval_set_id}")
         return row
 
     def _eval_run_row(self, connection, eval_run_id: str):
@@ -129,7 +129,7 @@ class CoreHelperMixin:
         *,
         skill_id: str,
         skill_version_id: str,
-        eval_set_version_id: str,
+        eval_set_id: str,
         run_context_hash: str,
     ) -> dict[str, Any] | None:
         row = (
@@ -137,7 +137,7 @@ class CoreHelperMixin:
                 select(tables.accepted_verifications)
                 .where(tables.accepted_verifications.c.skill_id == skill_id)
                 .where(tables.accepted_verifications.c.skill_version_id == skill_version_id)
-                .where(tables.accepted_verifications.c.eval_set_version_id == eval_set_version_id)
+                .where(tables.accepted_verifications.c.eval_set_id == eval_set_id)
                 .where(tables.accepted_verifications.c.run_context_hash == run_context_hash)
             )
             .mappings()
@@ -154,12 +154,6 @@ class CoreHelperMixin:
     def _next_eval_case_version_number(self, connection, case_id: str) -> int:
         return 1 + max(
             connection.execute(select(tables.eval_case_versions.c.version_number).where(tables.eval_case_versions.c.case_id == case_id)).scalars(),
-            default=0,
-        )
-
-    def _next_eval_set_version_number(self, connection, eval_set_id: str) -> int:
-        return 1 + max(
-            connection.execute(select(tables.eval_set_versions.c.version_number).where(tables.eval_set_versions.c.eval_set_id == eval_set_id)).scalars(),
             default=0,
         )
 

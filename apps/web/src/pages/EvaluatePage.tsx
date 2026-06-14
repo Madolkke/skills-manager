@@ -8,22 +8,18 @@ import { ManualVersionDetailPanel, type ManualVersionDetailFocus } from "../comp
 import { api, ApiError } from "../lib/api";
 import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval, type ManualCaseResult } from "../lib/eval";
 import type { RouteState } from "../lib/navigation";
-import type { EvalSetVersionDetail, SkillDetail, ToastState } from "../types";
+import type { EvalSetDetail, SkillDetail, ToastState } from "../types";
 
 type EvaluatePageProps = { skill: SkillDetail; onRefresh: () => Promise<void>; onNavigate: (next: Partial<RouteState>) => void; onToast: (toast: ToastState) => void };
 
 export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: EvaluatePageProps) {
   const versions = skill.versions;
-  const evalSetVersions = useMemo(
-    () => skill.eval_sets.flatMap((set) => set.versions.map((version) => ({ set, version }))),
-    [skill.eval_sets],
-  );
+  const evalSet = skill.summary.primary_eval_set;
+  const evalSetId = evalSet?.id ?? "";
   const defaultVersionId = skill.skill.current_version_id ?? versions[0]?.id ?? "";
-  const defaultEvalSetVersionId = skill.summary.primary_eval_set?.current_version_id ?? "";
   const [skillVersionId, setSkillVersionId] = useState(defaultVersionId);
-  const [evalSetVersionId, setEvalSetVersionId] = useState(defaultEvalSetVersionId);
   const [environmentTags, setEnvironmentTags] = useState<string[]>([]);
-  const [detail, setDetail] = useState<EvalSetVersionDetail | null>(null);
+  const [detail, setDetail] = useState<EvalSetDetail | null>(null);
   const [results, setResults] = useState<Record<string, ManualCaseResult>>({});
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   const [versionDetailFocus, setVersionDetailFocus] = useState<ManualVersionDetailFocus | null>(null);
@@ -33,23 +29,22 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
   const active = cases.find((item) => item.case_version.id === activeCaseId) ?? cases[0] ?? null;
   const activePosition = active ? cases.findIndex((item) => item.case_version.id === active.case_version.id) + 1 : 0;
   const selectedVersion = versions.find((version) => version.id === skillVersionId);
-  const selectedEvalSetVersion = evalSetVersions.find((item) => item.version.id === evalSetVersionId);
   const activeResult = active ? results[active.case_version.id] : undefined;
   const activePassed = activeResult?.passed;
-  const canRecord = !busy && Boolean(skillVersionId && evalSetVersionId) && summary.pending === 0 && cases.length > 0;
+  const canRecord = !busy && Boolean(skillVersionId && evalSetId) && summary.pending === 0 && cases.length > 0;
   const canMoveNext = !busy && summary.pending > 0 && cases.length > 0;
   const progressStyle = { "--coverage": `${summary.coverage}%` } as CSSProperties;
   const recordHint = manualRecordHint(cases.length, summary.pending);
 
   useEffect(() => {
-    if (!evalSetVersionId) {
+    if (!evalSetId) {
       setDetail(null);
       setActiveCaseId(null);
       setResults({});
       return;
     }
     let cancelled = false;
-    api.getEvalSetVersion(evalSetVersionId).then((next) => {
+    api.getEvalSet(evalSetId).then((next) => {
       if (cancelled) return;
       setDetail(next);
       setActiveCaseId(next.cases[0]?.case_version.id ?? null);
@@ -58,7 +53,7 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
     return () => {
       cancelled = true;
     };
-  }, [evalSetVersionId, onToast]);
+  }, [evalSetId, onToast]);
 
   const mark = useCallback((caseVersionId: string, passed: boolean) => {
     setResults((current) => ({
@@ -97,12 +92,12 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
   }, [onToast]);
 
   const recordRun = useCallback(async () => {
-    if (!skillVersionId || !evalSetVersionId || summary.pending > 0 || cases.length === 0) return;
+    if (!skillVersionId || !evalSetId || summary.pending > 0 || cases.length === 0) return;
     setBusy(true);
     try {
       const recorded = await api.recordEvalRun({
         skill_version_id: skillVersionId,
-        eval_set_version_id: evalSetVersionId,
+        eval_set_id: evalSetId,
         strategy: "manual_pass_fail",
         environment_tags: environmentTags,
         run_context: {},
@@ -121,7 +116,7 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
     } finally {
       setBusy(false);
     }
-  }, [cases.length, environmentTags, evalSetVersionId, onNavigate, onRefresh, onToast, results, skillVersionId, summary.pending]);
+  }, [cases.length, environmentTags, evalSetId, onNavigate, onRefresh, onToast, results, skillVersionId, summary.pending]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -161,12 +156,10 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
       <section className="evaluation-selectors">
         <EvaluationVersionSelectors
           versions={versions}
-          evalSetVersions={evalSetVersions}
+          evalSet={evalSet}
           skillVersionId={skillVersionId}
-          evalSetVersionId={evalSetVersionId}
           versionDetailFocus={versionDetailFocus}
           onSkillVersionChange={setSkillVersionId}
-          onEvalSetVersionChange={setEvalSetVersionId}
           onVersionDetailFocusChange={setVersionDetailFocus}
         />
         <EvaluationContextCard
@@ -178,15 +171,15 @@ export function EvaluatePage({ skill, onRefresh, onNavigate, onToast }: Evaluate
           <Info size={18} />
           <div>
             <strong>在此页面执行人工测评</strong>
-            <p>选择确切的 SkillVersion 与 EvalSetVersion，逐条输入本次运行结果并记录环境上下文。</p>
+            <p>选择 SkillVersion，使用当前测评集逐条输入本次运行结果并记录环境上下文。</p>
           </div>
         </div>
         {versionDetailFocus ? (
-          <ManualVersionDetailPanel
-            focus={versionDetailFocus}
-            skillVersion={selectedVersion}
-            evalSetVersion={selectedEvalSetVersion}
-            evalSetDetail={detail}
+            <ManualVersionDetailPanel
+              focus={versionDetailFocus}
+              skillVersion={selectedVersion}
+              evalSet={evalSet}
+              evalSetDetail={detail}
             onClose={() => setVersionDetailFocus(null)}
           />
         ) : null}

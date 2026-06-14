@@ -3,7 +3,7 @@ import { Copy, FileCheck2, GitCommitHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RunEvidencePanel } from "../components/RunEvidencePanel";
 import { api, ApiError } from "../lib/api";
-import { evalSetVersionName, humanDate, scoreKind, versionName } from "../lib/format";
+import { humanDate, scoreKind, versionName } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import type { RouteState } from "../lib/navigation";
 import type { EvalRunDetail, EvalRunHistory, SkillDetail, ToastState } from "../types";
@@ -69,7 +69,7 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
         <header className="section-heading">
           <div>
             <h1>历史与证据链</h1>
-            <p>每次测评记录绑定 exact SkillVersion + EvalSetVersion，并保存运行环境、actual output 与人工判定结果。</p>
+            <p>每次测评记录绑定 exact SkillVersion + 当前测评集，并保存运行环境、actual output 与人工判定结果。</p>
           </div>
           <button className="secondary-button" type="button" onClick={() => onNavigate({ tab: "evaluate", selectedRunId: null })}>
             进入测评
@@ -105,7 +105,7 @@ export function HistoryPage({ skill, selectedRunId, onNavigate, onToast }: Histo
           >
             <span className={clsx("run-score", scoreKind(item.eval_run))}>{runScoreText(item.eval_run.summary)}</span>
             <strong>{versionName(item.skill_version)}</strong>
-            <small>{item.eval_set.name} {evalSetVersionName(item.eval_set_version)} · {humanDate(item.eval_run.created_at)}</small>
+            <small>{item.eval_set.name} · {humanDate(item.eval_run.created_at)}</small>
           </button>
         ))}
         {runs.length === 0 ? (

@@ -1,35 +1,26 @@
 import { Database, Package } from "lucide-react";
-import { evalSetVersionName, versionName } from "../lib/format";
-import type { EvalSetSummary, EvalSetVersion, SkillVersion } from "../types";
+import { versionName } from "../lib/format";
+import type { EvalSetSummary, SkillVersion } from "../types";
 import type { ManualVersionDetailFocus } from "./ManualVersionDetailPanel";
-
-export type EvalSetVersionOption = {
-  set: EvalSetSummary;
-  version: EvalSetVersion;
-};
 
 type EvaluationVersionSelectorsProps = {
   versions: SkillVersion[];
-  evalSetVersions: EvalSetVersionOption[];
+  evalSet?: EvalSetSummary | null;
   skillVersionId: string;
-  evalSetVersionId: string;
   versionDetailFocus: ManualVersionDetailFocus | null;
   onSkillVersionChange: (versionId: string) => void;
-  onEvalSetVersionChange: (versionId: string) => void;
   onVersionDetailFocusChange: (focus: ManualVersionDetailFocus) => void;
 };
 
 /**
- * Keeps exact SkillVersion and EvalSetVersion binding controls together.
+ * Keeps exact SkillVersion and eval set binding controls together.
  */
 export function EvaluationVersionSelectors({
   versions,
-  evalSetVersions,
+  evalSet,
   skillVersionId,
-  evalSetVersionId,
   versionDetailFocus,
   onSkillVersionChange,
-  onEvalSetVersionChange,
   onVersionDetailFocusChange,
 }: EvaluationVersionSelectorsProps) {
   return (
@@ -60,28 +51,16 @@ export function EvaluationVersionSelectors({
         </div>
       </div>
       <div className="evaluation-selector-card">
-        <label className="selector-title" htmlFor="eval-set-version-select">
+        <div className="selector-title">
           <Database size={18} />
-          测评集版本
-        </label>
+          测评集
+        </div>
         <div className="selector-control-row">
-          <select
-            id="eval-set-version-select"
-            value={evalSetVersionId}
-            onChange={(event) => onEvalSetVersionChange(event.target.value)}
-            disabled={evalSetVersions.length === 0}
-          >
-            {evalSetVersions.length === 0 ? <option value="">暂无测评集版本</option> : null}
-            {evalSetVersions.map(({ set, version }) => (
-              <option value={version.id} key={version.id}>
-                {set.name} {evalSetVersionName(version)}
-              </option>
-            ))}
-          </select>
+          <div className="selector-static-value">{evalSet?.name ?? "暂无测评集"}</div>
           <button
             className="selector-detail-button"
             type="button"
-            aria-label="查看测评集版本详情"
+            aria-label="查看测评集详情"
             aria-pressed={versionDetailFocus === "evalset"}
             onClick={() => onVersionDetailFocusChange("evalset")}
           >

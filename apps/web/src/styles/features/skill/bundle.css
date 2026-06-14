@@ -135,3 +135,50 @@
   padding-right: 28px;
   white-space: pre;
 }
+
+.bundle-editor {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.bundle-editor-content {
+  min-height: 560px;
+}
+
+.editor-file-state {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--blue);
+  background: #eef5ff;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.editor-file-state.muted {
+  color: var(--muted);
+  background: #f8fafc;
+}
+
+.bundle-code-editor {
+  min-height: 100%;
+}
+
+.bundle-code-editor .cm-editor {
+  min-height: 100%;
+  font-size: 14px;
+}
+
+.bundle-code-editor .cm-scroller {
+  font-family: "SFMono-Regular", "Cascadia Code", "Liberation Mono", Menlo, monospace;
+  line-height: 1.7;
+}
+
+.binary-editor-message {
+  padding: 24px;
+  color: var(--muted);
+  background: #fbfdff;
+  min-height: 100%;
+}

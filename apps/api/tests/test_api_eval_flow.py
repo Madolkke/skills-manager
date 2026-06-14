@@ -10,7 +10,7 @@ class ApiEvalFlowTest(ApiCommandTestCase):
             "/api/eval-runs",
             json={
                 "skill_version_id": skill["skill_version_id"],
-                "eval_set_version_id": case["eval_set_version_id"],
+                "eval_set_id": case["eval_set_id"],
                 "environment_tags": ["windows", "codex", "windows"],
                 "run_context": {"os": "windows", "shell": "git-bash", "model": "gpt-5"},
                 "results": {
@@ -45,8 +45,8 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         skill = self.create_skill("history-filter")
         case = self.create_eval_case(skill["skill_id"])
         candidate = self.create_skill_version(skill["skill_id"], "history-filter-v2")
-        self.record_run(skill["skill_version_id"], case["eval_set_version_id"], case["eval_case_version_id"], False)
-        candidate_run = self.record_run(candidate["skill_version_id"], case["eval_set_version_id"], case["eval_case_version_id"], True)
+        self.record_run(skill["skill_version_id"], case["eval_set_id"], case["eval_case_version_id"], False)
+        candidate_run = self.record_run(candidate["skill_version_id"], case["eval_set_id"], case["eval_case_version_id"], True)
 
         history = self.client.get(
             f"/api/skills/{skill['skill_id']}/eval-runs",
@@ -65,8 +65,8 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         skill = self.create_skill("compare-flow")
         case = self.create_eval_case(skill["skill_id"])
         candidate = self.create_skill_version(skill["skill_id"], "compare-flow-v2")
-        baseline = self.record_run(skill["skill_version_id"], case["eval_set_version_id"], case["eval_case_version_id"], False)
-        candidate_run = self.record_run(candidate["skill_version_id"], case["eval_set_version_id"], case["eval_case_version_id"], True)
+        baseline = self.record_run(skill["skill_version_id"], case["eval_set_id"], case["eval_case_version_id"], False)
+        candidate_run = self.record_run(candidate["skill_version_id"], case["eval_set_id"], case["eval_case_version_id"], True)
 
         response = self.client.get(
             "/api/eval-runs/compare",
@@ -82,7 +82,7 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         case = self.create_eval_case(skill["skill_id"])
         linux_run = self.record_run(
             skill["skill_version_id"],
-            case["eval_set_version_id"],
+            case["eval_set_id"],
             case["eval_case_version_id"],
             True,
             environment_tags=["linux"],
@@ -90,7 +90,7 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         )
         windows_run = self.record_run(
             skill["skill_version_id"],
-            case["eval_set_version_id"],
+            case["eval_set_id"],
             case["eval_case_version_id"],
             True,
             environment_tags=["windows"],
@@ -127,7 +127,7 @@ class ApiEvalFlowTest(ApiCommandTestCase):
             "/api/eval-runs",
             json={
                 "skill_version_id": skill["skill_version_id"],
-                "eval_set_version_id": case["eval_set_version_id"],
+                "eval_set_id": case["eval_set_id"],
                 "results": {},
             },
         )

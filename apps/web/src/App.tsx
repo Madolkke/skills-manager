@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { BrandRail } from "./components/BrandRail";
 import { Toast } from "./components/Toast";
 import { TopBar } from "./components/TopBar";
 import { api, ApiError } from "./lib/api";
@@ -7,6 +6,7 @@ import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/nav
 import { HubPage } from "./pages/HubPage";
 import { NewSkillModal } from "./pages/NewSkillModal";
 import { SkillPage } from "./pages/SkillPage";
+import { WorkflowPage } from "./pages/WorkflowPage";
 import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types";
 
 export default function App() {
@@ -17,8 +17,6 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<ToastState>(null);
   const [newSkillOpen, setNewSkillOpen] = useState(false);
-  const [railCollapsed, setRailCollapsed] = useState(false);
-  const [searchFocusSignal, setSearchFocusSignal] = useState(0);
 
   const actor = session?.actor ?? "product-operator";
 
@@ -28,14 +26,14 @@ export default function App() {
       const [sessionInfo, list] = await Promise.all([api.getSession(), api.listSkills()]);
       setSession(sessionInfo);
       setSkills(list);
-      if (route.skillId) setSkill(await api.getSkill(route.skillId));
+      if (route.section === "skills" && route.skillId) setSkill(await api.getSkill(route.skillId));
       else setSkill(null);
     } catch (error) {
       setToast({ tone: "danger", message: errorMessage(error) });
     } finally {
       setLoading(false);
     }
-  }, [route.skillId]);
+  }, [route.section, route.skillId]);
 
   useEffect(() => {
     void load();
@@ -48,30 +46,20 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((next: Partial<RouteState>) => setRoute(writeRoute(next)), []);
-  const openSkill = useCallback((skillId: string) => navigate({ skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
-  const setTab = useCallback((tab: SkillTab) => navigate({ tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
-  const goHome = useCallback(() => navigate({ skillId: null, tab: "overview", selectedCaseId: null, selectedVersionId: null, selectedRunId: null }), [navigate]);
-  const focusHubSearch = useCallback(() => {
-    goHome();
-    setSearchFocusSignal((value) => value + 1);
-  }, [goHome]);
+  const openSkill = useCallback((skillId: string) => navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
+  const setTab = useCallback((tab: SkillTab) => navigate({ section: "skills", tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
+  const goHome = useCallback(() => navigate({ section: "hub", skillId: null, tab: "overview", selectedCaseId: null, selectedVersionId: null, selectedRunId: null }), [navigate]);
+  const goWorkflows = useCallback(() => navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null }), [navigate]);
 
-  const shellClass = ["app-shell", railCollapsed ? "rail-is-collapsed" : "", route.skillId ? "skill-shell" : "hub-shell"].filter(Boolean).join(" ");
+  const sectionShell = route.section === "workflows" ? "workflow-shell" : route.skillId ? "skill-shell" : "hub-shell";
+  const shellClass = `app-shell ${sectionShell}`;
 
   return (
     <div className={shellClass}>
-      <BrandRail
-        collapsed={railCollapsed}
-        homeActive={!route.skillId}
-        onToggle={() => setRailCollapsed((value) => !value)}
-        onHome={goHome}
-        onCreate={() => setNewSkillOpen(true)}
-        onSearch={focusHubSearch}
-      />
       <div className="app-main">
-        {route.skillId ? <TopBar actor={actor} currentSkill={skill} onHome={goHome} /> : null}
-        <main className="page-shell">
-          {route.skillId && skill ? (
+        <TopBar actor={actor} currentSkill={route.section === "skills" && route.skillId ? skill : null} onHome={goHome} onCreate={() => setNewSkillOpen(true)} onWorkflows={goWorkflows} />
+        <main className={route.section === "workflows" ? "workflow-shell-page" : "page-shell"}>
+          {route.section === "skills" && route.skillId && skill ? (
             <SkillPage
               skill={skill}
               tab={route.tab}
@@ -81,14 +69,16 @@ export default function App() {
               onNavigate={navigate}
               onToast={setToast}
             />
+          ) : route.section === "workflows" ? (
+            <WorkflowPage onBack={goHome} />
           ) : (
             <HubPage
               skills={skills}
               actor={actor}
               loading={loading}
-              searchFocusSignal={searchFocusSignal}
               onOpenSkill={openSkill}
               onCreate={() => setNewSkillOpen(true)}
+              onOpenWorkflows={goWorkflows}
             />
           )}
         </main>

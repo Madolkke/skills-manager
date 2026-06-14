@@ -12,14 +12,10 @@ def ensure_sqlite_schema_compatibility(engine: Engine) -> None:
     with engine.begin() as connection:
         if "skills" in tables:
             add_column_if_missing(inspector, connection, "skills", "current_version_id", "TEXT")
-        if "eval_sets" in tables:
-            add_column_if_missing(inspector, connection, "eval_sets", "current_version_id", "TEXT")
         if "eval_cases" in tables:
             add_column_if_missing(inspector, connection, "eval_cases", "current_version_id", "TEXT")
         if "skill_versions" in tables:
             add_column_if_missing(inspector, connection, "skill_versions", "display_name", "TEXT")
-        if "eval_set_versions" in tables:
-            add_column_if_missing(inspector, connection, "eval_set_versions", "display_name", "TEXT")
         backfill_current_pointers(connection, tables)
 
 
@@ -40,22 +36,6 @@ def backfill_current_pointers(connection, tables: set[str]) -> None:
                   SELECT id
                   FROM skill_versions
                   WHERE skill_versions.skill_id = skills.id
-                  ORDER BY version_number DESC
-                  LIMIT 1
-                )
-                WHERE current_version_id IS NULL
-                """
-            )
-        )
-    if {"eval_sets", "eval_set_versions"}.issubset(tables):
-        connection.execute(
-            text(
-                """
-                UPDATE eval_sets
-                SET current_version_id = (
-                  SELECT id
-                  FROM eval_set_versions
-                  WHERE eval_set_versions.eval_set_id = eval_sets.id
                   ORDER BY version_number DESC
                   LIMIT 1
                 )

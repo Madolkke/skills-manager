@@ -86,7 +86,6 @@ class CreateEvalCasePayload(BaseModel):
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
     notes: EvalCaseNotes | None = None
-    eval_set_version_display_name: VersionDisplayName | None = None
 
 
 class CreateEvalCaseItemPayload(BaseModel):
@@ -107,7 +106,6 @@ class CreateEvalCaseVersionPayload(BaseModel):
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
     notes: EvalCaseNotes | None = None
-    eval_set_version_display_name: VersionDisplayName | None = None
     make_current: bool = True
 
 
@@ -123,7 +121,7 @@ class ManualEvalResultPayload(BaseModel):
 
 class RecordEvalRunPayload(BaseModel):
     skill_version_id: str
-    eval_set_version_id: str
+    eval_set_id: str
     strategy: str = "manual_pass_fail"
     environment_tags: list[TagValue] = Field(default_factory=list)
     run_context: dict[str, Any] = Field(default_factory=dict)

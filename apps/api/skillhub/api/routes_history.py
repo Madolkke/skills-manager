@@ -14,7 +14,7 @@ def register_history_routes(app: FastAPI) -> None:
     def eval_run_history(
         skill_id: str,
         skill_version_id: str | None = None,
-        eval_set_version_id: str | None = None,
+        eval_set_id: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
@@ -24,7 +24,7 @@ def register_history_routes(app: FastAPI) -> None:
             repository.list_eval_runs_for_skill(
                 skill_id=skill_id,
                 skill_version_id=skill_version_id,
-                eval_set_version_id=eval_set_version_id,
+                eval_set_id=eval_set_id,
                 strategy=strategy,
                 status=status,
                 limit=limit,
@@ -35,7 +35,7 @@ def register_history_routes(app: FastAPI) -> None:
     def eval_run_matrix(
         skill_id: str,
         skill_version_id: str | None = None,
-        eval_set_version_id: str | None = None,
+        eval_set_id: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
@@ -45,7 +45,7 @@ def register_history_routes(app: FastAPI) -> None:
             repository.eval_run_matrix_for_skill(
                 skill_id=skill_id,
                 skill_version_id=skill_version_id,
-                eval_set_version_id=eval_set_version_id,
+                eval_set_id=eval_set_id,
                 strategy=strategy,
                 status=status,
                 limit=limit,
@@ -76,9 +76,9 @@ def register_history_routes(app: FastAPI) -> None:
     def delete_saved_view(saved_view_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.delete_saved_view(saved_view_id))
 
-    @app.get("/api/eval-set-versions/{eval_set_version_id}")
-    def eval_set_version_detail(eval_set_version_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
-        return result_payload(repository.eval_set_version_detail(eval_set_version_id))
+    @app.get("/api/eval-sets/{eval_set_id}")
+    def eval_set_detail(eval_set_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.eval_set_detail(eval_set_id))
 
     @app.get("/api/eval-runs/compare")
     def compare_eval_runs(

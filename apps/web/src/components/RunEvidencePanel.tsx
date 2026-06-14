@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { CheckCircle2, Clock3, Copy, Link2, Tags, XCircle } from "lucide-react";
-import { evalSetVersionName, humanDate, scoreKind, versionName } from "../lib/format";
+import { humanDate, scoreKind, versionName } from "../lib/format";
 import { compactDigest, runScoreText } from "../lib/history";
 import type { EvalRunDetail, EvalRunHistory } from "../types";
 
@@ -28,10 +28,10 @@ export function RunEvidencePanel({ context, run, onCopy }: RunEvidencePanelProps
           onCopy={onCopy}
         />
         <EvidenceCard
-          title="EvalSetVersion"
-          value={`${context.eval_set.name} ${evalSetVersionName(context.eval_set_version)}`}
-          meta={humanDate(context.eval_set_version.created_at)}
-          copyValue={context.eval_set_version.id}
+          title="测评集"
+          value={context.eval_set.name}
+          meta={humanDate(context.eval_set.created_at)}
+          copyValue={context.eval_set.id}
           onCopy={onCopy}
         />
       </div>

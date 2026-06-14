@@ -48,7 +48,6 @@ create table eval_sets (
   skill_id text not null references skills(id),
   name text not null,
   description text not null default '',
-  current_version_id text,
   lifecycle_status text not null default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -89,41 +88,23 @@ alter table eval_cases
   add constraint eval_cases_current_version_fkey
   foreign key (current_version_id, skill_id) references eval_case_versions(id, skill_id);
 
-create table eval_set_versions (
-  id text primary key,
-  skill_id text not null,
+create table eval_set_cases (
   eval_set_id text not null,
-  version_number integer not null,
-  display_name text,
-  created_at timestamptz not null default now(),
-  created_by text not null,
-  constraint eval_set_versions_version_number_positive check (version_number > 0),
-  constraint eval_set_versions_eval_set_version_unique unique (eval_set_id, version_number),
-  constraint eval_set_versions_id_skill_unique unique (id, skill_id),
-  constraint eval_set_versions_eval_set_skill_fkey foreign key (eval_set_id, skill_id) references eval_sets(id, skill_id)
-);
-
-alter table eval_sets
-  add constraint eval_sets_current_version_fkey
-  foreign key (current_version_id, skill_id) references eval_set_versions(id, skill_id);
-
-create table eval_set_case_versions (
-  eval_set_version_id text not null,
   skill_id text not null,
   case_version_id text not null,
   position integer not null,
-  primary key (eval_set_version_id, position),
-  constraint eval_set_case_versions_position_non_negative check (position >= 0),
-  constraint eval_set_case_versions_case_unique unique (eval_set_version_id, case_version_id),
-  constraint eval_set_case_versions_set_skill_fkey foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id),
-  constraint eval_set_case_versions_case_skill_fkey foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)
+  primary key (eval_set_id, position),
+  constraint eval_set_cases_position_non_negative check (position >= 0),
+  constraint eval_set_cases_case_unique unique (eval_set_id, case_version_id),
+  constraint eval_set_cases_set_skill_fkey foreign key (eval_set_id, skill_id) references eval_sets(id, skill_id),
+  constraint eval_set_cases_case_skill_fkey foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)
 );
 
 create table eval_runs (
   id text primary key,
   skill_id text not null,
   skill_version_id text not null,
-  eval_set_version_id text not null,
+  eval_set_id text not null,
   strategy text not null,
   status text not null,
   environment_tags text[] not null default '{}',
@@ -136,7 +117,7 @@ create table eval_runs (
   constraint eval_runs_status_check check (status in ('queued', 'running', 'finished', 'failed')),
   constraint eval_runs_id_skill_unique unique (id, skill_id),
   constraint eval_runs_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
-  constraint eval_runs_eval_set_version_skill_fkey foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id)
+  constraint eval_runs_eval_set_skill_fkey foreign key (eval_set_id, skill_id) references eval_sets(id, skill_id)
 );
 
 create table case_results (
@@ -157,16 +138,16 @@ create table accepted_verifications (
   id text primary key,
   skill_id text not null,
   skill_version_id text not null,
-  eval_set_version_id text not null,
+  eval_set_id text not null,
   run_context_hash text not null,
   eval_run_id text not null,
   note text not null default '',
   created_at timestamptz not null default now(),
   created_by text not null,
   constraint accepted_verifications_id_skill_unique unique (id, skill_id),
-  constraint accepted_verifications_context_unique unique (skill_id, skill_version_id, eval_set_version_id, run_context_hash),
+  constraint accepted_verifications_context_unique unique (skill_id, skill_version_id, eval_set_id, run_context_hash),
   constraint accepted_verifications_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
-  constraint accepted_verifications_eval_set_version_skill_fkey foreign key (eval_set_version_id, skill_id) references eval_set_versions(id, skill_id),
+  constraint accepted_verifications_eval_set_skill_fkey foreign key (eval_set_id, skill_id) references eval_sets(id, skill_id),
   constraint accepted_verifications_eval_run_skill_fkey foreign key (eval_run_id, skill_id) references eval_runs(id, skill_id)
 );
 
@@ -225,17 +206,15 @@ create index eval_sets_skill_id_idx on eval_sets (skill_id);
 create index eval_cases_skill_id_idx on eval_cases (skill_id);
 create index eval_case_versions_skill_id_idx on eval_case_versions (skill_id);
 create index eval_case_versions_case_id_idx on eval_case_versions (case_id);
-create index eval_set_versions_skill_id_idx on eval_set_versions (skill_id);
-create index eval_set_versions_eval_set_id_idx on eval_set_versions (eval_set_id);
-create index eval_set_case_versions_skill_id_idx on eval_set_case_versions (skill_id);
-create index eval_set_case_versions_case_version_id_idx on eval_set_case_versions (case_version_id);
+create index eval_set_cases_skill_id_idx on eval_set_cases (skill_id);
+create index eval_set_cases_case_version_id_idx on eval_set_cases (case_version_id);
 create index eval_runs_skill_id_created_at_idx on eval_runs (skill_id, created_at desc);
 create index eval_runs_skill_version_id_idx on eval_runs (skill_version_id);
-create index eval_runs_eval_set_version_id_idx on eval_runs (eval_set_version_id);
+create index eval_runs_eval_set_id_idx on eval_runs (eval_set_id);
 create index eval_runs_context_hash_idx on eval_runs (run_context_hash);
 create index case_results_skill_id_idx on case_results (skill_id);
 create index case_results_case_version_id_idx on case_results (case_version_id);
-create index accepted_verifications_context_idx on accepted_verifications (skill_id, skill_version_id, eval_set_version_id, run_context_hash);
+create index accepted_verifications_context_idx on accepted_verifications (skill_id, skill_version_id, eval_set_id, run_context_hash);
 create index accepted_verifications_eval_run_id_idx on accepted_verifications (eval_run_id);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index jobs_status_created_at_idx on jobs (status, created_at);

@@ -1,13 +1,11 @@
 import clsx from "clsx";
 import { Copy, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { CaseVersionRoadmap } from "../components/CaseVersionRoadmap";
 import { EvalCaseModal, type EvalCaseFormData } from "../components/EvalCaseModal";
-import { EvalSetVersionNameEditor } from "../components/EvalSetVersionNameEditor";
 import { api, ApiError } from "../lib/api";
-import { compactText, evalSetVersionName, humanDate } from "../lib/format";
+import { compactText, humanDate } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
-import type { EvalCaseHistory, EvalSetCase, EvalSetVersionDetail, SkillDetail, ToastState } from "../types";
+import type { EvalSetCase, EvalSetDetail, SkillDetail, ToastState } from "../types";
 
 type EvalSetsPageProps = {
   skill: SkillDetail;
@@ -21,33 +19,21 @@ type CaseSortKey = "position" | "title" | "version";
 
 export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onToast }: EvalSetsPageProps) {
   const evalSet = skill.summary.primary_eval_set;
-  const [versionId, setVersionId] = useState(evalSet?.current_version_id ?? "");
-  const [detail, setDetail] = useState<EvalSetVersionDetail | null>(null);
+  const [detail, setDetail] = useState<EvalSetDetail | null>(null);
   const [query, setQuery] = useState("");
   const [caseFilter, setCaseFilter] = useState<"all" | "active">("all");
   const [caseSort, setCaseSort] = useState<CaseSortKey>("position");
   const [editor, setEditor] = useState<EvalSetCase | "new" | null>(null);
-  const [history, setHistory] = useState<EvalCaseHistory | null>(null);
   const [detailRevision, setDetailRevision] = useState(0);
   const [busy, setBusy] = useState(false);
-  const selectedVersion = evalSet?.versions.find((version) => version.id === versionId) ?? evalSet?.current_version ?? null;
-  const viewingCurrent = Boolean(versionId && versionId === evalSet?.current_version_id);
 
   useEffect(() => {
-    const currentVersionId = evalSet?.current_version_id ?? "";
-    if (!currentVersionId) return;
-    if (!versionId || !evalSet?.versions.some((version) => version.id === versionId)) {
-      setVersionId(currentVersionId);
-    }
-  }, [evalSet, versionId]);
-
-  useEffect(() => {
-    if (!versionId) {
+    if (!evalSet?.id) {
       setDetail(null);
       return;
     }
-    api.getEvalSetVersion(versionId).then(setDetail).catch((error) => onToast({ tone: "danger", message: errorMessage(error) }));
-  }, [detailRevision, onToast, versionId]);
+    api.getEvalSet(evalSet.id).then(setDetail).catch((error) => onToast({ tone: "danger", message: errorMessage(error) }));
+  }, [detailRevision, evalSet?.id, onToast]);
 
   const cases = useMemo(() => sortCases(filterCases(detail?.cases ?? [], query, caseFilter), caseSort), [caseFilter, caseSort, detail, query]);
   const selected = cases.find((item) => item.case.id === selectedCaseId) ?? cases[0] ?? null;
@@ -57,25 +43,16 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
     onNavigate({ selectedCaseId: selected.case.id });
   }, [onNavigate, selected, selectedCaseId]);
 
-  useEffect(() => {
-    if (!selected) {
-      setHistory(null);
-      return;
-    }
-    api.getEvalCaseHistory(selected.case.id).then(setHistory).catch(() => setHistory(null));
-  }, [selected]);
 
   async function saveCase(form: EvalCaseFormData) {
     setBusy(true);
     try {
-      const payload = { ...form, eval_set_version_display_name: cleanName(form.eval_set_version_display_name) };
       const saved = editor === "new"
-        ? await api.createEvalCase({ skill_id: skill.skill.id, ...payload })
+        ? await api.createEvalCase({ skill_id: skill.skill.id, ...cleanCaseForm(form) })
         : editor
-          ? await api.updateEvalCase(editor.case.id, { ...payload, make_current: true })
+          ? await api.updateEvalCase(editor.case.id, { ...cleanCaseForm(form), make_current: true })
           : null;
       if (saved) {
-        setVersionId(saved.eval_set_version_id);
         onNavigate({ selectedCaseId: saved.eval_case_id });
         setDetailRevision((value) => value + 1);
       }
@@ -89,17 +66,6 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
     }
   }
 
-  async function renameEvalSetVersion(displayName: string | null) {
-    if (!selectedVersion) return;
-    try {
-      await api.updateEvalSetVersionName(selectedVersion.id, displayName);
-      onToast({ tone: "success", message: "测评集版本名称已更新。" });
-      await onRefresh();
-    } catch (caught) {
-      onToast({ tone: "danger", message: errorMessage(caught) });
-    }
-  }
-
   return (
     <div className="evalset-layout">
       <aside className="case-sidebar">
@@ -107,31 +73,15 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
         <div className="evalset-card">
           <div className="evalset-title-row">
             <span className="green-dot" />
-            <span>{viewingCurrent ? "当前 EvalSetVersion" : "历史 EvalSetVersion"}</span>
+            <span>当前测评集</span>
           </div>
-          <EvalSetVersionNameEditor version={selectedVersion} evalSetName={evalSet?.name ?? "Regression Set"} onSave={renameEvalSetVersion} />
+          <h1>{evalSet?.name ?? "Regression Set"}</h1>
+          <p>{evalSet?.description ?? ""}</p>
           <div className="mini-grid">
             <span>Cases<b>{detail?.cases.length ?? 0}</b></span>
-            <span>状态<b>{viewingCurrent ? "当前" : "历史"}</b></span>
-            <span>更新时间<b>{humanDate(selectedVersion?.created_at)}</b></span>
+            <span>状态<b>{evalSet?.lifecycle_status ?? "-"}</b></span>
+            <span>更新时间<b>{humanDate(evalSet?.updated_at)}</b></span>
           </div>
-        </div>
-        <div className="evalset-version-list" aria-label="测评集历史版本">
-          <strong>版本历史</strong>
-          {evalSet?.versions.map((version) => (
-            <button
-              className={clsx("evalset-version-row", version.id === versionId && "active")}
-              type="button"
-              key={version.id}
-              onClick={() => {
-                setVersionId(version.id);
-                onNavigate({ selectedCaseId: null });
-              }}
-            >
-              <span>{evalSetVersionName(version)}</span>
-              <small>{version.id === evalSet.current_version_id ? "当前" : humanDate(version.created_at)}</small>
-            </button>
-          ))}
         </div>
         <label className="search-field compact">
           <Search size={18} />
@@ -151,16 +101,10 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
               <option value="version">按版本排序</option>
             </select>
           </label>
-          {viewingCurrent ? (
           <button className="primary-button" type="button" onClick={() => setEditor("new")}>
             <Plus size={17} />
             添加
           </button>
-          ) : (
-            <button className="secondary-button" type="button" onClick={() => setVersionId(evalSet?.current_version_id ?? "")}>
-              当前版本
-            </button>
-          )}
         </div>
         <div className="case-list">
           {cases.map((item) => {
@@ -209,7 +153,7 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
                 </div>
               </div>
               <div className="button-row">
-                <button className="primary-button" type="button" disabled={!viewingCurrent} onClick={() => setEditor(selected)}>
+                <button className="primary-button" type="button" onClick={() => setEditor(selected)}>
                   编辑 case
                 </button>
               </div>
@@ -217,7 +161,7 @@ export function EvalSetsPage({ skill, selectedCaseId, onNavigate, onRefresh, onT
             <CaseBlock title="Input" text={selected.case_version.input_artifact.content_text} />
             <CaseBlock title="Expected output" text={selected.case_version.expected_output_artifact.content_text} />
             <CaseBlock title="Notes" text={selected.case_version.notes} />
-            <CaseVersionRoadmap history={history} currentVersionId={selected.case_version.id} />
+
           </>
         ) : (
           <div className="quiet-panel">还没有测试用例。</div>
@@ -273,7 +217,11 @@ function errorMessage(error: unknown): string {
   return "操作失败。";
 }
 
-function cleanName(value: string): string | undefined {
-  const clean = value.trim();
-  return clean || undefined;
+function cleanCaseForm(form: EvalCaseFormData) {
+  return {
+    title: form.title,
+    input_text: form.input_text,
+    expected_output: form.expected_output,
+    notes: form.notes.trim() || undefined,
+  };
 }

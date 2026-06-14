@@ -5,7 +5,7 @@ import type {
   EvalCaseMutationResult,
   EvalRunDetail,
   EvalRunHistory,
-  EvalSetVersionDetail,
+  EvalSetDetail,
   ManualEvalResultPayload,
   SessionInfo,
   SkillDetail,
@@ -50,7 +50,7 @@ export const api = {
   getSession: () => apiGet<SessionInfo>("/api/session"),
   listSkills: () => apiGet<SkillSummary[]>("/api/skills"),
   getSkill: (skillId: string) => apiGet<SkillDetail>(`/api/skills/${skillId}`),
-  getEvalSetVersion: (versionId: string) => apiGet<EvalSetVersionDetail>(`/api/eval-set-versions/${versionId}`),
+  getEvalSet: (evalSetId: string) => apiGet<EvalSetDetail>(`/api/eval-sets/${evalSetId}`),
   getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
   getEvalRunHistory: (skillId: string) => apiGet<EvalRunHistory>(`/api/skills/${skillId}/eval-runs`),
   getEvalRun: (runId: string) => apiGet<EvalRunDetail>(`/api/eval-runs/${runId}`),
@@ -60,19 +60,16 @@ export const api = {
     ),
   importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string }) =>
     apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
-  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string }) =>
+  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string }) =>
     apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
   updateSkillVersionName: (versionId: string, displayName: string | null) =>
     apiSend<unknown>(`/api/skill-versions/${versionId}`, "PATCH", { display_name: displayName }),
-  updateEvalSetVersionName: (versionId: string, displayName: string | null) =>
-    apiSend<unknown>(`/api/eval-set-versions/${versionId}`, "PATCH", { display_name: displayName }),
   createEvalCase: (payload: {
     skill_id: string;
     title: string;
     input_text: string;
     expected_output: string;
     notes?: string;
-    eval_set_version_display_name?: string;
   }) => apiSend<EvalCaseMutationResult>("/api/eval-cases", "POST", payload),
   updateEvalCase: (
     caseId: string,
@@ -82,12 +79,11 @@ export const api = {
       expected_output: string;
       notes?: string;
       make_current: boolean;
-      eval_set_version_display_name?: string;
     },
   ) => apiSend<EvalCaseMutationResult>(`/api/eval-cases/${caseId}`, "PATCH", { ...payload, case_id: caseId }),
   recordEvalRun: (payload: {
     skill_version_id: string;
-    eval_set_version_id: string;
+    eval_set_id: string;
     strategy: string;
     environment_tags: string[];
     run_context: Record<string, unknown>;

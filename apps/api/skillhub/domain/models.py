@@ -73,19 +73,8 @@ class EvalSet:
     skill_id: str
     name: str
     description: str
-    current_version_id: str | None
     created_at: datetime
     lifecycle_status: LifecycleStatus = "active"
-
-
-@dataclass(frozen=True)
-class EvalSetVersion:
-    id: str
-    eval_set_id: str
-    version_number: int
-    case_version_ids: tuple[str, ...]
-    created_at: datetime
-    display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,7 +102,7 @@ class EvalCaseVersion:
 class EvalRun:
     id: str
     skill_version_id: str
-    eval_set_version_id: str
+    eval_set_id: str
     strategy: str
     status: EvalRunStatus
     created_at: datetime

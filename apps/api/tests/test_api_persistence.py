@@ -77,18 +77,9 @@ def test_sqlite_startup_backfills_old_version_pointer_schema(tmp_path: Path):
               created_at text not null,
               updated_at text not null
             );
-            create table eval_set_versions (
-              id text primary key,
-              skill_id text not null,
-              eval_set_id text not null,
-              version_number integer not null,
-              created_at text not null,
-              created_by text not null
-            );
             insert into skills values ('skill_old', 'old-reviewer', 'owner', 'active', '2026-01-01', '2026-01-01');
             insert into skill_versions values ('skillver_old', 'skill_old', 1, '{"kind":"skill_bundle","locator":"memory:old","digest":"digest-old"}', 'digest-old', 'Initial.', '2026-01-01', 'owner');
             insert into eval_sets values ('evalset_old', 'skill_old', 'Primary', 'Primary regression suite', 'active', '2026-01-01', '2026-01-01');
-            insert into eval_set_versions values ('evalsetver_old', 'skill_old', 'evalset_old', 1, '2026-01-01', 'owner');
             """
         )
 
@@ -99,6 +90,6 @@ def test_sqlite_startup_backfills_old_version_pointer_schema(tmp_path: Path):
 
     assert skills.status_code == 200
     assert skills.json()[0]["skill"]["current_version_id"] == "skillver_old"
-    assert skills.json()[0]["summary"]["primary_eval_set"]["current_version_id"] == "evalsetver_old"
+    assert skills.json()[0]["summary"]["primary_eval_set"]["id"] == "evalset_old"
     assert skills.json()[0]["summary"]["current_version"]["display_name"] is None
     engine.dispose()

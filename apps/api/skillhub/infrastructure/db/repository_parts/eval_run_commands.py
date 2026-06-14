@@ -15,7 +15,7 @@ class EvalRunCommandMixin:
         self,
         *,
         skill_version_id: str,
-        eval_set_version_id: str,
+        eval_set_id: str,
         strategy: str,
         results: dict[str, Any],
         actor: str,
@@ -30,11 +30,11 @@ class EvalRunCommandMixin:
 
         with self.engine.begin() as connection:
             skill_version = self._skill_version_row(connection, skill_version_id)
-            eval_set_version = self._eval_set_version_row(connection, eval_set_version_id)
-            if skill_version["skill_id"] != eval_set_version["skill_id"]:
-                raise InvariantError("EvalRun must bind a skill version and eval set version from the same skill.")
+            eval_set = self._eval_set_row(connection, eval_set_id)
+            if skill_version["skill_id"] != eval_set["skill_id"]:
+                raise InvariantError("EvalRun must bind a skill version and eval set from the same skill.")
             skill_id = skill_version["skill_id"]
-            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_version_id)
+            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_id)
             normalized_results = self._normalize_eval_run_results(case_version_ids, results)
             passed_count = sum(1 for case_version_id in case_version_ids if normalized_results[case_version_id]["passed"])
             failed_count = len(case_version_ids) - passed_count
@@ -56,7 +56,7 @@ class EvalRunCommandMixin:
                     id=eval_run_id,
                     skill_id=skill_id,
                     skill_version_id=skill_version_id,
-                    eval_set_version_id=eval_set_version_id,
+                    eval_set_id=eval_set_id,
                     strategy=strategy,
                     status="finished",
                     environment_tags=list(tags),
@@ -87,7 +87,7 @@ class EvalRunCommandMixin:
             eval_run_id,
             skill_id,
             skill_version_id,
-            eval_set_version_id,
+            eval_set_id,
             passed_count,
             failed_count,
             len(case_version_ids),

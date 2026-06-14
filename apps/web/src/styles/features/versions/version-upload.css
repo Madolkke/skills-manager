@@ -65,3 +65,23 @@
   width: 100%;
   justify-content: center;
 }
+
+.skill-edit-form {
+  padding: 0;
+}
+
+.skill-edit-form > .hint-strip,
+.skill-edit-form > .form-error,
+.skill-edit-form > .field-label,
+.skill-edit-form > .version-upload-actions {
+  margin-inline: 24px;
+}
+
+.skill-edit-form > .hint-strip,
+.skill-edit-form > .form-error:first-child {
+  margin-top: 24px;
+}
+
+.skill-edit-form > .version-upload-actions {
+  margin-bottom: 24px;
+}

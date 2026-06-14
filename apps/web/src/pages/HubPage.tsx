@@ -1,62 +1,39 @@
 import clsx from "clsx";
 import { CheckCircle2, Circle, Grid2X2, List, Plus, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { evalSetVersionName, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
+import { useMemo, useState } from "react";
+import { humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { SkillSummary } from "../types";
 
 type HubPageProps = {
   skills: SkillSummary[];
   actor: string;
   loading: boolean;
-  searchFocusSignal: number;
   onOpenSkill: (skillId: string) => void;
+  onOpenWorkflows: () => void;
   onCreate: () => void;
 };
 
 type FilterKey = "all" | "verified" | "untested" | "mine";
 type SortKey = "updated" | "score" | "name";
 type ViewMode = "grid" | "list";
-const RECENT_COLLAPSED_LIMIT = 6;
 
-export function HubPage({ skills, actor, loading, searchFocusSignal, onOpenSkill, onCreate }: HubPageProps) {
+export function HubPage({ skills, actor, loading, onOpenSkill, onOpenWorkflows, onCreate }: HubPageProps) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sortKey, setSortKey] = useState<SortKey>("updated");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [showAllRecent, setShowAllRecent] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const filtered = useMemo(() => filterSkills(skills, query, filter, actor), [skills, query, filter, actor]);
   const sorted = useMemo(() => sortSkills(filtered, sortKey), [filtered, sortKey]);
   const counts = useMemo(() => skillCounts(skills, actor), [skills, actor]);
-  const recentRuns = useMemo(() => recentEvalSkills(skills), [skills]);
-  const canExpandRecent = recentRuns.length > RECENT_COLLAPSED_LIMIT;
-  const visibleRecentRuns = showAllRecent || !canExpandRecent ? recentRuns : recentRuns.slice(0, RECENT_COLLAPSED_LIMIT);
-
-  useEffect(() => {
-    if (searchFocusSignal > 0) searchInputRef.current?.focus();
-  }, [searchFocusSignal]);
-
-  useEffect(() => {
-    if (!canExpandRecent && showAllRecent) setShowAllRecent(false);
-  }, [canExpandRecent, showAllRecent]);
 
   return (
     <div className="hub-page">
       <section className="hub-main">
-        <header className="hub-hero">
-          <div>
-            <h1>SkillHub</h1>
-            <p>发现、管理和验证你的 AI 技能库</p>
-          </div>
-          <button className="primary-button hero-action" type="button" onClick={onCreate}>
-            <Plus size={18} />
-            新建 Skill
-          </button>
-        </header>
+        <header className="hub-hero" />
 
         <label className="search-field">
           <Search size={22} />
-          <input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 skill、owner、版本说明" aria-label="搜索 Skill" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索 skill、owner、版本说明" aria-label="搜索 Skill" />
         </label>
 
         <div className="hub-toolbar">
@@ -93,6 +70,9 @@ export function HubPage({ skills, actor, loading, searchFocusSignal, onOpenSkill
               <Plus size={17} />
               新建 Skill
             </button>
+            <button className="secondary-button" type="button" onClick={onOpenWorkflows}>
+              打开工作流编排
+            </button>
           </div>
         ) : (
           <div className={clsx("skill-grid", viewMode === "list" && "list-view")}>
@@ -102,23 +82,6 @@ export function HubPage({ skills, actor, loading, searchFocusSignal, onOpenSkill
           </div>
         )}
       </section>
-
-      <aside className="recent-panel">
-        <div className="panel-head">
-          <h2>最近测评</h2>
-          {canExpandRecent ? (
-            <button type="button" aria-label={showAllRecent ? "收起最近测评" : "查看全部最近测评"} onClick={() => setShowAllRecent((value) => !value)}>
-              {showAllRecent ? "收起" : "查看全部"}
-            </button>
-          ) : null}
-        </div>
-        <div className="recent-list" role="list" aria-label={`最近测评，显示 ${visibleRecentRuns.length} / ${recentRuns.length} 条`}>
-          {recentRuns.length === 0 ? <div className="recent-empty">还没有测评记录。</div> : null}
-          {visibleRecentRuns.map((item) => (
-            <RecentRunRow item={item} key={item.skill.id} onClick={() => onOpenSkill(item.skill.id)} />
-          ))}
-        </div>
-      </aside>
     </div>
   );
 }
@@ -142,7 +105,7 @@ function SkillCard({ item, onClick }: { item: SkillSummary; onClick: () => void 
       </div>
       <div className="card-metrics">
         <Metric label="验证得分" value={scoreLabel(run)} tone={status} />
-        <Metric label="测评集版本" value={evalSetVersionName(item.summary.primary_eval_set?.current_version)} />
+        <Metric label="测评集" value={item.summary.primary_eval_set?.name ?? "未创建"} />
         <Metric label="当前版本" value={versionName(version)} />
         {status === "empty" ? <Circle className="status-ring empty" size={23} /> : <CheckCircle2 className="status-ring verified" size={23} />}
       </div>
@@ -165,27 +128,6 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
       <small>{label}</small>
       <strong className={tone}>{value}</strong>
     </span>
-  );
-}
-
-function RecentRunRow({ item, onClick }: { item: SkillSummary; onClick: () => void }) {
-  const run = item.summary.latest_accepted_eval_run;
-  return (
-    <button className="recent-row" type="button" onClick={onClick}>
-      <div className="recent-row-main">
-        <div className="recent-title-line">
-          <strong>{slugTitle(item.skill.slug)}</strong>
-          <b className={scoreKind(run)}>{scoreLabel(run)}</b>
-        </div>
-        <span className="recent-version-line">
-          当前 {versionName(item.summary.current_version)} · {evalSetVersionLabel(item)}
-        </span>
-        <small className="recent-actor-line">
-          <span>操作者 {run?.created_by ?? item.skill.owner_ref}</span>
-          <span>{humanDate(run?.created_at)}</span>
-        </small>
-      </div>
-    </button>
   );
 }
 
@@ -215,18 +157,6 @@ function sortSkills(skills: SkillSummary[], sortKey: SortKey): SkillSummary[] {
   if (sortKey === "name") return copy.sort((left, right) => left.skill.slug.localeCompare(right.skill.slug));
   if (sortKey === "score") return copy.sort((left, right) => scoreValue(right) - scoreValue(left) || updatedTime(right) - updatedTime(left));
   return copy.sort((left, right) => updatedTime(right) - updatedTime(left));
-}
-
-function recentEvalSkills(skills: SkillSummary[]): SkillSummary[] {
-  return skills
-    .filter((item) => item.summary.latest_accepted_eval_run)
-    .sort((left, right) => Date.parse(right.summary.latest_accepted_eval_run?.created_at ?? "") - Date.parse(left.summary.latest_accepted_eval_run?.created_at ?? ""));
-}
-
-function evalSetVersionLabel(item: SkillSummary): string {
-  const name = item.summary.primary_eval_set?.name ?? "未绑定测评集";
-  const version = item.summary.primary_eval_set?.current_version;
-  return version ? `${name} ${evalSetVersionName(version)}` : name;
 }
 
 function scoreValue(item: SkillSummary): number {

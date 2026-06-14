@@ -5,7 +5,7 @@ from .repository_parts.bundle_diff import BundleDiffMixin
 from .repository_parts.core_helpers import CoreHelperMixin
 from .repository_parts.errors import skill_slug_conflict
 from .repository_parts.eval_commands import EvalCommandMixin
-from .repository_parts.eval_set_version_helpers import EvalSetVersionHelperMixin
+from .repository_parts.eval_set_case_helpers import EvalSetCaseHelperMixin
 from .repository_parts.history_queries import HistoryQueryMixin
 from .repository_parts.read_models import ReadModelMixin
 from .repository_parts.results import (
@@ -15,7 +15,7 @@ from .repository_parts.results import (
     CreateSkillResult,
     CreateSkillVersionResult,
     EvalRunDetail,
-    EvalSetVersionDetail,
+    EvalSetDetail,
     RecordEvalRunResult,
 )
 from .repository_parts.roles import RoleMixin
@@ -28,7 +28,7 @@ class SqlSkillRepository(
     ReadModelMixin,
     RoleMixin,
     HistoryQueryMixin,
-    EvalSetVersionHelperMixin,
+    EvalSetCaseHelperMixin,
     CoreHelperMixin,
     BundleDiffMixin,
     RepositoryBase,
@@ -43,7 +43,7 @@ __all__ = [
     "CreateSkillResult",
     "CreateSkillVersionResult",
     "EvalRunDetail",
-    "EvalSetVersionDetail",
+    "EvalSetDetail",
     "RecordEvalRunResult",
     "SqlSkillRepository",
     "skill_slug_conflict",

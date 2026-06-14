@@ -9,7 +9,6 @@ class CreateSkillResult:
     skill_id: str
     skill_version_id: str
     eval_set_id: str
-    eval_set_version_id: str
     version_number: int
 
 
@@ -24,7 +23,6 @@ class CreateSkillVersionResult:
 class CreateEvalCaseResult:
     skill_id: str
     eval_set_id: str
-    eval_set_version_id: str
     eval_case_id: str
     eval_case_version_id: str
     input_artifact_id: str
@@ -43,7 +41,6 @@ class CreatedEvalCaseResult:
 class CreateEvalCasesBatchResult:
     skill_id: str
     eval_set_id: str
-    eval_set_version_id: str
     created: tuple[CreatedEvalCaseResult, ...]
 
 
@@ -52,7 +49,7 @@ class RecordEvalRunResult:
     eval_run_id: str
     skill_id: str
     skill_version_id: str
-    eval_set_version_id: str
+    eval_set_id: str
     passed: int
     failed: int
     total: int
@@ -62,8 +59,7 @@ class RecordEvalRunResult:
 
 
 @dataclass(frozen=True)
-class EvalSetVersionDetail:
-    eval_set_version: dict[str, Any]
+class EvalSetDetail:
     eval_set: dict[str, Any]
     cases: list[dict[str, Any]]
 
@@ -73,5 +69,5 @@ class EvalRunDetail:
     eval_run: dict[str, Any]
     skill: dict[str, Any]
     skill_version: dict[str, Any]
-    eval_set_version: dict[str, Any]
+    eval_set: dict[str, Any]
     case_results: list[dict[str, Any]]

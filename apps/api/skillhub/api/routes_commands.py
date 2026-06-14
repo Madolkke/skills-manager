@@ -123,7 +123,6 @@ def register_command_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 actor=actor.id,
                 notes=payload.notes,
-                eval_set_version_display_name=payload.eval_set_version_display_name,
             )
         )
 
@@ -150,7 +149,6 @@ def register_command_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 actor=actor.id,
                 notes=payload.notes,
-                eval_set_version_display_name=payload.eval_set_version_display_name,
                 make_current=payload.make_current,
             )
         )
@@ -171,7 +169,6 @@ def register_command_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 actor=actor.id,
                 notes=payload.notes,
-                eval_set_version_display_name=payload.eval_set_version_display_name,
                 make_current=payload.make_current,
             )
         )
@@ -204,7 +201,7 @@ def register_command_routes(app: FastAPI) -> None:
         return result_payload(
             repository.record_eval_run(
                 skill_version_id=payload.skill_version_id,
-                eval_set_version_id=payload.eval_set_version_id,
+                eval_set_id=payload.eval_set_id,
                 strategy=payload.strategy,
                 results=payload.results,
                 actor=actor.id,

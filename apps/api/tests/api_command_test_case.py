@@ -63,7 +63,7 @@ class ApiCommandTestCase(unittest.TestCase):
     def record_run(
         self,
         skill_version_id: str,
-        eval_set_version_id: str,
+        eval_set_id: str,
         case_version_id: str,
         passed: bool,
         environment_tags: list[str] | None = None,
@@ -73,7 +73,7 @@ class ApiCommandTestCase(unittest.TestCase):
             "/api/eval-runs",
             json={
                 "skill_version_id": skill_version_id,
-                "eval_set_version_id": eval_set_version_id,
+                "eval_set_id": eval_set_id,
                 "environment_tags": environment_tags or [],
                 "run_context": run_context or {},
                 "results": {case_version_id: passed},

@@ -1,33 +1,27 @@
 import clsx from "clsx";
 import { Database, Package, X } from "lucide-react";
-import { evalSetVersionName, humanDate, versionName } from "../lib/format";
+import { humanDate, versionName } from "../lib/format";
 import { compactDigest } from "../lib/history";
-import type { EvalSetSummary, EvalSetVersion, EvalSetVersionDetail, SkillVersion } from "../types";
+import type { EvalSetDetail, EvalSetSummary, SkillVersion } from "../types";
 
 export type ManualVersionDetailFocus = "skill" | "evalset";
 
 type SkillVersionSelection = SkillVersion;
 
-type EvalSetSelection = {
-  set: EvalSetSummary;
-  version: EvalSetVersion;
-};
-
 type ManualVersionDetailPanelProps = {
   focus: ManualVersionDetailFocus;
   skillVersion?: SkillVersionSelection;
-  evalSetVersion?: EvalSetSelection;
-  evalSetDetail: EvalSetVersionDetail | null;
+  evalSet?: EvalSetSummary | null;
+  evalSetDetail: EvalSetDetail | null;
   onClose: () => void;
 };
 
 /**
  * Shows the exact version bindings used by the current manual evaluation.
  */
-export function ManualVersionDetailPanel({ focus, skillVersion, evalSetVersion, evalSetDetail, onClose }: ManualVersionDetailPanelProps) {
+export function ManualVersionDetailPanel({ focus, skillVersion, evalSet, evalSetDetail, onClose }: ManualVersionDetailPanelProps) {
   const version = skillVersion;
-  const evalVersion = evalSetVersion?.version;
-  const evalSet = evalSetDetail?.eval_set ?? evalSetVersion?.set;
+  const currentEvalSet = evalSetDetail?.eval_set ?? evalSet;
   const caseCount = evalSetDetail?.cases.length ?? 0;
 
   return (
@@ -57,13 +51,12 @@ export function ManualVersionDetailPanel({ focus, skillVersion, evalSetVersion, 
         <article className={clsx("version-detail-card", focus === "evalset" && "active")}>
           <h3>
             <Database size={17} />
-            EvalSetVersion
+            测评集
           </h3>
           <dl>
-            <DetailItem label="测评集" value={evalSet?.name ?? "-"} />
-            <DetailItem label="版本" value={evalSetVersionName(evalVersion)} />
-            <DetailItem label="创建者" value={evalVersion?.created_by ?? "-"} />
-            <DetailItem label="创建时间" value={humanDate(evalVersion?.created_at)} />
+            <DetailItem label="名称" value={currentEvalSet?.name ?? "-"} />
+            <DetailItem label="状态" value={currentEvalSet?.lifecycle_status ?? "-"} />
+            <DetailItem label="创建时间" value={humanDate(currentEvalSet?.created_at)} />
             <DetailItem label="Cases" value={`${caseCount} 个 case`} />
           </dl>
         </article>

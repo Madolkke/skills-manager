@@ -77,7 +77,7 @@ class ReadModelMixin:
         if skill["current_version_id"]:
             current_version = self._skill_version_detail(connection, self._skill_version_row(connection, skill["current_version_id"]))
         primary_eval_set = None
-        current_eval_set_version = None
+        current_eval_set = None
         primary_row = (
             connection.execute(
                 select(tables.eval_sets).where(tables.eval_sets.c.skill_id == skill["id"]).where(tables.eval_sets.c.name == "Primary")
@@ -87,14 +87,14 @@ class ReadModelMixin:
         )
         if primary_row is not None:
             primary_eval_set = self._eval_set_summary(connection, primary_row)
-            current_eval_set_version = primary_eval_set["current_version"]
+            current_eval_set = primary_eval_set
         latest_eval_run = None
-        if current_version is not None and current_eval_set_version is not None:
+        if current_version is not None and current_eval_set is not None:
             latest_row = (
                 connection.execute(
                     select(tables.eval_runs)
                     .where(tables.eval_runs.c.skill_version_id == current_version["id"])
-                    .where(tables.eval_runs.c.eval_set_version_id == current_eval_set_version["id"])
+                    .where(tables.eval_runs.c.eval_set_id == current_eval_set["id"])
                     .where(tables.eval_runs.c.status == "finished")
                     .order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id))
                     .limit(1)
@@ -126,25 +126,14 @@ class ReadModelMixin:
         return detail
 
     def _eval_set_summary(self, connection, eval_set) -> dict[str, Any]:
-        versions = [
-            self._row_dict(row)
-            for row in connection.execute(
-                select(tables.eval_set_versions)
-                .where(tables.eval_set_versions.c.eval_set_id == eval_set["id"])
-                .order_by(desc(tables.eval_set_versions.c.version_number))
-            )
-            .mappings()
-            .all()
-        ]
-        current_version = next((version for version in versions if version["id"] == eval_set["current_version_id"]), None)
-        return {**self._row_dict(eval_set), "current_version": current_version, "versions": versions}
+        return self._row_dict(eval_set)
 
-    def _eval_set_cases(self, connection, eval_set_version_id: str) -> list[dict[str, Any]]:
+    def _eval_set_cases(self, connection, eval_set_id: str) -> list[dict[str, Any]]:
         memberships = (
             connection.execute(
-                select(tables.eval_set_case_versions)
-                .where(tables.eval_set_case_versions.c.eval_set_version_id == eval_set_version_id)
-                .order_by(tables.eval_set_case_versions.c.position)
+                select(tables.eval_set_cases)
+                .where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
+                .order_by(tables.eval_set_cases.c.position)
             )
             .mappings()
             .all()

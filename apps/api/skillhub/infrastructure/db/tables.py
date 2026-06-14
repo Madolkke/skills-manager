@@ -89,7 +89,6 @@ eval_sets = Table(
     Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
     Column("name", Text, nullable=False),
     Column("description", Text, nullable=False, server_default=text("''")),
-    Column("current_version_id", Text),
     Column("lifecycle_status", Text, nullable=False, server_default=text("'active'")),
     timestamp_column(),
     timestamp_column("updated_at"),
@@ -134,38 +133,18 @@ eval_cases.append_constraint(
     ForeignKeyConstraint(["current_version_id", "skill_id"], ["eval_case_versions.id", "eval_case_versions.skill_id"], name="eval_cases_current_version_fkey")
 )
 
-eval_set_versions = Table(
-    "eval_set_versions",
+eval_set_cases = Table(
+    "eval_set_cases",
     metadata,
-    Column("id", Text, primary_key=True),
-    Column("skill_id", Text, nullable=False),
     Column("eval_set_id", Text, nullable=False),
-    Column("version_number", Integer, nullable=False),
-    Column("display_name", Text),
-    timestamp_column(),
-    Column("created_by", Text, nullable=False),
-    CheckConstraint("version_number > 0", name="eval_set_versions_version_number_positive"),
-    UniqueConstraint("eval_set_id", "version_number", name="eval_set_versions_eval_set_version_unique"),
-    UniqueConstraint("id", "skill_id", name="eval_set_versions_id_skill_unique"),
-    ForeignKeyConstraint(["eval_set_id", "skill_id"], ["eval_sets.id", "eval_sets.skill_id"], name="eval_set_versions_eval_set_skill_fkey"),
-)
-
-eval_sets.append_constraint(
-    ForeignKeyConstraint(["current_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="eval_sets_current_version_fkey")
-)
-
-eval_set_case_versions = Table(
-    "eval_set_case_versions",
-    metadata,
-    Column("eval_set_version_id", Text, nullable=False),
     Column("skill_id", Text, nullable=False),
     Column("case_version_id", Text, nullable=False),
     Column("position", Integer, nullable=False),
-    PrimaryKeyConstraint("eval_set_version_id", "position"),
-    CheckConstraint("position >= 0", name="eval_set_case_versions_position_non_negative"),
-    UniqueConstraint("eval_set_version_id", "case_version_id", name="eval_set_case_versions_case_unique"),
-    ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="eval_set_case_versions_set_skill_fkey"),
-    ForeignKeyConstraint(["case_version_id", "skill_id"], ["eval_case_versions.id", "eval_case_versions.skill_id"], name="eval_set_case_versions_case_skill_fkey"),
+    PrimaryKeyConstraint("eval_set_id", "position"),
+    CheckConstraint("position >= 0", name="eval_set_cases_position_non_negative"),
+    UniqueConstraint("eval_set_id", "case_version_id", name="eval_set_cases_case_unique"),
+    ForeignKeyConstraint(["eval_set_id", "skill_id"], ["eval_sets.id", "eval_sets.skill_id"], name="eval_set_cases_set_skill_fkey"),
+    ForeignKeyConstraint(["case_version_id", "skill_id"], ["eval_case_versions.id", "eval_case_versions.skill_id"], name="eval_set_cases_case_skill_fkey"),
 )
 
 eval_runs = Table(
@@ -174,7 +153,7 @@ eval_runs = Table(
     Column("id", Text, primary_key=True),
     Column("skill_id", Text, nullable=False),
     Column("skill_version_id", Text, nullable=False),
-    Column("eval_set_version_id", Text, nullable=False),
+    Column("eval_set_id", Text, nullable=False),
     Column("strategy", Text, nullable=False),
     Column("status", Text, nullable=False),
     Column("environment_tags", ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
@@ -187,7 +166,7 @@ eval_runs = Table(
     CheckConstraint("status in ('queued', 'running', 'finished', 'failed')", name="eval_runs_status_check"),
     UniqueConstraint("id", "skill_id", name="eval_runs_id_skill_unique"),
     ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="eval_runs_skill_version_skill_fkey"),
-    ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="eval_runs_eval_set_version_skill_fkey"),
+    ForeignKeyConstraint(["eval_set_id", "skill_id"], ["eval_sets.id", "eval_sets.skill_id"], name="eval_runs_eval_set_skill_fkey"),
 )
 
 case_results = Table(
@@ -212,16 +191,16 @@ accepted_verifications = Table(
     Column("id", Text, primary_key=True),
     Column("skill_id", Text, nullable=False),
     Column("skill_version_id", Text, nullable=False),
-    Column("eval_set_version_id", Text, nullable=False),
+    Column("eval_set_id", Text, nullable=False),
     Column("run_context_hash", Text, nullable=False),
     Column("eval_run_id", Text, nullable=False),
     Column("note", Text, nullable=False, server_default=text("''")),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
     UniqueConstraint("id", "skill_id", name="accepted_verifications_id_skill_unique"),
-    UniqueConstraint("skill_id", "skill_version_id", "eval_set_version_id", "run_context_hash", name="accepted_verifications_context_unique"),
+    UniqueConstraint("skill_id", "skill_version_id", "eval_set_id", "run_context_hash", name="accepted_verifications_context_unique"),
     ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="accepted_verifications_skill_version_skill_fkey"),
-    ForeignKeyConstraint(["eval_set_version_id", "skill_id"], ["eval_set_versions.id", "eval_set_versions.skill_id"], name="accepted_verifications_eval_set_version_skill_fkey"),
+    ForeignKeyConstraint(["eval_set_id", "skill_id"], ["eval_sets.id", "eval_sets.skill_id"], name="accepted_verifications_eval_set_skill_fkey"),
     ForeignKeyConstraint(["eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="accepted_verifications_eval_run_skill_fkey"),
 )
 

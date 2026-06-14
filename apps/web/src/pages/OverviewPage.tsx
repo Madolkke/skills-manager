@@ -1,6 +1,6 @@
-import { ArrowRight, CheckCircle2, ExternalLink, GitCompareArrows } from "lucide-react";
+import { ExternalLink, GitCompareArrows } from "lucide-react";
 import { BundleBrowser } from "../components/BundleBrowser";
-import { compactText, evalSetVersionName, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
+import { compactText, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { SkillDetail } from "../types";
 
@@ -14,7 +14,6 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
   const evalSet = skill.summary.primary_eval_set;
   const run = skill.summary.latest_accepted_eval_run;
   const files = version?.bundle_files ?? [];
-  const evalSetVersion = evalSetVersionName(evalSet?.current_version);
   const lifecycleLabel = skillLifecycleLabel(skill.skill.lifecycle_status);
 
   return (
@@ -42,7 +41,7 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
         </div>
         <Metric label="当前版本" value={versionName(version)} hint={version?.created_at ? `更新于 ${humanDate(version.created_at)}` : undefined} />
         <Metric label="验证分数" value={scoreLabel(run)} tone={scoreKind(run)} hint={run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "尚无测评"} />
-        <Metric label="测评集" value={evalSet?.name ?? "未创建"} hint={evalSet?.current_version ? `当前 ${evalSetVersionName(evalSet.current_version)}` : "无版本"} />
+        <Metric label="测评集" value={evalSet?.name ?? "未创建"} hint={evalSet ? "单一当前测评集" : "无测评集"} />
       </section>
 
       <section className="primary-panel bundle-panel">
@@ -62,42 +61,7 @@ export function OverviewPage({ skill, onNavigate }: OverviewPageProps) {
         <BundleBrowser files={files} rootLabel={skill.skill.slug} />
       </section>
 
-      <aside className="reliability-panel">
-        <h2>可靠性</h2>
-        <div className="score-large">
-          <strong className={scoreKind(run)}>{scoreLabel(run)}</strong>
-          {scoreKind(run) !== "empty" ? (
-            <span>
-              <CheckCircle2 size={16} />
-              已验证
-            </span>
-          ) : (
-            <span>未测</span>
-          )}
-        </div>
-        <dl>
-          <div>
-            <dt>测评集</dt>
-            <dd>{evalSet ? `${evalSet.name} ${evalSetVersion}`.trim() : "-"}</dd>
-          </div>
-          <div>
-            <dt>版本</dt>
-            <dd>{versionName(version)}</dd>
-          </div>
-          <div>
-            <dt>运行时间</dt>
-            <dd>{humanDate(run?.created_at)}</dd>
-          </div>
-          <div>
-            <dt>运行结果</dt>
-            <dd>{run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "-"}</dd>
-          </div>
-        </dl>
-        <button className="secondary-button full-width" type="button" onClick={() => onNavigate(run ? { tab: "history", selectedRunId: run.id } : { tab: "evaluate" })}>
-          {run ? "查看运行详情" : "进入测评"}
-          <ArrowRight size={16} />
-        </button>
-      </aside>
+
     </div>
   );
 }

@@ -28,7 +28,7 @@ class DomainInvariantTest(unittest.TestCase):
         skill_id = self.create_skill()
         skill = self.workspace.skills[skill_id]
         eval_set = next(item for item in self.workspace.eval_sets.values() if item.skill_id == skill_id)
-        eval_set_version = self.service.create_eval_case(
+        eval_set = self.service.create_eval_case(
             skill_id=skill_id,
             title="PR: missing owner check",
             input_text="diff --git a/api.ts b/api.ts",
@@ -46,9 +46,9 @@ class DomainInvariantTest(unittest.TestCase):
         self.assertNotEqual(self.workspace.skills[skill_id].current_version_id, candidate.id)
         run = self.service.record_eval_run(
             skill_version_id=candidate.id,
-            eval_set_version_id=eval_set_version.id,
+            eval_set_id=eval_set.id,
             strategy="manual_pass_fail",
-            results={eval_set_version.case_version_ids[0]: True},
+            results={self.workspace.eval_set_cases[eval_set.id][0]: True},
             actor="tester",
             environment_tags=["windows", "codex"],
             run_context={"os": "windows", "model": "gpt-5"},
@@ -56,11 +56,11 @@ class DomainInvariantTest(unittest.TestCase):
 
         self.assertEqual(skill.current_version_id, self.workspace.skills[skill_id].current_version_id)
         self.assertEqual(run.skill_version_id, candidate.id)
-        self.assertEqual(run.eval_set_version_id, self.workspace.eval_sets[eval_set.id].current_version_id)
+        self.assertEqual(run.eval_set_id, eval_set.id)
         self.assertEqual(run.environment_tags, ("codex", "windows"))
         self.assertEqual(self.workspace.case_results[0].passed, True)
 
-    def test_eval_case_version_updates_current_eval_set_until_it_has_run_history(self):
+    def test_eval_case_version_updates_current_eval_set(self):
         skill_id = self.create_skill()
         first_set = self.service.create_eval_case(
             skill_id=skill_id,
@@ -68,7 +68,7 @@ class DomainInvariantTest(unittest.TestCase):
             input_text="old input",
             expected_output="old expectation",
         )
-        old_case_version_id = first_set.case_version_ids[0]
+        old_case_version_id = self.workspace.eval_set_cases[first_set.id][0]
         case = next(iter(self.workspace.eval_cases.values()))
 
         new_case_version = self.service.create_eval_case_version(
@@ -77,13 +77,12 @@ class DomainInvariantTest(unittest.TestCase):
             expected_output="new expectation",
         )
         latest_eval_set = next(item for item in self.workspace.eval_sets.values() if item.skill_id == skill_id)
-        latest_set_version = self.workspace.eval_set_versions[latest_eval_set.current_version_id]
 
-        self.assertEqual(first_set.case_version_ids, (old_case_version_id,))
-        self.assertEqual(latest_set_version.case_version_ids, (new_case_version.id,))
-        self.assertEqual(first_set.id, latest_set_version.id)
+        self.assertNotEqual(old_case_version_id, new_case_version.id)
+        self.assertEqual(self.workspace.eval_set_cases[latest_eval_set.id], (new_case_version.id,))
+        self.assertEqual(first_set.id, latest_eval_set.id)
 
-    def test_eval_case_version_creates_new_eval_set_snapshot_after_run_history_exists(self):
+    def test_eval_case_version_updates_same_eval_set_after_run_history_exists(self):
         skill_id = self.create_skill()
         skill = self.workspace.skills[skill_id]
         first_set = self.service.create_eval_case(
@@ -92,11 +91,11 @@ class DomainInvariantTest(unittest.TestCase):
             input_text="old input",
             expected_output="old expectation",
         )
-        old_case_version_id = first_set.case_version_ids[0]
+        old_case_version_id = self.workspace.eval_set_cases[first_set.id][0]
         case = next(iter(self.workspace.eval_cases.values()))
         self.service.record_eval_run(
             skill_version_id=skill.current_version_id,
-            eval_set_version_id=first_set.id,
+            eval_set_id=first_set.id,
             strategy="manual_pass_fail",
             results={old_case_version_id: True},
             actor="tester",
@@ -108,17 +107,16 @@ class DomainInvariantTest(unittest.TestCase):
             expected_output="new expectation",
         )
         latest_eval_set = next(item for item in self.workspace.eval_sets.values() if item.skill_id == skill_id)
-        latest_set_version = self.workspace.eval_set_versions[latest_eval_set.current_version_id]
 
-        self.assertEqual(first_set.case_version_ids, (old_case_version_id,))
-        self.assertEqual(latest_set_version.case_version_ids, (new_case_version.id,))
-        self.assertNotEqual(first_set.id, latest_set_version.id)
+        self.assertNotEqual(old_case_version_id, new_case_version.id)
+        self.assertEqual(self.workspace.eval_set_cases[latest_eval_set.id], (new_case_version.id,))
+        self.assertEqual(first_set.id, latest_eval_set.id)
 
     def test_eval_run_rejects_cross_skill_version_and_eval_set(self):
         first_skill = self.create_skill("code-reviewer")
         second_skill = self.create_skill("security-reviewer")
         first_version_id = self.workspace.skills[first_skill].current_version_id
-        second_eval_set_version = self.service.create_eval_case(
+        second_eval_set = self.service.create_eval_case(
             skill_id=second_skill,
             title="Error response leaks token",
             input_text="diff",
@@ -128,7 +126,7 @@ class DomainInvariantTest(unittest.TestCase):
         with self.assertRaisesRegex(InvariantError, "same skill"):
             self.service.record_eval_run(
                 skill_version_id=first_version_id,
-                eval_set_version_id=second_eval_set_version.id,
+                eval_set_id=second_eval_set.id,
                 strategy="manual_pass_fail",
                 results={},
                 actor="tester",

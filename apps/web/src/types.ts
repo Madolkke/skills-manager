@@ -33,27 +33,14 @@ export type SkillVersion = {
   bundle_files?: BundleFile[];
 };
 
-export type EvalSetVersion = {
-  id: string;
-  skill_id: string;
-  eval_set_id: string;
-  version_number: number;
-  display_name?: string | null;
-  created_at?: string;
-  created_by: string;
-};
-
 export type EvalSetSummary = {
   id: string;
   skill_id: string;
   name: string;
   description: string;
-  current_version_id: string | null;
   lifecycle_status: string;
   created_at?: string;
   updated_at?: string;
-  current_version: EvalSetVersion | null;
-  versions: EvalSetVersion[];
 };
 
 export type SkillRecord = {
@@ -70,7 +57,7 @@ export type EvalRunRecord = {
   id: string;
   skill_id: string;
   skill_version_id: string;
-  eval_set_version_id: string;
+  eval_set_id: string;
   strategy: string;
   status: string;
   environment_tags: string[];
@@ -143,16 +130,14 @@ export type EvalSetCase = {
   case_version: EvalCaseVersionDetail;
 };
 
-export type EvalSetVersionDetail = {
-  eval_set_version: EvalSetVersion;
-  eval_set: Omit<EvalSetSummary, "current_version" | "versions">;
+export type EvalSetDetail = {
+  eval_set: EvalSetSummary;
   cases: EvalSetCase[];
 };
 
 export type EvalCaseMutationResult = {
   skill_id: string;
   eval_set_id: string;
-  eval_set_version_id: string;
   eval_case_id: string;
   eval_case_version_id: string;
 };
@@ -161,13 +146,11 @@ export type EvalCaseHistory = {
   case: EvalSetCase["case"];
   versions: Array<{
     case_version: EvalCaseVersionDetail;
-    included_in_eval_set_versions: Array<{
-      id: string;
+    included_in_eval_sets: Array<{
       eval_set_id: string;
-      version_number: number;
+      name: string;
       position: number;
       created_at?: string;
-      created_by: string;
     }>;
   }>;
 };
@@ -175,8 +158,7 @@ export type EvalCaseHistory = {
 export type EvalRunContext = {
   eval_run: EvalRunRecord;
   skill_version: SkillVersion;
-  eval_set: Omit<EvalSetSummary, "current_version" | "versions">;
-  eval_set_version: EvalSetVersion;
+  eval_set: EvalSetSummary;
   accepted_verification?: unknown | null;
 };
 
@@ -189,7 +171,7 @@ export type EvalRunDetail = {
   eval_run: EvalRunRecord;
   skill: SkillRecord;
   skill_version: SkillVersion;
-  eval_set_version: EvalSetVersion;
+  eval_set: EvalSetSummary;
   case_results: Array<{
     position: number;
     result: {

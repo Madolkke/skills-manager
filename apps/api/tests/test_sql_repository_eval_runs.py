@@ -20,7 +20,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
 
         run = self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={
                 case.eval_case_version_id: {
@@ -63,7 +63,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         with self.assertRaisesRegex(InvariantError, "same skill"):
             self.repository.record_eval_run(
                 skill_version_id=first.skill_version_id,
-                eval_set_version_id=case.eval_set_version_id,
+                eval_set_id=case.eval_set_id,
                 strategy="manual_pass_fail",
                 results={case.eval_case_version_id: True},
                 actor="tester",
@@ -82,7 +82,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         with self.assertRaises(FieldInvariantError) as error:
             self.repository.record_eval_run(
                 skill_version_id=skill.skill_version_id,
-                eval_set_version_id=case.eval_set_version_id,
+                eval_set_id=case.eval_set_id,
                 strategy="manual_pass_fail",
                 results={},
                 actor="tester",
@@ -108,7 +108,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         run = self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=second_case.eval_set_version_id,
+            eval_set_id=second_case.eval_set_id,
             strategy="manual_pass_fail",
             results={
                 case.eval_case_version_id: {"passed": True, "actual_output": "Flagged token logging."},
@@ -147,7 +147,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={case.eval_case_version_id: False},
             actor="tester",
@@ -156,7 +156,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         candidate_run = self.repository.record_eval_run(
             skill_version_id=candidate.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
@@ -167,7 +167,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         history = self.repository.list_eval_runs_for_skill(
             skill_id=skill.skill_id,
             skill_version_id=candidate.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             status="finished",
         )
@@ -187,7 +187,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         linux_run = self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
@@ -196,7 +196,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         windows_run = self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
@@ -240,7 +240,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         baseline = self.repository.record_eval_run(
             skill_version_id=skill.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={case.eval_case_version_id: False},
             actor="tester",
@@ -249,7 +249,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
         candidate_run = self.repository.record_eval_run(
             skill_version_id=candidate.skill_version_id,
-            eval_set_version_id=case.eval_set_version_id,
+            eval_set_id=case.eval_set_id,
             strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
