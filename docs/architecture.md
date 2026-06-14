@@ -24,7 +24,7 @@
 
 ```mermaid
 flowchart TB
-  Web["apps/web\nReact + Vite"] --> API["apps/api\nFastAPI"]
+  Web["apps/web\nVue + Vite"] --> API["apps/api\nFastAPI"]
   API --> DB[("SQLite/PostgreSQL\nmetadata + facts")]
   API --> Artifacts["ArtifactStore\nfile/S3/MinIO"]
   API --> Jobs[("Job table")]

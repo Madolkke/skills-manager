@@ -9,7 +9,7 @@
 | API | FastAPI + Pydantic v2 | HTTP 契约、actor context、字段校验、错误映射。 |
 | 数据层 | SQLAlchemy 2 | SQLite/PostgreSQL 兼容 schema 和 repository。 |
 | 本地数据库 | 文件型 SQLite | 默认写入 `.data/skillhub.sqlite3`，干净 clone 后自动建库。 |
-| Web | React + Vite + TypeScript | Web 正式工作台，入口为 `apps/web`。 |
+| Web | Vue + Vite + TypeScript | Web 正式工作台，入口为 `apps/web`。 |
 | UI 组件 | 本地组件 + CSS 分层 | Hub、版本、测评集、测评、历史和 diff 页面。 |
 | 测试 | pytest、Vitest、ESLint | API、Web 单元、lint 和 build。 |
 | 内容存储 | 数据库内 artifact 记录 | 保存标准 Skill bundle、case input、expected output 和 actual output。 |

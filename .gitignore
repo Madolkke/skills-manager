@@ -12,10 +12,18 @@ apps/web/.vite/
 apps/web/*.tsbuildinfo
 apps/web/playwright-report/
 apps/web/test-results/
+apps/web/e2e/
 
 .data/
 .uv-cache/
 .tools/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+coverage/
 
 .env
 .env.*

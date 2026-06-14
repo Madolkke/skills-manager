@@ -30,7 +30,7 @@
 
 推荐目标结构：
 
-- `apps/web/src/pages/WorkflowPage.tsx`：工作流入口页。
+- `apps/web/src/pages/WorkflowPage.vue`：工作流入口页。
 - `apps/web/src/features/workflow/`：工作流的业务组件、状态管理、发布面板。
 - `apps/web/src/lib/workflow.ts`：工作流发布协议、bundle 转换适配。
 
