@@ -2,6 +2,7 @@ import type {
   BundleSource,
   BundleDiff,
   EvalCaseHistory,
+  EvalCaseRunRecord,
   EvalCaseMutationResult,
   EvalRunDetail,
   EvalRunHistory,
@@ -58,6 +59,7 @@ export const api = {
     apiGet<BundleDiff>(
       `/api/artifacts/diff?left_skill_version_id=${encodeURIComponent(leftSkillVersionId)}&right_skill_version_id=${encodeURIComponent(rightSkillVersionId)}`,
     ),
+  artifactDownloadUrl: (artifactId: string) => `${API_BASE_URL}/api/artifacts/${encodeURIComponent(artifactId)}/download`,
   importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string }) =>
     apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
   createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string }) =>
@@ -69,6 +71,8 @@ export const api = {
     title: string;
     input_text: string;
     expected_output: string;
+    attachment_name?: string;
+    attachment_base64?: string;
     notes?: string;
   }) => apiSend<EvalCaseMutationResult>("/api/eval-cases", "POST", payload),
   updateEvalCase: (
@@ -77,6 +81,8 @@ export const api = {
       title: string;
       input_text: string;
       expected_output: string;
+      attachment_name?: string;
+      attachment_base64?: string;
       notes?: string;
       make_current: boolean;
     },
@@ -89,6 +95,23 @@ export const api = {
     run_context: Record<string, unknown>;
     results: Record<string, ManualEvalResultPayload>;
   }) => apiSend<{ eval_run_id: string }>("/api/eval-runs", "POST", payload),
+  enqueueEvalCaseRun: (payload: {
+    skill_version_id: string;
+    eval_set_id: string;
+    case_version_id: string;
+    strategy: string;
+    environment_tags: string[];
+    run_context: Record<string, unknown>;
+  }) => apiSend<EvalCaseRunRecord>("/api/eval-case-runs", "POST", payload),
+  completeEvalCaseRun: (evalCaseRunId: string, payload: ManualEvalResultPayload) =>
+    apiSend<EvalCaseRunRecord>(`/api/eval-case-runs/${encodeURIComponent(evalCaseRunId)}/completion`, "POST", payload),
+  aggregateEvalRun: (payload: {
+    skill_version_id: string;
+    eval_set_id: string;
+    strategy: string;
+    environment_tags: string[];
+    run_context: Record<string, unknown>;
+  }) => apiSend<{ eval_run_id: string }>("/api/eval-runs/aggregations", "POST", payload),
 };
 
 async function apiGet<T>(path: string): Promise<T> {

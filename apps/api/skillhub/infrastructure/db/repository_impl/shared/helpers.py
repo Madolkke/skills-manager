@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 import json
 from typing import Any
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef, digest_text, new_id
@@ -109,6 +110,12 @@ class CoreHelperMixin:
             raise NotFoundError(f"EvalRun not found: {eval_run_id}")
         return row
 
+    def _eval_case_run_row(self, connection, eval_case_run_id: str):
+        row = connection.execute(select(tables.eval_case_runs).where(tables.eval_case_runs.c.id == eval_case_run_id)).mappings().one_or_none()
+        if row is None:
+            raise NotFoundError(f"EvalCaseRun not found: {eval_case_run_id}")
+        return row
+
     def _accepted_verification_row(self, connection, accepted_verification_id: str):
         row = (
             connection.execute(select(tables.accepted_verifications).where(tables.accepted_verifications.c.id == accepted_verification_id))
@@ -144,6 +151,50 @@ class CoreHelperMixin:
             .one_or_none()
         )
         return self._row_dict(row) if row is not None else None
+
+    def _insert_job(
+        self,
+        connection,
+        *,
+        job_type: str,
+        payload: dict[str, Any],
+        actor: str,
+        created_at: datetime,
+    ) -> str:
+        job_id = new_id("job")
+        connection.execute(
+            insert(tables.jobs).values(
+                id=job_id,
+                type=job_type,
+                status="queued",
+                payload=payload,
+                result_ref=None,
+                created_at=created_at,
+                created_by=actor,
+            )
+        )
+        return job_id
+
+    def _start_job(self, connection, *, job_id: str, started_at: datetime) -> None:
+        connection.execute(
+            update(tables.jobs)
+            .where(tables.jobs.c.id == job_id)
+            .values(status="running", started_at=started_at)
+        )
+
+    def _finish_job(self, connection, *, job_id: str, result_ref: str | None, finished_at: datetime) -> None:
+        connection.execute(
+            update(tables.jobs)
+            .where(tables.jobs.c.id == job_id)
+            .values(status="succeeded", result_ref=result_ref, finished_at=finished_at, error=None)
+        )
+
+    def _fail_job(self, connection, *, job_id: str, error: str, finished_at: datetime) -> None:
+        connection.execute(
+            update(tables.jobs)
+            .where(tables.jobs.c.id == job_id)
+            .values(status="failed", error=error, finished_at=finished_at)
+        )
 
     def _next_skill_version_number(self, connection, skill_id: str) -> int:
         return 1 + max(
@@ -195,6 +246,77 @@ class CoreHelperMixin:
             )
         )
         return artifact_id
+
+    def _insert_zip_artifact(
+        self,
+        connection,
+        *,
+        namespace: str,
+        filename: str,
+        content_base64: str,
+        actor: str,
+        created_at: datetime,
+    ) -> str:
+        clean_name = filename.strip() or "case-attachment.zip"
+        if not clean_name.lower().endswith(".zip"):
+            raise InvariantError("Eval case attachment must be a zip file.")
+        try:
+            raw_content = base64.b64decode(content_base64, validate=True)
+        except ValueError as exc:
+            raise InvariantError("Eval case attachment must be valid base64.") from exc
+        if not raw_content.startswith(b"PK"):
+            raise InvariantError("Eval case attachment must be a zip file.")
+        content_digest = digest_text(content_base64)
+        locator = f"case-attachment:{content_digest}:{clean_name}"
+        existing = (
+            connection.execute(
+                select(tables.artifacts.c.id)
+                .where(tables.artifacts.c.locator == locator)
+                .where(tables.artifacts.c.digest == content_digest)
+            )
+            .scalars()
+            .one_or_none()
+        )
+        if existing is not None:
+            return existing
+        artifact_id = new_id("artifact")
+        connection.execute(
+            insert(tables.artifacts).values(
+                id=artifact_id,
+                kind="eval_case_attachment",
+                namespace=namespace,
+                locator=locator,
+                digest=content_digest,
+                media_type="application/zip",
+                size_bytes=len(raw_content),
+                content_text=content_base64,
+                created_at=created_at,
+                created_by=actor,
+            )
+        )
+        return artifact_id
+
+    def _create_case_attachment(
+        self,
+        connection,
+        *,
+        skill_id: str,
+        actor: str,
+        attachment_name: str | None,
+        attachment_base64: str | None,
+        created_at: datetime,
+    ) -> str | None:
+        if not attachment_base64:
+            return None
+        filename = attachment_name or "case-attachment.zip"
+        return self._insert_zip_artifact(
+            connection,
+            namespace=skill_id,
+            filename=filename,
+            content_base64=attachment_base64,
+            actor=actor,
+            created_at=created_at,
+        )
 
     def _content_ref_payload(self, content_ref: ContentRef) -> dict[str, str]:
         payload = {"kind": content_ref.kind, "locator": content_ref.locator, "digest": content_ref.digest}

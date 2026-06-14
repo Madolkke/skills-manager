@@ -158,8 +158,16 @@ class ReadModelMixin:
             .mappings()
             .one()
         )
+        attachment_artifact = None
+        if case_version.get("attachment_artifact_id"):
+            attachment_artifact = (
+                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_version["attachment_artifact_id"]))
+                .mappings()
+                .one()
+            )
         return {
             **self._row_dict(case_version),
             "input_artifact": self._row_dict(input_artifact),
             "expected_output_artifact": self._row_dict(expected_output_artifact),
+            "attachment_artifact": self._row_dict(attachment_artifact) if attachment_artifact is not None else None,
         }

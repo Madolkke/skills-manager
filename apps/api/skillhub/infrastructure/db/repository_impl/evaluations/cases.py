@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from typing import Any
 
 from sqlalchemy import insert, update
@@ -45,7 +44,7 @@ class EvalCaseCommandMixin:
                 case_version_ids=next_case_version_ids,
                 updated_at=updated_at,
             )
-        return CreateEvalCaseResult(skill_id, eval_set_id, case_id, eval_case["current_version_id"], "", "")
+        return CreateEvalCaseResult(skill_id, eval_set_id, case_id, eval_case["current_version_id"], "", "", None)
 
     def create_eval_case(
         self,
@@ -55,6 +54,8 @@ class EvalCaseCommandMixin:
         input_text: str,
         expected_output: str,
         actor: str,
+        attachment_name: str | None = None,
+        attachment_base64: str | None = None,
         notes: str | None = None,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
@@ -71,6 +72,14 @@ class EvalCaseCommandMixin:
                 namespace=skill_id,
                 content=expected_output,
                 actor=actor,
+                created_at=created_at,
+            )
+            attachment_artifact_id = self._create_case_attachment(
+                connection,
+                skill_id=skill_id,
+                actor=actor,
+                attachment_name=attachment_name,
+                attachment_base64=attachment_base64,
                 created_at=created_at,
             )
             connection.execute(
@@ -92,6 +101,7 @@ class EvalCaseCommandMixin:
                     version_number=1,
                     input_artifact_id=input_artifact_id,
                     expected_output_artifact_id=expected_output_artifact_id,
+                    attachment_artifact_id=attachment_artifact_id,
                     notes=notes,
                     created_at=created_at,
                     created_by=actor,
@@ -119,6 +129,7 @@ class EvalCaseCommandMixin:
             eval_case_version_id,
             input_artifact_id,
             expected_output_artifact_id,
+            attachment_artifact_id,
         )
 
     def create_eval_cases_batch(self, *, skill_id: str, cases: list[dict[str, Any]], actor: str) -> CreateEvalCasesBatchResult:
@@ -132,6 +143,8 @@ class EvalCaseCommandMixin:
                 title = self._required_text(item, "title")
                 input_text = self._required_text(item, "input_text")
                 expected_output = self._required_text(item, "expected_output")
+                attachment_name = item.get("attachment_name")
+                attachment_base64 = item.get("attachment_base64")
                 if not title or not input_text or not expected_output:
                     raise InvariantError("Each eval case requires title, input_text, and expected_output.")
                 eval_case_id = new_id("case")
@@ -145,6 +158,14 @@ class EvalCaseCommandMixin:
                     namespace=skill_id,
                     content=expected_output,
                     actor=actor,
+                    created_at=created_at,
+                )
+                attachment_artifact_id = self._create_case_attachment(
+                    connection,
+                    skill_id=skill_id,
+                    actor=actor,
+                    attachment_name=attachment_name,
+                    attachment_base64=attachment_base64,
                     created_at=created_at,
                 )
                 connection.execute(
@@ -166,6 +187,7 @@ class EvalCaseCommandMixin:
                         version_number=1,
                         input_artifact_id=input_artifact_id,
                         expected_output_artifact_id=expected_output_artifact_id,
+                        attachment_artifact_id=attachment_artifact_id,
                         notes=item.get("notes"),
                         created_at=created_at,
                         created_by=actor,
@@ -177,7 +199,13 @@ class EvalCaseCommandMixin:
                     .values(current_version_id=eval_case_version_id, updated_at=created_at)
                 )
                 created_cases.append(
-                    CreatedEvalCaseResult(eval_case_id, eval_case_version_id, input_artifact_id, expected_output_artifact_id)
+                    CreatedEvalCaseResult(
+                        eval_case_id,
+                        eval_case_version_id,
+                        input_artifact_id,
+                        expected_output_artifact_id,
+                        attachment_artifact_id,
+                    )
                 )
             eval_set_id = self._update_eval_set_cases(
                 connection,
@@ -198,6 +226,8 @@ class EvalCaseCommandMixin:
         input_text: str,
         expected_output: str,
         actor: str,
+        attachment_name: str | None = None,
+        attachment_base64: str | None = None,
         notes: str | None = None,
         make_current: bool = True,
     ) -> CreateEvalCaseResult:
@@ -218,6 +248,14 @@ class EvalCaseCommandMixin:
                 actor=actor,
                 created_at=created_at,
             )
+            attachment_artifact_id = self._create_case_attachment(
+                connection,
+                skill_id=skill_id,
+                actor=actor,
+                attachment_name=attachment_name,
+                attachment_base64=attachment_base64,
+                created_at=created_at,
+            )
             connection.execute(
                 insert(tables.eval_case_versions).values(
                     id=eval_case_version_id,
@@ -226,6 +264,7 @@ class EvalCaseCommandMixin:
                     version_number=version_number,
                     input_artifact_id=input_artifact_id,
                     expected_output_artifact_id=expected_output_artifact_id,
+                    attachment_artifact_id=attachment_artifact_id,
                     notes=notes,
                     created_at=created_at,
                     created_by=actor,
@@ -252,7 +291,13 @@ class EvalCaseCommandMixin:
                     updated_at=created_at,
                 )
         return CreateEvalCaseResult(
-            skill_id, eval_set_id, case_id, eval_case_version_id, input_artifact_id, expected_output_artifact_id
+            skill_id,
+            eval_set_id,
+            case_id,
+            eval_case_version_id,
+            input_artifact_id,
+            expected_output_artifact_id,
+            attachment_artifact_id,
         )
 
     def restore_eval_case_version(
@@ -279,6 +324,8 @@ class EvalCaseCommandMixin:
             case_id=case_id,
             input_text=input_text,
             expected_output=expected_output,
+            attachment_name=None,
+            attachment_base64=None,
             actor=actor,
             notes=notes if notes is not None else f"Restored from case v{source_case_version['version_number']}.",
             make_current=True,

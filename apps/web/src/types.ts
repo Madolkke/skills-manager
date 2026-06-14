@@ -109,11 +109,13 @@ export type EvalCaseVersionDetail = {
   version_number: number;
   input_artifact_id: string;
   expected_output_artifact_id: string;
+  attachment_artifact_id?: string | null;
   notes: string | null;
   created_at?: string;
   created_by: string;
   input_artifact: ArtifactRef;
   expected_output_artifact: ArtifactRef;
+  attachment_artifact?: ArtifactRef | null;
 };
 
 export type EvalSetCase = {
@@ -133,6 +135,19 @@ export type EvalSetCase = {
 export type EvalSetDetail = {
   eval_set: EvalSetSummary;
   cases: EvalSetCase[];
+};
+
+export type EvalCaseRunRecord = {
+  eval_case_run_id: string;
+  job_id: string;
+  skill_id: string;
+  skill_version_id: string;
+  eval_set_id: string;
+  case_version_id: string;
+  status: string;
+  run_context_hash: string;
+  passed?: boolean | null;
+  score?: number | null;
 };
 
 export type EvalCaseMutationResult = {

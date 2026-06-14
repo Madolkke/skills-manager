@@ -82,6 +82,17 @@
     padding: 10px;
   }
 
+  .manual-eval-action-bar {
+    align-items: stretch;
+    flex-direction: column;
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+
+  .manual-eval-action-bar .primary-button {
+    width: 100%;
+  }
+
   .version-files-panel {
     padding: 16px;
   }

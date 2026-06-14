@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import clsx from "clsx";
-import { Info, Save } from "lucide-vue-next";
+import { Info, Play, Save } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import TagInput from "../components/TagInput.vue";
 import { api, ApiError } from "../lib/api";
-import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval, type ManualCaseResult } from "../lib/eval";
+import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, runCaseEvaluation, summarizeManualEval, type ManualCaseResult } from "../lib/eval";
 import { versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { EvalSetDetail, SkillDetail, ToastState } from "../types";
@@ -18,11 +18,14 @@ const evalSetId = computed(() => evalSet.value?.id ?? "");
 const skillVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
 const environmentTags = ref<string[]>([]);
 const detail = ref<EvalSetDetail | null>(null);
-const results = ref<Record<string, ManualCaseResult>>({});
+const resultsByVersion = ref<Record<string, Record<string, ManualCaseResult>>>({});
+const caseRunsByContext = ref<Record<string, string>>({});
 const activeCaseId = ref<string | null>(null);
+const runningCaseId = ref<string | null>(null);
 const busy = ref(false);
 const cases = computed(() => detail.value?.cases ?? []);
-const summary = computed(() => summarizeManualEval(cases.value.length, results.value));
+const currentResults = computed(() => resultsByVersion.value[skillVersionId.value] ?? {});
+const summary = computed(() => summarizeManualEval(cases.value.length, currentResults.value));
 const active = computed(() => cases.value.find((item) => item.case_version.id === activeCaseId.value) ?? cases.value[0] ?? null);
 const selectedVersion = computed(() => versions.value.find((version) => version.id === skillVersionId.value));
 const canRecord = computed(() => !busy.value && Boolean(skillVersionId.value && evalSetId.value) && summary.value.pending === 0 && cases.value.length > 0);
@@ -31,32 +34,34 @@ watch(evalSetId, async (id) => {
   if (!id) {
     detail.value = null;
     activeCaseId.value = null;
-    results.value = {};
     return;
   }
   try {
     const next = await api.getEvalSet(id);
     detail.value = next;
     activeCaseId.value = next.cases[0]?.case_version.id ?? null;
-    results.value = {};
   } catch (caught) {
     emit("toast", { tone: "danger", message: errorMessage(caught) });
   }
 }, { immediate: true });
 
+watch(() => skillVersionId.value, () => {
+  activeCaseId.value = cases.value[0]?.case_version.id ?? null;
+});
+
 onMounted(() => window.addEventListener("keydown", onKeyDown));
 onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown));
 
 function mark(caseVersionId: string, passed: boolean): void {
-  results.value = { ...results.value, [caseVersionId]: { actualOutput: results.value[caseVersionId]?.actualOutput ?? "", passed } };
+  updateCurrentResults(caseVersionId, { actualOutput: currentResults.value[caseVersionId]?.actualOutput ?? "", passed });
 }
 
 function updateActualOutput(caseVersionId: string, actualOutput: string): void {
-  results.value = { ...results.value, [caseVersionId]: { actualOutput, passed: results.value[caseVersionId]?.passed } };
+  updateCurrentResults(caseVersionId, { actualOutput, passed: currentResults.value[caseVersionId]?.passed });
 }
 
 function goNext(): void {
-  const nextId = nextPendingCaseVersionId(cases.value, results.value, activeCaseId.value);
+  const nextId = nextPendingCaseVersionId(cases.value, currentResults.value, activeCaseId.value);
   if (nextId) activeCaseId.value = nextId;
 }
 
@@ -75,13 +80,18 @@ async function recordRun(): Promise<void> {
   if (!canRecord.value) return;
   busy.value = true;
   try {
-    const recorded = await api.recordEvalRun({
+    for (const item of cases.value) {
+      const caseVersionId = item.case_version.id;
+      const result = currentResults.value[caseVersionId];
+      if (result?.passed === undefined) continue;
+      await ensureCaseRunRecorded(caseVersionId, result);
+    }
+    const recorded = await api.aggregateEvalRun({
       skill_version_id: skillVersionId.value,
       eval_set_id: evalSetId.value,
       strategy: "manual_pass_fail",
       environment_tags: environmentTags.value,
       run_context: {},
-      results: Object.fromEntries(Object.entries(results.value).map(([caseVersionId, result]) => [caseVersionId, { passed: result.passed === true, actual_output: result.actualOutput }])),
     });
     emit("toast", { tone: "success", message: "测评结果已记录。" });
     emit("refresh");
@@ -90,6 +100,39 @@ async function recordRun(): Promise<void> {
     emit("toast", { tone: "danger", message: errorMessage(caught) });
   } finally {
     busy.value = false;
+  }
+}
+
+async function runActiveCase(): Promise<void> {
+  if (!active.value) return;
+  const caseVersionId = active.value.case_version.id;
+  runningCaseId.value = caseVersionId;
+  try {
+    const queued = await api.enqueueEvalCaseRun({
+      skill_version_id: skillVersionId.value,
+      eval_set_id: evalSetId.value,
+      case_version_id: caseVersionId,
+      strategy: "manual_pass_fail",
+      environment_tags: environmentTags.value,
+      run_context: {},
+    });
+    const evaluated = await runCaseEvaluation({
+      skillVersionId: skillVersionId.value,
+      evalSetId: evalSetId.value,
+      caseItem: active.value,
+    });
+    if (evaluated) {
+      updateCurrentResults(caseVersionId, evaluated);
+      await api.completeEvalCaseRun(queued.eval_case_run_id, { passed: evaluated.passed === true, actual_output: evaluated.actualOutput });
+      rememberCaseRun(caseRunCacheKey(caseVersionId), queued.eval_case_run_id);
+      emit("toast", { tone: "success", message: "单个 case 已运行并写入结果。" });
+    } else {
+      emit("toast", { tone: "info", message: "单个 case 的运行入口已预留，实际测评逻辑待接入。" });
+    }
+  } catch (caught) {
+    emit("toast", { tone: "danger", message: errorMessage(caught) });
+  } finally {
+    runningCaseId.value = null;
   }
 }
 
@@ -120,6 +163,51 @@ function manualStatusClass(value?: boolean): string {
   return "pending";
 }
 
+function updateCurrentResults(caseVersionId: string, nextResult: ManualCaseResult): void {
+  const versionId = skillVersionId.value;
+  const existing = resultsByVersion.value[versionId] ?? {};
+  resultsByVersion.value = {
+    ...resultsByVersion.value,
+    [versionId]: {
+      ...existing,
+      [caseVersionId]: nextResult,
+    },
+  };
+}
+
+async function ensureCaseRunRecorded(caseVersionId: string, result: ManualCaseResult): Promise<void> {
+  const cacheKey = caseRunCacheKey(caseVersionId);
+  const existingRunId = caseRunsByContext.value[cacheKey];
+  if (existingRunId) {
+    return;
+  }
+  const queued = await api.enqueueEvalCaseRun({
+    skill_version_id: skillVersionId.value,
+    eval_set_id: evalSetId.value,
+    case_version_id: caseVersionId,
+    strategy: "manual_pass_fail",
+    environment_tags: environmentTags.value,
+    run_context: {},
+  });
+  await api.completeEvalCaseRun(queued.eval_case_run_id, { passed: result.passed === true, actual_output: result.actualOutput });
+  rememberCaseRun(cacheKey, queued.eval_case_run_id);
+}
+
+function rememberCaseRun(cacheKey: string, evalCaseRunId: string): void {
+  caseRunsByContext.value = { ...caseRunsByContext.value, [cacheKey]: evalCaseRunId };
+}
+
+function caseRunCacheKey(caseVersionId: string): string {
+  return JSON.stringify({
+    skillVersionId: skillVersionId.value,
+    evalSetId: evalSetId.value,
+    caseVersionId,
+    strategy: "manual_pass_fail",
+    environmentTags: [...environmentTags.value].sort(),
+    runContext: {},
+  });
+}
+
 function errorMessage(caught: unknown): string {
   if (caught instanceof ApiError || caught instanceof Error) return caught.message;
   return "操作失败。";
@@ -129,7 +217,7 @@ function errorMessage(caught: unknown): string {
 <template>
   <div class="evaluate-page">
     <section class="evaluation-selectors">
-      <div class="selector-card">
+      <div class="evaluation-selector-card">
         <label class="field-label">
           <span>SkillVersion</span>
           <select v-model="skillVersionId">
@@ -138,12 +226,12 @@ function errorMessage(caught: unknown): string {
         </label>
         <p>{{ selectedVersion?.change_summary ?? "无版本说明。" }}</p>
       </div>
-      <div class="selector-card">
+      <div class="evaluation-selector-card">
         <span>当前测评集</span>
         <strong>{{ evalSet?.name ?? "未绑定" }}</strong>
         <small>{{ cases.length }} cases</small>
       </div>
-      <div class="selector-card">
+      <div class="evaluation-selector-card">
         <span>运行环境标签</span>
         <TagInput :value="environmentTags" :suggestions="['local', 'manual', 'windows', 'macos', 'linux']" @change="environmentTags = $event" />
       </div>
@@ -156,13 +244,22 @@ function errorMessage(caught: unknown): string {
       </div>
     </section>
 
-    <section class="manual-progress-panel" :style="{ '--coverage': `${summary.coverage}%` }">
-      <div>
-        <span>进度</span>
-        <strong>{{ summary.confirmed }}/{{ cases.length }}</strong>
+    <section class="eval-progress-panel">
+      <div class="progress-summary-card">
+        <div class="progress-ring" :style="{ '--coverage': `${summary.coverage}%` }">
+          <span>{{ summary.coverage }}%</span>
+        </div>
+        <div class="progress-copy">
+          <span>进度</span>
+          <h1>{{ summary.confirmed }}/{{ cases.length }}</h1>
+          <p>{{ manualRecordHint(cases.length, summary.pending) }}</p>
+        </div>
       </div>
-      <div class="manual-progress-bar"><span /></div>
-      <p>{{ manualRecordHint(cases.length, summary.pending) }}</p>
+      <div class="progress-metrics">
+        <div class="progress-metric passed"><i /><strong>{{ summary.passed }}</strong><small>通过</small></div>
+        <div class="progress-metric failed"><i /><strong>{{ summary.failed }}</strong><small>不通过</small></div>
+        <div class="progress-metric pending"><i /><strong>{{ summary.pending }}</strong><small>待评估</small></div>
+      </div>
     </section>
 
     <div class="manual-eval-grid">
@@ -181,11 +278,11 @@ function errorMessage(caught: unknown): string {
           type="button"
           @click="activeCaseId = item.case_version.id"
         >
-          <span :class="clsx('manual-status-dot', manualStatusClass(results[item.case_version.id]?.passed))" aria-hidden="true" />
+          <span :class="clsx('manual-status-dot', manualStatusClass(currentResults[item.case_version.id]?.passed))" aria-hidden="true" />
           <span class="manual-case-index">#{{ item.position + 1 }}</span>
           <span class="manual-case-copy">
             <strong>{{ item.case.title }}</strong>
-            <small><span>case v{{ item.case_version.version_number }}</span><span>{{ manualResultLabel(results[item.case_version.id]?.passed) }}</span></small>
+            <small><span>case v{{ item.case_version.version_number }}</span><span>{{ manualResultLabel(currentResults[item.case_version.id]?.passed) }}</span></small>
           </span>
           <kbd v-if="index < 9" class="manual-shortcut-chip">{{ index + 1 }}</kbd>
         </button>
@@ -199,6 +296,10 @@ function errorMessage(caught: unknown): string {
               <h2>{{ active.case.title }}</h2>
             </div>
             <div class="button-row">
+              <button class="secondary-button" type="button" :disabled="runningCaseId === active.case_version.id" @click="runActiveCase">
+                <Play :size="16" />
+                {{ runningCaseId === active.case_version.id ? "运行中..." : "运行此 case" }}
+              </button>
               <button class="secondary-button" type="button" @click="copyText('input', active.case_version.input_artifact.content_text)">复制 input</button>
               <button class="secondary-button" type="button" @click="copyText('expected output', active.case_version.expected_output_artifact.content_text)">复制 expected</button>
             </div>
@@ -210,7 +311,7 @@ function errorMessage(caught: unknown): string {
           <label class="field-label">
             <span>Actual output</span>
             <textarea
-              :value="results[active.case_version.id]?.actualOutput ?? ''"
+              :value="currentResults[active.case_version.id]?.actualOutput ?? ''"
               @input="updateActualOutput(active.case_version.id, ($event.target as HTMLTextAreaElement).value)"
             />
           </label>

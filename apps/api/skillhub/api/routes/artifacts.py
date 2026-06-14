@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import base64
+
 from fastapi import Depends, FastAPI
+from fastapi.responses import Response
+from sqlalchemy import select
 
 from skillhub.api.database import repository_dependency
 from skillhub.api.responses import result_payload
+from skillhub.infrastructure.db import tables
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
 
@@ -78,4 +83,18 @@ def register_artifact_routes(app: FastAPI) -> None:
     ):
         return result_payload(
             repository.bundle_diff(left_skill_version_id=left_skill_version_id, right_skill_version_id=right_skill_version_id)
+        )
+
+    @app.get("/api/artifacts/{artifact_id}/download")
+    def artifact_download(artifact_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        with repository.engine.connect() as connection:
+            artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id)).mappings().one_or_none()
+        if artifact is None or artifact["kind"] != "eval_case_attachment" or artifact["media_type"] != "application/zip":
+            return Response(status_code=404)
+        filename = artifact["locator"].rsplit(":", 1)[-1] or "case-attachment.zip"
+        content = base64.b64decode(artifact["content_text"] or "")
+        return Response(
+            content=content,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )

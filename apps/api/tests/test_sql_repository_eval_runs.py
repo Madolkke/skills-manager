@@ -1,13 +1,42 @@
 from sqlalchemy import select
+import base64
 
 from skillhub.domain.errors import FieldInvariantError, InvariantError
 from skillhub.domain.models import ContentRef
-from skillhub.infrastructure.db.tables import accepted_verifications, artifacts, case_results, eval_runs
+from skillhub.infrastructure.db.tables import accepted_verifications, artifacts, case_results, eval_case_runs, eval_runs, jobs
 
 from tests.repository_test_case import SqlRepositoryTestCase
 
 
 class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
+    def test_create_eval_case_can_attach_zip_artifact(self):
+        skill = self.create_skill()
+        zip_bytes = b"PK\x03\x04case archive"
+
+        created = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="Archive context",
+            input_text="Review the attached archive.",
+            expected_output="Flag missing test coverage.",
+            actor="tester",
+            attachment_name="context.zip",
+            attachment_base64=base64.b64encode(zip_bytes).decode("ascii"),
+        )
+
+        with self.engine.connect() as connection:
+            artifact = connection.execute(
+                select(artifacts).where(artifacts.c.id == created.attachment_artifact_id)
+            ).mappings().one()
+            case_version = self.repository._case_version_detail(
+                connection,
+                self.repository._eval_case_version_row(connection, created.eval_case_version_id),
+            )
+
+        self.assertEqual(artifact["kind"], "eval_case_attachment")
+        self.assertEqual(artifact["media_type"], "application/zip")
+        self.assertEqual(artifact["size_bytes"], len(zip_bytes))
+        self.assertEqual(case_version["attachment_artifact"]["id"], created.attachment_artifact_id)
+
     def test_record_eval_run_persists_environment_context_and_actual_output_artifacts(self):
         skill = self.create_skill()
         case = self.repository.create_eval_case(
@@ -48,6 +77,52 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         self.assertEqual(eval_run["run_context_hash"], run.run_context_hash)
         self.assertEqual(artifact["kind"], "actual_output")
         self.assertEqual(artifact["content_text"], "No finding returned.")
+
+    def test_case_run_completion_is_aggregated_into_eval_run_snapshot(self):
+        skill = self.create_skill()
+        case = self.repository.create_eval_case(
+            skill_id=skill.skill_id,
+            title="Token logging",
+            input_text="console.log(token)",
+            expected_output="Flag token logging.",
+            actor="tester",
+        )
+
+        queued = self.repository.enqueue_eval_case_run(
+            skill_version_id=skill.skill_version_id,
+            eval_set_id=case.eval_set_id,
+            case_version_id=case.eval_case_version_id,
+            strategy="manual_pass_fail",
+            actor="tester",
+            environment_tags=["linux"],
+            run_context={"os": "linux"},
+        )
+        finished = self.repository.finalize_eval_case_run(
+            eval_case_run_id=queued.eval_case_run_id,
+            passed=True,
+            actual_output="Flagged token logging.",
+            actor="tester",
+        )
+        run = self.repository.aggregate_eval_run(
+            skill_version_id=skill.skill_version_id,
+            eval_set_id=case.eval_set_id,
+            strategy="manual_pass_fail",
+            actor="tester",
+            environment_tags=["linux"],
+            run_context={"os": "linux"},
+        )
+
+        with self.engine.connect() as connection:
+            case_run = connection.execute(select(eval_case_runs).where(eval_case_runs.c.id == finished.eval_case_run_id)).mappings().one()
+            job = connection.execute(select(jobs).where(jobs.c.id == finished.job_id)).mappings().one()
+            result = connection.execute(select(case_results).where(case_results.c.run_id == run.eval_run_id)).mappings().one()
+
+        self.assertEqual(case_run["skill_version_id"], skill.skill_version_id)
+        self.assertEqual(case_run["case_version_id"], case.eval_case_version_id)
+        self.assertEqual(case_run["status"], "succeeded")
+        self.assertEqual(job["status"], "succeeded")
+        self.assertEqual(result["passed"], True)
+        self.assertEqual(run.passed, 1)
 
     def test_eval_run_rejects_cross_skill_version_and_eval_set(self):
         first = self.create_skill(slug="code-reviewer", digest="digest-code")

@@ -7,6 +7,7 @@ from skillhub.infrastructure.db.tables import (
     artifacts,
     audit_events,
     case_results,
+    eval_case_runs,
     eval_case_versions,
     eval_cases,
     eval_runs,
@@ -33,6 +34,12 @@ Index("eval_runs_eval_set_id_idx", eval_runs.c.eval_set_id)
 Index("eval_runs_context_hash_idx", eval_runs.c.run_context_hash)
 Index("case_results_skill_id_idx", case_results.c.skill_id)
 Index("case_results_case_version_id_idx", case_results.c.case_version_id)
+Index("eval_case_runs_skill_id_created_at_idx", eval_case_runs.c.skill_id, eval_case_runs.c.created_at.desc())
+Index("eval_case_runs_skill_version_id_idx", eval_case_runs.c.skill_version_id)
+Index("eval_case_runs_eval_set_id_idx", eval_case_runs.c.eval_set_id)
+Index("eval_case_runs_case_version_id_idx", eval_case_runs.c.case_version_id)
+Index("eval_case_runs_job_id_idx", eval_case_runs.c.job_id)
+Index("eval_case_runs_context_hash_idx", eval_case_runs.c.run_context_hash)
 Index(
     "accepted_verifications_context_idx",
     accepted_verifications.c.skill_id,

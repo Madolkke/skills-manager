@@ -23,6 +23,7 @@ class SchemaContractTest(unittest.TestCase):
             "eval_set_cases",
             "eval_runs",
             "case_results",
+            "eval_case_runs",
             "accepted_verifications",
             "saved_views",
             "jobs",
@@ -69,6 +70,24 @@ class SchemaContractTest(unittest.TestCase):
             self.normalized,
         )
 
+    def test_eval_case_runs_bind_case_version_and_async_job(self):
+        table_sql = self._table_sql("eval_case_runs")
+
+        for snippet in [
+            "job_id text references jobs(id)",
+            "skill_version_id text not null",
+            "eval_set_id text not null",
+            "case_version_id text not null",
+            "run_context_hash text not null",
+            "passed boolean",
+            "score integer",
+        ]:
+            self.assertIn(snippet, table_sql)
+        self.assertIn(
+            "foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)",
+            self.normalized,
+        )
+
     def test_append_only_version_uniqueness_constraints_exist(self):
         for constraint in [
             "unique (skill_id, version_number)",
@@ -79,6 +98,11 @@ class SchemaContractTest(unittest.TestCase):
 
     def test_skill_versions_have_optional_display_names(self):
         self.assertIn("display_name text", self._table_sql("skill_versions"))
+
+    def test_eval_case_versions_have_optional_attachment_artifact(self):
+        table_sql = self._table_sql("eval_case_versions")
+
+        self.assertIn("attachment_artifact_id text references artifacts(id)", table_sql)
 
     def test_eval_runs_store_run_context(self):
         table_sql = self._table_sql("eval_runs")
@@ -119,6 +143,8 @@ class SchemaContractTest(unittest.TestCase):
             "create index eval_runs_eval_set_id_idx",
             "create index eval_runs_context_hash_idx",
             "create index case_results_case_version_id_idx",
+            "create index eval_case_runs_case_version_id_idx",
+            "create index eval_case_runs_job_id_idx",
         ]:
             self.assertIn(index, self.normalized)
 

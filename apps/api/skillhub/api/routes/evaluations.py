@@ -7,9 +7,12 @@ from skillhub.api.database import repository_dependency
 from skillhub.api.responses import result_payload
 from skillhub.api.schemas import (
     AcceptEvalRunVerificationPayload,
+    AggregateEvalRunPayload,
     CreateEvalCasePayload,
     CreateEvalCasesBatchPayload,
     CreateEvalCaseVersionPayload,
+    EnqueueEvalCaseRunPayload,
+    FinalizeEvalCaseRunPayload,
     RecordEvalRunPayload,
     RestoreEvalCaseVersionPayload,
 )
@@ -29,6 +32,8 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 title=payload.title,
                 input_text=payload.input_text,
                 expected_output=payload.expected_output,
+                attachment_name=payload.attachment_name,
+                attachment_base64=payload.attachment_base64,
                 actor=actor.id,
                 notes=payload.notes,
             )
@@ -55,6 +60,8 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 case_id=payload.case_id,
                 input_text=payload.input_text,
                 expected_output=payload.expected_output,
+                attachment_name=payload.attachment_name,
+                attachment_base64=payload.attachment_base64,
                 actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
@@ -75,6 +82,8 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 case_id=case_id,
                 input_text=payload.input_text,
                 expected_output=payload.expected_output,
+                attachment_name=payload.attachment_name,
+                attachment_base64=payload.attachment_base64,
                 actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
@@ -110,6 +119,57 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 eval_set_id=payload.eval_set_id,
                 strategy=payload.strategy,
                 results=payload.results,
+                actor=actor.id,
+                environment_tags=payload.environment_tags,
+                run_context=payload.run_context,
+            )
+        )
+
+    @app.post("/api/eval-case-runs")
+    def enqueue_eval_case_run(
+        payload: EnqueueEvalCaseRunPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.enqueue_eval_case_run(
+                skill_version_id=payload.skill_version_id,
+                eval_set_id=payload.eval_set_id,
+                case_version_id=payload.case_version_id,
+                strategy=payload.strategy,
+                actor=actor.id,
+                environment_tags=payload.environment_tags,
+                run_context=payload.run_context,
+            )
+        )
+
+    @app.post("/api/eval-case-runs/{eval_case_run_id}/completion")
+    def complete_eval_case_run(
+        eval_case_run_id: str,
+        payload: FinalizeEvalCaseRunPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.finalize_eval_case_run(
+                eval_case_run_id=eval_case_run_id,
+                passed=payload.passed,
+                actual_output=payload.actual_output,
+                actor=actor.id,
+            )
+        )
+
+    @app.post("/api/eval-runs/aggregations")
+    def aggregate_eval_run(
+        payload: AggregateEvalRunPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.aggregate_eval_run(
+                skill_version_id=payload.skill_version_id,
+                eval_set_id=payload.eval_set_id,
+                strategy=payload.strategy,
                 actor=actor.id,
                 environment_tags=payload.environment_tags,
                 run_context=payload.run_context,

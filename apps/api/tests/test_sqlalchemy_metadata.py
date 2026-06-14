@@ -19,6 +19,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "eval_set_cases",
                 "eval_runs",
                 "case_results",
+                "eval_case_runs",
                 "jobs",
                 "saved_views",
                 "role_assignments",
@@ -70,9 +71,38 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("id", "skill_id"),
         )
 
+    def test_eval_case_runs_bind_case_version_and_async_job(self):
+        self.assert_foreign_key(
+            "eval_case_runs",
+            "eval_case_runs_skill_version_skill_fkey",
+            ("skill_version_id", "skill_id"),
+            "skill_versions",
+            ("id", "skill_id"),
+        )
+        self.assert_foreign_key(
+            "eval_case_runs",
+            "eval_case_runs_eval_set_skill_fkey",
+            ("eval_set_id", "skill_id"),
+            "eval_sets",
+            ("id", "skill_id"),
+        )
+        self.assert_foreign_key(
+            "eval_case_runs",
+            "eval_case_runs_case_skill_fkey",
+            ("case_version_id", "skill_id"),
+            "eval_case_versions",
+            ("id", "skill_id"),
+        )
+
     def test_version_uniqueness_constraints_are_mapped(self):
         self.assert_unique_constraint("skill_versions", "skill_versions_skill_version_unique", ("skill_id", "version_number"))
         self.assert_unique_constraint("eval_case_versions", "eval_case_versions_case_version_unique", ("case_id", "version_number"))
+
+    def test_eval_case_version_attachment_artifact_is_optional(self):
+        table = metadata.tables["eval_case_versions"]
+
+        self.assertIn("attachment_artifact_id", table.c)
+        self.assertTrue(table.c.attachment_artifact_id.nullable)
 
     def test_query_indexes_are_mapped(self):
         for table_name, index_name in [
@@ -82,6 +112,8 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("eval_runs", "eval_runs_eval_set_id_idx"),
             ("eval_runs", "eval_runs_context_hash_idx"),
             ("case_results", "case_results_case_version_id_idx"),
+            ("eval_case_runs", "eval_case_runs_case_version_id_idx"),
+            ("eval_case_runs", "eval_case_runs_job_id_idx"),
             ("accepted_verifications", "accepted_verifications_context_idx"),
             ("saved_views", "saved_views_skill_type_idx"),
             ("jobs", "jobs_status_created_at_idx"),

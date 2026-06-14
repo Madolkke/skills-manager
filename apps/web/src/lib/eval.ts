@@ -13,6 +13,12 @@ export type ManualCaseResult = {
   actualOutput: string;
 };
 
+export type CaseEvaluationInput = {
+  skillVersionId: string;
+  evalSetId: string;
+  caseItem: EvalSetCase;
+};
+
 export function summarizeManualEval(total: number, results: Record<string, ManualCaseResult>): ManualEvalSummary {
   const confirmedResults = Object.values(results).filter((result) => result.passed !== undefined);
   const confirmed = confirmedResults.length;
@@ -55,4 +61,11 @@ export function manualRecordHint(total: number, pending: number): string {
   if (total === 0) return "当前测评集没有 case，无法记录测评结果。";
   if (pending > 0) return `需确认剩余 ${pending} 个 case 后才能记录。`;
   return "全部 case 已确认，可以记录本次测评。";
+}
+
+export async function runCaseEvaluation(input: CaseEvaluationInput): Promise<ManualCaseResult | null> {
+  void input;
+  // TODO: 在这里接入实际的单 Case 测评逻辑。
+  // 当前只提供页面入口和结果写回契约，不执行真实测评。
+  return null;
 }

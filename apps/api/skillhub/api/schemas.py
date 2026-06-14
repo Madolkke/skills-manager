@@ -19,6 +19,7 @@ EVAL_CASE_INPUT_MAX_LENGTH = 20_000
 EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH = 10_000
 EVAL_CASE_NOTES_MAX_LENGTH = 2_000
 EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH = 20_000
+EVAL_CASE_ATTACHMENT_MAX_BASE64_LENGTH = 7_000_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
 VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
@@ -29,6 +30,7 @@ EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MA
 EvalCaseExpectedOutput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH)]
 EvalCaseNotes = Annotated[str, Field(max_length=EVAL_CASE_NOTES_MAX_LENGTH)]
 EvalCaseActualOutput = Annotated[str, Field(max_length=EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH)]
+EvalCaseAttachmentBase64 = Annotated[str, Field(max_length=EVAL_CASE_ATTACHMENT_MAX_BASE64_LENGTH)]
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
@@ -85,6 +87,8 @@ class CreateEvalCasePayload(BaseModel):
     title: EvalCaseTitle
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
+    attachment_name: str | None = None
+    attachment_base64: EvalCaseAttachmentBase64 | None = None
     notes: EvalCaseNotes | None = None
 
 
@@ -92,6 +96,8 @@ class CreateEvalCaseItemPayload(BaseModel):
     title: EvalCaseTitle
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
+    attachment_name: str | None = None
+    attachment_base64: EvalCaseAttachmentBase64 | None = None
     notes: EvalCaseNotes | None = None
 
 
@@ -105,6 +111,8 @@ class CreateEvalCaseVersionPayload(BaseModel):
     title: EvalCaseTitle | None = None
     input_text: EvalCaseInput
     expected_output: EvalCaseExpectedOutput
+    attachment_name: str | None = None
+    attachment_base64: EvalCaseAttachmentBase64 | None = None
     notes: EvalCaseNotes | None = None
     make_current: bool = True
 
@@ -126,6 +134,28 @@ class RecordEvalRunPayload(BaseModel):
     environment_tags: list[TagValue] = Field(default_factory=list)
     run_context: dict[str, Any] = Field(default_factory=dict)
     results: dict[str, bool | ManualEvalResultPayload]
+
+
+class EnqueueEvalCaseRunPayload(BaseModel):
+    skill_version_id: str
+    eval_set_id: str
+    case_version_id: str
+    strategy: str = "single_case"
+    environment_tags: list[TagValue] = Field(default_factory=list)
+    run_context: dict[str, Any] = Field(default_factory=dict)
+
+
+class FinalizeEvalCaseRunPayload(BaseModel):
+    passed: bool
+    actual_output: EvalCaseActualOutput = ""
+
+
+class AggregateEvalRunPayload(BaseModel):
+    skill_version_id: str
+    eval_set_id: str
+    strategy: str = "manual_pass_fail"
+    environment_tags: list[TagValue] = Field(default_factory=list)
+    run_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class AcceptEvalRunVerificationPayload(BaseModel):

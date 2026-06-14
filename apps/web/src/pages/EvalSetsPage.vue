@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import clsx from "clsx";
-import { Copy, Plus, Search } from "lucide-vue-next";
+import { Copy, Download, Plus, Search } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import EvalCaseModal, { type EvalCaseFormData } from "../components/EvalCaseModal.vue";
 import { api, ApiError } from "../lib/api";
@@ -92,7 +92,18 @@ function caseLifecycleLabel(status: string): string {
 }
 
 function cleanCaseForm(form: EvalCaseFormData) {
-  return { title: form.title, input_text: form.input_text, expected_output: form.expected_output, notes: form.notes.trim() || undefined };
+  return {
+    title: form.title,
+    input_text: form.input_text,
+    expected_output: form.expected_output,
+    attachment_name: form.attachment_name,
+    attachment_base64: form.attachment_base64,
+    notes: form.notes.trim() || undefined,
+  };
+}
+
+function attachmentFileName(locator: string): string {
+  return locator.split(":").at(-1) || "case-attachment.zip";
 }
 
 function errorMessage(caught: unknown): string {
@@ -161,6 +172,15 @@ function errorMessage(caught: unknown): string {
             <div class="tag-row">
               <span class="tag-chip">case v{{ selected.case_version.version_number }}</span>
               <span class="tag-chip">position {{ selected.position + 1 }}</span>
+              <a
+                v-if="selected.case_version.attachment_artifact"
+                class="tag-chip"
+                :href="api.artifactDownloadUrl(selected.case_version.attachment_artifact.id)"
+                :download="attachmentFileName(selected.case_version.attachment_artifact.locator)"
+              >
+                <Download :size="14" />
+                {{ attachmentFileName(selected.case_version.attachment_artifact.locator) }}
+              </a>
             </div>
           </div>
           <div class="button-row"><button class="primary-button" type="button" @click="editor = selected">编辑 case</button></div>

@@ -1,4 +1,5 @@
 from tests.api_command_test_case import ApiCommandTestCase
+import base64
 
 
 class ApiSkillManagementTest(ApiCommandTestCase):
@@ -38,6 +39,30 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(first_case["eval_set_id"], second_case["eval_set_id"])
         self.assertEqual(detail["summary"]["primary_eval_set"]["id"], second_case["eval_set_id"])
         self.assertEqual([item["case_version"]["id"] for item in eval_set_detail["cases"]], [first_case["eval_case_version_id"], second_case["eval_case_version_id"]])
+
+    def test_eval_case_zip_attachment_can_be_saved_and_downloaded(self):
+        skill = self.create_skill("case-attachment")
+        zip_bytes = b"PK\x03\x04case archive"
+
+        response = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "Archive context",
+                "input_text": "Review the attached archive.",
+                "expected_output": "Flag missing test coverage.",
+                "attachment_name": "context.zip",
+                "attachment_base64": base64.b64encode(zip_bytes).decode("ascii"),
+            },
+        )
+        eval_set = self.client.get(f"/api/eval-sets/{response.json()['eval_set_id']}").json()
+        attachment = eval_set["cases"][0]["case_version"]["attachment_artifact"]
+        downloaded = self.client.get(f"/api/artifacts/{attachment['id']}/download")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(attachment["media_type"], "application/zip")
+        self.assertEqual(downloaded.status_code, 200)
+        self.assertEqual(downloaded.content, zip_bytes)
 
     def test_eval_case_change_updates_same_eval_set_after_run_history_exists(self):
         skill = self.create_skill("evalset-locked-version")

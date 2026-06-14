@@ -75,6 +75,7 @@ create table eval_case_versions (
   version_number integer not null,
   input_artifact_id text not null references artifacts(id),
   expected_output_artifact_id text not null references artifacts(id),
+  attachment_artifact_id text references artifacts(id),
   notes text,
   created_at timestamptz not null default now(),
   created_by text not null,
@@ -134,6 +135,48 @@ create table case_results (
   constraint case_results_case_skill_fkey foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)
 );
 
+create table jobs (
+  id text primary key,
+  type text not null,
+  status text not null default 'queued',
+  payload jsonb not null,
+  result_ref text,
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  finished_at timestamptz,
+  created_by text not null,
+  error text,
+  constraint jobs_status_check check (status in ('queued', 'running', 'succeeded', 'failed', 'canceled'))
+);
+
+create table eval_case_runs (
+  id text primary key,
+  job_id text references jobs(id),
+  skill_id text not null,
+  skill_version_id text not null,
+  eval_set_id text not null,
+  case_version_id text not null,
+  strategy text not null,
+  status text not null,
+  environment_tags text[] not null default '{}',
+  run_context jsonb not null default '{}'::jsonb,
+  run_context_hash text not null,
+  passed boolean,
+  score integer,
+  result_artifact_id text references artifacts(id),
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  finished_at timestamptz,
+  created_by text not null,
+  error text,
+  constraint eval_case_runs_status_check check (status in ('queued', 'running', 'succeeded', 'failed', 'canceled')),
+  constraint eval_case_runs_score_pass_fail check (score is null or score in (0, 1)),
+  constraint eval_case_runs_id_skill_unique unique (id, skill_id),
+  constraint eval_case_runs_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
+  constraint eval_case_runs_eval_set_skill_fkey foreign key (eval_set_id, skill_id) references eval_sets(id, skill_id),
+  constraint eval_case_runs_case_skill_fkey foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)
+);
+
 create table accepted_verifications (
   id text primary key,
   skill_id text not null,
@@ -161,20 +204,6 @@ create table saved_views (
   created_by text not null,
   constraint saved_views_type_check check (view_type in ('run_history')),
   constraint saved_views_skill_type_name_unique unique (skill_id, view_type, name)
-);
-
-create table jobs (
-  id text primary key,
-  type text not null,
-  status text not null default 'queued',
-  payload jsonb not null,
-  result_ref text,
-  created_at timestamptz not null default now(),
-  started_at timestamptz,
-  finished_at timestamptz,
-  created_by text not null,
-  error text,
-  constraint jobs_status_check check (status in ('queued', 'running', 'succeeded', 'failed', 'canceled'))
 );
 
 create table role_assignments (
@@ -214,6 +243,12 @@ create index eval_runs_eval_set_id_idx on eval_runs (eval_set_id);
 create index eval_runs_context_hash_idx on eval_runs (run_context_hash);
 create index case_results_skill_id_idx on case_results (skill_id);
 create index case_results_case_version_id_idx on case_results (case_version_id);
+create index eval_case_runs_skill_id_created_at_idx on eval_case_runs (skill_id, created_at desc);
+create index eval_case_runs_skill_version_id_idx on eval_case_runs (skill_version_id);
+create index eval_case_runs_eval_set_id_idx on eval_case_runs (eval_set_id);
+create index eval_case_runs_case_version_id_idx on eval_case_runs (case_version_id);
+create index eval_case_runs_job_id_idx on eval_case_runs (job_id);
+create index eval_case_runs_context_hash_idx on eval_case_runs (run_context_hash);
 create index accepted_verifications_context_idx on accepted_verifications (skill_id, skill_version_id, eval_set_id, run_context_hash);
 create index accepted_verifications_eval_run_id_idx on accepted_verifications (eval_run_id);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
