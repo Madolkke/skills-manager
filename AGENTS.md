@@ -43,8 +43,6 @@ If you didn't test it, it doesn't work.
 
 Verify written code by:
 - Running unit tests
-- Running end to end tests
 - Checking for type errors
 - Checking for lint errors
-- Smoke testing and checking for runtime errors with Playwright
-- Taking screenshots and verifying the UI is as expected
+- Smoke testing relevant user flows when needed

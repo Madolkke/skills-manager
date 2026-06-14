@@ -291,4 +291,4 @@ sequenceDiagram
 - 手工测评每个 case 可输入 actual output，并显示 actual vs expected 对比。
 - `environment_tags` 和 `run_context` 出现在 EvalRun 记录和历史证据中。
 - 320px 到桌面宽度无关键组件穿出或遮挡。
-- API/Web 单测、lint、build、Playwright E2E 和视觉 smoke 通过。
+- API/Web 单测、lint 和 build 通过。

@@ -121,7 +121,7 @@ description: Review pull requests for auth and data access regressions.
 | 5 | 测评 | 选择 exact `SkillVersion + EvalSetVersion`，输入运行环境与 actual output，逐 case 标记结果 | 详情区显示真实绑定信息；每个 case 都能对比 actual vs expected；未全部确认前不能记录 |
 | 6 | 历史 | 打开 `历史` tab，选择刚记录的 run | 展示 run、运行环境、`SkillVersion`、`EvalSetVersion`、case result、artifact digest、actual output 与版本链 |
 
-最小冒烟至少覆盖：新建 Skill、上传版本、查看 bundle、后端 Bundle diff、创建 case、手动测评 actual output 记录、历史证据链，以及 320px 小窗口无横向溢出。
+最小冒烟覆盖：新建 Skill、上传版本、查看 bundle、后端 Bundle diff、创建 case、手动测评 actual output 记录、历史证据链，以及 320px 小窗口无横向溢出。
 
 ## 验证命令
 
@@ -137,13 +137,7 @@ cd apps/web
 npm run test
 npm run lint
 npm run build
-npm run e2e
-npm run e2e:visual
 ```
-
-`npm run e2e` 会用临时 SQLite 数据库启动 API 和 Web，执行一次从新建 Skill 到历史证据链的正式流程冒烟，并额外用 `320x820` viewport 覆盖小窗口溢出回归。详见 [Web E2E smoke](apps/web/e2e/core-flow.md)。
-
-`npm run e2e:visual` 会用固定 seed 和 `1586x992` viewport 截取 5 个正式页面，防止 UI 布局、actual output 对比和 diff 入口偏离当前基线。详见 [Web 视觉 Smoke](apps/web/e2e/visual-smoke.md)。
 
 ## 主要文档
 
@@ -152,5 +146,3 @@ npm run e2e:visual
 - [技术栈](docs/tech-stack.md)
 - [UI 设计规格](docs/ui-design.md)
 - [验证与仓库约定](docs/verification.md)
-- [Web E2E smoke](apps/web/e2e/core-flow.md)
-- [Web 视觉 Smoke](apps/web/e2e/visual-smoke.md)

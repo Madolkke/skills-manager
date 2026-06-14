@@ -11,7 +11,7 @@
 - 历史页、run 详情、case result 和 actual vs expected。
 - 后端真实 bundle diff。
 - 文件型 SQLite 默认持久化和干净 clone 自动建库。
-- Web 正式工作台、E2E、视觉和小窗口冒烟。
+- Web 正式工作台。
 
 ## 下一阶段
 

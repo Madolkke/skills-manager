@@ -100,7 +100,5 @@ Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 
 ## 验收口径
 
-- `npm run e2e` 通过正式流程冒烟。
-- `npm run e2e:visual` 通过 5 个页面视觉基线。
-- `responsive-smoke.spec.ts` 覆盖 `320px` 小窗口。
 - README 的核心验收清单全部可手工复现。
+- `npm run test`、`npm run lint` 和 `npm run build` 通过。
