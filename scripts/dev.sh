@@ -7,6 +7,13 @@ WEB_PORT="${SKILLHUB_WEB_PORT:-3030}"
 HOST="${SKILLHUB_HOST:-127.0.0.1}"
 export UV_NO_CACHE="${UV_NO_CACHE:-1}"
 
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 cleanup() {
   if [[ -n "${API_PID:-}" ]]; then
     kill "$API_PID" 2>/dev/null || true
