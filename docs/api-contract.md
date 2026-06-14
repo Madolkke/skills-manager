@@ -162,6 +162,6 @@
 
 ## 持久化
 
-- 默认本地连接由 `SKILLHUB_DATA_DIR` 派生，落到 `.data/skillhub.sqlite3`。
-- 干净 clone 后无需手动创建 SQLite 文件；API 启动会创建 schema。
-- Windows Git Bash 默认启动不会使用 `sqlite:///:memory:`。
+- API 只接受 PostgreSQL 连接串，必须通过 `SKILLHUB_DATABASE_URL` 注入。
+- 支持 `postgresql://` 和 `postgresql+psycopg://` 两类 SQLAlchemy URL。
+- 应用启动时通过 SQLAlchemy metadata 创建当前 schema；测试使用 `SKILLHUB_TEST_DATABASE_URL` 指向隔离测试库。

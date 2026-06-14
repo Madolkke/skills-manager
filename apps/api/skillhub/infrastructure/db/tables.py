@@ -10,7 +10,6 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
-    JSON,
     MetaData,
     PrimaryKeyConstraint,
     Table,
@@ -23,7 +22,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData()
 
-# This metadata backs application queries and fast SQLite repository tests.
+# This metadata backs application queries and PostgreSQL integration tests.
 # PostgreSQL migrations still execute schema.sql as the authoritative DDL.
 
 
@@ -68,7 +67,7 @@ skill_versions = Table(
     Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
     Column("version_number", Integer, nullable=False),
     Column("display_name", Text),
-    Column("content_ref", JSONB().with_variant(JSON(), "sqlite"), nullable=False),
+    Column("content_ref", JSONB(), nullable=False),
     Column("content_digest", Text, nullable=False),
     Column("change_summary", Text, nullable=False),
     timestamp_column(),
@@ -156,10 +155,10 @@ eval_runs = Table(
     Column("eval_set_id", Text, nullable=False),
     Column("strategy", Text, nullable=False),
     Column("status", Text, nullable=False),
-    Column("environment_tags", ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
-    Column("run_context", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("environment_tags", ARRAY(Text), nullable=False, server_default=text("'{}'")),
+    Column("run_context", JSONB(), nullable=False, server_default=text("'{}'")),
     Column("run_context_hash", Text, nullable=False),
-    Column("summary", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("summary", JSONB(), nullable=False, server_default=text("'{}'")),
     Column("result_artifact_id", Text, ForeignKey("artifacts.id")),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
@@ -211,7 +210,7 @@ saved_views = Table(
     Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
     Column("name", Text, nullable=False),
     Column("view_type", Text, nullable=False),
-    Column("config", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("config", JSONB(), nullable=False, server_default=text("'{}'")),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
     CheckConstraint("view_type in ('run_history')", name="saved_views_type_check"),
@@ -224,7 +223,7 @@ jobs = Table(
     Column("id", Text, primary_key=True),
     Column("type", Text, nullable=False),
     Column("status", Text, nullable=False, server_default=text("'queued'")),
-    Column("payload", JSONB().with_variant(JSON(), "sqlite"), nullable=False),
+    Column("payload", JSONB(), nullable=False),
     Column("result_ref", Text),
     timestamp_column(),
     Column("started_at", DateTime(timezone=True)),
@@ -257,7 +256,7 @@ audit_events = Table(
     Column("action", Text, nullable=False),
     Column("resource_type", Text, nullable=False),
     Column("resource_id", Text, nullable=False),
-    Column("payload", JSONB().with_variant(JSON(), "sqlite"), nullable=False, server_default=text("'{}'")),
+    Column("payload", JSONB(), nullable=False, server_default=text("'{}'")),
     timestamp_column(),
 )
 

@@ -15,6 +15,7 @@ apps/web/test-results/
 apps/web/e2e/
 
 .data/
+*.sqlite3
 .uv-cache/
 .tools/
 **/__pycache__/

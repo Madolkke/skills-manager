@@ -25,7 +25,7 @@
 ```mermaid
 flowchart TB
   Web["apps/web\nVue + Vite"] --> API["apps/api\nFastAPI"]
-  API --> DB[("SQLite/PostgreSQL\nmetadata + facts")]
+  API --> DB[("PostgreSQL\nmetadata + facts")]
   API --> Artifacts["ArtifactStore\nfile/S3/MinIO"]
   API --> Jobs[("Job table")]
   Worker["apps/worker\nfuture"] --> Jobs
@@ -256,7 +256,7 @@ sequenceDiagram
 
 ## 10. 存储
 
-当前本地默认使用文件型 SQLite，数据库在启动时通过 SQLAlchemy metadata 初始化：
+当前本地和部署环境统一使用 PostgreSQL，数据库连接通过 `SKILLHUB_DATABASE_URL` 注入。数据库在启动时通过 SQLAlchemy metadata 初始化：
 
 - `skills.current_version_id`
 - `skill_versions`
@@ -267,7 +267,7 @@ sequenceDiagram
 - `accepted_verifications.skill_version_id`
 - `accepted_verifications.run_context_hash`
 
-当前项目仍处于开发阶段，不启用独立 Alembic migration 流程。schema 初始化和 SQLite 兼容补丁由启动代码处理。
+当前项目仍处于开发阶段，不启用独立 Alembic migration 流程。schema 初始化由启动代码处理。
 
 ## 11. 读模型
 
@@ -284,7 +284,7 @@ sequenceDiagram
 
 ## 12. 验收标准
 
-- 干净 clone 后 `bash scripts/dev.sh` 自动创建文件型 SQLite。
+- 配置 `SKILLHUB_DATABASE_URL` 后，`bash scripts/dev.sh` 能启动 API 和 Web。
 - 刷新或重启后 Skill、SkillVersion、EvalRun、history 数据仍在。
 - 历史页能看到实际 eval run 和 case result。
 - Bundle diff 使用真实 API 数据和可点击 UI。

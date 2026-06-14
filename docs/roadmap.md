@@ -10,7 +10,7 @@
 - 手工 `EvalRun`，包含运行环境标签和 actual output。
 - 历史页、run 详情、case result 和 actual vs expected。
 - 后端真实 bundle diff。
-- 文件型 SQLite 默认持久化和干净 clone 自动建库。
+- PostgreSQL-only 持久化，数据源通过配置注入。
 - Web 正式工作台。
 
 ## 下一阶段

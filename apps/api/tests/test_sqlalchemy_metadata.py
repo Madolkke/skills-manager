@@ -27,13 +27,16 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             },
         )
 
-    def test_metadata_can_create_sqlite_test_schema(self):
-        from sqlalchemy import create_engine
+    def test_metadata_can_create_postgresql_test_schema(self):
+        from skillhub.api.database import create_postgres_engine, resolve_database_url
 
-        engine = create_engine("sqlite:///:memory:")
+        engine = create_postgres_engine(resolve_database_url())
+        metadata.drop_all(engine)
         metadata.create_all(engine)
         with engine.connect() as connection:
             self.assertTrue(engine.dialect.has_table(connection, "skills"))
+        metadata.drop_all(engine)
+        engine.dispose()
 
     def test_eval_run_same_skill_composite_foreign_keys_are_mapped(self):
         self.assert_foreign_key(

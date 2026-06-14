@@ -33,9 +33,14 @@ bash scripts/dev.sh
 
 脚本使用 `uv` 运行 Python API，并在 `apps/web/node_modules` 缺失时安装前端依赖。脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。
 
-本地 API 数据默认持久化到 `.data/skillhub.sqlite3`。从干净 `git clone` 启动时不需要提前创建数据库文件，API 会自动创建 SQLite 文件和 schema；`bash scripts/dev.sh` 在 macOS、Linux 和 Windows Git Bash 下默认都会落到文件型 SQLite，不会回退到 `sqlite:///:memory:`。
+API 只支持 PostgreSQL。启动前必须通过 `SKILLHUB_DATABASE_URL` 注入连接串，应用启动时会在目标库中创建所需 schema。
 
-可以用 `SKILLHUB_DATA_DIR` 覆盖数据目录；只有需要完整自定义连接串时才设置 `SKILLHUB_DATABASE_URL`。本地开发默认 actor 是 `product-operator`。
+本地开发默认 actor 是 `product-operator`。连接串示例：
+
+```bash
+export SKILLHUB_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/skillhub
+bash scripts/dev.sh
+```
 
 ### 局域网访问
 
@@ -66,8 +71,7 @@ curl http://127.0.0.1:3030/skills
 
 ```bash
 cd apps/api
-mkdir -p ../../.data
-SKILLHUB_DATA_DIR=../../.data \
+SKILLHUB_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/skillhub \
 UV_NO_CACHE=1 \
 uv run uvicorn skillhub.api.main:app --host 127.0.0.1 --port 8000
 ```
@@ -129,6 +133,7 @@ description: Review pull requests for auth and data access regressions.
 
 ```bash
 cd apps/api
+SKILLHUB_TEST_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/skillhub_test \
 uv run pytest
 ```
 

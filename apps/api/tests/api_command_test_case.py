@@ -1,17 +1,13 @@
-import unittest
-
 from fastapi.testclient import TestClient
 
-from skillhub.api.main import create_app, create_sqlite_engine
+from skillhub.api.main import create_app
+from tests.postgres_test_case import PostgresTestCase
 
 
-class ApiCommandTestCase(unittest.TestCase):
+class ApiCommandTestCase(PostgresTestCase):
     def setUp(self) -> None:
-        self.engine = create_sqlite_engine("sqlite:///:memory:")
+        super().setUp()
         self.client = TestClient(create_app(self.engine))
-
-    def tearDown(self) -> None:
-        self.engine.dispose()
 
     def skill_payload(self, slug: str, digest: str | None = None):
         return {

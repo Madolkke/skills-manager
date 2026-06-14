@@ -1,22 +1,14 @@
 import json
-import unittest
-
-from sqlalchemy import create_engine, event
 
 from skillhub.domain.models import ContentRef, digest_text
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
-from skillhub.infrastructure.db.tables import metadata
+from tests.postgres_test_case import PostgresTestCase
 
 
-class SqlRepositoryTestCase(unittest.TestCase):
+class SqlRepositoryTestCase(PostgresTestCase):
     def setUp(self) -> None:
-        self.engine = create_engine("sqlite:///:memory:")
-        event.listen(self.engine, "connect", self.enable_sqlite_foreign_keys)
-        metadata.create_all(self.engine)
+        super().setUp()
         self.repository = SqlSkillRepository(self.engine)
-
-    def enable_sqlite_foreign_keys(self, dbapi_connection, _connection_record) -> None:
-        dbapi_connection.execute("pragma foreign_keys=on")
 
     def create_skill(self, slug: str = "code-reviewer", digest: str = "digest-code"):
         return self.repository.create_skill(
