@@ -20,6 +20,7 @@ from skillhub.domain.models import (
     normalize_tags,
     utc_now,
 )
+from skillhub.domain.semver import next_patch_version
 from tests.fakes.in_memory_workspace import InMemoryWorkspace
 
 
@@ -35,6 +36,7 @@ class SkillHubService:
         content_ref: ContentRef,
         change_summary: str,
         actor: str,
+        version: str | None = None,
     ) -> Skill:
         now = utc_now()
         skill = Skill(id=new_id("skill"), slug=slug, owner_ref=owner_ref, current_version_id=None, created_at=now)
@@ -46,6 +48,7 @@ class SkillHubService:
             change_summary=change_summary,
             actor=actor,
             make_current=True,
+            version=version,
         )
         eval_set = EvalSet(
             id=new_id("evalset"),
@@ -66,12 +69,14 @@ class SkillHubService:
         change_summary: str,
         actor: str,
         make_current: bool,
+        version: str | None = None,
     ) -> SkillVersion:
         skill = self._skill(skill_id)
         version = SkillVersion(
             id=new_id("skillver"),
             skill_id=skill_id,
             version_number=self._next_skill_version_number(skill_id),
+            version=version or self._next_skill_semver(skill_id),
             content_ref=content_ref,
             change_summary=change_summary,
             created_at=utc_now(),
@@ -208,6 +213,14 @@ class SkillHubService:
             (item.version_number for item in self.workspace.skill_versions.values() if item.skill_id == skill_id),
             default=0,
         )
+
+    def _next_skill_semver(self, skill_id: str) -> str:
+        latest = max(
+            (item for item in self.workspace.skill_versions.values() if item.skill_id == skill_id),
+            key=lambda item: item.version_number,
+            default=None,
+        )
+        return next_patch_version(latest.version if latest is not None else None)
 
     def _next_case_version_number(self, case_id: str) -> int:
         return 1 + max(

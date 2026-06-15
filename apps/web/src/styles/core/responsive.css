@@ -89,6 +89,7 @@
   .manual-version-detail-grid,
   .actual-output-compare,
   .case-result-grid,
+  .version-bump-grid,
   .version-upload-panel {
     grid-template-columns: 1fr;
   }

@@ -60,6 +60,7 @@ class SkillVersion:
     id: str
     skill_id: str
     version_number: int
+    version: str
     content_ref: ContentRef
     change_summary: str
     created_at: datetime

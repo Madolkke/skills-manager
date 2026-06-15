@@ -91,13 +91,17 @@ class SchemaContractTest(unittest.TestCase):
     def test_append_only_version_uniqueness_constraints_exist(self):
         for constraint in [
             "unique (skill_id, version_number)",
+            "unique (skill_id, version)",
             "unique (case_id, version_number)",
             "primary key (run_id, case_version_id)",
         ]:
             self.assertIn(constraint, self.normalized)
 
     def test_skill_versions_have_optional_display_names(self):
-        self.assertIn("display_name text", self._table_sql("skill_versions"))
+        table_sql = self._table_sql("skill_versions")
+        self.assertIn("version text not null", table_sql)
+        self.assertIn("display_name text", table_sql)
+        self.assertIn("skill_versions_version_semver_check", table_sql)
 
     def test_eval_case_versions_have_optional_attachment_artifact(self):
         table_sql = self._table_sql("eval_case_versions")

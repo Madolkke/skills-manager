@@ -56,6 +56,10 @@
   font-weight: 780;
 }
 
+.field-label.compact {
+  gap: 6px;
+}
+
 .field-label input,
 .field-label textarea,
 select {
@@ -89,6 +93,17 @@ select:focus,
   border-radius: var(--radius);
   padding: 12px 14px;
   font-weight: 720;
+}
+
+.field-hint {
+  margin: -8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field-hint.danger {
+  color: #b91c1c;
 }
 
 .modal-actions {
@@ -154,6 +169,69 @@ select:focus,
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.version-selector {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.version-selector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.version-selector-head strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.version-bump-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.version-bump-option {
+  min-width: 0;
+  min-height: 86px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: #334155;
+  padding: 10px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  text-align: left;
+}
+
+.version-bump-option.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 10%);
+}
+
+.version-bump-option span {
+  font-weight: 820;
+}
+
+.version-bump-option strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.version-bump-option small {
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .picker-tile {

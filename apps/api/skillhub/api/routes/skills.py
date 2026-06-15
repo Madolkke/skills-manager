@@ -28,6 +28,7 @@ def register_skill_routes(app: FastAPI) -> None:
                 content_ref=content_ref(payload.content_ref),
                 change_summary=payload.change_summary,
                 display_name=payload.display_name,
+                version=payload.version,
                 actor=actor.id,
             )
         )
@@ -51,6 +52,7 @@ def register_skill_routes(app: FastAPI) -> None:
             content_ref=ContentRef(kind="artifact", locator=f"artifact:{artifact['id']}", digest=artifact["digest"], path=bundle.entry_path),
             change_summary=f"Imported standard skill bundle with {bundle.file_count} files.",
             display_name=payload.display_name,
+            version=payload.version,
             actor=actor.id,
         )
         return {

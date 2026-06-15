@@ -28,6 +28,7 @@ create table skill_versions (
   id text primary key,
   skill_id text not null references skills(id),
   version_number integer not null,
+  version text not null,
   display_name text,
   content_ref jsonb not null,
   content_digest text not null,
@@ -35,7 +36,9 @@ create table skill_versions (
   created_at timestamptz not null default now(),
   created_by text not null,
   constraint skill_versions_version_number_positive check (version_number > 0),
+  constraint skill_versions_version_semver_check check (version ~ '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'),
   constraint skill_versions_skill_version_unique unique (skill_id, version_number),
+  constraint skill_versions_skill_semver_unique unique (skill_id, version),
   constraint skill_versions_id_skill_unique unique (id, skill_id)
 );
 

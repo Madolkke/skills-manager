@@ -47,7 +47,7 @@ Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 概览负责回答“这个 Skill 是什么，当前可用证据是什么”：
 
 - 身份卡：slug、owner、lifecycle、root path。
-- 当前版本卡：version number、digest、created_by、change summary。
+- 当前版本卡：SemVer version、digest、created_by、change summary。
 - Bundle browser：目录树、文件内容、digest。
 - 最近测评：run context、pass/fail、actual output 摘要。
 
@@ -56,6 +56,8 @@ Hub 必须能让用户快速找到 Skill，并看到是否已有可信验证：
 版本页负责不可变内容线：
 
 - 版本线必须清楚标出 current version。
+- 新建 Skill 可填写初始 SemVer，默认 `0.0.1`。
+- 上传和编辑新版本时提供重大、功能、修订三类更新选择，并自动填入对应 SemVer；用户仍可手动微调版本号。
 - `Bundle diff` 使用后端 `GET /api/artifacts/diff` 的真实数据。
 - 上传版本只创建新的 `SkillVersion`，是否设为 current 由显式选项控制。
 - 不展示 Variant、promotion 或默认 Variant。

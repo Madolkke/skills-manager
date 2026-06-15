@@ -60,9 +60,9 @@ export const api = {
       `/api/artifacts/diff?left_skill_version_id=${encodeURIComponent(leftSkillVersionId)}&right_skill_version_id=${encodeURIComponent(rightSkillVersionId)}`,
     ),
   artifactDownloadUrl: (artifactId: string) => `${API_BASE_URL}/api/artifacts/${encodeURIComponent(artifactId)}/download`,
-  importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string }) =>
+  importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string; version?: string }) =>
     apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
-  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string }) =>
+  createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string; version?: string }) =>
     apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
   updateSkillVersionName: (versionId: string, displayName: string | null) =>
     apiSend<unknown>(`/api/skill-versions/${versionId}`, "PATCH", { display_name: displayName }),

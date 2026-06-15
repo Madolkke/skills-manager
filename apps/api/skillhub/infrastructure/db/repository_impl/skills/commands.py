@@ -5,7 +5,9 @@ from typing import Any
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
+from skillhub.domain.errors import FieldError, FieldInvariantError
 from skillhub.domain.models import ContentRef, new_id, utc_now
+from skillhub.domain.semver import normalize_semver
 from skillhub.infrastructure.db import tables
 from skillhub.infrastructure.db.repository_impl.shared.errors import skill_slug_conflict
 from skillhub.infrastructure.db.repository_impl.shared.results import CreateSkillResult, CreateSkillVersionResult
@@ -19,13 +21,15 @@ class SkillCommandMixin:
         owner_ref: str,
         content_ref: ContentRef,
         change_summary: str,
-        display_name: str | None = None,
         actor: str,
+        display_name: str | None = None,
+        version: str | None = None,
     ) -> CreateSkillResult:
         created_at = utc_now()
         skill_id = new_id("skill")
         skill_version_id = new_id("skillver")
         eval_set_id = new_id("evalset")
+        semver = normalize_semver(version or "0.0.1")
 
         try:
             with self.engine.begin() as connection:
@@ -45,6 +49,7 @@ class SkillCommandMixin:
                         id=skill_version_id,
                         skill_id=skill_id,
                         version_number=1,
+                        version=semver,
                         display_name=display_name,
                         content_ref=self._content_ref_payload(content_ref),
                         content_digest=content_ref.digest,
@@ -96,6 +101,7 @@ class SkillCommandMixin:
             skill_version_id=skill_version_id,
             eval_set_id=eval_set_id,
             version_number=1,
+            version=semver,
         )
 
     def create_skill_version(
@@ -107,32 +113,52 @@ class SkillCommandMixin:
         actor: str,
         make_current: bool,
         display_name: str | None = None,
+        version: str | None = None,
     ) -> CreateSkillVersionResult:
         created_at = utc_now()
         skill_version_id = new_id("skillver")
-        with self.engine.begin() as connection:
-            self._skill_row(connection, skill_id)
-            version_number = self._next_skill_version_number(connection, skill_id)
-            connection.execute(
-                insert(tables.skill_versions).values(
-                    id=skill_version_id,
-                    skill_id=skill_id,
-                    version_number=version_number,
-                    display_name=display_name,
-                    content_ref=self._content_ref_payload(content_ref),
-                    content_digest=content_ref.digest,
-                    change_summary=change_summary,
-                    created_at=created_at,
-                    created_by=actor,
-                )
-            )
-            if make_current:
+        try:
+            with self.engine.begin() as connection:
+                self._skill_row(connection, skill_id)
+                version_number = self._next_skill_version_number(connection, skill_id)
+                semver = normalize_semver(version or self._next_skill_semver(connection, skill_id))
                 connection.execute(
-                    update(tables.skills)
-                    .where(tables.skills.c.id == skill_id)
-                    .values(current_version_id=skill_version_id, updated_at=created_at)
+                    insert(tables.skill_versions).values(
+                        id=skill_version_id,
+                        skill_id=skill_id,
+                        version_number=version_number,
+                        version=semver,
+                        display_name=display_name,
+                        content_ref=self._content_ref_payload(content_ref),
+                        content_digest=content_ref.digest,
+                        change_summary=change_summary,
+                        created_at=created_at,
+                        created_by=actor,
+                    )
                 )
-        return CreateSkillVersionResult(skill_id=skill_id, skill_version_id=skill_version_id, version_number=version_number)
+                if make_current:
+                    connection.execute(
+                        update(tables.skills)
+                        .where(tables.skills.c.id == skill_id)
+                        .values(current_version_id=skill_version_id, updated_at=created_at)
+                    )
+        except IntegrityError as exc:
+            raise FieldInvariantError(
+                "SkillVersion version already exists for this skill.",
+                [
+                    FieldError(
+                        field="version",
+                        message="这个 Skill 已经存在相同版本号。",
+                        code="skill_version.version_conflict",
+                    )
+                ],
+            ) from exc
+        return CreateSkillVersionResult(
+            skill_id=skill_id,
+            skill_version_id=skill_version_id,
+            version_number=version_number,
+            version=semver,
+        )
 
     def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None) -> dict[str, Any]:
         with self.engine.begin() as connection:

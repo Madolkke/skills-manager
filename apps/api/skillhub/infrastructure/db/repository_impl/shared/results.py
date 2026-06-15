@@ -10,6 +10,7 @@ class CreateSkillResult:
     skill_version_id: str
     eval_set_id: str
     version_number: int
+    version: str
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class CreateSkillVersionResult:
     skill_id: str
     skill_version_id: str
     version_number: int
+    version: str
 
 
 @dataclass(frozen=True)

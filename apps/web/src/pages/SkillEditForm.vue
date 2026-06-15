@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import BundleEditor from "../components/BundleEditor.vue";
+import VersionSelector from "../components/VersionSelector.vue";
 import { api, ApiError } from "../lib/api";
+import { nextPatchVersion, validSemver } from "../lib/semver";
 import type { BundleFile, BundleSource, SkillDetail, SkillVersion } from "../types";
 
 const ENTRY_PATH = "SKILL.md";
@@ -12,13 +14,18 @@ const emit = defineEmits<{ cancel: []; saved: [] }>();
 const files = computed(() => props.version.bundle_files ?? []);
 const entryFile = computed(() => files.value.find((file) => file.path === ENTRY_PATH) ?? null);
 const drafts = ref(textDrafts(files.value));
+const version = ref(nextPatchVersion(props.skill.versions));
 const displayName = ref("");
 const changeSummary = ref(`基于 ${versionLabel(props.version)} 编辑 Skill 内容。`);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const missingBinaryContent = computed(() => files.value.some((file) => file.binary && !file.content_base64));
 const canSubmit = computed(
-  () => !busy.value && files.value.length > 0 && Boolean(entryFile.value && !entryFile.value.binary && drafts.value[ENTRY_PATH]?.trim() && changeSummary.value.trim() && !missingBinaryContent.value),
+  () =>
+    !busy.value &&
+    files.value.length > 0 &&
+    validSemver(version.value) &&
+    Boolean(entryFile.value && !entryFile.value.binary && drafts.value[ENTRY_PATH]?.trim() && changeSummary.value.trim() && !missingBinaryContent.value),
 );
 
 async function submit(): Promise<void> {
@@ -29,6 +36,7 @@ async function submit(): Promise<void> {
       skill_id: props.skill.skill.id,
       source: sourceFromBundle(files.value, drafts.value, props.skill.skill.slug),
       make_current: true,
+      version: version.value.trim(),
       display_name: cleanOptional(displayName.value),
       change_summary: changeSummary.value.trim(),
     });
@@ -64,7 +72,7 @@ function cleanOptional(value: string): string | undefined {
 }
 
 function versionLabel(version: SkillVersion): string {
-  return version.display_name?.trim() || `v${version.version_number}`;
+  return version.display_name?.trim() || version.version || `v${version.version_number}`;
 }
 </script>
 
@@ -75,6 +83,7 @@ function versionLabel(version: SkillVersion): string {
     <div v-if="!entryFile" class="form-error">当前 bundle 找不到根目录 SKILL.md，无法使用页面编辑。</div>
     <div v-if="entryFile?.binary" class="form-error">SKILL.md 不是可编辑文本文件。</div>
     <div v-if="missingBinaryContent" class="form-error">当前 bundle 有缺少内容的二进制文件，无法从页面编辑保存。</div>
+    <VersionSelector v-model="version" :versions="skill.versions" />
     <label class="field-label">
       <span>版本名称</span>
       <input v-model="displayName" maxlength="80" :placeholder="`例如 ${skill.skill.slug} edited`" />

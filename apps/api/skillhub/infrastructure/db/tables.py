@@ -66,6 +66,7 @@ skill_versions = Table(
     Column("id", Text, primary_key=True),
     Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
     Column("version_number", Integer, nullable=False),
+    Column("version", Text, nullable=False),
     Column("display_name", Text),
     Column("content_ref", JSONB(), nullable=False),
     Column("content_digest", Text, nullable=False),
@@ -73,7 +74,9 @@ skill_versions = Table(
     timestamp_column(),
     Column("created_by", Text, nullable=False),
     CheckConstraint("version_number > 0", name="skill_versions_version_number_positive"),
+    CheckConstraint("version ~ '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$'", name="skill_versions_version_semver_check"),
     UniqueConstraint("skill_id", "version_number", name="skill_versions_skill_version_unique"),
+    UniqueConstraint("skill_id", "version", name="skill_versions_skill_semver_unique"),
     UniqueConstraint("id", "skill_id", name="skill_versions_id_skill_unique"),
 )
 

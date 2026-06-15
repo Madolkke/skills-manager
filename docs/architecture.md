@@ -63,7 +63,7 @@ erDiagram
 关键语义：
 
 - `Skill` 是稳定入口，保存 `current_version_id`。
-- `SkillVersion` 是不可变内容快照，append-only。
+- `SkillVersion` 是不可变内容快照，append-only；对外版本号使用 SemVer，同一 Skill 内唯一。
 - `EvalCaseVersion` 是不可变测试用例快照。
 - `EvalSetVersion` 是 case version 列表快照；未被 `EvalRun` 使用的当前版本是可编辑工作版，首次运行后锁定为历史快照。
 - `EvalRun` 是一次 exact `SkillVersion + EvalSetVersion + run_context` 的证据。

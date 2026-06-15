@@ -4,9 +4,9 @@ export function versionName(version?: SkillVersion | null): string {
   return namedVersion(version);
 }
 
-function namedVersion(version?: { version_number: number; display_name?: string | null } | null): string {
+function namedVersion(version?: { version_number: number; version?: string | null; display_name?: string | null } | null): string {
   if (!version) return "-";
-  return version.display_name?.trim() || `v${version.version_number}`;
+  return version.display_name?.trim() || version.version?.trim() || `v${version.version_number}`;
 }
 
 export function scoreLabel(run?: EvalRunRecord | null): string {

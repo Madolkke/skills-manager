@@ -12,9 +12,57 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         eval_set = self.client.get(f"/api/eval-sets/{case['eval_set_id']}").json()
 
         self.assertEqual(hub[0]["summary"]["current_version"]["id"], skill["skill_version_id"])
+        self.assertEqual(hub[0]["summary"]["current_version"]["version"], "0.0.1")
         self.assertEqual(detail["summary"]["current_version"]["id"], skill["skill_version_id"])
+        self.assertEqual(detail["summary"]["current_version"]["version"], "0.0.1")
         self.assertEqual(detail["versions"][0]["id"], skill["skill_version_id"])
         self.assertEqual(eval_set["cases"][0]["case_version"]["id"], case["eval_case_version_id"])
+
+    def test_create_skill_accepts_initial_semver(self):
+        response = self.client.post(
+            "/api/skills",
+            json={**self.skill_payload("initial-semver-api"), "version": "0.2.0"},
+        )
+        detail = self.client.get(f"/api/skills/{response.json()['skill_id']}").json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["version"], "0.2.0")
+        self.assertEqual(detail["summary"]["current_version"]["version"], "0.2.0")
+
+    def test_skill_version_create_accepts_semver(self):
+        skill = self.create_skill("semver-api")
+
+        response = self.client.post(
+            "/api/skill-versions",
+            json={
+                "skill_id": skill["skill_id"],
+                "content_ref": {"kind": "skill_bundle", "locator": "memory:semver-v2", "digest": "digest-semver-v2"},
+                "change_summary": "Major version.",
+                "version": "2.0.0",
+                "make_current": True,
+            },
+        )
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["version"], "2.0.0")
+        self.assertEqual(detail["summary"]["current_version"]["version"], "2.0.0")
+
+    def test_skill_version_create_rejects_invalid_semver(self):
+        skill = self.create_skill("invalid-semver-api")
+
+        response = self.client.post(
+            "/api/skill-versions",
+            json={
+                "skill_id": skill["skill_id"],
+                "content_ref": {"kind": "skill_bundle", "locator": "memory:bad-semver", "digest": "digest-bad-semver"},
+                "change_summary": "Bad version.",
+                "version": "v2",
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["field_errors"][0]["field"], "version")
 
     def test_skill_versions_can_be_named_and_renamed(self):
         skill = self.create_skill("named-versions")

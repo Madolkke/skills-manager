@@ -37,10 +37,25 @@ onUnmounted(() => {
 async function load(): Promise<void> {
   loading.value = true;
   try {
+    const targetRoute = route.value;
     const [sessionInfo, list] = await Promise.all([api.getSession(), api.listSkills()]);
     session.value = sessionInfo;
     skills.value = list;
-    skill.value = route.value.section === "skills" && route.value.skillId ? await api.getSkill(route.value.skillId) : null;
+    if (targetRoute.section === "skills" && targetRoute.skillId) {
+      try {
+        skill.value = await api.getSkill(targetRoute.skillId);
+      } catch (error) {
+        if (isMissingSkillError(error)) {
+          skill.value = null;
+          toast.value = { tone: "info", message: "当前 Skill 已不存在，已返回列表。" };
+          route.value = writeRoute({ section: "hub", skillId: null, tab: "overview", selectedCaseId: null, selectedVersionId: null, selectedRunId: null });
+          return;
+        }
+        throw error;
+      }
+    } else {
+      skill.value = null;
+    }
   } catch (error) {
     toast.value = { tone: "danger", message: errorMessage(error) };
   } finally {
@@ -82,6 +97,10 @@ function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
   return "操作失败，请稍后重试。";
+}
+
+function isMissingSkillError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404 && error.message.startsWith("Skill not found:");
 }
 </script>
 

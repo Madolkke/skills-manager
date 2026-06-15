@@ -5,10 +5,11 @@ from datetime import datetime
 import json
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import desc, insert, select, update
 
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError, NotFoundError
 from skillhub.domain.models import ContentRef, digest_text, new_id
+from skillhub.domain.semver import next_patch_version
 from skillhub.infrastructure.db import tables
 
 
@@ -201,6 +202,19 @@ class CoreHelperMixin:
             connection.execute(select(tables.skill_versions.c.version_number).where(tables.skill_versions.c.skill_id == skill_id)).scalars(),
             default=0,
         )
+
+    def _next_skill_semver(self, connection, skill_id: str) -> str:
+        current = (
+            connection.execute(
+                select(tables.skill_versions.c.version)
+                .where(tables.skill_versions.c.skill_id == skill_id)
+                .order_by(desc(tables.skill_versions.c.version_number))
+                .limit(1)
+            )
+            .scalars()
+            .one_or_none()
+        )
+        return next_patch_version(current)
 
     def _next_eval_case_version_number(self, connection, case_id: str) -> int:
         return 1 + max(

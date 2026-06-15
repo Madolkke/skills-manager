@@ -5,6 +5,7 @@ import { computed, ref, watch } from "vue";
 import BundleBrowser from "../components/BundleBrowser.vue";
 import BundleDiffPanel from "../components/BundleDiffPanel.vue";
 import { humanDate, versionName } from "../lib/format";
+import { compareSkillVersions } from "../lib/semver";
 import type { RouteState } from "../lib/navigation";
 import type { SkillDetail, SkillVersion, ToastState } from "../types";
 import SkillEditForm from "./SkillEditForm.vue";
@@ -35,9 +36,7 @@ function finishEdit(): void {
 }
 
 function previousSkillVersion(versions: SkillVersion[], current: SkillVersion): SkillVersion | null {
-  return [...versions]
-    .filter((version) => version.version_number < current.version_number)
-    .sort((left, right) => right.version_number - left.version_number)[0] ?? null;
+  return [...versions].filter((version) => compareSkillVersions(version, current) < 0).sort((left, right) => compareSkillVersions(right, left))[0] ?? null;
 }
 
 </script>

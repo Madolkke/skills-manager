@@ -87,7 +87,12 @@ class BundleDiffMixin:
         return sorted([file for file in files if isinstance(file, dict) and isinstance(file.get("path"), str)], key=lambda file: file["path"])
 
     def _diff_version_summary(self, version) -> dict[str, Any]:
-        return {"skill_version_id": version["id"], "version_number": version["version_number"], "content_digest": version["content_digest"]}
+        return {
+            "skill_version_id": version["id"],
+            "version_number": version["version_number"],
+            "version": version["version"],
+            "content_digest": version["content_digest"],
+        }
 
     def _line_diff_hunks(self, left_text: str | None, right_text: str | None) -> list[dict[str, Any]]:
         left_lines = [] if left_text is None else left_text.splitlines()

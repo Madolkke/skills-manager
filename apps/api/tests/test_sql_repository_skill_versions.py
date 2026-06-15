@@ -27,6 +27,8 @@ class SqlRepositorySkillVersionTest(SqlRepositoryTestCase):
         self.assertEqual(skill["current_version_id"], result.skill_version_id)
         self.assertEqual(version["skill_id"], result.skill_id)
         self.assertEqual(version["version_number"], 1)
+        self.assertEqual(version["version"], "0.0.1")
+        self.assertEqual(result.version, "0.0.1")
         self.assertEqual(version["content_ref"]["kind"], "skill_bundle")
         self.assertEqual(eval_set["skill_id"], result.skill_id)
         self.assertEqual(eval_set["name"], "Primary")
@@ -49,8 +51,60 @@ class SqlRepositorySkillVersionTest(SqlRepositoryTestCase):
             ).mappings().one()
 
         self.assertEqual(candidate.version_number, 2)
+        self.assertEqual(candidate.version, "0.0.2")
         self.assertEqual(skill_row["current_version_id"], skill.skill_version_id)
         self.assertEqual(version["change_summary"], "Candidate version.")
+
+    def test_explicit_semver_is_saved_for_skill_version(self):
+        skill = self.create_skill()
+
+        created = self.repository.create_skill_version(
+            skill_id=skill.skill_id,
+            content_ref=ContentRef(kind="skill_bundle", locator="memory:v2", digest="digest-v2"),
+            change_summary="Major release.",
+            actor="tester",
+            make_current=False,
+            version="2.0.0",
+        )
+
+        with self.engine.connect() as connection:
+            version = connection.execute(
+                select(skill_versions).where(skill_versions.c.id == created.skill_version_id)
+            ).mappings().one()
+
+        self.assertEqual(created.version, "2.0.0")
+        self.assertEqual(version["version"], "2.0.0")
+
+    def test_explicit_semver_is_saved_for_initial_skill_version(self):
+        result = self.repository.create_skill(
+            slug="initial-semver",
+            owner_ref="skillhub-lab",
+            content_ref=ContentRef(kind="skill_bundle", locator="memory:initial-semver", digest="digest-initial-semver"),
+            change_summary="Initial preview.",
+            actor="tester",
+            version="0.1.0",
+        )
+
+        with self.engine.connect() as connection:
+            version = connection.execute(
+                select(skill_versions).where(skill_versions.c.id == result.skill_version_id)
+            ).mappings().one()
+
+        self.assertEqual(result.version, "0.1.0")
+        self.assertEqual(version["version"], "0.1.0")
+
+    def test_duplicate_semver_is_rejected_per_skill(self):
+        skill = self.create_skill()
+
+        with self.assertRaisesRegex(Exception, "SkillVersion version already exists"):
+            self.repository.create_skill_version(
+                skill_id=skill.skill_id,
+                content_ref=ContentRef(kind="skill_bundle", locator="memory:duplicate", digest="digest-duplicate"),
+                change_summary="Duplicate version.",
+                actor="tester",
+                make_current=False,
+                version="0.0.1",
+            )
 
     def test_make_current_skill_version_moves_current_pointer(self):
         skill = self.create_skill()

@@ -39,6 +39,7 @@ def register_version_routes(app: FastAPI) -> None:
                 content_ref=content,
                 change_summary=payload.change_summary or (f"Uploaded standard skill bundle with {bundle.file_count} files." if bundle else "Updated skill version."),
                 display_name=payload.display_name,
+                version=payload.version,
                 actor=actor.id,
                 make_current=payload.make_current,
             )

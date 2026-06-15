@@ -7,7 +7,7 @@
 | 对象 | 语义 |
 | --- | --- |
 | `Skill` | 稳定入口，保存 slug、owner、lifecycle 和 `current_version_id`。 |
-| `SkillVersion` | 不可变 Skill bundle 内容快照，同一 Skill 内 version number 递增。 |
+| `SkillVersion` | 不可变 Skill bundle 内容快照，同一 Skill 内 `version` 使用 SemVer 且唯一。 |
 | `EvalCaseVersion` | 不可变测试用例快照，保存 input、expected output 和 notes。 |
 | `EvalSetVersion` | case version 列表快照；未被 `EvalRun` 使用的当前版本可作为工作版更新，已有运行记录后变为历史快照。 |
 | `EvalRun` | 一次 exact `SkillVersion + EvalSetVersion + run_context` 的测评事实。 |
@@ -32,6 +32,7 @@
 
 - `id`
 - `skill_id`
+- `version`：SemVer，例如 `1.0.0`、`1.2.3-beta.1` 或 `1.2.3+build.5`
 - `version_number`
 - `content_ref`
 - `content_digest`
@@ -40,6 +41,9 @@
 - `bundle_files`
 - `created_at`
 - `created_by`
+
+`version_number` 仅作为历史兼容和创建顺序号保留；产品展示、创建新版本和 API 使用方应以 `version` 为准。
+创建初始 SkillVersion 时可传 `version`，不传默认 `0.0.1`。追加版本时可传目标 SemVer，不传时后端自动增加 patch。
 
 ### `EvalRun`
 

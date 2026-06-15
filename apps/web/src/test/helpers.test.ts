@@ -5,6 +5,7 @@ import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { resolveApiBaseUrl } from "../lib/api";
+import { bumpVersion, nextPatchVersion } from "../lib/semver";
 
 describe("skill evidence helpers", () => {
   it("distinguishes untested cards from verified cards", () => {
@@ -133,5 +134,12 @@ describe("skill evidence helpers", () => {
       configuredUrl: "http://api.skillhub.test:9000/",
       location: { protocol: "http:", hostname: "192.168.1.20" },
     })).toBe("http://api.skillhub.test:9000");
+  });
+
+  it("calculates semantic version bumps", () => {
+    expect(bumpVersion("0.0.1", "major")).toBe("1.0.0");
+    expect(bumpVersion("0.0.1", "minor")).toBe("0.1.0");
+    expect(bumpVersion("0.0.1", "patch")).toBe("0.0.2");
+    expect(nextPatchVersion([])).toBe("0.0.1");
   });
 });

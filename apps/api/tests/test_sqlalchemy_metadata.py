@@ -96,6 +96,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
 
     def test_version_uniqueness_constraints_are_mapped(self):
         self.assert_unique_constraint("skill_versions", "skill_versions_skill_version_unique", ("skill_id", "version_number"))
+        self.assert_unique_constraint("skill_versions", "skill_versions_skill_semver_unique", ("skill_id", "version"))
         self.assert_unique_constraint("eval_case_versions", "eval_case_versions_case_version_unique", ("case_id", "version_number"))
 
     def test_eval_case_version_attachment_artifact_is_optional(self):

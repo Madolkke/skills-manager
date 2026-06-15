@@ -23,6 +23,7 @@ export type SkillVersion = {
   id: string;
   skill_id: string;
   version_number: number;
+  version: string;
   display_name?: string | null;
   content_ref: ContentRef;
   content_digest: string;
@@ -233,11 +234,13 @@ export type BundleDiff = {
   left: {
     skill_version_id: string;
     version_number: number;
+    version: string;
     content_digest: string;
   };
   right: {
     skill_version_id: string;
     version_number: number;
+    version: string;
     content_digest: string;
   };
   summary: {

@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field
 
 from skillhub.domain.models import ContentRef
+from skillhub.domain.semver import SEMVER_PATTERN
 
 
 SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
@@ -35,6 +36,7 @@ SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MA
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
 VersionDisplayName = Annotated[str, Field(min_length=1, max_length=VERSION_DISPLAY_NAME_MAX_LENGTH)]
+SkillVersionSemVer = Annotated[str, Field(min_length=5, max_length=80, pattern=SEMVER_PATTERN)]
 
 
 class ContentRefPayload(BaseModel):
@@ -50,12 +52,14 @@ class CreateSkillPayload(BaseModel):
     content_ref: ContentRefPayload
     change_summary: VersionChangeSummary
     display_name: VersionDisplayName | None = None
+    version: SkillVersionSemVer | None = None
 
 
 class ImportSkillPayload(BaseModel):
     owner_ref: IdentityRef
     source: dict[str, Any]
     display_name: VersionDisplayName | None = None
+    version: SkillVersionSemVer | None = None
 
 
 class CreateSkillVersionPayload(BaseModel):
@@ -64,6 +68,7 @@ class CreateSkillVersionPayload(BaseModel):
     source: dict[str, Any] | None = None
     change_summary: VersionChangeSummary | None = None
     display_name: VersionDisplayName | None = None
+    version: SkillVersionSemVer | None = None
     make_current: bool = False
 
 
