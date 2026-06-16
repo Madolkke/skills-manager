@@ -37,4 +37,4 @@ try:
 except OperationalError as error:
     pytest.skip(f"PostgreSQL test database is unavailable: {error}", allow_module_level=True)
 os.environ.setdefault("SKILLHUB_TEST_DATABASE_URL", test_database_url)
-os.environ.setdefault("SKILLHUB_DATABASE_URL", test_database_url)
+os.environ["SKILLHUB_DATABASE_URL"] = test_database_url

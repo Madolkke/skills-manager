@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
-import { manualRecordHint, manualResultLabel, nextPendingCaseVersionId, summarizeManualEval } from "../lib/eval";
+import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, summarizeOpencodeRuns, summarizeRunnerBoard } from "../lib/evalRunner";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
@@ -14,54 +14,50 @@ describe("skill evidence helpers", () => {
     expect(scoreKind({ summary: { passed: 1, failed: 0, total: 1 } } as never)).toBe("verified");
   });
 
-  it("summarizes manual evaluation progress", () => {
-    expect(summarizeManualEval(3, { a: { passed: true, actualOutput: "ok" }, b: { passed: false, actualOutput: "" } })).toEqual({
-      confirmed: 2,
-      passed: 1,
-      failed: 1,
-      pending: 1,
-      coverage: 67,
-    });
-  });
-
-  it("finds the next pending case version for keyboard evaluation flow", () => {
+  it("summarizes runner board states", () => {
     const cases = [
       { case_version: { id: "case-v1" } },
       { case_version: { id: "case-v2" } },
       { case_version: { id: "case-v3" } },
     ] as never;
+    const runs = {
+      "case-v1": { eval_case_run: { status: "queued" } },
+      "case-v2": { eval_case_run: { status: "succeeded", passed: true } },
+      "case-v3": { eval_case_run: { status: "succeeded", passed: false } },
+    } as never;
 
-    expect(nextPendingCaseVersionId(cases, { "case-v1": { passed: true, actualOutput: "" } })).toBe("case-v2");
-    expect(nextPendingCaseVersionId(cases, {
-      "case-v1": { passed: true, actualOutput: "" },
-      "case-v2": { passed: false, actualOutput: "" },
-      "case-v3": { passed: true, actualOutput: "" },
-    })).toBeNull();
+    expect(summarizeRunnerBoard(cases, runs)).toEqual([
+      { kind: "not-run", label: "未运行", count: 0 },
+      { kind: "queued", label: "排队中", count: 1 },
+      { kind: "running", label: "运行中", count: 0 },
+      { kind: "passed", label: "通过", count: 1 },
+      { kind: "rejected", label: "不通过", count: 1 },
+      { kind: "failed", label: "执行失败", count: 0 },
+    ]);
   });
 
-  it("moves to the next pending case after the active case before wrapping", () => {
+  it("describes runner state and case config in Chinese", () => {
+    expect(runnerState(null).label).toBe("未运行");
+    expect(runnerState({ eval_case_run: { status: "running" }, job: { status: "running" } } as never).label).toBe("运行中");
+    expect(runnerState({ eval_case_run: { status: "failed", error: "worker failed" } } as never).helper).toBe("worker failed");
+    expect(modelLabel({ case_version: { model_provider_id: "deepseek", model_id: "deepseek-v4-pro" } } as never)).toBe("deepseek/deepseek-v4-pro");
+    expect(promptSourceLabel({ case_version: { prompt_template_id: "file_workspace_task", prompt_text: "" } } as never)).toBe("工作目录文件任务");
+  });
+
+  it("describes active runner feedback without inventing progress", () => {
     const cases = [
       { case_version: { id: "case-v1" } },
       { case_version: { id: "case-v2" } },
-      { case_version: { id: "case-v3" } },
-      { case_version: { id: "case-v4" } },
     ] as never;
+    const summary = summarizeOpencodeRuns(cases, {
+      "case-v1": { eval_case_run: { status: "running" }, job: { status: "running" } },
+      "case-v2": { eval_case_run: { status: "queued" }, job: { status: "queued" } },
+    } as never);
 
-    expect(nextPendingCaseVersionId(cases, { "case-v2": { passed: true, actualOutput: "" } }, "case-v2")).toBe("case-v3");
-    expect(
-      nextPendingCaseVersionId(cases, {
-        "case-v2": { passed: true, actualOutput: "" },
-        "case-v3": { passed: true, actualOutput: "" },
-        "case-v4": { passed: true, actualOutput: "" },
-      }, "case-v4"),
-    ).toBe("case-v1");
-  });
-
-  it("describes manual evaluation status in Chinese", () => {
-    expect(manualResultLabel(true)).toBe("通过");
-    expect(manualResultLabel(false)).toBe("不通过");
-    expect(manualResultLabel()).toBe("待评估");
-    expect(manualRecordHint(3, 1)).toBe("需确认剩余 1 个 case 后才能记录。");
+    expect(summary.runningRuns).toBe(1);
+    expect(summary.queuedRuns).toBe(1);
+    expect(actionBarStatusText(summary, 2, 5)).toBe("正在运行 1 个测试例，页面每 5 秒自动刷新。");
+    expect(emptyActualOutputText(runnerState({ eval_case_run: { status: "running" } } as never))).toBe("等待 result.json 写入...");
   });
 
   it("formats evidence chain summaries for history", () => {

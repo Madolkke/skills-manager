@@ -59,7 +59,6 @@ export type EvalRunRecord = {
   skill_id: string;
   skill_version_id: string;
   eval_set_id: string;
-  strategy: string;
   status: string;
   environment_tags: string[];
   run_context: Record<string, unknown>;
@@ -111,6 +110,10 @@ export type EvalCaseVersionDetail = {
   input_artifact_id: string;
   expected_output_artifact_id: string;
   attachment_artifact_id?: string | null;
+  prompt_template_id: string;
+  prompt_text: string;
+  model_provider_id?: string | null;
+  model_id?: string | null;
   notes: string | null;
   created_at?: string;
   created_by: string;
@@ -138,6 +141,13 @@ export type EvalSetDetail = {
   cases: EvalSetCase[];
 };
 
+export type EvalPromptTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  body: string;
+};
+
 export type EvalCaseRunRecord = {
   eval_case_run_id: string;
   job_id: string;
@@ -149,6 +159,28 @@ export type EvalCaseRunRecord = {
   run_context_hash: string;
   passed?: boolean | null;
   score?: number | null;
+};
+
+export type EvalCaseRunDetail = {
+  eval_case_run: {
+    id: string;
+    job_id: string;
+    skill_id: string;
+    skill_version_id: string;
+    eval_set_id: string;
+    case_version_id: string;
+    status: string;
+    passed?: boolean | null;
+    score?: number | null;
+    error?: string | null;
+    runner_metadata?: Record<string, unknown>;
+    created_at?: string;
+    started_at?: string | null;
+    finished_at?: string | null;
+  };
+  job: { id: string; attempts: number; status: string; error?: string | null } | null;
+  case_version: EvalCaseVersionDetail;
+  result_artifact: ArtifactRef | null;
 };
 
 export type EvalCaseMutationResult = {
@@ -201,11 +233,6 @@ export type EvalRunDetail = {
     case: EvalSetCase["case"];
     case_version: EvalCaseVersionDetail;
   }>;
-};
-
-export type ManualEvalResultPayload = {
-  passed: boolean;
-  actual_output: string;
 };
 
 export type BundleDiffStatus = "added" | "changed" | "removed" | "unchanged";

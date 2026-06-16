@@ -38,7 +38,6 @@ def register_artifact_routes(app: FastAPI) -> None:
         skill_id: str,
         skill_version_id: str | None = None,
         eval_set_id: str | None = None,
-        strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
         repository: SqlSkillRepository = Depends(repository_dependency),
@@ -48,7 +47,6 @@ def register_artifact_routes(app: FastAPI) -> None:
                 skill_id=skill_id,
                 skill_version_id=skill_version_id,
                 eval_set_id=eval_set_id,
-                strategy=strategy,
                 status=status,
                 limit=limit,
             )
@@ -59,7 +57,6 @@ def register_artifact_routes(app: FastAPI) -> None:
         skill_id: str,
         skill_version_id: str | None = None,
         eval_set_id: str | None = None,
-        strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
         repository: SqlSkillRepository = Depends(repository_dependency),
@@ -69,7 +66,6 @@ def register_artifact_routes(app: FastAPI) -> None:
                 skill_id=skill_id,
                 skill_version_id=skill_version_id,
                 eval_set_id=eval_set_id,
-                strategy=strategy,
                 status=status,
                 limit=limit,
             )

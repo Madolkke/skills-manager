@@ -26,6 +26,11 @@
   background: #fbfdff;
 }
 
+.selector-helper {
+  color: var(--muted);
+  font-weight: 740;
+}
+
 .selector-title {
   display: inline-flex;
   align-items: center;

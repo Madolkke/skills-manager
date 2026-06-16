@@ -1,0 +1,183 @@
+.runner-progress-panel {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(260px, 0.85fr) minmax(320px, 1.25fr);
+}
+
+.runner-status-board {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.runner-board-card {
+  min-width: 0;
+  min-height: 68px;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  grid-template-areas:
+    "dot count"
+    "dot label";
+  gap: 2px 10px;
+  align-content: center;
+  padding: 10px 12px;
+}
+
+.runner-board-card .runner-status-dot {
+  grid-area: dot;
+  margin-top: 8px;
+}
+
+.runner-board-card strong {
+  grid-area: count;
+  color: #172033;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.runner-board-card small {
+  grid-area: label;
+  min-width: 0;
+  color: var(--muted);
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runner-board-card.queued {
+  background: #f5f8ff;
+  border-color: #dce8fb;
+}
+
+.runner-board-card.running {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.runner-board-card.passed {
+  background: #f2fbf6;
+  border-color: #cdebdc;
+}
+
+.runner-board-card.rejected,
+.runner-board-card.failed {
+  background: #fff6f6;
+  border-color: #fecaca;
+}
+
+.runner-status-chip {
+  max-width: 100%;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 820;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.runner-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.runner-status-chip svg {
+  flex: 0 0 auto;
+}
+
+.runner-status-chip.not-run,
+.runner-board-card.not-run .runner-status-dot {
+  color: #64748b;
+}
+
+.runner-status-chip.queued {
+  color: #48607f;
+  background: #f3f7ff;
+  border-color: #dce8fb;
+}
+
+.runner-status-chip.running {
+  color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.runner-status-chip.running svg {
+  animation: runner-spin 1.1s linear infinite;
+}
+
+.runner-board-card.running .runner-status-dot {
+  animation: runner-pulse 1.5s ease-in-out infinite;
+}
+
+.runner-status-chip.passed {
+  color: #17805c;
+  background: #f0fbf6;
+  border-color: #cdebdc;
+}
+
+.runner-status-chip.rejected,
+.runner-status-chip.failed {
+  color: #dc2626;
+  background: #fff1f2;
+  border-color: #fecaca;
+}
+
+.runner-board-card.queued .runner-status-dot {
+  color: #48607f;
+}
+
+.runner-board-card.running .runner-status-dot {
+  color: #2563eb;
+}
+
+.runner-board-card.passed .runner-status-dot {
+  color: #17805c;
+}
+
+.runner-board-card.rejected .runner-status-dot,
+.runner-board-card.failed .runner-status-dot {
+  color: #dc2626;
+}
+
+@keyframes runner-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(37 99 235 / 24%);
+    opacity: 1;
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgb(37 99 235 / 0%);
+    opacity: 0.74;
+  }
+}
+
+@keyframes runner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes runner-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  60%,
+  100% {
+    transform: translateX(100%);
+  }
+}

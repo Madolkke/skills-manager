@@ -44,3 +44,39 @@ class SqlRepositoryTestCase(PostgresTestCase):
             digest=artifact["digest"],
             path=f"{slug}/SKILL.md",
         )
+
+    def record_finished_eval_run(
+        self,
+        *,
+        skill_version_id: str,
+        eval_set_id: str,
+        results: dict[str, bool | dict],
+        actor: str = "tester",
+        environment_tags: list[str] | None = None,
+        run_context: dict | None = None,
+    ):
+        tags = environment_tags or []
+        context = run_context or {}
+        for case_version_id, value in results.items():
+            result = value if isinstance(value, dict) else {"passed": bool(value)}
+            queued = self.repository.enqueue_eval_case_run(
+                skill_version_id=skill_version_id,
+                eval_set_id=eval_set_id,
+                case_version_id=case_version_id,
+                actor=actor,
+                environment_tags=tags,
+                run_context=context,
+            )
+            self.repository.finalize_eval_case_run(
+                eval_case_run_id=queued.eval_case_run_id,
+                passed=bool(result["passed"]),
+                actual_output=str(result.get("actual_output", "")),
+                actor=actor,
+            )
+        return self.repository.aggregate_eval_run(
+            skill_version_id=skill_version_id,
+            eval_set_id=eval_set_id,
+            actor=actor,
+            environment_tags=tags,
+            run_context=context,
+        )

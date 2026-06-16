@@ -112,6 +112,37 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(downloaded.status_code, 200)
         self.assertEqual(downloaded.content, zip_bytes)
 
+    def test_eval_case_runner_config_can_be_saved(self):
+        skill = self.create_skill("case-runner-config")
+
+        response = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "title": "Runner config",
+                "input_text": "Read workspace files.",
+                "expected_output": "Find the answer.",
+                "prompt_template_id": "file_workspace_task",
+                "prompt_text": "Use {workdir} and write {result_json_path}.",
+                "model_provider_id": "deepseek",
+                "model_id": "deepseek-v4-pro",
+            },
+        )
+        eval_set = self.client.get(f"/api/eval-sets/{response.json()['eval_set_id']}").json()
+        case_version = eval_set["cases"][0]["case_version"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(case_version["prompt_template_id"], "file_workspace_task")
+        self.assertEqual(case_version["prompt_text"], "Use {workdir} and write {result_json_path}.")
+        self.assertEqual(case_version["model_provider_id"], "deepseek")
+        self.assertEqual(case_version["model_id"], "deepseek-v4-pro")
+
+    def test_eval_prompt_templates_endpoint_returns_builtin_templates(self):
+        response = self.client.get("/api/eval-prompt-templates")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("standard_pass_fail", [item["id"] for item in response.json()])
+
     def test_eval_case_change_updates_same_eval_set_after_run_history_exists(self):
         skill = self.create_skill("evalset-locked-version")
         first_case = self.create_eval_case(skill["skill_id"])

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
+from skillhub.application.eval_prompt_templates import list_eval_prompt_templates
 from skillhub.api.auth import ActorContext, actor_dependency
 from skillhub.api.database import repository_dependency
 from skillhub.api.responses import result_payload
@@ -12,14 +13,17 @@ from skillhub.api.schemas import (
     CreateEvalCasesBatchPayload,
     CreateEvalCaseVersionPayload,
     EnqueueEvalCaseRunPayload,
-    FinalizeEvalCaseRunPayload,
-    RecordEvalRunPayload,
+    ListEvalCaseRunsQuery,
     RestoreEvalCaseVersionPayload,
 )
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
 
 def register_evaluation_routes(app: FastAPI) -> None:
+    @app.get("/api/eval-prompt-templates")
+    def eval_prompt_templates():
+        return list_eval_prompt_templates()
+
     @app.post("/api/eval-cases")
     def create_eval_case(
         payload: CreateEvalCasePayload,
@@ -34,6 +38,10 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 attachment_name=payload.attachment_name,
                 attachment_base64=payload.attachment_base64,
+                prompt_template_id=payload.prompt_template_id,
+                prompt_text=payload.prompt_text,
+                model_provider_id=payload.model_provider_id,
+                model_id=payload.model_id,
                 actor=actor.id,
                 notes=payload.notes,
             )
@@ -62,6 +70,10 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 attachment_name=payload.attachment_name,
                 attachment_base64=payload.attachment_base64,
+                prompt_template_id=payload.prompt_template_id,
+                prompt_text=payload.prompt_text,
+                model_provider_id=payload.model_provider_id,
+                model_id=payload.model_id,
                 actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
@@ -84,6 +96,10 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 expected_output=payload.expected_output,
                 attachment_name=payload.attachment_name,
                 attachment_base64=payload.attachment_base64,
+                prompt_template_id=payload.prompt_template_id,
+                prompt_text=payload.prompt_text,
+                model_provider_id=payload.model_provider_id,
+                model_id=payload.model_id,
                 actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
@@ -107,24 +123,6 @@ def register_evaluation_routes(app: FastAPI) -> None:
     ):
         return result_payload(repository.archive_eval_case(case_id=case_id, actor=actor.id))
 
-    @app.post("/api/eval-runs")
-    def record_eval_run(
-        payload: RecordEvalRunPayload,
-        actor: ActorContext = Depends(actor_dependency),
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        return result_payload(
-            repository.record_eval_run(
-                skill_version_id=payload.skill_version_id,
-                eval_set_id=payload.eval_set_id,
-                strategy=payload.strategy,
-                results=payload.results,
-                actor=actor.id,
-                environment_tags=payload.environment_tags,
-                run_context=payload.run_context,
-            )
-        )
-
     @app.post("/api/eval-case-runs")
     def enqueue_eval_case_run(
         payload: EnqueueEvalCaseRunPayload,
@@ -136,28 +134,31 @@ def register_evaluation_routes(app: FastAPI) -> None:
                 skill_version_id=payload.skill_version_id,
                 eval_set_id=payload.eval_set_id,
                 case_version_id=payload.case_version_id,
-                strategy=payload.strategy,
                 actor=actor.id,
                 environment_tags=payload.environment_tags,
                 run_context=payload.run_context,
             )
         )
 
-    @app.post("/api/eval-case-runs/{eval_case_run_id}/completion")
-    def complete_eval_case_run(
-        eval_case_run_id: str,
-        payload: FinalizeEvalCaseRunPayload,
-        actor: ActorContext = Depends(actor_dependency),
+    @app.get("/api/eval-case-runs")
+    def list_eval_case_runs(
+        skill_version_id: str,
+        eval_set_id: str,
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
+        query = ListEvalCaseRunsQuery(skill_version_id=skill_version_id, eval_set_id=eval_set_id)
         return result_payload(
-            repository.finalize_eval_case_run(
-                eval_case_run_id=eval_case_run_id,
-                passed=payload.passed,
-                actual_output=payload.actual_output,
-                actor=actor.id,
+            repository.latest_eval_case_run_details(
+                skill_version_id=query.skill_version_id,
+                eval_set_id=query.eval_set_id,
+                environment_tags=query.environment_tags,
+                run_context=query.run_context,
             )
         )
+
+    @app.get("/api/eval-case-runs/{eval_case_run_id}")
+    def eval_case_run_detail(eval_case_run_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.eval_case_run_detail(eval_case_run_id))
 
     @app.post("/api/eval-runs/aggregations")
     def aggregate_eval_run(
@@ -169,7 +170,6 @@ def register_evaluation_routes(app: FastAPI) -> None:
             repository.aggregate_eval_run(
                 skill_version_id=payload.skill_version_id,
                 eval_set_id=payload.eval_set_id,
-                strategy=payload.strategy,
                 actor=actor.id,
                 environment_tags=payload.environment_tags,
                 run_context=payload.run_context,

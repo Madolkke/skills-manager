@@ -18,13 +18,12 @@ class RunHistoryQueryMixin:
         skill_id: str,
         skill_version_id: str | None = None,
         eval_set_id: str | None = None,
-        strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
         with self.engine.connect() as connection:
             skill = self._skill_row(connection, skill_id)
-            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, strategy, status, limit)
+            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, status, limit)
             runs = [self._eval_run_context_row(connection, row, include_accepted=True) for row in rows]
         return {"skill": self._row_dict(skill), "runs": runs}
 
@@ -34,13 +33,12 @@ class RunHistoryQueryMixin:
         skill_id: str,
         skill_version_id: str | None = None,
         eval_set_id: str | None = None,
-        strategy: str | None = None,
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
         with self.engine.connect() as connection:
             skill = self._skill_row(connection, skill_id)
-            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, strategy, status, limit)
+            rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, status, limit)
             runs = [self._eval_run_context_row(connection, row, include_accepted=False) for row in rows]
             eval_set_cases_by_run = {row["id"]: self._eval_set_cases(connection, row["eval_set_id"]) for row in rows}
             results_by_run = {
@@ -148,7 +146,6 @@ class RunHistoryQueryMixin:
         skill_id: str,
         skill_version_id: str | None,
         eval_set_id: str | None,
-        strategy: str | None,
         status: str | None,
         limit: int,
     ):
@@ -157,8 +154,6 @@ class RunHistoryQueryMixin:
             query = query.where(tables.eval_runs.c.skill_version_id == skill_version_id)
         if eval_set_id:
             query = query.where(tables.eval_runs.c.eval_set_id == eval_set_id)
-        if strategy:
-            query = query.where(tables.eval_runs.c.strategy == strategy)
         if status:
             query = query.where(tables.eval_runs.c.status == status)
         return (

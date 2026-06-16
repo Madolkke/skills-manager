@@ -81,8 +81,10 @@
   .evalset-layout,
   .manual-eval-grid,
   .manual-comparison-grid,
+  .runner-detail-grid,
   .evaluation-selectors,
   .eval-progress-panel,
+  .runner-progress-panel,
   .evidence-hero,
   .bundle-browser,
   .case-version-track,
@@ -92,6 +94,10 @@
   .version-bump-grid,
   .version-upload-panel {
     grid-template-columns: 1fr;
+  }
+
+  .runner-status-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .selector-control-row {

@@ -3,22 +3,28 @@ from tests.api_command_test_case import ApiCommandTestCase
 
 class ApiBundleContractTest(ApiCommandTestCase):
     def test_old_variant_payloads_are_not_part_of_the_contract(self):
-        skill = self.create_skill("no-variant-contract")
+        response = self.client.post("/api/eval-runs", json={"variant_version_id": "legacy"})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.client.post("/api/variants", json={}).status_code, 404)
+        self.assertEqual(self.client.post("/api/variant-versions", json={}).status_code, 404)
+
+    def test_eval_case_run_payload_rejects_legacy_strategy(self):
+        skill = self.create_skill("no-strategy-contract")
         case = self.create_eval_case(skill["skill_id"])
 
         response = self.client.post(
-            "/api/eval-runs",
+            "/api/eval-case-runs",
             json={
-                "variant_version_id": skill["skill_version_id"],
+                "skill_version_id": skill["skill_version_id"],
                 "eval_set_id": case["eval_set_id"],
-                "results": {case["eval_case_version_id"]: True},
+                "case_version_id": case["eval_case_version_id"],
+                "strategy": "manual_pass_fail",
             },
         )
 
         self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["field_errors"][0]["field"], "skill_version_id")
-        self.assertEqual(self.client.post("/api/variants", json={}).status_code, 404)
-        self.assertEqual(self.client.post("/api/variant-versions", json={}).status_code, 404)
+        self.assertEqual(response.json()["field_errors"][0]["field"], "strategy")
 
     def test_skill_version_from_bundle_source_can_be_diffed(self):
         imported = self.import_standard_skill_bundle("bundle-diff")

@@ -40,6 +40,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         engine.dispose()
 
     def test_eval_run_same_skill_composite_foreign_keys_are_mapped(self):
+        self.assertNotIn("strategy", metadata.tables["eval_runs"].c)
         self.assert_foreign_key(
             "eval_runs",
             "eval_runs_skill_version_skill_fkey",
@@ -72,6 +73,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         )
 
     def test_eval_case_runs_bind_case_version_and_async_job(self):
+        self.assertNotIn("strategy", metadata.tables["eval_case_runs"].c)
         self.assert_foreign_key(
             "eval_case_runs",
             "eval_case_runs_skill_version_skill_fkey",
@@ -104,6 +106,16 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
 
         self.assertIn("attachment_artifact_id", table.c)
         self.assertTrue(table.c.attachment_artifact_id.nullable)
+        self.assertIn("prompt_template_id", table.c)
+        self.assertIn("prompt_text", table.c)
+        self.assertIn("model_provider_id", table.c)
+        self.assertIn("model_id", table.c)
+
+    def test_opencode_runner_metadata_columns_are_mapped(self):
+        self.assertIn("runner_metadata", metadata.tables["eval_case_runs"].c)
+        self.assertIn("attempts", metadata.tables["jobs"].c)
+        self.assertIn("locked_by", metadata.tables["jobs"].c)
+        self.assertIn("last_heartbeat_at", metadata.tables["jobs"].c)
 
     def test_query_indexes_are_mapped(self):
         for table_name, index_name in [

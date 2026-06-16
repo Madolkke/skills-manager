@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from skillhub.domain.models import ContentRef
 from skillhub.domain.semver import SEMVER_PATTERN
@@ -20,6 +20,7 @@ EVAL_CASE_INPUT_MAX_LENGTH = 20_000
 EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH = 10_000
 EVAL_CASE_NOTES_MAX_LENGTH = 2_000
 EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH = 20_000
+EVAL_CASE_PROMPT_MAX_LENGTH = 20_000
 EVAL_CASE_ATTACHMENT_MAX_BASE64_LENGTH = 7_000_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
@@ -30,7 +31,7 @@ EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MA
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
 EvalCaseExpectedOutput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH)]
 EvalCaseNotes = Annotated[str, Field(max_length=EVAL_CASE_NOTES_MAX_LENGTH)]
-EvalCaseActualOutput = Annotated[str, Field(max_length=EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH)]
+EvalCasePrompt = Annotated[str, Field(max_length=EVAL_CASE_PROMPT_MAX_LENGTH)]
 EvalCaseAttachmentBase64 = Annotated[str, Field(max_length=EVAL_CASE_ATTACHMENT_MAX_BASE64_LENGTH)]
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
@@ -94,6 +95,10 @@ class CreateEvalCasePayload(BaseModel):
     expected_output: EvalCaseExpectedOutput
     attachment_name: str | None = None
     attachment_base64: EvalCaseAttachmentBase64 | None = None
+    prompt_template_id: str = "standard_pass_fail"
+    prompt_text: EvalCasePrompt = ""
+    model_provider_id: str | None = None
+    model_id: str | None = None
     notes: EvalCaseNotes | None = None
 
 
@@ -103,6 +108,10 @@ class CreateEvalCaseItemPayload(BaseModel):
     expected_output: EvalCaseExpectedOutput
     attachment_name: str | None = None
     attachment_base64: EvalCaseAttachmentBase64 | None = None
+    prompt_template_id: str = "standard_pass_fail"
+    prompt_text: EvalCasePrompt = ""
+    model_provider_id: str | None = None
+    model_id: str | None = None
     notes: EvalCaseNotes | None = None
 
 
@@ -118,6 +127,10 @@ class CreateEvalCaseVersionPayload(BaseModel):
     expected_output: EvalCaseExpectedOutput
     attachment_name: str | None = None
     attachment_base64: EvalCaseAttachmentBase64 | None = None
+    prompt_template_id: str = "standard_pass_fail"
+    prompt_text: EvalCasePrompt = ""
+    model_provider_id: str | None = None
+    model_id: str | None = None
     notes: EvalCaseNotes | None = None
     make_current: bool = True
 
@@ -127,38 +140,28 @@ class RestoreEvalCaseVersionPayload(BaseModel):
     notes: EvalCaseNotes | None = None
 
 
-class ManualEvalResultPayload(BaseModel):
-    passed: bool
-    actual_output: EvalCaseActualOutput = ""
-
-
-class RecordEvalRunPayload(BaseModel):
-    skill_version_id: str
-    eval_set_id: str
-    strategy: str = "manual_pass_fail"
-    environment_tags: list[TagValue] = Field(default_factory=list)
-    run_context: dict[str, Any] = Field(default_factory=dict)
-    results: dict[str, bool | ManualEvalResultPayload]
-
-
 class EnqueueEvalCaseRunPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     skill_version_id: str
     eval_set_id: str
     case_version_id: str
-    strategy: str = "single_case"
     environment_tags: list[TagValue] = Field(default_factory=list)
     run_context: dict[str, Any] = Field(default_factory=dict)
 
 
-class FinalizeEvalCaseRunPayload(BaseModel):
-    passed: bool
-    actual_output: EvalCaseActualOutput = ""
+class ListEvalCaseRunsQuery(BaseModel):
+    skill_version_id: str
+    eval_set_id: str
+    environment_tags: list[TagValue] | None = None
+    run_context: dict[str, Any] | None = None
 
 
 class AggregateEvalRunPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     skill_version_id: str
     eval_set_id: str
-    strategy: str = "manual_pass_fail"
     environment_tags: list[TagValue] = Field(default_factory=list)
     run_context: dict[str, Any] = Field(default_factory=dict)
 

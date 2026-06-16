@@ -50,7 +50,7 @@ async function saveCase(form: EvalCaseFormData): Promise<void> {
         : null;
     if (saved) emit("navigate", { selectedCaseId: saved.eval_case_id });
     editor.value = null;
-    emit("toast", { tone: "success", message: "Case 已保存。" });
+    emit("toast", { tone: "success", message: "测试例已保存。" });
     if (evalSet.value?.id) detail.value = await api.getEvalSet(evalSet.value.id);
     emit("refresh");
   } catch (caught) {
@@ -98,6 +98,10 @@ function cleanCaseForm(form: EvalCaseFormData) {
     expected_output: form.expected_output,
     attachment_name: form.attachment_name,
     attachment_base64: form.attachment_base64,
+    prompt_template_id: form.prompt_template_id,
+    prompt_text: form.prompt_text,
+    model_provider_id: form.model_provider_id,
+    model_id: form.model_id,
     notes: form.notes.trim() || undefined,
   };
 }
@@ -121,26 +125,26 @@ function errorMessage(caught: unknown): string {
         <h1>{{ evalSet?.name ?? "Regression Set" }}</h1>
         <p>{{ evalSet?.description ?? "" }}</p>
         <div class="mini-grid">
-          <span>Cases<b>{{ detail?.cases.length ?? 0 }}</b></span>
+          <span>测试例<b>{{ detail?.cases.length ?? 0 }}</b></span>
           <span>状态<b>{{ evalSet?.lifecycle_status ?? "-" }}</b></span>
           <span>更新时间<b>{{ humanDate(evalSet?.updated_at) }}</b></span>
         </div>
       </div>
       <label class="search-field compact">
         <Search :size="18" />
-        <input v-model="query" placeholder="搜索 case">
+        <input v-model="query" placeholder="搜索测试例">
       </label>
       <div class="case-toolbar">
         <button :class="clsx('select-button', caseFilter === 'all' && 'active')" type="button" @click="caseFilter = 'all'">全部</button>
         <button :class="clsx('select-button', caseFilter === 'active' && 'active')" type="button" @click="caseFilter = 'active'">仅活跃</button>
         <label class="case-sort-control">
-          <select v-model="caseSort" aria-label="Case 排序">
+          <select v-model="caseSort" aria-label="测试例排序">
             <option value="position">按列表顺序</option>
             <option value="title">按标题排序</option>
             <option value="version">按版本排序</option>
           </select>
         </label>
-        <button class="primary-button" type="button" @click="editor = 'new'"><Plus :size="17" />添加</button>
+        <button class="primary-button" type="button" @click="editor = 'new'"><Plus :size="17" />添加测试例</button>
       </div>
       <div class="case-list">
         <button
@@ -154,14 +158,14 @@ function errorMessage(caught: unknown): string {
           <span class="case-row-copy">
             <span class="case-row-topline"><strong class="case-row-title">{{ item.case.title }}</strong></span>
             <span class="case-row-metadata">
-              <span class="case-version-pill">case v{{ item.case_version.version_number }}</span>
+              <span class="case-version-pill">测试例 v{{ item.case_version.version_number }}</span>
               <span :class="clsx('case-current-chip', item.case.current_version_id !== item.case_version.id && 'muted')">{{ item.case.current_version_id === item.case_version.id ? "当前" : "历史" }}</span>
               <span :class="clsx('case-status-chip', item.case.lifecycle_status !== 'active' && 'muted')"><span class="case-status-dot" />{{ caseLifecycleLabel(item.case.lifecycle_status) }}</span>
             </span>
           </span>
         </button>
       </div>
-      <p class="case-count">共 {{ detail?.cases.length ?? 0 }} 个 case</p>
+      <p class="case-count">共 {{ detail?.cases.length ?? 0 }} 个测试例</p>
     </aside>
 
     <section class="case-detail">
@@ -170,8 +174,8 @@ function errorMessage(caught: unknown): string {
           <div>
             <h1>{{ selected.case.title }}</h1>
             <div class="tag-row">
-              <span class="tag-chip">case v{{ selected.case_version.version_number }}</span>
-              <span class="tag-chip">position {{ selected.position + 1 }}</span>
+              <span class="tag-chip">测试例 v{{ selected.case_version.version_number }}</span>
+              <span class="tag-chip">位置 {{ selected.position + 1 }}</span>
               <a
                 v-if="selected.case_version.attachment_artifact"
                 class="tag-chip"
@@ -183,12 +187,12 @@ function errorMessage(caught: unknown): string {
               </a>
             </div>
           </div>
-          <div class="button-row"><button class="primary-button" type="button" @click="editor = selected">编辑 case</button></div>
+          <div class="button-row"><button class="primary-button" type="button" @click="editor = selected">编辑测试例</button></div>
         </header>
         <section v-for="block in [
-          { title: 'Input', text: selected.case_version.input_artifact.content_text },
-          { title: 'Expected output', text: selected.case_version.expected_output_artifact.content_text },
-          { title: 'Notes', text: selected.case_version.notes },
+          { title: '测试输入', text: selected.case_version.input_artifact.content_text },
+          { title: '预期结果', text: selected.case_version.expected_output_artifact.content_text },
+          { title: '备注', text: selected.case_version.notes },
         ]" :key="block.title" class="case-block">
           <header>
             <h2>{{ block.title }}</h2>
@@ -197,7 +201,7 @@ function errorMessage(caught: unknown): string {
           <pre>{{ compactText(block.text, "无内容") }}</pre>
         </section>
       </template>
-      <div v-else class="quiet-panel">还没有测试用例。</div>
+      <div v-else class="quiet-panel">还没有测试例。</div>
     </section>
 
     <EvalCaseModal v-if="editor" :case-item="editor === 'new' ? null : editor" :busy="busy" @close="editor = null" @submit="saveCase" />

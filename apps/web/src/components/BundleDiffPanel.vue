@@ -60,10 +60,10 @@ function errorMessage(caught: unknown): string {
 </script>
 
 <template>
-  <section class="commit-diff-panel" aria-label="Bundle diff">
+  <section class="commit-diff-panel" aria-label="Bundle 差异">
     <header class="commit-diff-head">
       <div>
-        <span>Bundle diff</span>
+        <span>Bundle 差异</span>
         <h2>{{ baseVersion ? `${versionName(current)} 对比 ${versionName(baseVersion)}` : "初始版本" }}</h2>
       </div>
       <div class="commit-diff-tools">
@@ -83,9 +83,9 @@ function errorMessage(caught: unknown): string {
       </div>
     </header>
 
-    <div v-if="loading" class="quiet-panel">正在读取后端 Bundle diff...</div>
-    <div v-if="error" class="quiet-panel">Bundle diff 读取失败：{{ error }}</div>
-    <div v-if="!loading && !error && compareOptions.length === 0" class="quiet-panel">这是第一个 SkillVersion，没有可比较的版本。</div>
+    <div v-if="loading" class="quiet-panel">正在读取后端 Bundle 差异...</div>
+    <div v-if="error" class="quiet-panel">Bundle 差异读取失败：{{ error }}</div>
+    <div v-if="!loading && !error && compareOptions.length === 0" class="quiet-panel">这是第一个 Skill 版本，没有可比较的版本。</div>
     <div v-if="!loading && !error && diff" class="commit-file-list">
       <article v-for="file in (changedFiles.length > 0 ? changedFiles : diff.files)" :key="`${file.status}:${file.path}`" class="commit-file">
         <header>
@@ -93,7 +93,7 @@ function errorMessage(caught: unknown): string {
           <strong>{{ file.path }}</strong>
           <small>{{ formatDiffSize(file) }}</small>
         </header>
-        <div v-if="file.binary" class="quiet-panel">二进制文件变更，无法展示文本 diff。</div>
+        <div v-if="file.binary" class="quiet-panel">二进制文件变更，无法展示文本差异。</div>
         <div v-if="file.hunks?.length" class="commit-hunks">
           <pre v-for="(hunk, index) in file.hunks" :key="index">
 <span v-for="(line, lineIndex) in hunk.lines" :key="`${line.old_line}:${line.new_line}:${lineIndex}`" :class="line.kind"><b>{{ linePrefix(line.kind) }}</b><code>{{ line.text || " " }}</code></span>

@@ -17,6 +17,9 @@
 @import "./features/evaluation/manual-case-list.css";
 @import "./features/evaluation/manual-version-detail.css";
 @import "./features/evaluation/manual-evaluation-detail.css";
+@import "./features/evaluation/opencode-runner.css";
+@import "./features/evaluation/opencode-runner-queue.css";
+@import "./features/evaluation/opencode-runner-detail.css";
 @import "./core/forms.css";
 @import "./core/responsive.css";
 @import "./core/small-screen.css";

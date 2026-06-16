@@ -1,0 +1,220 @@
+.runner-detail-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  gap: 14px;
+}
+
+.runner-output-panel,
+.runner-inspector-panel {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.runner-output-panel {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 12px;
+}
+
+.runner-activity-bar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, #eff6ff, #f8fbff);
+  color: #1d4ed8;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.runner-activity-bar span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 0 0 0 rgb(37 99 235 / 26%);
+  animation: runner-pulse 1.5s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+
+.runner-output-panel.running::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgb(59 130 246 / 8%) 45%, transparent 70%);
+  transform: translateX(-100%);
+  animation: runner-shimmer 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.runner-output-panel header,
+.runner-inspector-panel header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.runner-output-panel header > div,
+.runner-inspector-panel header > div {
+  min-width: 0;
+}
+
+.runner-output-panel h3,
+.runner-inspector-panel h3 {
+  color: #172033;
+  font-size: 17px;
+  margin-top: 8px;
+}
+
+.runner-inspector-panel header > div > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.runner-output-panel pre {
+  min-width: 0;
+  min-height: 240px;
+  max-height: 420px;
+  border: 1px solid #d5dfec;
+  border-radius: var(--radius);
+  background: #0b1220;
+  color: #f8fafc;
+  padding: 16px;
+  line-height: 1.6;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.runner-output-panel pre.empty {
+  color: #94a3b8;
+}
+
+.runner-output-panel.passed {
+  border-color: #cdebdc;
+}
+
+.runner-output-panel.rejected,
+.runner-output-panel.failed {
+  border-color: #fecaca;
+}
+
+.runner-inspector-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.runner-status-list {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.runner-status-list div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  border-bottom: 1px solid var(--soft-line);
+  padding-bottom: 8px;
+}
+
+.runner-status-list div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.runner-status-list dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.runner-status-list dd {
+  min-width: 0;
+  color: #24324a;
+  font-weight: 760;
+  overflow-wrap: anywhere;
+}
+
+.runner-message {
+  min-width: 0;
+  border: 1px solid #dbe8ff;
+  border-radius: var(--radius);
+  background: #f5f8ff;
+  padding: 12px;
+}
+
+.runner-message.error {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.runner-message strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.runner-message p,
+.runner-empty-state {
+  color: var(--muted);
+  line-height: 1.55;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.runner-message.error p {
+  color: var(--red);
+}
+
+.runner-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: var(--radius);
+  background: #f8fafc;
+  margin-top: 0;
+  padding: 12px;
+}
+
+.compact-button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.runner-detail-placeholder {
+  min-height: 320px;
+  border: 1px dashed #cbd5e1;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, #fbfdff, #f8fafc);
+  color: var(--muted);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px;
+  text-align: center;
+}
+
+.runner-detail-placeholder strong {
+  color: #24324a;
+  font-size: 18px;
+}
+
+.runner-detail-placeholder p {
+  max-width: 520px;
+  line-height: 1.6;
+}

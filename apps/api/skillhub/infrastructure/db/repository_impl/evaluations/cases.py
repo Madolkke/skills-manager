@@ -56,9 +56,14 @@ class EvalCaseCommandMixin:
         actor: str,
         attachment_name: str | None = None,
         attachment_base64: str | None = None,
+        prompt_template_id: str = "standard_pass_fail",
+        prompt_text: str = "",
+        model_provider_id: str | None = None,
+        model_id: str | None = None,
         notes: str | None = None,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
+        runner_config = self._case_runner_config(prompt_template_id, prompt_text, model_provider_id, model_id)
         eval_case_id = new_id("case")
         eval_case_version_id = new_id("casever")
         with self.engine.begin() as connection:
@@ -102,6 +107,7 @@ class EvalCaseCommandMixin:
                     input_artifact_id=input_artifact_id,
                     expected_output_artifact_id=expected_output_artifact_id,
                     attachment_artifact_id=attachment_artifact_id,
+                    **runner_config,
                     notes=notes,
                     created_at=created_at,
                     created_by=actor,
@@ -145,6 +151,12 @@ class EvalCaseCommandMixin:
                 expected_output = self._required_text(item, "expected_output")
                 attachment_name = item.get("attachment_name")
                 attachment_base64 = item.get("attachment_base64")
+                runner_config = self._case_runner_config(
+                    item.get("prompt_template_id", "standard_pass_fail"),
+                    item.get("prompt_text", ""),
+                    item.get("model_provider_id"),
+                    item.get("model_id"),
+                )
                 if not title or not input_text or not expected_output:
                     raise InvariantError("Each eval case requires title, input_text, and expected_output.")
                 eval_case_id = new_id("case")
@@ -188,6 +200,7 @@ class EvalCaseCommandMixin:
                         input_artifact_id=input_artifact_id,
                         expected_output_artifact_id=expected_output_artifact_id,
                         attachment_artifact_id=attachment_artifact_id,
+                        **runner_config,
                         notes=item.get("notes"),
                         created_at=created_at,
                         created_by=actor,
@@ -228,10 +241,15 @@ class EvalCaseCommandMixin:
         actor: str,
         attachment_name: str | None = None,
         attachment_base64: str | None = None,
+        prompt_template_id: str = "standard_pass_fail",
+        prompt_text: str = "",
+        model_provider_id: str | None = None,
+        model_id: str | None = None,
         notes: str | None = None,
         make_current: bool = True,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
+        runner_config = self._case_runner_config(prompt_template_id, prompt_text, model_provider_id, model_id)
         eval_case_version_id = new_id("casever")
         with self.engine.begin() as connection:
             eval_case = self._eval_case_row(connection, case_id)
@@ -265,6 +283,7 @@ class EvalCaseCommandMixin:
                     input_artifact_id=input_artifact_id,
                     expected_output_artifact_id=expected_output_artifact_id,
                     attachment_artifact_id=attachment_artifact_id,
+                    **runner_config,
                     notes=notes,
                     created_at=created_at,
                     created_by=actor,
@@ -326,7 +345,31 @@ class EvalCaseCommandMixin:
             expected_output=expected_output,
             attachment_name=None,
             attachment_base64=None,
+            prompt_template_id=source_case_version["prompt_template_id"],
+            prompt_text=source_case_version["prompt_text"],
+            model_provider_id=source_case_version["model_provider_id"],
+            model_id=source_case_version["model_id"],
             actor=actor,
             notes=notes if notes is not None else f"Restored from case v{source_case_version['version_number']}.",
             make_current=True,
         )
+
+    def _case_runner_config(
+        self,
+        prompt_template_id: str | None,
+        prompt_text: str | None,
+        model_provider_id: str | None,
+        model_id: str | None,
+    ) -> dict[str, str | None]:
+        template_id = (prompt_template_id or "").strip() or "standard_pass_fail"
+        clean_prompt = (prompt_text or "").strip()
+        clean_provider = (model_provider_id or "").strip() or None
+        clean_model = (model_id or "").strip() or None
+        if bool(clean_provider) != bool(clean_model):
+            raise InvariantError("Eval case runner model requires both provider and model.")
+        return {
+            "prompt_template_id": template_id,
+            "prompt_text": clean_prompt,
+            "model_provider_id": clean_provider,
+            "model_id": clean_model,
+        }

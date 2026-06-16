@@ -3,11 +3,12 @@ import type {
   BundleDiff,
   EvalCaseHistory,
   EvalCaseRunRecord,
+  EvalCaseRunDetail,
   EvalCaseMutationResult,
+  EvalPromptTemplate,
   EvalRunDetail,
   EvalRunHistory,
   EvalSetDetail,
-  ManualEvalResultPayload,
   SessionInfo,
   SkillDetail,
   SkillSummary,
@@ -52,7 +53,13 @@ export const api = {
   listSkills: () => apiGet<SkillSummary[]>("/api/skills"),
   getSkill: (skillId: string) => apiGet<SkillDetail>(`/api/skills/${skillId}`),
   getEvalSet: (evalSetId: string) => apiGet<EvalSetDetail>(`/api/eval-sets/${evalSetId}`),
+  listEvalPromptTemplates: () => apiGet<EvalPromptTemplate[]>("/api/eval-prompt-templates"),
   getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
+  listEvalCaseRuns: (query: { skill_version_id: string; eval_set_id: string }) =>
+    apiGet<EvalCaseRunDetail[]>(
+      `/api/eval-case-runs?skill_version_id=${encodeURIComponent(query.skill_version_id)}&eval_set_id=${encodeURIComponent(query.eval_set_id)}`,
+    ),
+  getEvalCaseRun: (evalCaseRunId: string) => apiGet<EvalCaseRunDetail>(`/api/eval-case-runs/${encodeURIComponent(evalCaseRunId)}`),
   getEvalRunHistory: (skillId: string) => apiGet<EvalRunHistory>(`/api/skills/${skillId}/eval-runs`),
   getEvalRun: (runId: string) => apiGet<EvalRunDetail>(`/api/eval-runs/${runId}`),
   getBundleDiff: (leftSkillVersionId: string, rightSkillVersionId: string) =>
@@ -73,6 +80,10 @@ export const api = {
     expected_output: string;
     attachment_name?: string;
     attachment_base64?: string;
+    prompt_template_id?: string;
+    prompt_text?: string;
+    model_provider_id?: string | null;
+    model_id?: string | null;
     notes?: string;
   }) => apiSend<EvalCaseMutationResult>("/api/eval-cases", "POST", payload),
   updateEvalCase: (
@@ -83,32 +94,24 @@ export const api = {
       expected_output: string;
       attachment_name?: string;
       attachment_base64?: string;
+      prompt_template_id?: string;
+      prompt_text?: string;
+      model_provider_id?: string | null;
+      model_id?: string | null;
       notes?: string;
       make_current: boolean;
     },
   ) => apiSend<EvalCaseMutationResult>(`/api/eval-cases/${caseId}`, "PATCH", { ...payload, case_id: caseId }),
-  recordEvalRun: (payload: {
-    skill_version_id: string;
-    eval_set_id: string;
-    strategy: string;
-    environment_tags: string[];
-    run_context: Record<string, unknown>;
-    results: Record<string, ManualEvalResultPayload>;
-  }) => apiSend<{ eval_run_id: string }>("/api/eval-runs", "POST", payload),
   enqueueEvalCaseRun: (payload: {
     skill_version_id: string;
     eval_set_id: string;
     case_version_id: string;
-    strategy: string;
     environment_tags: string[];
     run_context: Record<string, unknown>;
   }) => apiSend<EvalCaseRunRecord>("/api/eval-case-runs", "POST", payload),
-  completeEvalCaseRun: (evalCaseRunId: string, payload: ManualEvalResultPayload) =>
-    apiSend<EvalCaseRunRecord>(`/api/eval-case-runs/${encodeURIComponent(evalCaseRunId)}/completion`, "POST", payload),
   aggregateEvalRun: (payload: {
     skill_version_id: string;
     eval_set_id: string;
-    strategy: string;
     environment_tags: string[];
     run_context: Record<string, unknown>;
   }) => apiSend<{ eval_run_id: string }>("/api/eval-runs/aggregations", "POST", payload),

@@ -104,7 +104,6 @@ class EvalRun:
     id: str
     skill_version_id: str
     eval_set_id: str
-    strategy: str
     status: EvalRunStatus
     created_at: datetime
     created_by: str

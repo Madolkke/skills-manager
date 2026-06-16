@@ -61,7 +61,7 @@ function errorMessage(caught: unknown): string {
       <header class="section-heading">
         <div>
           <h1>历史与证据链</h1>
-          <p>每次测评记录绑定 exact SkillVersion + 当前测评集，并保存运行环境、actual output 与人工判定结果。</p>
+          <p>每次测评记录绑定准确的 Skill 版本与当前测评集，并保存运行环境、运行结果与判定结果。</p>
         </div>
         <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'evaluate', selectedRunId: null })">进入测评</button>
       </header>
@@ -75,9 +75,9 @@ function errorMessage(caught: unknown): string {
           </div>
         </header>
         <div class="evidence-grid">
-          <span><small>SkillVersion</small><strong>{{ versionName(activeContext.skill_version) }}</strong></span>
-          <span><small>EvalSet</small><strong>{{ activeContext.eval_set.name }}</strong></span>
-          <span><small>Context hash</small><strong>{{ compactDigest(activeContext.eval_run.run_context_hash) }}</strong></span>
+          <span><small>Skill 版本</small><strong>{{ versionName(activeContext.skill_version) }}</strong></span>
+          <span><small>测评集</small><strong>{{ activeContext.eval_set.name }}</strong></span>
+          <span><small>上下文摘要</small><strong>{{ compactDigest(activeContext.eval_run.run_context_hash) }}</strong></span>
         </div>
         <div class="case-result-list">
           <article v-for="item in run?.case_results ?? []" :key="item.case_version.id" class="case-result-card">
@@ -86,8 +86,8 @@ function errorMessage(caught: unknown): string {
               <span :class="clsx('case-result-chip', item.result.passed ? 'passed' : 'failed')">{{ item.result.passed ? "通过" : "不通过" }}</span>
             </header>
             <div class="manual-comparison-grid">
-              <section><h3>Expected</h3><pre>{{ item.case_version.expected_output_artifact.content_text }}</pre></section>
-              <section><h3>Actual</h3><pre>{{ item.result_artifact?.content_text ?? "" }}</pre></section>
+              <section><h3>预期结果</h3><pre>{{ item.case_version.expected_output_artifact.content_text }}</pre></section>
+              <section><h3>运行结果</h3><pre>{{ item.result_artifact?.content_text ?? "" }}</pre></section>
             </div>
           </article>
         </div>
@@ -95,13 +95,13 @@ function errorMessage(caught: unknown): string {
       <div v-else class="history-empty">
         <FileCheck2 :size="24" />
         <strong>还没有测评记录</strong>
-        <p>先在“测评”页选择 Skill 版本与测评集版本，逐 case 标记后记录结果。</p>
+        <p>先在“测评”页选择 Skill 版本与测评集版本，通过 Opencode 测评器完成测试例后聚合结果。</p>
       </div>
 
       <section class="version-history">
         <header class="history-section-head">
           <h2>Skill 版本链</h2>
-          <p>每个 SkillVersion 都是不可变快照；环境差异记录在 EvalRun 上。</p>
+          <p>每个 Skill 版本都是不可变快照；环境差异记录在测评记录上。</p>
         </header>
         <div class="version-group">
           <h3>{{ skill.skill.slug }}</h3>
@@ -111,7 +111,7 @@ function errorMessage(caught: unknown): string {
               <strong>{{ versionName(version) }}</strong>
               <span>{{ version.change_summary }}</span>
               <small>{{ compactDigest(version.content_digest) }}</small>
-              <button class="icon-button mini" type="button" :aria-label="`复制 ${versionName(version)} digest`" @click="copyText('版本 digest', version.content_digest)">
+              <button class="icon-button mini" type="button" :aria-label="`复制 ${versionName(version)} 摘要`" @click="copyText('版本摘要', version.content_digest)">
                 <Copy :size="14" />
               </button>
             </div>

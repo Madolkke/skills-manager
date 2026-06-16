@@ -36,7 +36,9 @@
   }
 
   .progress-summary-card,
-  .progress-metrics {
+  .progress-metrics,
+  .runner-status-board,
+  .runner-status-list div {
     grid-template-columns: 1fr;
   }
 
@@ -59,6 +61,41 @@
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 12px;
+  }
+
+  .runner-case-row {
+    min-height: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .runner-case-title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .runner-case-title-row .runner-status-chip,
+  .runner-case-meta > span:not(.runner-status-chip) {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .runner-case-meta > span:not(.runner-status-chip) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .runner-case-preview {
+    -webkit-line-clamp: 3;
+  }
+
+  .runner-output-panel header,
+  .runner-inspector-panel header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .runner-output-panel .compact-button {
+    width: 100%;
   }
 
   .manual-status-dot {

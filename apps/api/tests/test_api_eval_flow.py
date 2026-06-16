@@ -6,19 +6,27 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         skill = self.create_skill("command-flow")
         case = self.create_eval_case(skill["skill_id"])
 
+        queued = self.enqueue_case_run(
+            skill["skill_version_id"],
+            case["eval_set_id"],
+            case["eval_case_version_id"],
+            environment_tags=["windows", "codex", "windows"],
+            run_context={"os": "windows", "shell": "git-bash", "model": "gpt-5"},
+        )
+        self.assertNotIn("strategy", queued)
+        self.repository.finalize_eval_case_run(
+            eval_case_run_id=queued["eval_case_run_id"],
+            passed=False,
+            actual_output="The run missed the ownerId finding.",
+            actor="tester",
+        )
         run = self.client.post(
-            "/api/eval-runs",
+            "/api/eval-runs/aggregations",
             json={
                 "skill_version_id": skill["skill_version_id"],
                 "eval_set_id": case["eval_set_id"],
                 "environment_tags": ["windows", "codex", "windows"],
                 "run_context": {"os": "windows", "shell": "git-bash", "model": "gpt-5"},
-                "results": {
-                    case["eval_case_version_id"]: {
-                        "passed": False,
-                        "actual_output": "The run missed the ownerId finding.",
-                    }
-                },
             },
         )
 
@@ -40,6 +48,12 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         history = self.client.get(f"/api/skills/{skill['skill_id']}/eval-runs").json()
         self.assertEqual(history["runs"][0]["eval_run"]["id"], payload["eval_run_id"])
         self.assertEqual(history["runs"][0]["skill_version"]["id"], skill["skill_version_id"])
+        self.assertNotIn("strategy", detail["eval_run"])
+
+    def test_removed_manual_eval_run_endpoint_returns_not_found(self):
+        response = self.client.post("/api/eval-runs", json={})
+
+        self.assertEqual(response.status_code, 404)
 
     def test_eval_run_history_and_matrix_filter_by_skill_version(self):
         skill = self.create_skill("history-filter")
@@ -119,18 +133,17 @@ class ApiEvalFlowTest(ApiCommandTestCase):
             windows_acceptance.json()["accepted_verification"]["id"],
         )
 
-    def test_eval_run_results_must_match_eval_set_version(self):
+    def test_aggregate_eval_run_requires_finished_case_runs(self):
         skill = self.create_skill("run-validation")
         case = self.create_eval_case(skill["skill_id"])
 
         response = self.client.post(
-            "/api/eval-runs",
+            "/api/eval-runs/aggregations",
             json={
                 "skill_version_id": skill["skill_version_id"],
                 "eval_set_id": case["eval_set_id"],
-                "results": {},
             },
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["field_errors"][0]["field"], f"results.{case['eval_case_version_id']}")
+        self.assertEqual(response.json()["field_errors"][0]["field"], f"case_runs.{case['eval_case_version_id']}")

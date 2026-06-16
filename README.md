@@ -91,6 +91,40 @@ cd apps/web
 VITE_SKILLHUB_API_PORT=8000 npm run dev -- --host 0.0.0.0 --port 3030
 ```
 
+### Opencode Eval Runner 手动运行
+
+PostgreSQL 不由 Docker Compose 管理，始终通过 `SKILLHUB_DATABASE_URL` 指向你自己的 PostgreSQL。Compose 只负责启动 Opencode：
+
+```bash
+docker compose up opencode
+```
+
+在另一个终端启动 API/Web：
+
+```bash
+bash scripts/dev.sh
+```
+
+Windows PowerShell 推荐使用一键本地启动脚本，它会同时启动 API、Web 和 Worker：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/dev.ps1
+```
+
+再启动本机 Worker：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/worker.ps1
+```
+
+或在 Git Bash/Linux/macOS：
+
+```bash
+bash scripts/worker.sh
+```
+
+需要在 `.env` 中配置 `SKILLHUB_DATABASE_URL` 和 `DEEPSEEK_API_KEY`。`EVAL_WORKDIR_HOST` 默认是 `.data/eval-runs`，会挂载到 Opencode 容器内的 `/workspace/eval-runs`。
+
 ## 建议试用路径
 
 1. 打开 `http://127.0.0.1:3030/skills`。

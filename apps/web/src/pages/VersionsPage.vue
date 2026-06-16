@@ -61,7 +61,7 @@ function previousSkillVersion(versions: SkillVersion[], current: SkillVersion): 
       <div class="version-upload-head">
         <div>
           <h2>上传新版本</h2>
-          <p>上传标准 Skill bundle 后会追加一个不可变 SkillVersion。</p>
+          <p>上传标准 Skill bundle 后会追加一个不可变 Skill 版本。</p>
         </div>
         <button class="icon-button" type="button" aria-label="关闭上传面板" @click="emit('upload-close')">
           <X :size="18" />
@@ -74,7 +74,7 @@ function previousSkillVersion(versions: SkillVersion[], current: SkillVersion): 
       <div class="version-upload-head">
         <div>
           <h2>编辑 Skill</h2>
-          <p>基于当前选中的不可变版本创建新 SkillVersion。</p>
+          <p>基于当前选中的不可变版本创建新 Skill 版本。</p>
         </div>
         <button class="icon-button" type="button" aria-label="关闭编辑面板" @click="editOpen = false">
           <X :size="18" />

@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import desc, insert, select, update
 
+from skillhub.application.eval_runner import OPENCODE_RUNNER
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.domain.models import new_id, normalize_tags, utc_now
 from skillhub.infrastructure.db import tables
@@ -17,7 +18,6 @@ class EvalRunCommandMixin:
         skill_version_id: str,
         eval_set_id: str,
         case_version_id: str,
-        strategy: str,
         actor: str,
         environment_tags: list[str] | tuple[str, ...] | None = None,
         run_context: dict[str, Any] | None = None,
@@ -38,7 +38,6 @@ class EvalRunCommandMixin:
                 skill_version_id=skill_version_id,
                 eval_set_id=eval_set_id,
                 case_version_id=case_version_id,
-                strategy=strategy,
                 actor=actor,
                 tags=tags,
                 context=context,
@@ -54,6 +53,7 @@ class EvalRunCommandMixin:
         passed: bool,
         actual_output: str = "",
         actor: str,
+        runner_metadata: dict[str, Any] | None = None,
     ) -> RecordEvalCaseRunResult:
         finished_at = utc_now()
         with self.engine.begin() as connection:
@@ -71,6 +71,7 @@ class EvalRunCommandMixin:
                     passed=passed,
                     score=1 if passed else 0,
                     result_artifact_id=result_artifact_id,
+                    runner_metadata=self._canonical_json_object(runner_metadata or {}),
                     started_at=case_run["started_at"] or finished_at,
                     finished_at=finished_at,
                     error=None,
@@ -96,12 +97,132 @@ class EvalRunCommandMixin:
             failed = self._eval_case_run_row(connection, eval_case_run_id)
         return self._case_run_result(failed)
 
+    def claim_next_eval_case_run_job(self, *, worker_id: str, runner: str = OPENCODE_RUNNER) -> dict[str, Any] | None:
+        now = utc_now()
+        with self.engine.begin() as connection:
+            job = (
+                connection.execute(
+                    select(tables.jobs)
+                    .where(tables.jobs.c.type == "eval_case_run")
+                    .where(tables.jobs.c.status == "queued")
+                    .where(tables.jobs.c.payload["runner"].as_string() == runner)
+                    .order_by(tables.jobs.c.created_at, tables.jobs.c.id)
+                    .limit(1)
+                    .with_for_update(skip_locked=True)
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if job is None:
+                return None
+            payload = dict(job["payload"])
+            eval_case_run_id = str(payload["eval_case_run_id"])
+            connection.execute(
+                update(tables.jobs)
+                .where(tables.jobs.c.id == job["id"])
+                .values(
+                    status="running",
+                    attempts=job["attempts"] + 1,
+                    locked_by=worker_id,
+                    started_at=job["started_at"] or now,
+                    last_heartbeat_at=now,
+                    error=None,
+                )
+            )
+            connection.execute(
+                update(tables.eval_case_runs)
+                .where(tables.eval_case_runs.c.id == eval_case_run_id)
+                .values(status="running", started_at=now, error=None)
+            )
+        return self.eval_case_run_detail(eval_case_run_id)
+
+    def retry_eval_case_run_job(self, *, eval_case_run_id: str, error: str) -> RecordEvalCaseRunResult:
+        now = utc_now()
+        message = error.strip() or "Eval case run will be retried."
+        with self.engine.begin() as connection:
+            case_run = self._eval_case_run_row(connection, eval_case_run_id)
+            if case_run["status"] != "running":
+                raise InvariantError("EvalCaseRun is not running.")
+            connection.execute(
+                update(tables.eval_case_runs)
+                .where(tables.eval_case_runs.c.id == eval_case_run_id)
+                .values(status="queued", started_at=None, error=message)
+            )
+            connection.execute(
+                update(tables.jobs)
+                .where(tables.jobs.c.id == case_run["job_id"])
+                .values(status="queued", locked_by=None, last_heartbeat_at=now, error=message)
+            )
+            retried = self._eval_case_run_row(connection, eval_case_run_id)
+        return self._case_run_result(retried)
+
+    def eval_case_run_detail(self, eval_case_run_id: str) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            return self._eval_case_run_detail_from_row(connection, self._eval_case_run_row(connection, eval_case_run_id))
+
+    def latest_eval_case_run_details(
+        self,
+        *,
+        skill_version_id: str,
+        eval_set_id: str,
+        environment_tags: list[str] | tuple[str, ...] | None = None,
+        run_context: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        context_hash = None
+        if environment_tags is not None or run_context is not None:
+            tags = normalize_tags(list(environment_tags or []))
+            context = self._canonical_json_object(run_context or {})
+            context_hash = self._run_context_hash(tags, context)
+        with self.engine.connect() as connection:
+            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_id)
+            statement = (
+                select(tables.eval_case_runs)
+                .where(tables.eval_case_runs.c.skill_version_id == skill_version_id)
+                .where(tables.eval_case_runs.c.eval_set_id == eval_set_id)
+                .where(tables.eval_case_runs.c.case_version_id.in_(case_version_ids))
+                .order_by(desc(tables.eval_case_runs.c.created_at), desc(tables.eval_case_runs.c.id))
+            )
+            if context_hash is not None:
+                statement = statement.where(tables.eval_case_runs.c.run_context_hash == context_hash)
+            rows = connection.execute(statement).mappings().all()
+            latest: dict[str, Any] = {}
+            for row in rows:
+                latest.setdefault(row["case_version_id"], row)
+            return [self._eval_case_run_detail_from_row(connection, latest[case_version_id]) for case_version_id in case_version_ids if case_version_id in latest]
+
+    def _eval_case_run_detail_from_row(self, connection, case_run) -> dict[str, Any]:
+        skill = self._skill_row(connection, case_run["skill_id"])
+        skill_version = self._skill_version_detail(connection, self._skill_version_row(connection, case_run["skill_version_id"]))
+        eval_set = self._eval_set_row(connection, case_run["eval_set_id"])
+        case_version = self._eval_case_version_row(connection, case_run["case_version_id"])
+        case_version_detail = self._case_version_detail(connection, case_version)
+        eval_case = self._eval_case_row(connection, case_version["case_id"])
+        result_artifact = None
+        if case_run["result_artifact_id"] is not None:
+            result_artifact = (
+                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_run["result_artifact_id"]))
+                .mappings()
+                .one_or_none()
+            )
+        job = None
+        if case_run["job_id"] is not None:
+            job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == case_run["job_id"])).mappings().one_or_none()
+        return {
+            "eval_case_run": self._row_dict(case_run),
+            "job": self._row_dict(job) if job is not None else None,
+            "skill": self._row_dict(skill),
+            "skill_version": skill_version,
+            "eval_set": self._row_dict(eval_set),
+            "case": self._row_dict(eval_case),
+            "case_version": case_version_detail,
+            "result_artifact": self._row_dict(result_artifact) if result_artifact is not None else None,
+        }
+
     def aggregate_eval_run(
         self,
         *,
         skill_version_id: str,
         eval_set_id: str,
-        strategy: str,
         actor: str,
         environment_tags: list[str] | tuple[str, ...] | None = None,
         run_context: dict[str, Any] | None = None,
@@ -124,7 +245,6 @@ class EvalRunCommandMixin:
                 skill_version_id=skill_version_id,
                 eval_set_id=eval_set_id,
                 case_version_ids=case_version_ids,
-                strategy=strategy,
                 context_hash=context_hash,
             )
             self._require_complete_case_runs(case_version_ids, latest_case_runs)
@@ -137,7 +257,6 @@ class EvalRunCommandMixin:
                     skill_id=skill_id,
                     skill_version_id=skill_version_id,
                     eval_set_id=eval_set_id,
-                    strategy=strategy,
                     status="finished",
                     environment_tags=list(tags),
                     run_context=context,
@@ -165,48 +284,6 @@ class EvalRunCommandMixin:
             )
         return RecordEvalRunResult(eval_run_id, skill_id, skill_version_id, eval_set_id, passed_count, failed_count, len(case_version_ids), tags, context, context_hash)
 
-    def record_eval_run(
-        self,
-        *,
-        skill_version_id: str,
-        eval_set_id: str,
-        strategy: str,
-        results: dict[str, Any],
-        actor: str,
-        environment_tags: list[str] | None = None,
-        run_context: dict[str, Any] | None = None,
-    ) -> RecordEvalRunResult:
-        tags = normalize_tags(environment_tags or [])
-        context = self._canonical_json_object(run_context or {})
-        with self.engine.begin() as connection:
-            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_id)
-            normalized_results = self._normalize_eval_run_results(case_version_ids, results)
-
-        for case_version_id in case_version_ids:
-            queued = self.enqueue_eval_case_run(
-                skill_version_id=skill_version_id,
-                eval_set_id=eval_set_id,
-                case_version_id=case_version_id,
-                strategy=strategy,
-                actor=actor,
-                environment_tags=tags,
-                run_context=context,
-            )
-            self.finalize_eval_case_run(
-                eval_case_run_id=queued.eval_case_run_id,
-                passed=normalized_results[case_version_id]["passed"],
-                actual_output=normalized_results[case_version_id]["actual_output"],
-                actor=actor,
-            )
-        return self.aggregate_eval_run(
-            skill_version_id=skill_version_id,
-            eval_set_id=eval_set_id,
-            strategy=strategy,
-            actor=actor,
-            environment_tags=tags,
-            run_context=context,
-        )
-
     def _insert_eval_case_run(
         self,
         connection,
@@ -215,7 +292,6 @@ class EvalRunCommandMixin:
         skill_version_id: str,
         eval_set_id: str,
         case_version_id: str,
-        strategy: str,
         actor: str,
         tags: tuple[str, ...],
         context: dict[str, Any],
@@ -231,7 +307,7 @@ class EvalRunCommandMixin:
                 "skill_version_id": skill_version_id,
                 "eval_set_id": eval_set_id,
                 "case_version_id": case_version_id,
-                "strategy": strategy,
+                "runner": OPENCODE_RUNNER,
                 "environment_tags": list(tags),
                 "run_context": context,
             },
@@ -246,7 +322,6 @@ class EvalRunCommandMixin:
                 skill_version_id=skill_version_id,
                 eval_set_id=eval_set_id,
                 case_version_id=case_version_id,
-                strategy=strategy,
                 status="queued",
                 environment_tags=list(tags),
                 run_context=context,
@@ -276,7 +351,6 @@ class EvalRunCommandMixin:
         skill_version_id: str,
         eval_set_id: str,
         case_version_ids: list[str],
-        strategy: str,
         context_hash: str,
     ) -> dict[str, Any]:
         rows = (
@@ -285,7 +359,6 @@ class EvalRunCommandMixin:
                 .where(tables.eval_case_runs.c.skill_version_id == skill_version_id)
                 .where(tables.eval_case_runs.c.eval_set_id == eval_set_id)
                 .where(tables.eval_case_runs.c.case_version_id.in_(case_version_ids))
-                .where(tables.eval_case_runs.c.strategy == strategy)
                 .where(tables.eval_case_runs.c.run_context_hash == context_hash)
                 .where(tables.eval_case_runs.c.status == "succeeded")
                 .order_by(desc(tables.eval_case_runs.c.finished_at), desc(tables.eval_case_runs.c.id))

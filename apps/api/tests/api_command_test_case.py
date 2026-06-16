@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from skillhub.api.main import create_app
+from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from tests.postgres_test_case import PostgresTestCase
 
 
@@ -8,6 +9,7 @@ class ApiCommandTestCase(PostgresTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.client = TestClient(create_app(self.engine))
+        self.repository = SqlSkillRepository(self.engine)
 
     def skill_payload(self, slug: str, digest: str | None = None):
         return {
@@ -64,15 +66,55 @@ class ApiCommandTestCase(PostgresTestCase):
         passed: bool,
         environment_tags: list[str] | None = None,
         run_context: dict[str, str] | None = None,
+        actual_output: str = "",
     ):
-        response = self.client.post(
-            "/api/eval-runs",
+        context = run_context or {}
+        tags = environment_tags or []
+        queued = self.client.post(
+            "/api/eval-case-runs",
             json={
                 "skill_version_id": skill_version_id,
                 "eval_set_id": eval_set_id,
+                "case_version_id": case_version_id,
+                "environment_tags": tags,
+                "run_context": context,
+            },
+        )
+        self.assertEqual(queued.status_code, 200)
+        self.repository.finalize_eval_case_run(
+            eval_case_run_id=queued.json()["eval_case_run_id"],
+            passed=passed,
+            actual_output=actual_output,
+            actor="tester",
+        )
+        response = self.client.post(
+            "/api/eval-runs/aggregations",
+            json={
+                "skill_version_id": skill_version_id,
+                "eval_set_id": eval_set_id,
+                "environment_tags": tags,
+                "run_context": context,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def enqueue_case_run(
+        self,
+        skill_version_id: str,
+        eval_set_id: str,
+        case_version_id: str,
+        environment_tags: list[str] | None = None,
+        run_context: dict[str, str] | None = None,
+    ):
+        response = self.client.post(
+            "/api/eval-case-runs",
+            json={
+                "skill_version_id": skill_version_id,
+                "eval_set_id": eval_set_id,
+                "case_version_id": case_version_id,
                 "environment_tags": environment_tags or [],
                 "run_context": run_context or {},
-                "results": {case_version_id: passed},
             },
         )
         self.assertEqual(response.status_code, 200)

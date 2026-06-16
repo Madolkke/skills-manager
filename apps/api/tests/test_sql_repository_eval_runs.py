@@ -37,7 +37,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         self.assertEqual(artifact["size_bytes"], len(zip_bytes))
         self.assertEqual(case_version["attachment_artifact"]["id"], created.attachment_artifact_id)
 
-    def test_record_eval_run_persists_environment_context_and_actual_output_artifacts(self):
+    def test_aggregate_eval_run_persists_environment_context_and_actual_output_artifacts(self):
         skill = self.create_skill()
         case = self.repository.create_eval_case(
             skill_id=skill.skill_id,
@@ -47,10 +47,9 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             actor="tester",
         )
 
-        run = self.repository.record_eval_run(
+        run = self.record_finished_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={
                 case.eval_case_version_id: {
                     "passed": False,
@@ -92,7 +91,6 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
             case_version_id=case.eval_case_version_id,
-            strategy="manual_pass_fail",
             actor="tester",
             environment_tags=["linux"],
             run_context={"os": "linux"},
@@ -106,7 +104,6 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         run = self.repository.aggregate_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             actor="tester",
             environment_tags=["linux"],
             run_context={"os": "linux"},
@@ -124,6 +121,15 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         self.assertEqual(result["passed"], True)
         self.assertEqual(run.passed, 1)
 
+        latest = self.repository.latest_eval_case_run_details(
+            skill_version_id=skill.skill_version_id,
+            eval_set_id=case.eval_set_id,
+            environment_tags=["linux"],
+            run_context={"os": "linux"},
+        )
+        self.assertEqual(latest[0]["eval_case_run"]["id"], finished.eval_case_run_id)
+        self.assertEqual(latest[0]["result_artifact"]["content_text"], "Flagged token logging.")
+
     def test_eval_run_rejects_cross_skill_version_and_eval_set(self):
         first = self.create_skill(slug="code-reviewer", digest="digest-code")
         second = self.create_skill(slug="security-reviewer", digest="digest-security")
@@ -136,15 +142,13 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
 
         with self.assertRaisesRegex(InvariantError, "same skill"):
-            self.repository.record_eval_run(
+            self.repository.aggregate_eval_run(
                 skill_version_id=first.skill_version_id,
                 eval_set_id=case.eval_set_id,
-                strategy="manual_pass_fail",
-                results={case.eval_case_version_id: True},
                 actor="tester",
             )
 
-    def test_eval_run_results_must_match_eval_set_version(self):
+    def test_eval_run_aggregation_requires_finished_case_runs(self):
         skill = self.create_skill()
         case = self.repository.create_eval_case(
             skill_id=skill.skill_id,
@@ -155,15 +159,13 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         )
 
         with self.assertRaises(FieldInvariantError) as error:
-            self.repository.record_eval_run(
+            self.repository.aggregate_eval_run(
                 skill_version_id=skill.skill_version_id,
                 eval_set_id=case.eval_set_id,
-                strategy="manual_pass_fail",
-                results={},
                 actor="tester",
             )
 
-        self.assertEqual(error.exception.field_errors[0].field, f"results.{case.eval_case_version_id}")
+        self.assertEqual(error.exception.field_errors[0].field, f"case_runs.{case.eval_case_version_id}")
 
     def test_eval_run_detail_returns_case_level_results_and_skill_version(self):
         skill = self.create_skill()
@@ -181,10 +183,9 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             expected_output="Flag missing tenant scope.",
             actor="tester",
         )
-        run = self.repository.record_eval_run(
+        run = self.record_finished_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=second_case.eval_set_id,
-            strategy="manual_pass_fail",
             results={
                 case.eval_case_version_id: {"passed": True, "actual_output": "Flagged token logging."},
                 second_case.eval_case_version_id: {"passed": False, "actual_output": "No tenant finding."},
@@ -220,19 +221,17 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             expected_output="Flag missing tenant scope.",
             actor="tester",
         )
-        self.repository.record_eval_run(
+        self.record_finished_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={case.eval_case_version_id: False},
             actor="tester",
             environment_tags=["linux"],
             run_context={"os": "linux"},
         )
-        candidate_run = self.repository.record_eval_run(
+        candidate_run = self.record_finished_eval_run(
             skill_version_id=candidate.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
             environment_tags=["windows"],
@@ -243,7 +242,6 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             skill_id=skill.skill_id,
             skill_version_id=candidate.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             status="finished",
         )
 
@@ -260,19 +258,17 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             expected_output="Flag missing tenant scope.",
             actor="tester",
         )
-        linux_run = self.repository.record_eval_run(
+        linux_run = self.record_finished_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
             environment_tags=["linux"],
             run_context={"os": "linux"},
         )
-        windows_run = self.repository.record_eval_run(
+        windows_run = self.record_finished_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
             environment_tags=["windows"],
@@ -313,19 +309,17 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             expected_output="Flag missing tenant scope.",
             actor="tester",
         )
-        baseline = self.repository.record_eval_run(
+        baseline = self.record_finished_eval_run(
             skill_version_id=skill.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={case.eval_case_version_id: False},
             actor="tester",
             environment_tags=["linux"],
             run_context={"os": "linux"},
         )
-        candidate_run = self.repository.record_eval_run(
+        candidate_run = self.record_finished_eval_run(
             skill_version_id=candidate.skill_version_id,
             eval_set_id=case.eval_set_id,
-            strategy="manual_pass_fail",
             results={case.eval_case_version_id: True},
             actor="tester",
             environment_tags=["linux"],

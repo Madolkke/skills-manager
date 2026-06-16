@@ -5,6 +5,7 @@ description = "SkillHub API"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
+  "httpx>=0.28.1",
   "psycopg[binary]>=3.2",
   "pydantic>=2.8",
   "sqlalchemy>=2.0",
@@ -28,4 +29,4 @@ requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["skillhub*"]
+include = ["skillhub*", "skillhub_worker*"]

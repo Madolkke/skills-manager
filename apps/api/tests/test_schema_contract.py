@@ -87,6 +87,7 @@ class SchemaContractTest(unittest.TestCase):
             "foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)",
             self.normalized,
         )
+        self.assertNotIn("strategy", table_sql)
 
     def test_append_only_version_uniqueness_constraints_exist(self):
         for constraint in [
@@ -107,6 +108,17 @@ class SchemaContractTest(unittest.TestCase):
         table_sql = self._table_sql("eval_case_versions")
 
         self.assertIn("attachment_artifact_id text references artifacts(id)", table_sql)
+        self.assertIn("prompt_template_id text not null default 'standard_pass_fail'", table_sql)
+        self.assertIn("prompt_text text not null default ''", table_sql)
+        self.assertIn("model_provider_id text", table_sql)
+        self.assertIn("model_id text", table_sql)
+
+    def test_opencode_runner_fields_exist(self):
+        self.assertIn("runner_metadata jsonb not null default '{}'::jsonb", self._table_sql("eval_case_runs"))
+        jobs_sql = self._table_sql("jobs")
+        self.assertIn("attempts integer not null default 0", jobs_sql)
+        self.assertIn("locked_by text", jobs_sql)
+        self.assertIn("last_heartbeat_at timestamptz", jobs_sql)
 
     def test_eval_runs_store_run_context(self):
         table_sql = self._table_sql("eval_runs")
@@ -123,6 +135,7 @@ class SchemaContractTest(unittest.TestCase):
             "create index eval_runs_context_hash_idx",
         ]:
             self.assertIn(index, self.normalized)
+        self.assertNotIn("strategy", table_sql)
 
     def test_accepted_verifications_are_scoped_to_run_context(self):
         table_sql = self._table_sql("accepted_verifications")

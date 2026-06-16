@@ -47,7 +47,6 @@ class DomainInvariantTest(unittest.TestCase):
         run = self.service.record_eval_run(
             skill_version_id=candidate.id,
             eval_set_id=eval_set.id,
-            strategy="manual_pass_fail",
             results={self.workspace.eval_set_cases[eval_set.id][0]: True},
             actor="tester",
             environment_tags=["windows", "codex"],
@@ -96,7 +95,6 @@ class DomainInvariantTest(unittest.TestCase):
         self.service.record_eval_run(
             skill_version_id=skill.current_version_id,
             eval_set_id=first_set.id,
-            strategy="manual_pass_fail",
             results={old_case_version_id: True},
             actor="tester",
         )
@@ -127,7 +125,6 @@ class DomainInvariantTest(unittest.TestCase):
             self.service.record_eval_run(
                 skill_version_id=first_version_id,
                 eval_set_id=second_eval_set.id,
-                strategy="manual_pass_fail",
                 results={},
                 actor="tester",
             )

@@ -41,7 +41,7 @@ function cleanName(value: string): string | undefined {
 <template>
   <div class="form-stack">
     <div v-if="error" class="form-error">{{ error }}</div>
-    <div class="hint-strip">将追加新的 SkillVersion，并设置为当前版本。</div>
+    <div class="hint-strip">将追加新的 Skill 版本，并设置为当前版本。</div>
     <VersionSelector v-model="version" :versions="skill.versions" />
     <label class="field-label">
       <span>版本名称</span>

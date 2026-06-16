@@ -79,7 +79,7 @@ function versionLabel(version: SkillVersion): string {
 <template>
   <div class="form-stack skill-edit-form">
     <div v-if="error" class="form-error">{{ error }}</div>
-    <div class="hint-strip">保存后会追加新的 SkillVersion，并设置为当前版本。</div>
+    <div class="hint-strip">保存后会追加新的 Skill 版本，并设置为当前版本。</div>
     <div v-if="!entryFile" class="form-error">当前 bundle 找不到根目录 SKILL.md，无法使用页面编辑。</div>
     <div v-if="entryFile?.binary" class="form-error">SKILL.md 不是可编辑文本文件。</div>
     <div v-if="missingBinaryContent" class="form-error">当前 bundle 有缺少内容的二进制文件，无法从页面编辑保存。</div>

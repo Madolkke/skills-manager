@@ -35,6 +35,12 @@
   margin-top: 6px;
 }
 
+.manual-case-subtitle {
+  color: var(--muted);
+  font-weight: 740;
+  margin-top: 6px;
+}
+
 .manual-comparison-grid {
   min-width: 0;
   display: grid;
@@ -73,6 +79,16 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 14px;
+}
+
+.danger-text {
+  color: var(--red);
+}
+
+.tag-chip.muted {
+  color: #66758d;
+  background: #f7f9fc;
+  border: 1px solid #e6edf6;
 }
 
 .success-button,

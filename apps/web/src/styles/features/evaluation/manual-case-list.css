@@ -36,6 +36,7 @@
 }
 
 .manual-case-row {
+  position: relative;
   width: 100%;
   min-height: 58px;
   border: 0;
@@ -47,11 +48,26 @@
   align-items: center;
   text-align: left;
   padding: 0 14px;
+  transition: background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.manual-case-row::before {
+  content: "";
+  position: absolute;
+  inset: 8px auto 8px 0;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
 }
 
 .manual-case-row:hover,
 .manual-case-row.active {
   background: #f1f6ff;
+}
+
+.manual-case-row:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 18%);
+  outline-offset: -3px;
 }
 
 .manual-status-dot {
@@ -119,4 +135,5 @@
   font-size: 12px;
   font-weight: 840;
   line-height: 1;
+  justify-self: end;
 }

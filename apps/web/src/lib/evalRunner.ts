@@ -1,0 +1,177 @@
+import type { EvalCaseRunDetail, EvalCaseRunRecord, EvalSetCase } from "../types";
+import { humanDate } from "./format";
+
+export type RunnerStateKind = "not-run" | "queued" | "running" | "passed" | "failed" | "rejected";
+
+export type RunnerState = {
+  kind: RunnerStateKind;
+  label: string;
+  helper: string;
+};
+
+export type RunnerBoardItem = {
+  kind: RunnerStateKind;
+  label: string;
+  count: number;
+};
+
+export type RunnerStatusRow = {
+  label: string;
+  value: string;
+};
+
+export type RunnerSummary = {
+  confirmed: number;
+  passed: number;
+  failed: number;
+  failedRuns: number;
+  queuedRuns: number;
+  runningRuns: number;
+  pending: number;
+  coverage: number;
+};
+
+export function runnerState(detail?: EvalCaseRunDetail | null): RunnerState {
+  if (!detail) return { kind: "not-run", label: "未运行", helper: "尚未创建任务" };
+  const jobStatus = detail.job?.status;
+  if (detail.eval_case_run.status === "succeeded") {
+    return detail.eval_case_run.passed
+      ? { kind: "passed", label: "通过", helper: "输出满足期望" }
+      : { kind: "rejected", label: "不通过", helper: "输出未满足期望" };
+  }
+  if (detail.eval_case_run.status === "failed" || detail.eval_case_run.status === "canceled") {
+    return { kind: "failed", label: "执行失败", helper: detail.eval_case_run.error || detail.job?.error || "测评器未完成" };
+  }
+  if (detail.eval_case_run.status === "running" || jobStatus === "running") return { kind: "running", label: "运行中", helper: "后台进程正在执行" };
+  return { kind: "queued", label: "排队中", helper: "等待后台进程领取" };
+}
+
+export function summarizeOpencodeRuns(items: EvalSetCase[], runs: Record<string, EvalCaseRunDetail>): RunnerSummary {
+  const values = items.map((item) => runs[item.case_version.id]).filter(Boolean);
+  const succeeded = values.filter((item) => item.eval_case_run.status === "succeeded");
+  return {
+    confirmed: succeeded.length,
+    passed: succeeded.filter((item) => item.eval_case_run.passed === true).length,
+    failed: succeeded.filter((item) => item.eval_case_run.passed === false).length,
+    failedRuns: values.filter((item) => item.eval_case_run.status === "failed").length,
+    queuedRuns: values.filter((item) => runnerState(item).kind === "queued").length,
+    runningRuns: values.filter((item) => runnerState(item).kind === "running").length,
+    pending: Math.max(items.length - succeeded.length, 0),
+    coverage: items.length === 0 ? 0 : Math.round((succeeded.length / items.length) * 100),
+  };
+}
+
+export function summarizeRunnerBoard(items: EvalSetCase[], runs: Record<string, EvalCaseRunDetail>): RunnerBoardItem[] {
+  const counts: Record<RunnerStateKind, number> = {
+    "not-run": 0,
+    queued: 0,
+    running: 0,
+    passed: 0,
+    failed: 0,
+    rejected: 0,
+  };
+  for (const item of items) counts[runnerState(runs[item.case_version.id]).kind] += 1;
+  return [
+    { kind: "not-run", label: "未运行", count: counts["not-run"] },
+    { kind: "queued", label: "排队中", count: counts.queued },
+    { kind: "running", label: "运行中", count: counts.running },
+    { kind: "passed", label: "通过", count: counts.passed },
+    { kind: "rejected", label: "不通过", count: counts.rejected },
+    { kind: "failed", label: "执行失败", count: counts.failed },
+  ];
+}
+
+export function modelLabel(item: EvalSetCase): string {
+  const provider = item.case_version.model_provider_id;
+  const model = item.case_version.model_id;
+  return provider && model ? `${provider}/${model}` : "默认模型";
+}
+
+export function promptSourceLabel(item: EvalSetCase): string {
+  if (item.case_version.prompt_text.trim()) return "自定义提示词";
+  return promptTemplateLabel(item.case_version.prompt_template_id);
+}
+
+export function promptTemplateLabel(templateId: string): string {
+  const labels: Record<string, string> = {
+    standard_pass_fail: "通用判定",
+    file_workspace_task: "工作目录文件任务",
+    exact_match: "严格文本匹配",
+    semantic_judge: "语义判定",
+    custom: "自定义提示词",
+  };
+  return labels[templateId] ?? (templateId || "默认模板");
+}
+
+export function runTimeLabel(detail?: EvalCaseRunDetail | null): string {
+  const value = detail?.eval_case_run.finished_at ?? detail?.eval_case_run.started_at ?? detail?.eval_case_run.created_at;
+  return value ? humanDate(value) : "-";
+}
+
+export function runActivityHint(detail?: EvalCaseRunDetail | null): string {
+  const state = runnerState(detail);
+  if (state.kind === "running") return "正在执行";
+  if (state.kind === "queued") return "等待领取";
+  return "";
+}
+
+export function emptyActualOutputText(state: RunnerState): string {
+  if (state.kind === "running") return "等待 result.json 写入...";
+  if (state.kind === "queued") return "任务已入队，等待后台进程领取。";
+  return state.helper;
+}
+
+export function actionBarStatusText(summary: RunnerSummary, caseCount: number, pollIntervalSeconds: number): string {
+  if (summary.runningRuns > 0) return `正在运行 ${summary.runningRuns} 个测试例，页面每 ${pollIntervalSeconds} 秒自动刷新。`;
+  if (summary.queuedRuns > 0) return `${summary.queuedRuns} 个测试例正在排队，等待后台进程领取。`;
+  return `${summary.confirmed}/${caseCount} 个 Opencode 测试例已完成，${summary.failedRuns} 个执行失败。`;
+}
+
+export function metadataText(detail: EvalCaseRunDetail | null | undefined, key: string): string {
+  const value = detail?.eval_case_run.runner_metadata?.[key];
+  return typeof value === "string" && value.trim() ? value : "";
+}
+
+export function runError(detail: EvalCaseRunDetail | null | undefined): string {
+  return detail?.eval_case_run.error || detail?.job?.error || "";
+}
+
+export function runnerStatusRows(detail: EvalCaseRunDetail | null | undefined): RunnerStatusRow[] {
+  return [
+    { label: "运行", value: detail?.eval_case_run.status ?? "未运行" },
+    { label: "任务", value: detail?.job?.status ?? "无任务" },
+    { label: "次数", value: String(detail?.job?.attempts ?? 0) },
+    { label: "会话", value: metadataText(detail, "session_id") || "-" },
+    { label: "工作目录", value: metadataText(detail, "workdir") || "-" },
+    { label: "更新", value: runTimeLabel(detail) },
+  ];
+}
+
+export function isActiveRun(status: string): boolean {
+  return ["queued", "running"].includes(status);
+}
+
+export function queuedRecordToDetail(record: EvalCaseRunRecord, item: EvalSetCase): EvalCaseRunDetail {
+  return {
+    eval_case_run: {
+      id: record.eval_case_run_id,
+      job_id: record.job_id,
+      skill_id: record.skill_id,
+      skill_version_id: record.skill_version_id,
+      eval_set_id: record.eval_set_id,
+      case_version_id: record.case_version_id,
+      status: record.status,
+      passed: record.passed,
+      score: record.score,
+    },
+    job: { id: record.job_id, attempts: 0, status: record.status },
+    case_version: item.case_version,
+    result_artifact: null,
+  };
+}
+
+export function resolveRunnerPollInterval(rawValue: unknown): number {
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || value < 1000) return 5000;
+  return Math.round(value);
+}
