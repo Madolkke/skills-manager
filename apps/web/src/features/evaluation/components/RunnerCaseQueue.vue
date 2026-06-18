@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { computed } from "vue";
 import RunnerStatusChip from "./RunnerStatusChip.vue";
 import { modelLabel, promptSourceLabel, runActivityHint, runnerState, runTimeLabel, type RunnerState } from "../lib/evalRunner";
-import type { EvalCaseRunDetail, EvalSetCase } from "../types";
+import type { EvalCaseRunDetail, EvalSetCase } from "../../../types";
 
 const props = defineProps<{
   activeCaseId: string | null;
@@ -49,8 +49,8 @@ function rowPreview(item: EvalSetCase, run: EvalCaseRunDetail | undefined, state
 </script>
 
 <template>
-  <aside class="manual-case-list">
-    <header class="manual-list-head">
+  <aside class="runner-case-list">
+    <header class="runner-list-head">
       <div>
         <h2>测试例列表</h2>
         <p>{{ pending }} 个待评估，{{ activeCount }} 个进行中</p>
@@ -63,13 +63,13 @@ function rowPreview(item: EvalSetCase, run: EvalCaseRunDetail | undefined, state
     <button
       v-for="(row, index) in rows"
       :key="row.item.case_version.id"
-      :class="clsx('manual-case-row', 'runner-case-row', row.state.kind, activeCaseId === row.item.case_version.id && 'active')"
+      :class="clsx('runner-case-row', row.state.kind, activeCaseId === row.item.case_version.id && 'active')"
       type="button"
       @click="$emit('select', row.item.case_version.id)"
     >
-      <span :class="clsx('manual-status-dot', row.state.kind)" aria-hidden="true" />
-      <span class="manual-case-index">#{{ row.item.position + 1 }}</span>
-      <span class="manual-case-copy runner-case-copy">
+      <span :class="clsx('runner-state-dot', row.state.kind)" aria-hidden="true" />
+      <span class="runner-case-index">#{{ row.item.position + 1 }}</span>
+      <span class="runner-case-copy">
         <span class="runner-case-title-row">
           <strong>{{ row.item.case.title }}</strong>
           <RunnerStatusChip :kind="row.state.kind" :label="row.state.label" />
@@ -83,7 +83,7 @@ function rowPreview(item: EvalSetCase, run: EvalCaseRunDetail | undefined, state
           <span v-if="row.hint" class="runner-live-hint">{{ row.hint }}</span>
         </span>
       </span>
-      <kbd v-if="index < 9" class="manual-shortcut-chip">{{ index + 1 }}</kbd>
+      <kbd v-if="index < 9" class="runner-shortcut-chip">{{ index + 1 }}</kbd>
     </button>
   </aside>
 </template>

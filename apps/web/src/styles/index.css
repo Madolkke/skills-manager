@@ -13,10 +13,9 @@
 @import "./features/evaluation/evalsets.css";
 @import "./features/evaluation/evaluation.css";
 @import "./features/evaluation/case-version-roadmap.css";
-@import "./features/evaluation/manual-evaluation.css";
-@import "./features/evaluation/manual-case-list.css";
-@import "./features/evaluation/manual-version-detail.css";
-@import "./features/evaluation/manual-evaluation-detail.css";
+@import "./features/evaluation/evaluate-page.css";
+@import "./features/evaluation/runner-case-list.css";
+@import "./features/evaluation/runner-case-detail.css";
 @import "./features/evaluation/opencode-runner.css";
 @import "./features/evaluation/opencode-runner-queue.css";
 @import "./features/evaluation/opencode-runner-detail.css";

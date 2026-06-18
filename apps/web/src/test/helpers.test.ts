@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
-import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, summarizeOpencodeRuns, summarizeRunnerBoard } from "../lib/evalRunner";
+import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { summarizeBundleDiff } from "../lib/bundle-diff";

@@ -26,7 +26,7 @@
     font-size: 28px;
   }
 
-  .manual-case-detail,
+  .runner-case-detail,
   .case-detail,
   .case-sidebar,
   .evidence-panel,
@@ -57,7 +57,7 @@
     border-bottom: 0;
   }
 
-  .manual-case-row {
+  .runner-case-row {
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 12px;
@@ -98,12 +98,11 @@
     width: 100%;
   }
 
-  .manual-status-dot {
+  .runner-state-dot {
     display: none;
   }
 
-  .manual-case-copy strong,
-  .manual-case-copy small span,
+  .runner-case-copy strong,
   .case-row-title {
     white-space: normal;
     overflow-wrap: anywhere;
@@ -114,19 +113,14 @@
     grid-template-columns: 1fr;
   }
 
-  .eval-action-bar {
-    border-radius: var(--radius);
-    padding: 10px;
-  }
-
-  .manual-eval-action-bar {
+  .runner-action-bar {
     align-items: stretch;
     flex-direction: column;
     border-radius: var(--radius);
     padding: 12px;
   }
 
-  .manual-eval-action-bar .primary-button {
+  .runner-action-bar .primary-button {
     width: 100%;
   }
 

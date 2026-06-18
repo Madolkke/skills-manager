@@ -79,8 +79,8 @@
 
   .skill-grid,
   .evalset-layout,
-  .manual-eval-grid,
-  .manual-comparison-grid,
+  .evaluation-runner-grid,
+  .evaluation-comparison-grid,
   .runner-detail-grid,
   .evaluation-selectors,
   .eval-progress-panel,
@@ -88,8 +88,6 @@
   .evidence-hero,
   .bundle-browser,
   .case-version-track,
-  .manual-version-detail-grid,
-  .actual-output-compare,
   .case-result-grid,
   .version-bump-grid,
   .version-upload-panel {
@@ -145,16 +143,6 @@
     border-left: 0;
     border-top: 1px solid var(--soft-line);
     padding: 18px 0 0;
-  }
-
-  .eval-action-bar {
-    position: static;
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .action-buttons {
-    grid-template-columns: 1fr;
   }
 
   .version-summary-panel {

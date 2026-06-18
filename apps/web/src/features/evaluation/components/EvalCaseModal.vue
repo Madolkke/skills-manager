@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { api } from "../lib/api";
+import { api } from "../../../lib/api";
 import { promptTemplateLabel } from "../lib/evalRunner";
-import type { EvalPromptTemplate, EvalSetCase } from "../types";
-import Modal from "./Modal.vue";
+import type { EvalPromptTemplate, EvalSetCase } from "../../../types";
+import Modal from "../../../components/Modal.vue";
 
 export type EvalCaseFormData = {
   title: string;

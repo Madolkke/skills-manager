@@ -69,29 +69,29 @@
   background: #e05252;
 }
 
-.manual-status-dot.not-run {
+.runner-state-dot.not-run {
   background: #cbd5e1;
 }
 
-.manual-status-dot.queued {
+.runner-state-dot.queued {
   background: #8aa2c5;
 }
 
-.manual-status-dot.running {
+.runner-state-dot.running {
   background: #3b82f6;
   animation: runner-pulse 1.5s ease-in-out infinite;
 }
 
-.manual-status-dot.rejected,
-.manual-status-dot.failed {
+.runner-state-dot.rejected,
+.runner-state-dot.failed {
   background: #e05252;
 }
 
-.runner-case-row .manual-status-dot {
+.runner-case-row .runner-state-dot {
   margin-top: 12px;
 }
 
-.runner-case-row .manual-case-index {
+.runner-case-row .runner-case-index {
   min-height: 32px;
   border-radius: 8px;
   background: #f3f7ff;

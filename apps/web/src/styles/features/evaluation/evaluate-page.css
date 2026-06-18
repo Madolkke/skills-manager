@@ -95,7 +95,7 @@
 }
 
 .eval-progress-panel > *,
-.manual-eval-grid > * {
+.evaluation-runner-grid > * {
   min-width: 0;
 }
 
@@ -259,7 +259,7 @@
   font-weight: 740;
 }
 
-.manual-eval-grid {
+.evaluation-runner-grid {
   display: grid;
   grid-template-columns: minmax(min(320px, 100%), 360px) minmax(0, 1fr);
   gap: 22px;

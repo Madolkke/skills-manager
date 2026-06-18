@@ -3,7 +3,7 @@ import { Play } from "lucide-vue-next";
 import { computed } from "vue";
 import RunnerDetailPanel from "./RunnerDetailPanel.vue";
 import { modelLabel, promptSourceLabel, type RunnerState } from "../lib/evalRunner";
-import type { EvalCaseRunDetail, EvalSetCase } from "../types";
+import type { EvalCaseRunDetail, EvalSetCase } from "../../../types";
 
 const props = defineProps<{
   active: EvalSetCase | null;
@@ -34,13 +34,13 @@ const runButtonDisabled = computed(() => {
 </script>
 
 <template>
-  <section class="manual-case-detail">
+  <section class="runner-case-detail">
     <template v-if="active">
-      <header class="manual-case-head">
+      <header class="runner-case-head">
         <div>
           <span>测试例 #{{ active.position + 1 }}</span>
           <h2>{{ active.case.title }}</h2>
-          <p class="manual-case-subtitle">
+          <p class="runner-case-subtitle">
             {{ promptSourceLabel(active) }} · {{ modelLabel(active) }}
           </p>
         </div>
@@ -53,7 +53,7 @@ const runButtonDisabled = computed(() => {
           <button class="secondary-button" type="button" @click="$emit('copy', '预期结果', active.case_version.expected_output_artifact.content_text)">复制预期结果</button>
         </div>
       </header>
-      <div class="manual-comparison-grid">
+      <div class="evaluation-comparison-grid">
         <section><h3>测试输入</h3><pre>{{ active.case_version.input_artifact.content_text }}</pre></section>
         <section><h3>预期结果</h3><pre>{{ active.case_version.expected_output_artifact.content_text }}</pre></section>
       </div>

@@ -85,7 +85,7 @@ function errorMessage(caught: unknown): string {
               <strong>{{ item.case.title }}</strong>
               <span :class="clsx('case-result-chip', item.result.passed ? 'passed' : 'failed')">{{ item.result.passed ? "通过" : "不通过" }}</span>
             </header>
-            <div class="manual-comparison-grid">
+            <div class="evaluation-comparison-grid">
               <section><h3>预期结果</h3><pre>{{ item.case_version.expected_output_artifact.content_text }}</pre></section>
               <section><h3>运行结果</h3><pre>{{ item.result_artifact?.content_text ?? "" }}</pre></section>
             </div>

@@ -185,8 +185,8 @@
 .case-sidebar,
 .case-detail,
 .eval-progress-panel,
-.manual-case-list,
-.manual-case-detail,
+.runner-case-list,
+.runner-case-detail,
 .run-history {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -233,7 +233,7 @@
     transform: none;
   }
 
-  .manual-status-dot.running,
+  .runner-state-dot.running,
   .runner-activity-bar span,
   .runner-status-chip.running svg,
   .runner-board-card.running .runner-status-dot {

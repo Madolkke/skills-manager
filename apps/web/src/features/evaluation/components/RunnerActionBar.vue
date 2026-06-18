@@ -18,7 +18,7 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="manual-eval-action-bar">
+  <div class="runner-action-bar">
     <span>{{ actionBarStatusText(summary, caseCount, pollIntervalSeconds) }}</span>
     <button class="secondary-button" type="button" :disabled="busy || caseCount === 0" @click="$emit('runAll')">
       <Play :size="17" />

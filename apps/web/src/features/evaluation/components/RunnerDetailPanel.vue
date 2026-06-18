@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import clsx from "clsx";
 import { Copy } from "lucide-vue-next";
-import type { EvalCaseRunDetail } from "../types";
+import type { EvalCaseRunDetail } from "../../../types";
 import { emptyActualOutputText, metadataText, runError, runnerStatusRows, type RunnerState } from "../lib/evalRunner";
 import RunnerStatusChip from "./RunnerStatusChip.vue";
 

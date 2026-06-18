@@ -2,13 +2,12 @@
 import clsx from "clsx";
 import { Copy, Download, Plus, Search } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import EvalCaseModal, { type EvalCaseFormData } from "../components/EvalCaseModal.vue";
+import EvalCaseModal, { type EvalCaseFormData } from "../features/evaluation/components/EvalCaseModal.vue";
+import { attachmentFileName, caseLifecycleLabel, cleanCaseForm, filterCases, sortCases, type CaseFilter, type CaseSortKey } from "../features/evaluation/lib/evalCaseManagement";
 import { api, ApiError } from "../lib/api";
 import { compactText, humanDate } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { EvalSetCase, EvalSetDetail, SkillDetail, ToastState } from "../types";
-
-type CaseSortKey = "position" | "title" | "version";
 
 const props = defineProps<{ skill: SkillDetail; selectedCaseId: string | null }>();
 const emit = defineEmits<{ navigate: [next: Partial<RouteState>]; refresh: []; toast: [toast: ToastState] }>();
@@ -16,7 +15,7 @@ const emit = defineEmits<{ navigate: [next: Partial<RouteState>]; refresh: []; t
 const evalSet = computed(() => props.skill.summary.primary_eval_set);
 const detail = ref<EvalSetDetail | null>(null);
 const query = ref("");
-const caseFilter = ref<"all" | "active">("all");
+const caseFilter = ref<CaseFilter>("all");
 const caseSort = ref<CaseSortKey>("position");
 const editor = ref<EvalSetCase | "new" | null>(null);
 const busy = ref(false);
@@ -67,47 +66,6 @@ async function copyText(value?: string | null): Promise<void> {
   } catch (caught) {
     emit("toast", { tone: "danger", message: errorMessage(caught) });
   }
-}
-
-function filterCases(items: EvalSetCase[], value: string, filter: "all" | "active"): EvalSetCase[] {
-  const normalized = value.trim().toLowerCase();
-  return items.filter((item) => {
-    if (filter === "active" && item.case.lifecycle_status !== "active") return false;
-    if (!normalized) return true;
-    return [item.case.title, item.case_version.input_artifact.content_text, item.case_version.expected_output_artifact.content_text].join(" ").toLowerCase().includes(normalized);
-  });
-}
-
-function sortCases(items: EvalSetCase[], sortKey: CaseSortKey): EvalSetCase[] {
-  const copy = [...items];
-  if (sortKey === "title") return copy.sort((left, right) => left.case.title.localeCompare(right.case.title) || left.position - right.position);
-  if (sortKey === "version") return copy.sort((left, right) => right.case_version.version_number - left.case_version.version_number || left.position - right.position);
-  return copy.sort((left, right) => left.position - right.position);
-}
-
-function caseLifecycleLabel(status: string): string {
-  if (status === "active") return "活跃";
-  if (status === "archived") return "归档";
-  return status || "未知";
-}
-
-function cleanCaseForm(form: EvalCaseFormData) {
-  return {
-    title: form.title,
-    input_text: form.input_text,
-    expected_output: form.expected_output,
-    attachment_name: form.attachment_name,
-    attachment_base64: form.attachment_base64,
-    prompt_template_id: form.prompt_template_id,
-    prompt_text: form.prompt_text,
-    model_provider_id: form.model_provider_id,
-    model_id: form.model_id,
-    notes: form.notes.trim() || undefined,
-  };
-}
-
-function attachmentFileName(locator: string): string {
-  return locator.split(":").at(-1) || "case-attachment.zip";
 }
 
 function errorMessage(caught: unknown): string {
