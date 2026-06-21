@@ -2,7 +2,7 @@
 import { Play } from "lucide-vue-next";
 import { computed } from "vue";
 import RunnerDetailPanel from "./RunnerDetailPanel.vue";
-import { modelLabel, promptSourceLabel, type RunnerState } from "../lib/evalRunner";
+import { modelLabel, promptSourceLabel, stepTimelineRows, type RunnerState } from "../lib/evalRunner";
 import type { EvalCaseRunDetail, EvalSetCase } from "../../../types";
 
 const props = defineProps<{
@@ -49,14 +49,21 @@ const runButtonDisabled = computed(() => {
             <Play :size="16" />
             {{ runButtonLabel }}
           </button>
-          <button class="secondary-button" type="button" @click="$emit('copy', '测试输入', active.case_version.input_artifact.content_text)">复制测试输入</button>
-          <button class="secondary-button" type="button" @click="$emit('copy', '预期结果', active.case_version.expected_output_artifact.content_text)">复制预期结果</button>
+          <button class="secondary-button" type="button" @click="$emit('copy', '测试步骤', JSON.stringify(active.case_version.steps, null, 2))">复制测试步骤</button>
         </div>
       </header>
-      <div class="evaluation-comparison-grid">
-        <section><h3>测试输入</h3><pre>{{ active.case_version.input_artifact.content_text }}</pre></section>
-        <section><h3>预期结果</h3><pre>{{ active.case_version.expected_output_artifact.content_text }}</pre></section>
-      </div>
+      <section class="runner-step-list" aria-label="测试步骤时间线">
+        <article v-for="step in stepTimelineRows(active, run)" :key="step.id" :class="['runner-step-card', step.status]">
+          <header>
+            <strong>{{ step.title }}</strong>
+            <span>{{ step.label }}</span>
+          </header>
+          <small>{{ step.assertionTemplateId }}</small>
+          <pre>{{ step.input }}</pre>
+          <p v-if="step.reason">{{ step.reason }}</p>
+          <pre v-if="step.actual">{{ step.actual }}</pre>
+        </article>
+      </section>
       <RunnerDetailPanel
         :actual-output="actualOutput"
         :poll-interval-seconds="pollIntervalSeconds"
@@ -68,7 +75,7 @@ const runButtonDisabled = computed(() => {
     </template>
     <div v-else class="runner-detail-placeholder">
       <strong>选择一个测试例查看详情</strong>
-      <p>左侧列表会持续显示任务状态。点击某一行后，这里会展示测试输入、预期结果、运行结果和测评器信息。</p>
+      <p>左侧列表会持续显示任务状态。点击某一行后，这里会展示测试步骤、判断条件、运行结果和测评器信息。</p>
     </div>
   </section>
 </template>

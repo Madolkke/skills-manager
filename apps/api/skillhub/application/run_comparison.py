@@ -66,8 +66,7 @@ def build_run_case_comparisons(
                 "change_label": CHANGE_LABELS[change],
                 "baseline_passed": baseline_passed,
                 "candidate_passed": candidate_passed,
-                "input_text": case_version["input_artifact"].get("content_text"),
-                "expected_output_text": case_version["expected_output_artifact"].get("content_text"),
+                "steps": case_version.get("steps", []),
             }
         )
     return comparisons, summary

@@ -1,0 +1,39 @@
+.assertion-filter-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.assertion-template-summary {
+  border: 1px solid #d7e5ff;
+  border-radius: var(--radius);
+  background: #f7fbff;
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.assertion-template-summary span,
+.assertion-template-summary small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.assertion-template-summary strong {
+  color: #172033;
+  font-weight: 830;
+}
+
+.assertion-template-summary p {
+  color: #40516d;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .assertion-filter-row {
+    grid-template-columns: 1fr;
+  }
+}

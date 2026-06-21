@@ -1,12 +1,15 @@
 services:
   opencode:
     image: ghcr.io/pilinux/opencode:latest
-    command: opencode serve --hostname 0.0.0.0 --port 4096
+    command: sh -lc "cd /home/opencode/.config/opencode && npm install @lmnr-ai/opencode-plugin >/tmp/opencode-plugin-install.log 2>&1 || (cat /tmp/opencode-plugin-install.log && exit 1); opencode serve --hostname 0.0.0.0 --port 4096"
     restart: unless-stopped
     environment:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       OPENCODE_DEFAULT_MODEL: ${OPENCODE_DEFAULT_MODEL:-deepseek/deepseek-v4-flash}
+      LMNR_BASE_URL: ${OPENCODE_LMNR_BASE_URL:-http://host.docker.internal}
+      LMNR_HTTP_PORT: ${OPENCODE_LMNR_HTTP_PORT:-8000}
+      LMNR_PROJECT_API_KEY: ${LMNR_PROJECT_API_KEY:-}
     ports:
       - "127.0.0.1:4096:4096"
     volumes:

@@ -44,10 +44,12 @@ class DomainInvariantTest(unittest.TestCase):
         )
 
         self.assertNotEqual(self.workspace.skills[skill_id].current_version_id, candidate.id)
+        case_id = self.workspace.eval_set_cases[eval_set.id][0]
+        case_version_id = self.workspace.eval_cases[case_id].current_version_id
         run = self.service.record_eval_run(
             skill_version_id=candidate.id,
             eval_set_id=eval_set.id,
-            results={self.workspace.eval_set_cases[eval_set.id][0]: True},
+            results={case_version_id: True},
             actor="tester",
             environment_tags=["windows", "codex"],
             run_context={"os": "windows", "model": "gpt-5"},
@@ -67,8 +69,9 @@ class DomainInvariantTest(unittest.TestCase):
             input_text="old input",
             expected_output="old expectation",
         )
-        old_case_version_id = self.workspace.eval_set_cases[first_set.id][0]
+        case_id = self.workspace.eval_set_cases[first_set.id][0]
         case = next(iter(self.workspace.eval_cases.values()))
+        old_case_version_id = case.current_version_id
 
         new_case_version = self.service.create_eval_case_version(
             case_id=case.id,
@@ -78,7 +81,8 @@ class DomainInvariantTest(unittest.TestCase):
         latest_eval_set = next(item for item in self.workspace.eval_sets.values() if item.skill_id == skill_id)
 
         self.assertNotEqual(old_case_version_id, new_case_version.id)
-        self.assertEqual(self.workspace.eval_set_cases[latest_eval_set.id], (new_case_version.id,))
+        self.assertEqual(self.workspace.eval_set_cases[latest_eval_set.id], (case_id,))
+        self.assertEqual(self.workspace.eval_cases[case.id].current_version_id, new_case_version.id)
         self.assertEqual(first_set.id, latest_eval_set.id)
 
     def test_eval_case_version_updates_same_eval_set_after_run_history_exists(self):
@@ -90,8 +94,9 @@ class DomainInvariantTest(unittest.TestCase):
             input_text="old input",
             expected_output="old expectation",
         )
-        old_case_version_id = self.workspace.eval_set_cases[first_set.id][0]
+        case_id = self.workspace.eval_set_cases[first_set.id][0]
         case = next(iter(self.workspace.eval_cases.values()))
+        old_case_version_id = case.current_version_id
         self.service.record_eval_run(
             skill_version_id=skill.current_version_id,
             eval_set_id=first_set.id,
@@ -107,7 +112,8 @@ class DomainInvariantTest(unittest.TestCase):
         latest_eval_set = next(item for item in self.workspace.eval_sets.values() if item.skill_id == skill_id)
 
         self.assertNotEqual(old_case_version_id, new_case_version.id)
-        self.assertEqual(self.workspace.eval_set_cases[latest_eval_set.id], (new_case_version.id,))
+        self.assertEqual(self.workspace.eval_set_cases[latest_eval_set.id], (case_id,))
+        self.assertEqual(self.workspace.eval_cases[case.id].current_version_id, new_case_version.id)
         self.assertEqual(first_set.id, latest_eval_set.id)
 
     def test_eval_run_rejects_cross_skill_version_and_eval_set(self):

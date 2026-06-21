@@ -75,7 +75,6 @@ class EvalSet:
     name: str
     description: str
     created_at: datetime
-    lifecycle_status: LifecycleStatus = "active"
 
 
 @dataclass(frozen=True)
@@ -85,7 +84,6 @@ class EvalCase:
     title: str
     current_version_id: str
     created_at: datetime
-    lifecycle_status: LifecycleStatus = "active"
 
 
 @dataclass(frozen=True)
@@ -93,8 +91,9 @@ class EvalCaseVersion:
     id: str
     case_id: str
     version_number: int
-    input_ref: ArtifactRef
-    expected_output_ref: ArtifactRef
+    steps: tuple[dict[str, Any], ...]
+    workspace_ref: ArtifactRef | None
+    runner_config: dict[str, Any]
     notes: str | None
     created_at: datetime
 

@@ -31,7 +31,7 @@ class CaseHistoryQueryMixin:
                             tables.eval_sets.c.created_at,
                         )
                         .join(tables.eval_sets, tables.eval_set_cases.c.eval_set_id == tables.eval_sets.c.id)
-                        .where(tables.eval_set_cases.c.case_version_id == case_version["id"])
+                        .where(tables.eval_set_cases.c.case_id == case_id)
                         .order_by(tables.eval_sets.c.name)
                     )
                     .mappings()

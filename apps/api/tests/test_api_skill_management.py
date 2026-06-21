@@ -88,7 +88,87 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(detail["summary"]["primary_eval_set"]["id"], second_case["eval_set_id"])
         self.assertEqual([item["case_version"]["id"] for item in eval_set_detail["cases"]], [first_case["eval_case_version_id"], second_case["eval_case_version_id"]])
 
-    def test_eval_case_zip_attachment_can_be_saved_and_downloaded(self):
+    def test_skill_supports_multiple_eval_sets_and_existing_case_membership(self):
+        skill = self.create_skill("multi-eval-set")
+        first_case = self.create_eval_case(skill["skill_id"])
+        secondary = self.client.post(
+            f"/api/skills/{skill['skill_id']}/eval-sets",
+            json={"name": "Extended", "description": "扩展回归场景"},
+        )
+
+        library = self.client.get(
+            f"/api/skills/{skill['skill_id']}/eval-cases",
+            params={"exclude_eval_set_id": secondary.json()["id"]},
+        )
+        added = self.client.post(
+            f"/api/eval-sets/{secondary.json()['id']}/cases",
+            json={"case_id": first_case["eval_case_id"]},
+        )
+        secondary_detail = self.client.get(f"/api/eval-sets/{secondary.json()['id']}").json()
+
+        self.assertEqual(secondary.status_code, 200)
+        self.assertEqual(library.status_code, 200)
+        self.assertEqual([item["case"]["id"] for item in library.json()], [first_case["eval_case_id"]])
+        self.assertEqual(added.status_code, 200)
+        self.assertEqual(secondary_detail["cases"][0]["case"]["id"], first_case["eval_case_id"])
+        self.assertEqual(secondary_detail["cases"][0]["case_version"]["id"], first_case["eval_case_version_id"])
+
+    def test_editing_shared_eval_case_updates_all_eval_sets_to_latest_version(self):
+        skill = self.create_skill("shared-case-version")
+        case = self.create_eval_case(skill["skill_id"])
+        secondary = self.client.post(f"/api/skills/{skill['skill_id']}/eval-sets", json={"name": "Secondary"}).json()
+        self.client.post(f"/api/eval-sets/{secondary['id']}/cases", json={"case_id": case["eval_case_id"]})
+
+        updated = self.client.patch(
+            f"/api/eval-cases/{case['eval_case_id']}",
+            json={
+                "case_id": case["eval_case_id"],
+                "eval_set_id": case["eval_set_id"],
+                "title": "Updated shared case",
+                "steps": [
+                    {
+                        "title": "更新后的步骤",
+                        "input": "Project.findMany({ where: {} })",
+                        "assertion_template_id": "agent_output_contains",
+                        "assertion_params": {"text": "ownerId"},
+                    }
+                ],
+                "make_current": True,
+            },
+        )
+        primary_detail = self.client.get(f"/api/eval-sets/{case['eval_set_id']}").json()
+        secondary_detail = self.client.get(f"/api/eval-sets/{secondary['id']}").json()
+
+        self.assertEqual(updated.status_code, 200)
+        self.assertNotEqual(updated.json()["eval_case_version_id"], case["eval_case_version_id"])
+        self.assertEqual(primary_detail["cases"][0]["case_version"]["id"], updated.json()["eval_case_version_id"])
+        self.assertEqual(secondary_detail["cases"][0]["case_version"]["id"], updated.json()["eval_case_version_id"])
+        self.assertEqual(primary_detail["cases"][0]["case"]["title"], "Updated shared case")
+
+    def test_eval_set_membership_rejects_cross_skill_case_and_reorders(self):
+        first = self.create_skill("membership-first")
+        second = self.create_skill("membership-second")
+        first_case = self.create_eval_case(first["skill_id"])
+        second_case = self.create_eval_case(second["skill_id"])
+        extra_case = self.create_eval_case(first["skill_id"])
+        secondary = self.client.post(f"/api/skills/{first['skill_id']}/eval-sets", json={"name": "Ordering"}).json()
+        self.client.post(f"/api/eval-sets/{secondary['id']}/cases", json={"case_id": first_case["eval_case_id"]})
+        self.client.post(f"/api/eval-sets/{secondary['id']}/cases", json={"case_id": extra_case["eval_case_id"]})
+
+        cross_skill = self.client.post(
+            f"/api/eval-sets/{secondary['id']}/cases",
+            json={"case_id": second_case["eval_case_id"]},
+        )
+        reordered = self.client.patch(
+            f"/api/eval-sets/{secondary['id']}/cases/order",
+            json={"case_ids": [extra_case["eval_case_id"], first_case["eval_case_id"]]},
+        )
+
+        self.assertEqual(cross_skill.status_code, 400)
+        self.assertEqual(reordered.status_code, 200)
+        self.assertEqual([item["case"]["id"] for item in reordered.json()["cases"]], [extra_case["eval_case_id"], first_case["eval_case_id"]])
+
+    def test_eval_case_workspace_zip_can_be_saved_and_downloaded(self):
         skill = self.create_skill("case-attachment")
         zip_bytes = b"PK\x03\x04case archive"
 
@@ -96,19 +176,26 @@ class ApiSkillManagementTest(ApiCommandTestCase):
             "/api/eval-cases",
             json={
                 "skill_id": skill["skill_id"],
+                "eval_set_id": skill["eval_set_id"],
                 "title": "Archive context",
-                "input_text": "Review the attached archive.",
-                "expected_output": "Flag missing test coverage.",
-                "attachment_name": "context.zip",
-                "attachment_base64": base64.b64encode(zip_bytes).decode("ascii"),
+                "steps": [
+                    {
+                        "title": "读取工作目录",
+                        "input": "Review the attached archive.",
+                        "assertion_template_id": "agent_output_contains",
+                        "assertion_params": {"text": "Flag missing test coverage."},
+                    }
+                ],
+                "workspace_name": "context.zip",
+                "workspace_base64": base64.b64encode(zip_bytes).decode("ascii"),
             },
         )
         eval_set = self.client.get(f"/api/eval-sets/{response.json()['eval_set_id']}").json()
-        attachment = eval_set["cases"][0]["case_version"]["attachment_artifact"]
-        downloaded = self.client.get(f"/api/artifacts/{attachment['id']}/download")
+        workspace = eval_set["cases"][0]["case_version"]["workspace_artifact"]
+        downloaded = self.client.get(f"/api/artifacts/{workspace['id']}/download")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(attachment["media_type"], "application/zip")
+        self.assertEqual(workspace["media_type"], "application/zip")
         self.assertEqual(downloaded.status_code, 200)
         self.assertEqual(downloaded.content, zip_bytes)
 
@@ -119,29 +206,32 @@ class ApiSkillManagementTest(ApiCommandTestCase):
             "/api/eval-cases",
             json={
                 "skill_id": skill["skill_id"],
+                "eval_set_id": skill["eval_set_id"],
                 "title": "Runner config",
-                "input_text": "Read workspace files.",
-                "expected_output": "Find the answer.",
-                "prompt_template_id": "file_workspace_task",
-                "prompt_text": "Use {workdir} and write {result_json_path}.",
-                "model_provider_id": "deepseek",
-                "model_id": "deepseek-v4-pro",
+                "steps": [
+                    {
+                        "title": "读取工作目录",
+                        "input": "Read workspace files.",
+                        "assertion_template_id": "agent_output_contains",
+                        "assertion_params": {"text": "Find the answer."},
+                    }
+                ],
+                "runner_config": {"model_provider_id": "deepseek", "model_id": "deepseek-v4-pro"},
             },
         )
         eval_set = self.client.get(f"/api/eval-sets/{response.json()['eval_set_id']}").json()
         case_version = eval_set["cases"][0]["case_version"]
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(case_version["prompt_template_id"], "file_workspace_task")
-        self.assertEqual(case_version["prompt_text"], "Use {workdir} and write {result_json_path}.")
-        self.assertEqual(case_version["model_provider_id"], "deepseek")
-        self.assertEqual(case_version["model_id"], "deepseek-v4-pro")
+        self.assertEqual(case_version["steps"][0]["assertion_template_id"], "agent_output_contains")
+        self.assertEqual(case_version["runner_config"]["model_provider_id"], "deepseek")
+        self.assertEqual(case_version["runner_config"]["model_id"], "deepseek-v4-pro")
 
-    def test_eval_prompt_templates_endpoint_returns_builtin_templates(self):
-        response = self.client.get("/api/eval-prompt-templates")
+    def test_eval_assertion_templates_endpoint_returns_builtin_templates(self):
+        response = self.client.get("/api/eval-assertion-templates")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("standard_pass_fail", [item["id"] for item in response.json()])
+        self.assertIn("agent_output_contains", [item["id"] for item in response.json()])
 
     def test_eval_case_change_updates_same_eval_set_after_run_history_exists(self):
         skill = self.create_skill("evalset-locked-version")

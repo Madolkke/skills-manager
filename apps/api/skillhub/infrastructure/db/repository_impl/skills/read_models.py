@@ -140,8 +140,10 @@ class ReadModelMixin:
         )
         cases = []
         for membership in memberships:
-            case_version = self._eval_case_version_row(connection, membership["case_version_id"])
-            eval_case = self._eval_case_row(connection, case_version["case_id"])
+            eval_case = self._eval_case_row(connection, membership["case_id"])
+            if not eval_case["current_version_id"]:
+                continue
+            case_version = self._eval_case_version_row(connection, eval_case["current_version_id"])
             cases.append(
                 {
                     "position": membership["position"],
@@ -152,22 +154,14 @@ class ReadModelMixin:
         return cases
 
     def _case_version_detail(self, connection, case_version) -> dict[str, Any]:
-        input_artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_version["input_artifact_id"])).mappings().one()
-        expected_output_artifact = (
-            connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_version["expected_output_artifact_id"]))
-            .mappings()
-            .one()
-        )
-        attachment_artifact = None
-        if case_version.get("attachment_artifact_id"):
-            attachment_artifact = (
-                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_version["attachment_artifact_id"]))
+        workspace_artifact = None
+        if case_version.get("workspace_artifact_id"):
+            workspace_artifact = (
+                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_version["workspace_artifact_id"]))
                 .mappings()
                 .one()
             )
         return {
             **self._row_dict(case_version),
-            "input_artifact": self._row_dict(input_artifact),
-            "expected_output_artifact": self._row_dict(expected_output_artifact),
-            "attachment_artifact": self._row_dict(attachment_artifact) if attachment_artifact is not None else None,
+            "workspace_artifact": self._row_dict(workspace_artifact) if workspace_artifact is not None else None,
         }

@@ -20,6 +20,10 @@
   box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
 }
 
+.modal-card.wide {
+  width: min(1040px, calc(100vw - 48px));
+}
+
 .modal-head {
   min-height: 90px;
   display: flex;
@@ -110,6 +114,13 @@ select:focus,
 
 .field-hint.danger {
   color: #b91c1c;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .modal-actions {

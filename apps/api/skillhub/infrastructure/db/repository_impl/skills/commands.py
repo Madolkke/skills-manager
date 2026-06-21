@@ -69,7 +69,6 @@ class SkillCommandMixin:
                         skill_id=skill_id,
                         name="Primary",
                         description="Primary regression suite",
-                        lifecycle_status="active",
                         created_at=created_at,
                         updated_at=created_at,
                     )

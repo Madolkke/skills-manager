@@ -2,9 +2,11 @@ from fastapi.testclient import TestClient
 
 from skillhub.api.database import resolve_database_url
 from skillhub.api.main import create_app, create_postgres_engine
+from tests.conftest import ensure_postgres_test_database
 
 
 def test_cors_allows_private_lan_browser_origins():
+    ensure_postgres_test_database()
     engine = create_postgres_engine(resolve_database_url())
     client = TestClient(create_app(engine))
 
@@ -22,6 +24,7 @@ def test_cors_allows_private_lan_browser_origins():
 
 
 def test_cors_allows_lan_hostnames_and_private_network_preflight():
+    ensure_postgres_test_database()
     engine = create_postgres_engine(resolve_database_url())
     client = TestClient(create_app(engine))
 
@@ -42,6 +45,7 @@ def test_cors_allows_lan_hostnames_and_private_network_preflight():
 
 def test_cors_allows_custom_origin_list(monkeypatch):
     monkeypatch.setenv("SKILLHUB_CORS_ALLOW_ORIGINS", "http://skillhub.test:3030")
+    ensure_postgres_test_database()
     engine = create_postgres_engine(resolve_database_url())
     client = TestClient(create_app(engine))
 

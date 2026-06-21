@@ -31,10 +31,12 @@ def _ensure_database(database_url: str) -> None:
                 cursor.execute(sql.SQL("create database {}").format(sql.Identifier(database_name)))
 
 
-test_database_url = os.environ.get("SKILLHUB_TEST_DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
-try:
-    _ensure_database(test_database_url)
-except OperationalError as error:
-    pytest.skip(f"PostgreSQL test database is unavailable: {error}", allow_module_level=True)
-os.environ.setdefault("SKILLHUB_TEST_DATABASE_URL", test_database_url)
-os.environ["SKILLHUB_DATABASE_URL"] = test_database_url
+def ensure_postgres_test_database() -> str:
+    test_database_url = os.environ.get("SKILLHUB_TEST_DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
+    try:
+        _ensure_database(test_database_url)
+    except OperationalError as error:
+        pytest.skip(f"PostgreSQL test database is unavailable: {error}", allow_module_level=True)
+    os.environ.setdefault("SKILLHUB_TEST_DATABASE_URL", test_database_url)
+    os.environ["SKILLHUB_DATABASE_URL"] = test_database_url
+    return test_database_url

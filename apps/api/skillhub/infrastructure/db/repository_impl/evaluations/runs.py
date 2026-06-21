@@ -32,6 +32,7 @@ class EvalRunCommandMixin:
             eval_set = self._eval_set_row(connection, eval_set_id)
             case_version = self._eval_case_version_row(connection, case_version_id)
             self._require_same_skill_for_case_run(skill_version, eval_set, case_version)
+            self._require_current_eval_set_case_version(connection, eval_set_id=eval_set_id, case_version=case_version)
             result = self._insert_eval_case_run(
                 connection,
                 skill_id=skill_version["skill_id"],
@@ -96,6 +97,15 @@ class EvalRunCommandMixin:
             self._fail_job(connection, job_id=case_run["job_id"], error=message, finished_at=finished_at)
             failed = self._eval_case_run_row(connection, eval_case_run_id)
         return self._case_run_result(failed)
+
+    def update_eval_case_run_metadata(self, *, eval_case_run_id: str, runner_metadata: dict[str, Any]) -> None:
+        with self.engine.begin() as connection:
+            self._eval_case_run_row(connection, eval_case_run_id)
+            connection.execute(
+                update(tables.eval_case_runs)
+                .where(tables.eval_case_runs.c.id == eval_case_run_id)
+                .values(runner_metadata=self._canonical_json_object(runner_metadata or {}))
+            )
 
     def claim_next_eval_case_run_job(self, *, worker_id: str, runner: str = OPENCODE_RUNNER) -> dict[str, Any] | None:
         now = utc_now()
@@ -385,6 +395,22 @@ class EvalRunCommandMixin:
     def _require_same_skill_for_case_run(self, skill_version, eval_set, case_version) -> None:
         if skill_version["skill_id"] != eval_set["skill_id"] or skill_version["skill_id"] != case_version["skill_id"]:
             raise InvariantError("EvalCaseRun must bind a skill version, eval set, and case version from the same skill.")
+
+    def _require_current_eval_set_case_version(self, connection, *, eval_set_id: str, case_version) -> None:
+        case_id = case_version["case_id"]
+        self._require_eval_set_contains_case(connection, eval_set_id=eval_set_id, case_id=case_id)
+        eval_case = self._eval_case_row(connection, case_id)
+        if eval_case["current_version_id"] != case_version["id"]:
+            raise FieldInvariantError(
+                "EvalCaseRun must use current eval case version.",
+                [
+                    FieldError(
+                        field="case_version_id",
+                        message="只能运行当前测评集中测试例的最新版本。",
+                        code="eval_case_run.case_version_not_current",
+                    )
+                ],
+            )
 
     def _case_run_result(self, row) -> RecordEvalCaseRunResult:
         return RecordEvalCaseRunResult(

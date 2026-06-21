@@ -85,9 +85,9 @@ def register_artifact_routes(app: FastAPI) -> None:
     def artifact_download(artifact_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         with repository.engine.connect() as connection:
             artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id)).mappings().one_or_none()
-        if artifact is None or artifact["kind"] != "eval_case_attachment" or artifact["media_type"] != "application/zip":
+        if artifact is None or artifact["kind"] not in {"eval_case_attachment", "eval_case_workspace"} or artifact["media_type"] != "application/zip":
             return Response(status_code=404)
-        filename = artifact["locator"].rsplit(":", 1)[-1] or "case-attachment.zip"
+        filename = artifact["locator"].rsplit(":", 1)[-1] or "workspace.zip"
         content = base64.b64decode(artifact["content_text"] or "")
         return Response(
             content=content,

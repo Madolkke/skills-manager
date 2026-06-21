@@ -9,7 +9,7 @@ from tests.repository_test_case import SqlRepositoryTestCase
 
 
 class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
-    def test_create_eval_case_can_attach_zip_artifact(self):
+    def test_create_eval_case_can_attach_workspace_zip_artifact(self):
         skill = self.create_skill()
         zip_bytes = b"PK\x03\x04case archive"
 
@@ -19,23 +19,23 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
             input_text="Review the attached archive.",
             expected_output="Flag missing test coverage.",
             actor="tester",
-            attachment_name="context.zip",
-            attachment_base64=base64.b64encode(zip_bytes).decode("ascii"),
+            workspace_name="context.zip",
+            workspace_base64=base64.b64encode(zip_bytes).decode("ascii"),
         )
 
         with self.engine.connect() as connection:
             artifact = connection.execute(
-                select(artifacts).where(artifacts.c.id == created.attachment_artifact_id)
+                select(artifacts).where(artifacts.c.id == created.workspace_artifact_id)
             ).mappings().one()
             case_version = self.repository._case_version_detail(
                 connection,
                 self.repository._eval_case_version_row(connection, created.eval_case_version_id),
             )
 
-        self.assertEqual(artifact["kind"], "eval_case_attachment")
+        self.assertEqual(artifact["kind"], "eval_case_workspace")
         self.assertEqual(artifact["media_type"], "application/zip")
         self.assertEqual(artifact["size_bytes"], len(zip_bytes))
-        self.assertEqual(case_version["attachment_artifact"]["id"], created.attachment_artifact_id)
+        self.assertEqual(case_version["workspace_artifact"]["id"], created.workspace_artifact_id)
 
     def test_aggregate_eval_run_persists_environment_context_and_actual_output_artifacts(self):
         skill = self.create_skill()
@@ -201,7 +201,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         self.assertEqual(detail.eval_run["environment_tags"], ["linux"])
         self.assertEqual(detail.case_results[0]["result"]["passed"], True)
         self.assertEqual(detail.case_results[0]["result_artifact"]["content_text"], "Flagged token logging.")
-        self.assertEqual(detail.case_results[0]["case_version"]["expected_output_artifact"]["content_text"], "Flag token logging.")
+        self.assertEqual(detail.case_results[0]["case_version"]["steps"][0]["assertion_params"]["text"], "Flag token logging.")
         self.assertEqual([item["position"] for item in detail.case_results], [0, 1])
         self.assertEqual([item["case"]["title"] for item in detail.case_results], ["Token logging", "Tenant scope"])
 

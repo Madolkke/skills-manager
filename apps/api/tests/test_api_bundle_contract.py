@@ -26,6 +26,41 @@ class ApiBundleContractTest(ApiCommandTestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response.json()["field_errors"][0]["field"], "strategy")
 
+    def test_eval_case_payload_rejects_legacy_single_input_fields(self):
+        skill = self.create_skill("new-case-contract")
+
+        response = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "eval_set_id": skill["eval_set_id"],
+                "title": "Legacy case",
+                "input_text": "old input",
+                "expected_output": "old output",
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        fields = {item["field"] for item in response.json()["field_errors"]}
+        self.assertIn("steps", fields)
+        self.assertIn("input_text", fields)
+
+    def test_eval_case_step_validation_points_to_nested_field(self):
+        skill = self.create_skill("step-contract")
+
+        response = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "eval_set_id": skill["eval_set_id"],
+                "title": "Invalid step",
+                "steps": [{"title": "Missing input", "assertion_template_id": "agent_output_contains"}],
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["field_errors"][0]["field"], "steps[0].input")
+
     def test_skill_version_from_bundle_source_can_be_diffed(self):
         imported = self.import_standard_skill_bundle("bundle-diff")
         first_version_id = imported["skill_version_id"]

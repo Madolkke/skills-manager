@@ -1,15 +1,17 @@
-import type { EvalCaseFormData } from "../components/EvalCaseModal.vue";
+import type { EvalCaseFormData } from "../components/EvalCaseEditor.vue";
 import type { EvalSetCase } from "../../../types";
 
 export type CaseSortKey = "position" | "title" | "version";
-export type CaseFilter = "all" | "active";
+export type CleanEvalCaseFormOptions = {
+  includePreserveWorkspace?: boolean;
+};
 
-export function filterCases(items: EvalSetCase[], value: string, filter: CaseFilter): EvalSetCase[] {
+export function filterCases(items: EvalSetCase[], value: string): EvalSetCase[] {
   const normalized = value.trim().toLowerCase();
   return items.filter((item) => {
-    if (filter === "active" && item.case.lifecycle_status !== "active") return false;
     if (!normalized) return true;
-    return [item.case.title, item.case_version.input_artifact.content_text, item.case_version.expected_output_artifact.content_text].join(" ").toLowerCase().includes(normalized);
+    const stepText = item.case_version.steps.map((step) => [step.title, step.input, JSON.stringify(step.assertion_params)].join(" ")).join(" ");
+    return [item.case.title, stepText].join(" ").toLowerCase().includes(normalized);
   });
 }
 
@@ -20,27 +22,24 @@ export function sortCases(items: EvalSetCase[], sortKey: CaseSortKey): EvalSetCa
   return copy.sort((left, right) => left.position - right.position);
 }
 
-export function caseLifecycleLabel(status: string): string {
-  if (status === "active") return "活跃";
-  if (status === "archived") return "归档";
-  return status || "未知";
-}
-
-export function cleanCaseForm(form: EvalCaseFormData) {
-  return {
-    title: form.title,
-    input_text: form.input_text,
-    expected_output: form.expected_output,
-    attachment_name: form.attachment_name,
-    attachment_base64: form.attachment_base64,
-    prompt_template_id: form.prompt_template_id,
-    prompt_text: form.prompt_text,
-    model_provider_id: form.model_provider_id,
-    model_id: form.model_id,
+export function cleanCaseForm(form: EvalCaseFormData, options: CleanEvalCaseFormOptions = {}) {
+  const payload = {
+    title: form.title.trim(),
+    steps: form.steps.map((step, index) => ({
+      id: step.id || `step-${index + 1}`,
+      title: step.title.trim() || `步骤 ${index + 1}`,
+      input: step.input.trim(),
+      assertion_template_id: step.assertion_template_id,
+      assertion_params: step.assertion_params,
+    })),
+    workspace_name: form.workspace_name,
+    workspace_base64: form.workspace_base64,
+    runner_config: form.runner_config,
     notes: form.notes.trim() || undefined,
   };
+  return options.includePreserveWorkspace ? { ...payload, preserve_workspace: true } : payload;
 }
 
-export function attachmentFileName(locator: string): string {
-  return locator.split(":").at(-1) || "case-attachment.zip";
+export function workspaceFileName(locator: string): string {
+  return locator.split(":").at(-1) || "workspace.zip";
 }

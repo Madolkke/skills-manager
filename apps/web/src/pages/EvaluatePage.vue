@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Info } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import DropdownSelect from "../components/DropdownSelect.vue";
 import RunnerActionBar from "../features/evaluation/components/RunnerActionBar.vue";
 import RunnerCaseDetail from "../features/evaluation/components/RunnerCaseDetail.vue";
 import RunnerCaseQueue from "../features/evaluation/components/RunnerCaseQueue.vue";
@@ -13,12 +14,16 @@ import { versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { EvalSetDetail, SkillDetail, ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = defineProps<{ skill: SkillDetail; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ refresh: []; navigate: [next: Partial<RouteState>]; toast: [toast: ToastState] }>();
 
 const versions = computed(() => props.skill.versions);
-const evalSet = computed(() => props.skill.summary.primary_eval_set);
-const evalSetId = computed(() => evalSet.value?.id ?? "");
+const evalSets = computed(() => props.skill.eval_sets);
+const fallbackEvalSetId = computed(() => props.skill.summary.primary_eval_set?.id ?? evalSets.value[0]?.id ?? "");
+const evalSetId = computed(() => {
+  const requested = props.selectedEvalSetId;
+  return evalSets.value.some((item) => item.id === requested) ? requested ?? "" : fallbackEvalSetId.value;
+});
 const skillVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
 const environmentTags = ref<string[]>([]);
 const detail = ref<EvalSetDetail | null>(null);
@@ -26,6 +31,8 @@ const activeCaseId = ref<string | null>(null);
 const cases = computed(() => detail.value?.cases ?? []);
 const active = computed(() => cases.value.find((item) => item.case_version.id === activeCaseId.value) ?? null);
 const selectedVersion = computed(() => versions.value.find((version) => version.id === skillVersionId.value));
+const versionOptions = computed(() => versions.value.map((version) => ({ value: version.id, label: versionName(version) })));
+const evalSetOptions = computed(() => evalSets.value.map((item) => ({ value: item.id, label: item.name, description: `${item.description || "暂无描述"} · ${item.id === fallbackEvalSetId.value ? "默认" : "自定义"}` })));
 const evalSetLoaded = computed(() => Boolean(detail.value));
 const {
   board: opencodeBoard,
@@ -60,6 +67,7 @@ watch(evalSetId, async (id) => {
     activeCaseId.value = null;
     return;
   }
+  if (id !== props.selectedEvalSetId) emit("navigate", { selectedEvalSetId: id, selectedRunId: null });
   try {
     const next = await api.getEvalSet(id);
     detail.value = next;
@@ -93,7 +101,7 @@ async function aggregateOpencodeRun(): Promise<void> {
   const evalRunId = await aggregate();
   if (!evalRunId) return;
   emit("refresh");
-  emit("navigate", { tab: "history", selectedRunId: evalRunId });
+  emit("navigate", { tab: "history", selectedEvalSetId: evalSetId.value, selectedRunId: evalRunId });
 }
 
 async function runActiveCase(): Promise<void> {
@@ -118,6 +126,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable;
 }
 
+function selectEvalSet(id: string): void {
+  emit("navigate", { selectedEvalSetId: id, selectedRunId: null });
+}
+
 function errorMessage(caught: unknown): string {
   if (caught instanceof ApiError || caught instanceof Error) return caught.message;
   return "操作失败。";
@@ -131,15 +143,15 @@ function errorMessage(caught: unknown): string {
       <div class="evaluation-selector-card">
         <label class="field-label">
           <span>Skill 版本</span>
-          <select v-model="skillVersionId">
-            <option v-for="version in versions" :key="version.id" :value="version.id">{{ versionName(version) }}</option>
-          </select>
+          <DropdownSelect v-model="skillVersionId" :options="versionOptions" aria-label="选择 Skill 版本" />
         </label>
         <p>{{ selectedVersion?.change_summary ?? "无版本说明。" }}</p>
       </div>
       <div class="evaluation-selector-card">
-        <span>当前测评集</span>
-        <strong>{{ evalSet?.name ?? "未绑定" }}</strong>
+        <label class="field-label">
+          <span>当前测评集</span>
+          <DropdownSelect :model-value="evalSetId" :options="evalSetOptions" aria-label="选择测评集" @update:model-value="selectEvalSet" />
+        </label>
         <small>{{ cases.length }} 个测试例</small>
       </div>
       <div class="evaluation-selector-card">

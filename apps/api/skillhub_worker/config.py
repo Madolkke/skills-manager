@@ -8,6 +8,9 @@ from pathlib import Path
 @dataclass(frozen=True)
 class WorkerConfig:
     opencode_base_url: str
+    laminar_base_url: str
+    laminar_http_port: int | None
+    laminar_project_api_key: str | None
     workdir_host: Path
     workdir_container: str
     poll_interval_seconds: float
@@ -19,6 +22,9 @@ class WorkerConfig:
 def load_config() -> WorkerConfig:
     return WorkerConfig(
         opencode_base_url=os.environ.get("OPENCODE_BASE_URL", "http://opencode:4096").rstrip("/"),
+        laminar_base_url=_laminar_base_url(),
+        laminar_http_port=_optional_int(os.environ.get("LMNR_HTTP_PORT")),
+        laminar_project_api_key=os.environ.get("LMNR_PROJECT_API_KEY"),
         workdir_host=Path(os.environ.get("EVAL_WORKDIR_HOST", "/var/lib/skillhub/eval-runs")).resolve(),
         workdir_container=os.environ.get("EVAL_WORKDIR_CONTAINER", "/workspace/eval-runs").rstrip("/"),
         poll_interval_seconds=float(os.environ.get("EVAL_RUNNER_POLL_SECONDS", "2")),
@@ -26,3 +32,14 @@ def load_config() -> WorkerConfig:
         max_attempts=max(1, int(os.environ.get("EVAL_RUNNER_MAX_ATTEMPTS", "2"))),
         worker_id=os.environ.get("EVAL_RUNNER_WORKER_ID", "opencode-worker"),
     )
+
+
+def _laminar_base_url() -> str:
+    base = os.environ.get("LMNR_BASE_URL", "https://api.lmnr.ai").rstrip("/")
+    return base
+
+
+def _optional_int(value: str | None) -> int | None:
+    if value is None or not value.strip():
+        return None
+    return int(value)

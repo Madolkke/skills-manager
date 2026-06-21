@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from typing import Any
 
 from sqlalchemy import insert, update
 
+from skillhub.application.eval_assertion_templates import normalize_assertion_step
 from skillhub.domain.errors import InvariantError, NotFoundError
 from skillhub.domain.models import new_id, utc_now
 from skillhub.infrastructure.db import tables
@@ -21,70 +23,38 @@ class EvalCaseCommandMixin:
             )
             return self._row_dict(self._eval_case_row(connection, case_id))
 
-    def archive_eval_case(self, *, case_id: str, actor: str) -> CreateEvalCaseResult:
-        updated_at = utc_now()
-        with self.engine.begin() as connection:
-            eval_case = self._eval_case_row(connection, case_id)
-            skill_id = eval_case["skill_id"]
-            eval_set = self._primary_eval_set_row(connection, skill_id)
-            connection.execute(
-                update(tables.eval_cases)
-                .where(tables.eval_cases.c.id == case_id)
-                .values(lifecycle_status="archived", updated_at=updated_at)
-            )
-            next_case_version_ids = [
-                case_version_id
-                for case_version_id in self._eval_set_case_version_ids(connection, eval_set["id"])
-                if self._eval_case_version_row(connection, case_version_id)["case_id"] != case_id
-            ]
-            eval_set_id = self._update_eval_set_cases(
-                connection,
-                skill_id=skill_id,
-                eval_set_id=eval_set["id"],
-                case_version_ids=next_case_version_ids,
-                updated_at=updated_at,
-            )
-        return CreateEvalCaseResult(skill_id, eval_set_id, case_id, eval_case["current_version_id"], "", "", None)
-
     def create_eval_case(
         self,
         *,
         skill_id: str,
+        eval_set_id: str | None = None,
         title: str,
-        input_text: str,
-        expected_output: str,
+        steps: list[dict[str, Any]] | None = None,
         actor: str,
+        workspace_name: str | None = None,
+        workspace_base64: str | None = None,
+        runner_config: dict[str, Any] | None = None,
+        notes: str | None = None,
+        input_text: str | None = None,
+        expected_output: str | None = None,
         attachment_name: str | None = None,
         attachment_base64: str | None = None,
-        prompt_template_id: str = "standard_pass_fail",
-        prompt_text: str = "",
-        model_provider_id: str | None = None,
-        model_id: str | None = None,
-        notes: str | None = None,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
-        runner_config = self._case_runner_config(prompt_template_id, prompt_text, model_provider_id, model_id)
         eval_case_id = new_id("case")
         eval_case_version_id = new_id("casever")
+        clean_steps = self._case_steps(steps or self._legacy_step(input_text, expected_output))
+        clean_runner_config = self._case_runner_config(runner_config)
+        workspace_name = workspace_name or attachment_name
+        workspace_base64 = workspace_base64 or attachment_base64
         with self.engine.begin() as connection:
-            eval_set = self._primary_eval_set_row(connection, skill_id)
-            input_artifact_id = self._insert_text_artifact(
-                connection, kind="eval_input", namespace=skill_id, content=input_text, actor=actor, created_at=created_at
-            )
-            expected_output_artifact_id = self._insert_text_artifact(
-                connection,
-                kind="expected_output",
-                namespace=skill_id,
-                content=expected_output,
-                actor=actor,
-                created_at=created_at,
-            )
-            attachment_artifact_id = self._create_case_attachment(
+            eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
+            workspace_artifact_id = self._create_case_workspace(
                 connection,
                 skill_id=skill_id,
                 actor=actor,
-                attachment_name=attachment_name,
-                attachment_base64=attachment_base64,
+                workspace_name=workspace_name,
+                workspace_base64=workspace_base64,
                 created_at=created_at,
             )
             connection.execute(
@@ -93,7 +63,6 @@ class EvalCaseCommandMixin:
                     skill_id=skill_id,
                     title=title,
                     current_version_id=None,
-                    lifecycle_status="active",
                     created_at=created_at,
                     updated_at=created_at,
                 )
@@ -104,10 +73,9 @@ class EvalCaseCommandMixin:
                     skill_id=skill_id,
                     case_id=eval_case_id,
                     version_number=1,
-                    input_artifact_id=input_artifact_id,
-                    expected_output_artifact_id=expected_output_artifact_id,
-                    attachment_artifact_id=attachment_artifact_id,
-                    **runner_config,
+                    workspace_artifact_id=workspace_artifact_id,
+                    steps=clean_steps,
+                    runner_config=clean_runner_config,
                     notes=notes,
                     created_at=created_at,
                     created_by=actor,
@@ -122,62 +90,30 @@ class EvalCaseCommandMixin:
                 connection,
                 skill_id=skill_id,
                 eval_set_id=eval_set["id"],
-                case_version_ids=[
-                    *self._eval_set_case_version_ids(connection, eval_set["id"]),
-                    eval_case_version_id,
-                ],
+                case_ids=[*self._eval_set_case_ids(connection, eval_set["id"]), eval_case_id],
                 updated_at=created_at,
             )
-        return CreateEvalCaseResult(
-            skill_id,
-            eval_set_id,
-            eval_case_id,
-            eval_case_version_id,
-            input_artifact_id,
-            expected_output_artifact_id,
-            attachment_artifact_id,
-        )
+        return CreateEvalCaseResult(skill_id, eval_set_id, eval_case_id, eval_case_version_id, workspace_artifact_id)
 
-    def create_eval_cases_batch(self, *, skill_id: str, cases: list[dict[str, Any]], actor: str) -> CreateEvalCasesBatchResult:
+    def create_eval_cases_batch(self, *, skill_id: str, cases: list[dict[str, Any]], actor: str, eval_set_id: str | None = None) -> CreateEvalCasesBatchResult:
         if not cases:
             raise InvariantError("At least one eval case is required.")
         created_at = utc_now()
         created_cases: list[CreatedEvalCaseResult] = []
         with self.engine.begin() as connection:
-            eval_set = self._primary_eval_set_row(connection, skill_id)
+            eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
             for item in cases:
                 title = self._required_text(item, "title")
-                input_text = self._required_text(item, "input_text")
-                expected_output = self._required_text(item, "expected_output")
-                attachment_name = item.get("attachment_name")
-                attachment_base64 = item.get("attachment_base64")
-                runner_config = self._case_runner_config(
-                    item.get("prompt_template_id", "standard_pass_fail"),
-                    item.get("prompt_text", ""),
-                    item.get("model_provider_id"),
-                    item.get("model_id"),
-                )
-                if not title or not input_text or not expected_output:
-                    raise InvariantError("Each eval case requires title, input_text, and expected_output.")
+                if not title:
+                    raise InvariantError("Each eval case requires title.")
                 eval_case_id = new_id("case")
                 eval_case_version_id = new_id("casever")
-                input_artifact_id = self._insert_text_artifact(
-                    connection, kind="eval_input", namespace=skill_id, content=input_text, actor=actor, created_at=created_at
-                )
-                expected_output_artifact_id = self._insert_text_artifact(
-                    connection,
-                    kind="expected_output",
-                    namespace=skill_id,
-                    content=expected_output,
-                    actor=actor,
-                    created_at=created_at,
-                )
-                attachment_artifact_id = self._create_case_attachment(
+                workspace_artifact_id = self._create_case_workspace(
                     connection,
                     skill_id=skill_id,
                     actor=actor,
-                    attachment_name=attachment_name,
-                    attachment_base64=attachment_base64,
+                    workspace_name=item.get("workspace_name"),
+                    workspace_base64=item.get("workspace_base64"),
                     created_at=created_at,
                 )
                 connection.execute(
@@ -186,7 +122,6 @@ class EvalCaseCommandMixin:
                         skill_id=skill_id,
                         title=title,
                         current_version_id=None,
-                        lifecycle_status="active",
                         created_at=created_at,
                         updated_at=created_at,
                     )
@@ -197,10 +132,9 @@ class EvalCaseCommandMixin:
                         skill_id=skill_id,
                         case_id=eval_case_id,
                         version_number=1,
-                        input_artifact_id=input_artifact_id,
-                        expected_output_artifact_id=expected_output_artifact_id,
-                        attachment_artifact_id=attachment_artifact_id,
-                        **runner_config,
+                        workspace_artifact_id=workspace_artifact_id,
+                        steps=self._case_steps(item.get("steps") or []),
+                        runner_config=self._case_runner_config(item.get("runner_config")),
                         notes=item.get("notes"),
                         created_at=created_at,
                         created_by=actor,
@@ -211,23 +145,12 @@ class EvalCaseCommandMixin:
                     .where(tables.eval_cases.c.id == eval_case_id)
                     .values(current_version_id=eval_case_version_id, updated_at=created_at)
                 )
-                created_cases.append(
-                    CreatedEvalCaseResult(
-                        eval_case_id,
-                        eval_case_version_id,
-                        input_artifact_id,
-                        expected_output_artifact_id,
-                        attachment_artifact_id,
-                    )
-                )
+                created_cases.append(CreatedEvalCaseResult(eval_case_id, eval_case_version_id, workspace_artifact_id))
             eval_set_id = self._update_eval_set_cases(
                 connection,
                 skill_id=skill_id,
                 eval_set_id=eval_set["id"],
-                case_version_ids=[
-                    *self._eval_set_case_version_ids(connection, eval_set["id"]),
-                    *[item.eval_case_version_id for item in created_cases],
-                ],
+                case_ids=[*self._eval_set_case_ids(connection, eval_set["id"]), *[item.eval_case_id for item in created_cases]],
                 updated_at=created_at,
             )
         return CreateEvalCasesBatchResult(skill_id, eval_set_id, tuple(created_cases))
@@ -236,140 +159,120 @@ class EvalCaseCommandMixin:
         self,
         *,
         case_id: str,
-        input_text: str,
-        expected_output: str,
+        eval_set_id: str | None = None,
+        steps: list[dict[str, Any]] | None = None,
         actor: str,
-        attachment_name: str | None = None,
-        attachment_base64: str | None = None,
-        prompt_template_id: str = "standard_pass_fail",
-        prompt_text: str = "",
-        model_provider_id: str | None = None,
-        model_id: str | None = None,
+        workspace_name: str | None = None,
+        workspace_base64: str | None = None,
+        preserve_workspace: bool = True,
+        runner_config: dict[str, Any] | None = None,
         notes: str | None = None,
         make_current: bool = True,
+        input_text: str | None = None,
+        expected_output: str | None = None,
+        attachment_name: str | None = None,
+        attachment_base64: str | None = None,
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
-        runner_config = self._case_runner_config(prompt_template_id, prompt_text, model_provider_id, model_id)
         eval_case_version_id = new_id("casever")
+        workspace_name = workspace_name or attachment_name
+        workspace_base64 = workspace_base64 or attachment_base64
         with self.engine.begin() as connection:
             eval_case = self._eval_case_row(connection, case_id)
             skill_id = eval_case["skill_id"]
+            eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
+            self._require_eval_set_contains_case(connection, eval_set_id=eval_set["id"], case_id=case_id)
             version_number = self._next_eval_case_version_number(connection, case_id)
-            input_artifact_id = self._insert_text_artifact(
-                connection, kind="eval_input", namespace=skill_id, content=input_text, actor=actor, created_at=created_at
-            )
-            expected_output_artifact_id = self._insert_text_artifact(
-                connection,
-                kind="expected_output",
-                namespace=skill_id,
-                content=expected_output,
-                actor=actor,
-                created_at=created_at,
-            )
-            attachment_artifact_id = self._create_case_attachment(
+            workspace_artifact_id = self._create_case_workspace(
                 connection,
                 skill_id=skill_id,
                 actor=actor,
-                attachment_name=attachment_name,
-                attachment_base64=attachment_base64,
+                workspace_name=workspace_name,
+                workspace_base64=workspace_base64,
                 created_at=created_at,
             )
+            if workspace_artifact_id is None and preserve_workspace and eval_case["current_version_id"]:
+                workspace_artifact_id = self._eval_case_version_row(connection, eval_case["current_version_id"])["workspace_artifact_id"]
             connection.execute(
                 insert(tables.eval_case_versions).values(
                     id=eval_case_version_id,
                     skill_id=skill_id,
                     case_id=case_id,
                     version_number=version_number,
-                    input_artifact_id=input_artifact_id,
-                    expected_output_artifact_id=expected_output_artifact_id,
-                    attachment_artifact_id=attachment_artifact_id,
-                    **runner_config,
+                    workspace_artifact_id=workspace_artifact_id,
+                    steps=self._case_steps(steps or self._legacy_step(input_text, expected_output)),
+                    runner_config=self._case_runner_config(runner_config),
                     notes=notes,
                     created_at=created_at,
                     created_by=actor,
                 )
             )
-            eval_set = self._primary_eval_set_row(connection, skill_id)
-            eval_set_id = eval_set["id"]
             if make_current:
                 connection.execute(
                     update(tables.eval_cases)
                     .where(tables.eval_cases.c.id == case_id)
                     .values(current_version_id=eval_case_version_id, updated_at=created_at)
                 )
-                eval_set_id = self._update_eval_set_cases(
-                    connection,
-                    skill_id=skill_id,
-                    eval_set_id=eval_set["id"],
-                    case_version_ids=[
-                        eval_case_version_id
-                        if self._eval_case_version_row(connection, item)["case_id"] == case_id
-                        else item
-                        for item in self._eval_set_case_version_ids(connection, eval_set["id"])
-                    ],
-                    updated_at=created_at,
-                )
-        return CreateEvalCaseResult(
-            skill_id,
-            eval_set_id,
-            case_id,
-            eval_case_version_id,
-            input_artifact_id,
-            expected_output_artifact_id,
-            attachment_artifact_id,
-        )
+        return CreateEvalCaseResult(skill_id, eval_set["id"], case_id, eval_case_version_id, workspace_artifact_id)
 
     def restore_eval_case_version(
         self,
         *,
         case_id: str,
+        eval_set_id: str | None = None,
         source_case_version_id: str,
         actor: str,
         notes: str | None = None,
     ) -> CreateEvalCaseResult:
         with self.engine.connect() as connection:
-            eval_case = self._eval_case_row(connection, case_id)
-            if eval_case["lifecycle_status"] != "active":
-                raise InvariantError("Archived eval cases cannot be restored.")
+            self._eval_case_row(connection, case_id)
             source_case_version = self._eval_case_version_row(connection, source_case_version_id)
             if source_case_version["case_id"] != case_id:
                 raise NotFoundError(f"EvalCaseVersion not found for case: {source_case_version_id}")
-            source_detail = self._case_version_detail(connection, source_case_version)
-        input_text = source_detail["input_artifact"].get("content_text")
-        expected_output = source_detail["expected_output_artifact"].get("content_text")
-        if input_text is None or expected_output is None:
-            raise InvariantError("Only text eval case versions can be restored.")
         return self.create_eval_case_version(
             case_id=case_id,
-            input_text=input_text,
-            expected_output=expected_output,
-            attachment_name=None,
-            attachment_base64=None,
-            prompt_template_id=source_case_version["prompt_template_id"],
-            prompt_text=source_case_version["prompt_text"],
-            model_provider_id=source_case_version["model_provider_id"],
-            model_id=source_case_version["model_id"],
+            eval_set_id=eval_set_id,
+            steps=list(source_case_version["steps"]),
+            workspace_name=None,
+            workspace_base64=None,
+            preserve_workspace=True,
+            runner_config=dict(source_case_version["runner_config"] or {}),
             actor=actor,
             notes=notes if notes is not None else f"Restored from case v{source_case_version['version_number']}.",
             make_current=True,
         )
 
-    def _case_runner_config(
-        self,
-        prompt_template_id: str | None,
-        prompt_text: str | None,
-        model_provider_id: str | None,
-        model_id: str | None,
-    ) -> dict[str, str | None]:
-        template_id = (prompt_template_id or "").strip() or "standard_pass_fail"
-        clean_prompt = (prompt_text or "").strip()
-        clean_provider = (model_provider_id or "").strip() or None
-        clean_model = (model_id or "").strip() or None
-        if bool(clean_provider) != bool(clean_model):
+    def _case_steps(self, steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not steps:
+            raise InvariantError("Eval case requires at least one step.")
+        return [normalize_assertion_step(step, index) for index, step in enumerate(steps)]
+
+    def _legacy_step(self, input_text: str | None, expected_output: str | None) -> list[dict[str, Any]]:
+        if input_text is None and expected_output is None:
+            return []
+        return [
+            {
+                "title": "步骤 1",
+                "input": input_text or "",
+                "assertion_template_id": "agent_output_contains",
+                "assertion_params": {"text": expected_output or ""},
+            }
+        ]
+
+    def _case_runner_config(self, value: dict[str, Any] | None) -> dict[str, Any]:
+        raw = dict(value or {})
+        provider = str(raw.get("model_provider_id") or "").strip() or None
+        model = str(raw.get("model_id") or "").strip() or None
+        if bool(provider) != bool(model):
             raise InvariantError("Eval case runner model requires both provider and model.")
         return {
-            "prompt_template_id": template_id,
-            "prompt_text": clean_prompt,
-            "model_provider_id": clean_provider,
-            "model_id": clean_model,
+            "model_provider_id": provider,
+            "model_id": model,
+            "timeout_seconds": raw.get("timeout_seconds"),
         }
+
+    def _eval_set_for_case_write(self, connection, *, skill_id: str, eval_set_id: str | None):
+        eval_set = self._eval_set_row(connection, eval_set_id) if eval_set_id else self._primary_eval_set_row(connection, skill_id)
+        if eval_set["skill_id"] != skill_id:
+            raise InvariantError("Eval case and eval set must belong to the same skill.")
+        return eval_set

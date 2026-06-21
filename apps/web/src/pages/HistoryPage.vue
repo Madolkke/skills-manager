@@ -2,24 +2,33 @@
 import clsx from "clsx";
 import { Copy, FileCheck2, GitCommitHorizontal } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import DropdownSelect from "../components/DropdownSelect.vue";
 import { api, ApiError } from "../lib/api";
 import { humanDate, scoreKind, versionName } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import type { RouteState } from "../lib/navigation";
 import type { EvalRunDetail, EvalRunHistory, SkillDetail, ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail; selectedRunId: string | null }>();
+const props = defineProps<{ skill: SkillDetail; selectedRunId: string | null; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ navigate: [next: Partial<RouteState>]; toast: [toast: ToastState] }>();
 
 const history = ref<EvalRunHistory | null>(null);
 const run = ref<EvalRunDetail | null>(null);
+const evalSets = computed(() => props.skill.eval_sets);
+const fallbackEvalSetId = computed(() => props.skill.summary.primary_eval_set?.id ?? evalSets.value[0]?.id ?? "");
+const evalSetId = computed(() => {
+  const requested = props.selectedEvalSetId;
+  return evalSets.value.some((item) => item.id === requested) ? requested ?? "" : fallbackEvalSetId.value;
+});
+const evalSetOptions = computed(() => evalSets.value.map((item) => ({ value: item.id, label: item.name, description: item.description || "暂无描述" })));
 const runs = computed(() => history.value?.runs ?? []);
 const activeRunId = computed(() => resolveSelectedRunId(runs.value, props.selectedRunId));
 const activeContext = computed(() => runs.value.find((item) => item.eval_run.id === activeRunId.value) ?? null);
 
-watch(() => props.skill.skill.id, async () => {
+watch([() => props.skill.skill.id, evalSetId], async ([skillId, currentEvalSetId]) => {
+  if (currentEvalSetId && currentEvalSetId !== props.selectedEvalSetId) emit("navigate", { selectedEvalSetId: currentEvalSetId, selectedRunId: null });
   try {
-    history.value = await api.getEvalRunHistory(props.skill.skill.id);
+    history.value = await api.getEvalRunHistory(skillId, currentEvalSetId);
   } catch (caught) {
     emit("toast", { tone: "danger", message: errorMessage(caught) });
     history.value = { skill: props.skill.skill, runs: [] };
@@ -53,6 +62,10 @@ function errorMessage(caught: unknown): string {
   if (caught instanceof ApiError || caught instanceof Error) return caught.message;
   return "操作失败。";
 }
+
+function selectEvalSet(id: string): void {
+  emit("navigate", { selectedEvalSetId: id, selectedRunId: null });
+}
 </script>
 
 <template>
@@ -63,7 +76,10 @@ function errorMessage(caught: unknown): string {
           <h1>历史与证据链</h1>
           <p>每次测评记录绑定准确的 Skill 版本与当前测评集，并保存运行环境、运行结果与判定结果。</p>
         </div>
-        <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'evaluate', selectedRunId: null })">进入测评</button>
+        <div class="history-heading-actions">
+          <DropdownSelect :model-value="evalSetId" :options="evalSetOptions" aria-label="按测评集筛选历史" @update:model-value="selectEvalSet" />
+          <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'evaluate', selectedEvalSetId: evalSetId, selectedRunId: null })">进入测评</button>
+        </div>
       </header>
 
       <section v-if="activeContext" class="run-evidence-panel">
@@ -86,7 +102,7 @@ function errorMessage(caught: unknown): string {
               <span :class="clsx('case-result-chip', item.result.passed ? 'passed' : 'failed')">{{ item.result.passed ? "通过" : "不通过" }}</span>
             </header>
             <div class="evaluation-comparison-grid">
-              <section><h3>预期结果</h3><pre>{{ item.case_version.expected_output_artifact.content_text }}</pre></section>
+              <section><h3>测试步骤</h3><pre>{{ JSON.stringify(item.case_version.steps, null, 2) }}</pre></section>
               <section><h3>运行结果</h3><pre>{{ item.result_artifact?.content_text ?? "" }}</pre></section>
             </div>
           </article>
@@ -133,7 +149,7 @@ function errorMessage(caught: unknown): string {
         <strong>{{ versionName(item.skill_version) }}</strong>
         <small>{{ item.eval_set.name }} · {{ humanDate(item.eval_run.created_at) }}</small>
       </button>
-      <button v-if="runs.length === 0" class="secondary-button full-width" type="button" @click="emit('navigate', { tab: 'evaluate' })">去记录第一次测评</button>
+      <button v-if="runs.length === 0" class="secondary-button full-width" type="button" @click="emit('navigate', { tab: 'evaluate', selectedEvalSetId: evalSetId })">去记录第一次测评</button>
     </aside>
   </div>
 </template>

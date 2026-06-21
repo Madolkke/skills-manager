@@ -25,6 +25,7 @@ apps/web/e2e/
 **/.ruff_cache/
 **/.coverage
 coverage/
+.logs/
 
 .env
 .env.*

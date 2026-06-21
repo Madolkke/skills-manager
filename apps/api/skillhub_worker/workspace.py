@@ -6,91 +6,79 @@ from pathlib import Path, PurePosixPath
 import shutil
 import zipfile
 
-from skillhub.application.eval_prompt_templates import prompt_template_body
-
 
 def materialize_case_workspace(case_detail: dict, *, host_root: Path, container_root: str) -> dict[str, str]:
     run = case_detail["eval_case_run"]
-    case_version = case_detail["case_version"]
     host_dir = host_root / run["id"]
     if host_dir.exists():
         shutil.rmtree(host_dir)
     skill_dir = host_dir / "skill"
-    case_dir = host_dir / "case"
     workdir = host_dir / "workdir"
     skill_dir.mkdir(parents=True)
-    case_dir.mkdir(parents=True)
     workdir.mkdir(parents=True)
 
     _write_skill_bundle(case_detail["skill_version"], skill_dir)
-    input_text = case_version["input_artifact"].get("content_text") or ""
-    expected_output = case_version["expected_output_artifact"].get("content_text") or ""
-    (case_dir / "input.txt").write_text(input_text, encoding="utf-8")
-    (case_dir / "expected_output.txt").write_text(expected_output, encoding="utf-8")
+    workspace_artifact = case_detail["case_version"].get("workspace_artifact")
+    if workspace_artifact and workspace_artifact.get("content_text"):
+        _extract_zip_to_workdir(workspace_artifact["content_text"], workdir)
 
-    attachment = case_version.get("attachment_artifact")
-    if attachment and attachment.get("content_text"):
-        _extract_zip_to_workdir(attachment["content_text"], workdir)
-
-    result_path = workdir / "result.json"
     container_dir = _container_path(container_root, run["id"])
     return {
         "host_dir": str(host_dir),
+        "host_workdir": str(workdir),
         "container_dir": container_dir,
         "skill_dir": f"{container_dir}/skill",
         "skill_file": f"{container_dir}/skill/SKILL.md",
         "workdir": f"{container_dir}/workdir",
-        "result_json_path": f"{container_dir}/workdir/result.json",
-        "host_result_json_path": str(result_path),
-        "input": input_text,
-        "expected_output": expected_output,
     }
 
 
-def render_prompt(case_detail: dict, paths: dict[str, str]) -> str:
-    case_version = case_detail["case_version"]
-    template_id = case_version.get("prompt_template_id") or "standard_pass_fail"
-    custom_prompt = (case_version.get("prompt_text") or "").strip()
-    body = custom_prompt if custom_prompt else prompt_template_body(template_id)
-    variables = {
-        "skill_dir": paths["skill_dir"],
-        "skill_file": paths["skill_file"],
-        "workdir": paths["workdir"],
-        "input": paths["input"],
-        "expected_output": paths["expected_output"],
-        "result_json_path": paths["result_json_path"],
-    }
-    prompt = body.format(**variables)
+def render_step_prompt(*, step: dict, paths: dict[str, str], step_number: int, total_steps: int) -> str:
     return (
-        f"{prompt}\n\n"
-        "result.json 必须是单行合法 JSON，且只能包含以下字段：\n"
-        '{"passed": boolean, "actual_output": string, "reason": string}\n'
-        "必须用 JSON 序列化方式写文件；字符串里的换行必须写成 \\n，不能写入未转义的真实换行，不能使用 Markdown 代码块。\n"
-        "passed 表示 actual_output 是否覆盖 expected output 要求的关键点；"
-        "不要因为被审查代码本身存在问题而把 passed 写为 false。"
-        "actual_output 写入你实际产出的结果。"
+        "你正在执行 SkillHub 的 Opencode 测试场景。\n"
+        f"Skill 文件位于：{paths['skill_file']}\n"
+        f"工作目录位于：{paths['workdir']}\n"
+        f"当前是第 {step_number}/{total_steps} 步。\n\n"
+        "请阅读 Skill 指令，并基于下面的用户输入完成本步骤任务。"
+        "本轮只需要完成任务并停止，不要判断自己是否通过，也不要写 result.json。\n\n"
+        f"用户输入：\n{step.get('input', '')}"
     )
 
 
-def read_runner_result(path: str) -> dict[str, str | bool]:
-    result_path = Path(path)
-    if not result_path.exists():
-        raise RuntimeError("Opencode did not write result.json.")
-    try:
-        payload = json.loads(result_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("Opencode result.json is not valid JSON.") from exc
-    if not isinstance(payload, dict) or not isinstance(payload.get("passed"), bool):
-        raise RuntimeError("Opencode result.json must include boolean passed.")
-    if not isinstance(payload.get("actual_output"), str):
-        raise RuntimeError("Opencode result.json must include string actual_output.")
-    if "reason" in payload and not isinstance(payload["reason"], str):
-        raise RuntimeError("Opencode result.json reason must be a string.")
+def workspace_snapshot(workdir: Path) -> set[str]:
+    if not workdir.exists():
+        return set()
     return {
-        "passed": payload["passed"],
-        "actual_output": payload["actual_output"],
-        "reason": payload.get("reason", ""),
+        path.relative_to(workdir).as_posix()
+        for path in workdir.rglob("*")
+        if path.is_file()
     }
+
+
+def compact_message_output(response: object) -> str:
+    text = _find_text(response)
+    if text.strip():
+        return text.strip()
+    try:
+        return json.dumps(response, ensure_ascii=False, sort_keys=True)
+    except TypeError:
+        return str(response)
+
+
+def _find_text(value: object) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(part for item in value if (part := _find_text(item)).strip())
+    if not isinstance(value, dict):
+        return ""
+    for key in ("text", "content", "message", "output"):
+        part = _find_text(value.get(key))
+        if part.strip():
+            return part
+    if "parts" in value:
+        return _find_text(value["parts"])
+    return ""
 
 
 def _write_skill_bundle(skill_version: dict, skill_dir: Path) -> None:
@@ -107,7 +95,7 @@ def _write_skill_bundle(skill_version: dict, skill_dir: Path) -> None:
 
 
 def _extract_zip_to_workdir(content_base64: str, workdir: Path) -> None:
-    archive = workdir / ".attachment.zip"
+    archive = workdir / ".workspace.zip"
     archive.write_bytes(base64.b64decode(content_base64, validate=True))
     with zipfile.ZipFile(archive) as zip_file:
         for member in zip_file.infolist():
@@ -124,9 +112,16 @@ def _extract_zip_to_workdir(content_base64: str, workdir: Path) -> None:
 
 
 def _reject_unsafe_path(path: PurePosixPath) -> None:
-    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+    raw = path.as_posix()
+    if "\\" in raw or "\x00" in raw:
+        raise RuntimeError(f"Unsafe zip path: {path}")
+    if path.is_absolute() or any(part in {"", ".", ".."} or _is_windows_drive(part) for part in path.parts):
         raise RuntimeError(f"Unsafe zip path: {path}")
 
 
 def _container_path(container_root: str, run_id: str) -> str:
     return f"{container_root.rstrip('/')}/{run_id}"
+
+
+def _is_windows_drive(part: str) -> bool:
+    return len(part) == 2 and part[1] == ":"

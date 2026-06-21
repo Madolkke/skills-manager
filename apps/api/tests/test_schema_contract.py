@@ -50,13 +50,15 @@ class SchemaContractTest(unittest.TestCase):
             self.normalized,
         )
 
-    def test_eval_set_membership_references_case_versions_not_cases(self):
+    def test_eval_set_membership_references_cases_not_case_versions(self):
         self.assertIn("create table eval_set_cases", self.normalized)
         self.assertIn(
-            "foreign key (case_version_id, skill_id) references eval_case_versions(id, skill_id)",
+            "foreign key (case_id, skill_id) references eval_cases(id, skill_id)",
             self.normalized,
         )
-        self.assertNotIn("case_id text not null", self._table_sql("eval_set_cases"))
+        table_sql = self._table_sql("eval_set_cases")
+        self.assertIn("case_id text not null", table_sql)
+        self.assertNotIn("case_version_id text not null", table_sql)
 
     def test_case_results_are_scoped_to_run_and_case_skill(self):
         self.assertIn("constraint eval_runs_id_skill_unique unique (id, skill_id)", self.normalized)
@@ -104,14 +106,14 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("display_name text", table_sql)
         self.assertIn("skill_versions_version_semver_check", table_sql)
 
-    def test_eval_case_versions_have_optional_attachment_artifact(self):
+    def test_eval_case_versions_store_workspace_steps_and_runner_config(self):
         table_sql = self._table_sql("eval_case_versions")
 
-        self.assertIn("attachment_artifact_id text references artifacts(id)", table_sql)
-        self.assertIn("prompt_template_id text not null default 'standard_pass_fail'", table_sql)
-        self.assertIn("prompt_text text not null default ''", table_sql)
-        self.assertIn("model_provider_id text", table_sql)
-        self.assertIn("model_id text", table_sql)
+        self.assertIn("workspace_artifact_id text references artifacts(id)", table_sql)
+        self.assertIn("steps jsonb not null default '[]'::jsonb", table_sql)
+        self.assertIn("runner_config jsonb not null default '{}'::jsonb", table_sql)
+        self.assertIn("eval_case_versions_steps_array", table_sql)
+        self.assertIn("eval_case_versions_runner_config_object", table_sql)
 
     def test_opencode_runner_fields_exist(self):
         self.assertIn("runner_metadata jsonb not null default '{}'::jsonb", self._table_sql("eval_case_runs"))
@@ -155,7 +157,7 @@ class SchemaContractTest(unittest.TestCase):
         for index in [
             "create index skill_versions_skill_id_idx",
             "create index eval_case_versions_case_id_idx",
-            "create index eval_set_cases_case_version_id_idx",
+            "create index eval_set_cases_case_id_idx",
             "create index eval_runs_skill_version_id_idx",
             "create index eval_runs_eval_set_id_idx",
             "create index eval_runs_context_hash_idx",
@@ -166,7 +168,9 @@ class SchemaContractTest(unittest.TestCase):
             self.assertIn(index, self.normalized)
 
     def test_status_and_score_constraints_are_explicit(self):
-        self.assertIn("check (lifecycle_status in ('active', 'archived'))", self.normalized)
+        self.assertIn("constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))", self.normalized)
+        self.assertNotIn("eval_sets_lifecycle_status_check", self.normalized)
+        self.assertNotIn("eval_cases_lifecycle_status_check", self.normalized)
         self.assertIn("check (status in ('queued', 'running', 'finished', 'failed'))", self.normalized)
         self.assertIn("check (score in (0, 1))", self.normalized)
 

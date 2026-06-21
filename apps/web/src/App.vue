@@ -48,7 +48,15 @@ async function load(): Promise<void> {
         if (isMissingSkillError(error)) {
           skill.value = null;
           toast.value = { tone: "info", message: "当前 Skill 已不存在，已返回列表。" };
-          route.value = writeRoute({ section: "hub", skillId: null, tab: "overview", selectedCaseId: null, selectedVersionId: null, selectedRunId: null });
+          route.value = writeRoute({
+            section: "hub",
+            skillId: null,
+            tab: "overview",
+            selectedCaseId: null,
+            selectedEvalSetId: null,
+            selectedVersionId: null,
+            selectedRunId: null,
+          });
           return;
         }
         throw error;
@@ -72,7 +80,7 @@ function navigate(next: Partial<RouteState>): void {
 }
 
 function openSkill(skillId: string): void {
-  navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
+  navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
 function setTab(tab: SkillTab): void {
@@ -80,17 +88,17 @@ function setTab(tab: SkillTab): void {
 }
 
 function goHome(): void {
-  navigate({ section: "hub", skillId: null, tab: "overview", selectedCaseId: null, selectedVersionId: null, selectedRunId: null });
+  navigate({ section: "hub", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedVersionId: null, selectedRunId: null });
 }
 
 function goWorkflows(): void {
-  navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
+  navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
 function handleSkillCreated(skillId: string): void {
   newSkillOpen.value = false;
   toast.value = { tone: "success", message: "Skill 已创建。" };
-  navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
+  navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
 function errorMessage(error: unknown): string {

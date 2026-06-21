@@ -29,6 +29,99 @@
   margin-top: 6px;
 }
 
+.runner-step-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.runner-step-card {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-left: 4px solid #cbd5e1;
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.runner-step-card.running,
+.runner-step-card.asserting {
+  border-left-color: #2563eb;
+  background: #f5f9ff;
+}
+
+.runner-step-card.passed {
+  border-left-color: #16a34a;
+}
+
+.runner-step-card.failed {
+  border-left-color: #dc2626;
+  background: #fff7f7;
+}
+
+.runner-step-card.skipped {
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.runner-step-card.running::after,
+.runner-step-card.asserting::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgb(59 130 246 / 8%) 45%, transparent 70%);
+  transform: translateX(-100%);
+  animation: runner-shimmer 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.runner-step-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.runner-step-card header strong {
+  min-width: 0;
+  color: #172033;
+  overflow-wrap: anywhere;
+}
+
+.runner-step-card header span,
+.runner-step-card small {
+  color: var(--muted);
+  font-weight: 780;
+}
+
+.runner-step-card small {
+  display: block;
+  margin-top: 6px;
+}
+
+.runner-step-card p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.runner-step-card pre {
+  border: 1px solid #d5dfec;
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: #24324a;
+  line-height: 1.55;
+  margin-top: 10px;
+  max-height: 220px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
 .evaluation-comparison-grid {
   min-width: 0;
   display: grid;

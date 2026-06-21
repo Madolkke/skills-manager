@@ -6,7 +6,6 @@ from typing import Any
 
 from skillhub.api.schemas import (
     ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH,
-    EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH,
     EVAL_CASE_INPUT_MAX_LENGTH,
     EVAL_CASE_NOTES_MAX_LENGTH,
     EVAL_CASE_TITLE_MAX_LENGTH,
@@ -67,8 +66,8 @@ def request_body_field(location: Any) -> str:
         if part == "body":
             continue
         if isinstance(part, int):
-            if parts and parts[-1] == "cases":
-                parts[-1] = f"cases[{part}]"
+            if parts:
+                parts[-1] = f"{parts[-1]}[{part}]"
             continue
         parts.append(str(part))
     return ".".join(parts)
@@ -142,15 +141,15 @@ def prefixed_label(label: str) -> str:
 
 EVAL_CASE_FIELD_LABELS = {
     "title": "标题",
-    "input_text": "Input",
-    "expected_output": "Expected output",
-    "notes": "Notes",
+    "steps": "测试步骤",
+    "input": "步骤输入",
+    "workspace_base64": "工作目录压缩包",
+    "notes": "备注",
 }
 
 EVAL_CASE_FIELD_MAX_LENGTHS = {
     "title": EVAL_CASE_TITLE_MAX_LENGTH,
-    "input_text": EVAL_CASE_INPUT_MAX_LENGTH,
-    "expected_output": EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH,
+    "input": EVAL_CASE_INPUT_MAX_LENGTH,
     "notes": EVAL_CASE_NOTES_MAX_LENGTH,
 }
 

@@ -8,7 +8,7 @@ import zipfile
 
 import pytest
 
-from skillhub_worker.workspace import read_runner_result, _extract_zip_to_workdir
+from skillhub_worker.workspace import compact_message_output, render_step_prompt, _extract_zip_to_workdir
 
 
 def zip_payload(files: dict[str, str]) -> str:
@@ -24,22 +24,39 @@ def test_extract_zip_rejects_path_traversal(tmp_path: Path):
         _extract_zip_to_workdir(zip_payload({"../escape.txt": "bad"}), tmp_path)
 
 
+@pytest.mark.parametrize("path", ["safe/..\\escape.txt", "C:/escape.txt", "C:\\escape.txt"])
+def test_extract_zip_rejects_windows_style_unsafe_paths(tmp_path: Path, path: str):
+    with pytest.raises(RuntimeError, match="Unsafe zip path"):
+        _extract_zip_to_workdir(zip_payload({path: "bad"}), tmp_path)
+
+
 def test_extract_zip_copies_files_to_workdir(tmp_path: Path):
     _extract_zip_to_workdir(zip_payload({"docs/input.txt": "hello"}), tmp_path)
 
     assert (tmp_path / "docs" / "input.txt").read_text(encoding="utf-8") == "hello"
 
 
-def test_read_runner_result_requires_structured_json(tmp_path: Path):
-    path = tmp_path / "result.json"
-    path.write_text(json.dumps({"passed": False, "actual_output": "missed", "reason": "wrong"}), encoding="utf-8")
+def test_compact_message_output_prefers_text_parts():
+    payload = {"parts": [{"type": "text", "text": "hello"}]}
 
-    assert read_runner_result(str(path)) == {"passed": False, "actual_output": "missed", "reason": "wrong"}
+    assert compact_message_output(payload) == "hello"
 
 
-def test_read_runner_result_rejects_invalid_payload(tmp_path: Path):
-    path = tmp_path / "result.json"
-    path.write_text(json.dumps({"passed": "yes", "actual_output": "bad"}), encoding="utf-8")
+def test_compact_message_output_falls_back_to_json():
+    payload = {"id": "msg_1", "finish": "stop"}
 
-    with pytest.raises(RuntimeError, match="boolean passed"):
-        read_runner_result(str(path))
+    assert compact_message_output(payload) == json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def test_step_prompt_points_agent_at_skill_and_workdir():
+    prompt = render_step_prompt(
+        step={"input": "请生成 README.md"},
+        paths={"skill_file": "/workspace/run/skill/SKILL.md", "workdir": "/workspace/run/workdir"},
+        step_number=1,
+        total_steps=2,
+    )
+
+    assert "/workspace/run/skill/SKILL.md" in prompt
+    assert "/workspace/run/workdir" in prompt
+    assert "不要写 result.json" in prompt
+    assert "请生成 README.md" in prompt

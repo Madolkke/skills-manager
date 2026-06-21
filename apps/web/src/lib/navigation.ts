@@ -7,6 +7,7 @@ export type RouteState = {
   skillId: string | null;
   tab: SkillTab;
   selectedCaseId: string | null;
+  selectedEvalSetId: string | null;
   selectedVersionId: string | null;
   selectedRunId: string | null;
 };
@@ -19,6 +20,7 @@ export function readRoute(): RouteState {
     skillId,
     tab: normalizeTab(url.searchParams.get("tab")),
     selectedCaseId: url.searchParams.get("case"),
+    selectedEvalSetId: url.searchParams.get("evalSet"),
     selectedVersionId: url.searchParams.get("version"),
     selectedRunId: url.searchParams.get("run"),
   };
@@ -33,6 +35,7 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
   if (route.section !== "hub") url.searchParams.set("section", route.section);
   if (route.skillId) url.searchParams.set("skill", route.skillId);
   if (route.skillId && route.tab !== "overview") url.searchParams.set("tab", route.tab);
+  if (route.selectedEvalSetId) url.searchParams.set("evalSet", route.selectedEvalSetId);
   if (route.selectedCaseId) url.searchParams.set("case", route.selectedCaseId);
   if (route.selectedVersionId) url.searchParams.set("version", route.selectedVersionId);
   if (route.selectedRunId) url.searchParams.set("run", route.selectedRunId);

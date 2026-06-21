@@ -59,6 +59,7 @@ function finishUpload(): void {
       v-else-if="tab === 'evalsets'"
       :skill="skill"
       :selected-case-id="route.selectedCaseId"
+      :selected-eval-set-id="route.selectedEvalSetId"
       @navigate="emit('navigate', $event)"
       @refresh="emit('refresh')"
       @toast="emit('toast', $event)"
@@ -66,6 +67,7 @@ function finishUpload(): void {
     <EvaluatePage
       v-else-if="tab === 'evaluate'"
       :skill="skill"
+      :selected-eval-set-id="route.selectedEvalSetId"
       @refresh="emit('refresh')"
       @navigate="emit('navigate', $event)"
       @toast="emit('toast', $event)"
@@ -74,6 +76,7 @@ function finishUpload(): void {
       v-else-if="tab === 'history'"
       :skill="skill"
       :selected-run-id="route.selectedRunId"
+      :selected-eval-set-id="route.selectedEvalSetId"
       @navigate="emit('navigate', $event)"
       @toast="emit('toast', $event)"
     />

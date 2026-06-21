@@ -6,7 +6,6 @@ export type EvalSetSummary = {
   skill_id: string;
   name: string;
   description: string;
-  lifecycle_status: string;
   created_at?: string;
   updated_at?: string;
 };
@@ -31,19 +30,27 @@ export type EvalCaseVersionDetail = {
   skill_id: string;
   case_id: string;
   version_number: number;
-  input_artifact_id: string;
-  expected_output_artifact_id: string;
-  attachment_artifact_id?: string | null;
-  prompt_template_id: string;
-  prompt_text: string;
-  model_provider_id?: string | null;
-  model_id?: string | null;
+  workspace_artifact_id?: string | null;
+  steps: EvalCaseStep[];
+  runner_config: EvalRunnerConfig;
   notes: string | null;
   created_at?: string;
   created_by: string;
-  input_artifact: ArtifactRef;
-  expected_output_artifact: ArtifactRef;
-  attachment_artifact?: ArtifactRef | null;
+  workspace_artifact?: ArtifactRef | null;
+};
+
+export type EvalRunnerConfig = {
+  model_provider_id?: string | null;
+  model_id?: string | null;
+  timeout_seconds?: number | null;
+};
+
+export type EvalCaseStep = {
+  id: string;
+  title: string;
+  input: string;
+  assertion_template_id: string;
+  assertion_params: Record<string, unknown>;
 };
 
 export type EvalSetCase = {
@@ -53,10 +60,14 @@ export type EvalSetCase = {
     skill_id: string;
     title: string;
     current_version_id: string | null;
-    lifecycle_status: string;
     created_at?: string;
     updated_at?: string;
   };
+  case_version: EvalCaseVersionDetail;
+};
+
+export type EvalCaseLibraryItem = {
+  case: EvalSetCase["case"];
   case_version: EvalCaseVersionDetail;
 };
 
@@ -65,11 +76,22 @@ export type EvalSetDetail = {
   cases: EvalSetCase[];
 };
 
-export type EvalPromptTemplate = {
+export type EvalAssertionTemplate = {
   id: string;
   name: string;
   description: string;
-  body: string;
+  category: string;
+  params_schema: Array<{
+    name: string;
+    label: string;
+    type: "text" | "textarea" | "number";
+    required: boolean;
+    default?: unknown;
+    placeholder?: string;
+    help?: string;
+    min?: number | null;
+    max?: number | null;
+  }>;
 };
 
 export type EvalCaseRunRecord = {

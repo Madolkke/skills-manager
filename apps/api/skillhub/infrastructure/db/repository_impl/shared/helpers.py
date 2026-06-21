@@ -229,17 +229,17 @@ class CoreHelperMixin:
         actor: str,
         created_at: datetime,
     ) -> str:
-        clean_name = filename.strip() or "case-attachment.zip"
+        clean_name = filename.strip() or "workspace.zip"
         if not clean_name.lower().endswith(".zip"):
-            raise InvariantError("Eval case attachment must be a zip file.")
+            raise InvariantError("Eval case workspace must be a zip file.")
         try:
             raw_content = base64.b64decode(content_base64, validate=True)
         except ValueError as exc:
-            raise InvariantError("Eval case attachment must be valid base64.") from exc
+            raise InvariantError("Eval case workspace must be valid base64.") from exc
         if not raw_content.startswith(b"PK"):
-            raise InvariantError("Eval case attachment must be a zip file.")
+            raise InvariantError("Eval case workspace must be a zip file.")
         content_digest = digest_text(content_base64)
-        locator = f"case-attachment:{content_digest}:{clean_name}"
+        locator = f"case-workspace:{content_digest}:{clean_name}"
         existing = (
             connection.execute(
                 select(tables.artifacts.c.id)
@@ -255,7 +255,7 @@ class CoreHelperMixin:
         connection.execute(
             insert(tables.artifacts).values(
                 id=artifact_id,
-                kind="eval_case_attachment",
+                kind="eval_case_workspace",
                 namespace=namespace,
                 locator=locator,
                 digest=content_digest,
@@ -268,24 +268,24 @@ class CoreHelperMixin:
         )
         return artifact_id
 
-    def _create_case_attachment(
+    def _create_case_workspace(
         self,
         connection,
         *,
         skill_id: str,
         actor: str,
-        attachment_name: str | None,
-        attachment_base64: str | None,
+        workspace_name: str | None,
+        workspace_base64: str | None,
         created_at: datetime,
     ) -> str | None:
-        if not attachment_base64:
+        if not workspace_base64:
             return None
-        filename = attachment_name or "case-attachment.zip"
+        filename = workspace_name or "workspace.zip"
         return self._insert_zip_artifact(
             connection,
             namespace=skill_id,
             filename=filename,
-            content_base64=attachment_base64,
+            content_base64=workspace_base64,
             actor=actor,
             created_at=created_at,
         )

@@ -53,9 +53,8 @@
   font-weight: 760;
 }
 
-.diff-version-select select {
+.diff-version-select .dropdown-trigger {
   min-height: 38px;
-  padding: 7px 10px;
 }
 
 .commit-diff-stat {

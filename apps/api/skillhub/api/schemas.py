@@ -17,11 +17,11 @@ IdentityRef = Annotated[str, Field(min_length=1, max_length=120, pattern=IDENTIT
 
 EVAL_CASE_TITLE_MAX_LENGTH = 160
 EVAL_CASE_INPUT_MAX_LENGTH = 20_000
-EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH = 10_000
 EVAL_CASE_NOTES_MAX_LENGTH = 2_000
 EVAL_CASE_ACTUAL_OUTPUT_MAX_LENGTH = 20_000
-EVAL_CASE_PROMPT_MAX_LENGTH = 20_000
-EVAL_CASE_ATTACHMENT_MAX_BASE64_LENGTH = 7_000_000
+EVAL_CASE_WORKSPACE_MAX_BASE64_LENGTH = 7_000_000
+EVAL_SET_NAME_MAX_LENGTH = 120
+EVAL_SET_DESCRIPTION_MAX_LENGTH = 1_000
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
 VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
@@ -29,10 +29,10 @@ VERSION_DISPLAY_NAME_MAX_LENGTH = 80
 
 EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MAX_LENGTH)]
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
-EvalCaseExpectedOutput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_EXPECTED_OUTPUT_MAX_LENGTH)]
 EvalCaseNotes = Annotated[str, Field(max_length=EVAL_CASE_NOTES_MAX_LENGTH)]
-EvalCasePrompt = Annotated[str, Field(max_length=EVAL_CASE_PROMPT_MAX_LENGTH)]
-EvalCaseAttachmentBase64 = Annotated[str, Field(max_length=EVAL_CASE_ATTACHMENT_MAX_BASE64_LENGTH)]
+EvalCaseWorkspaceBase64 = Annotated[str, Field(max_length=EVAL_CASE_WORKSPACE_MAX_BASE64_LENGTH)]
+EvalSetName = Annotated[str, Field(min_length=1, max_length=EVAL_SET_NAME_MAX_LENGTH)]
+EvalSetDescription = Annotated[str, Field(max_length=EVAL_SET_DESCRIPTION_MAX_LENGTH)]
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH)]
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
@@ -88,56 +88,102 @@ class AssignSkillRolePayload(BaseModel):
     subject_type: str = "user"
 
 
-class CreateEvalCasePayload(BaseModel):
-    skill_id: str
-    title: EvalCaseTitle
-    input_text: EvalCaseInput
-    expected_output: EvalCaseExpectedOutput
-    attachment_name: str | None = None
-    attachment_base64: EvalCaseAttachmentBase64 | None = None
-    prompt_template_id: str = "standard_pass_fail"
-    prompt_text: EvalCasePrompt = ""
+class EvalCaseStepPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = None
+    title: str | None = None
+    input: EvalCaseInput
+    assertion_template_id: str = "agent_output_semantic"
+    assertion_params: dict[str, Any] = Field(default_factory=dict)
+
+
+class EvalCaseRunnerConfigPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     model_provider_id: str | None = None
     model_id: str | None = None
+    timeout_seconds: int | None = None
+
+
+class CreateEvalCasePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    skill_id: str
+    eval_set_id: str
+    title: EvalCaseTitle
+    steps: list[EvalCaseStepPayload] = Field(min_length=1)
+    workspace_name: str | None = None
+    workspace_base64: EvalCaseWorkspaceBase64 | None = None
+    runner_config: EvalCaseRunnerConfigPayload = Field(default_factory=EvalCaseRunnerConfigPayload)
     notes: EvalCaseNotes | None = None
 
 
 class CreateEvalCaseItemPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: EvalCaseTitle
-    input_text: EvalCaseInput
-    expected_output: EvalCaseExpectedOutput
-    attachment_name: str | None = None
-    attachment_base64: EvalCaseAttachmentBase64 | None = None
-    prompt_template_id: str = "standard_pass_fail"
-    prompt_text: EvalCasePrompt = ""
-    model_provider_id: str | None = None
-    model_id: str | None = None
+    steps: list[EvalCaseStepPayload] = Field(min_length=1)
+    workspace_name: str | None = None
+    workspace_base64: EvalCaseWorkspaceBase64 | None = None
+    runner_config: EvalCaseRunnerConfigPayload = Field(default_factory=EvalCaseRunnerConfigPayload)
     notes: EvalCaseNotes | None = None
 
 
 class CreateEvalCasesBatchPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     skill_id: str
+    eval_set_id: str
     cases: list[CreateEvalCaseItemPayload] = Field(min_length=1)
 
 
 class CreateEvalCaseVersionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     case_id: str
+    eval_set_id: str
     title: EvalCaseTitle | None = None
-    input_text: EvalCaseInput
-    expected_output: EvalCaseExpectedOutput
-    attachment_name: str | None = None
-    attachment_base64: EvalCaseAttachmentBase64 | None = None
-    prompt_template_id: str = "standard_pass_fail"
-    prompt_text: EvalCasePrompt = ""
-    model_provider_id: str | None = None
-    model_id: str | None = None
+    steps: list[EvalCaseStepPayload] = Field(min_length=1)
+    workspace_name: str | None = None
+    workspace_base64: EvalCaseWorkspaceBase64 | None = None
+    preserve_workspace: bool = True
+    runner_config: EvalCaseRunnerConfigPayload = Field(default_factory=EvalCaseRunnerConfigPayload)
     notes: EvalCaseNotes | None = None
     make_current: bool = True
 
 
 class RestoreEvalCaseVersionPayload(BaseModel):
     source_case_version_id: str
+    eval_set_id: str | None = None
     notes: EvalCaseNotes | None = None
+
+
+class CreateEvalSetPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: EvalSetName
+    description: EvalSetDescription = ""
+
+
+class UpdateEvalSetPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: EvalSetName
+    description: EvalSetDescription = ""
+
+
+class AddEvalSetCasePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    position: int | None = None
+
+
+class ReorderEvalSetCasesPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case_ids: list[str]
 
 
 class EnqueueEvalCaseRunPayload(BaseModel):

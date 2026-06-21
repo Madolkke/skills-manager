@@ -27,20 +27,9 @@ class DetailQueryMixin:
                 .mappings()
                 .all()
             }
-            eval_set_cases = (
-                connection.execute(
-                    select(tables.eval_set_cases.c.case_version_id, tables.eval_set_cases.c.position)
-                    .where(tables.eval_set_cases.c.eval_set_id == eval_run["eval_set_id"])
-                    .order_by(tables.eval_set_cases.c.position)
-                )
-                .mappings()
-                .all()
-            )
+            current_positions = self._current_eval_set_case_positions(connection, eval_run["eval_set_id"])
             case_results = []
-            for membership in eval_set_cases:
-                result = result_rows.get(membership["case_version_id"])
-                if result is None:
-                    continue
+            for result in result_rows.values():
                 case_version = self._eval_case_version_row(connection, result["case_version_id"])
                 eval_case = self._eval_case_row(connection, case_version["case_id"])
                 result_artifact = None
@@ -56,8 +45,20 @@ class DetailQueryMixin:
                         "result_artifact": self._row_dict(result_artifact) if result_artifact is not None else None,
                         "case": self._row_dict(eval_case),
                         "case_version": self._case_version_detail(connection, case_version),
-                        "position": membership["position"],
+                        "position": current_positions.get(eval_case["id"], len(current_positions) + len(case_results)),
                     }
                 )
+            case_results.sort(key=lambda item: (item["position"], item["case"]["title"]))
             skill_version_detail = self._skill_version_detail(connection, skill_version)
         return EvalRunDetail(self._row_dict(eval_run), self._row_dict(skill), skill_version_detail, self._row_dict(eval_set), case_results)
+
+    def _current_eval_set_case_positions(self, connection, eval_set_id: str) -> dict[str, int]:
+        return {
+            row["case_id"]: row["position"]
+            for row in connection.execute(
+                select(tables.eval_set_cases.c.case_id, tables.eval_set_cases.c.position)
+                .where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
+            )
+            .mappings()
+            .all()
+        }

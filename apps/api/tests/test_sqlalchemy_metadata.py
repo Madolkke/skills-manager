@@ -3,6 +3,7 @@ import unittest
 from sqlalchemy import ForeignKeyConstraint, Index, UniqueConstraint
 
 from skillhub.infrastructure.db.tables import metadata
+from tests.conftest import ensure_postgres_test_database
 
 
 class SqlAlchemyMetadataTest(unittest.TestCase):
@@ -31,6 +32,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
     def test_metadata_can_create_postgresql_test_schema(self):
         from skillhub.api.database import create_postgres_engine, resolve_database_url
 
+        ensure_postgres_test_database()
         engine = create_postgres_engine(resolve_database_url())
         metadata.drop_all(engine)
         metadata.create_all(engine)
@@ -101,15 +103,13 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         self.assert_unique_constraint("skill_versions", "skill_versions_skill_semver_unique", ("skill_id", "version"))
         self.assert_unique_constraint("eval_case_versions", "eval_case_versions_case_version_unique", ("case_id", "version_number"))
 
-    def test_eval_case_version_attachment_artifact_is_optional(self):
+    def test_eval_case_version_workspace_steps_and_runner_config_are_mapped(self):
         table = metadata.tables["eval_case_versions"]
 
-        self.assertIn("attachment_artifact_id", table.c)
-        self.assertTrue(table.c.attachment_artifact_id.nullable)
-        self.assertIn("prompt_template_id", table.c)
-        self.assertIn("prompt_text", table.c)
-        self.assertIn("model_provider_id", table.c)
-        self.assertIn("model_id", table.c)
+        self.assertIn("workspace_artifact_id", table.c)
+        self.assertTrue(table.c.workspace_artifact_id.nullable)
+        self.assertIn("steps", table.c)
+        self.assertIn("runner_config", table.c)
 
     def test_opencode_runner_metadata_columns_are_mapped(self):
         self.assertIn("runner_metadata", metadata.tables["eval_case_runs"].c)
@@ -121,6 +121,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         for table_name, index_name in [
             ("skill_versions", "skill_versions_skill_id_idx"),
             ("eval_case_versions", "eval_case_versions_case_id_idx"),
+            ("eval_set_cases", "eval_set_cases_case_id_idx"),
             ("eval_runs", "eval_runs_skill_version_id_idx"),
             ("eval_runs", "eval_runs_eval_set_id_idx"),
             ("eval_runs", "eval_runs_context_hash_idx"),

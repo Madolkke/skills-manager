@@ -3,6 +3,7 @@ import pytest
 
 from skillhub.api.main import create_app, create_postgres_engine, resolve_database_url
 from skillhub.infrastructure.db.tables import metadata
+from tests.conftest import ensure_postgres_test_database
 
 
 def test_resolve_database_url_requires_configured_postgresql(monkeypatch):
@@ -20,6 +21,7 @@ def test_resolve_database_url_rejects_non_postgresql(monkeypatch):
 
 
 def test_postgres_engine_persists_skill_between_app_instances():
+    ensure_postgres_test_database()
     database_url = resolve_database_url()
     first_engine = create_postgres_engine(database_url)
     metadata.drop_all(first_engine)

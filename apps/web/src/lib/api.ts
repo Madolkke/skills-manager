@@ -2,13 +2,17 @@ import type {
   BundleSource,
   BundleDiff,
   EvalCaseHistory,
+  EvalCaseLibraryItem,
   EvalCaseRunRecord,
   EvalCaseRunDetail,
   EvalCaseMutationResult,
-  EvalPromptTemplate,
+  EvalAssertionTemplate,
+  EvalCaseStep,
+  EvalRunnerConfig,
   EvalRunDetail,
   EvalRunHistory,
   EvalSetDetail,
+  EvalSetSummary,
   SessionInfo,
   SkillDetail,
   SkillSummary,
@@ -46,6 +50,12 @@ export class ApiError extends Error {
     this.status = status;
     this.fieldErrors = fieldErrors;
   }
+}
+
+export function apiErrorMessage(error: ApiError): string {
+  const messages = Object.values(error.fieldErrors).filter(Boolean);
+  if (messages.length) return messages.join("；");
+  return error.message;
 }
 
 export const api = {
@@ -87,40 +97,56 @@ function artifactApi() {
 function evaluationApi() {
   return {
     getEvalSet: (evalSetId: string) => apiGet<EvalSetDetail>(`/api/eval-sets/${evalSetId}`),
-    listEvalPromptTemplates: () => apiGet<EvalPromptTemplate[]>("/api/eval-prompt-templates"),
+    createEvalSet: (skillId: string, payload: { name: string; description?: string }) =>
+      apiSend<EvalSetSummary>(`/api/skills/${encodeURIComponent(skillId)}/eval-sets`, "POST", payload),
+    updateEvalSet: (evalSetId: string, payload: { name: string; description?: string }) =>
+      apiSend<EvalSetSummary>(`/api/eval-sets/${encodeURIComponent(evalSetId)}`, "PATCH", payload),
+    listSkillEvalCases: (skillId: string, excludeEvalSetId?: string | null) => {
+      const params = new URLSearchParams();
+      if (excludeEvalSetId) params.set("exclude_eval_set_id", excludeEvalSetId);
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      return apiGet<EvalCaseLibraryItem[]>(`/api/skills/${encodeURIComponent(skillId)}/eval-cases${suffix}`);
+    },
+    addEvalSetCase: (evalSetId: string, payload: { case_id: string; position?: number }) =>
+      apiSend<EvalSetDetail>(`/api/eval-sets/${encodeURIComponent(evalSetId)}/cases`, "POST", payload),
+    removeEvalSetCase: (evalSetId: string, caseId: string) =>
+      apiDelete<EvalSetDetail>(`/api/eval-sets/${encodeURIComponent(evalSetId)}/cases/${encodeURIComponent(caseId)}`),
+    reorderEvalSetCases: (evalSetId: string, caseIds: string[]) =>
+      apiSend<EvalSetDetail>(`/api/eval-sets/${encodeURIComponent(evalSetId)}/cases/order`, "PATCH", { case_ids: caseIds }),
+    listEvalAssertionTemplates: () => apiGet<EvalAssertionTemplate[]>("/api/eval-assertion-templates"),
     getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
     listEvalCaseRuns: (query: { skill_version_id: string; eval_set_id: string }) =>
       apiGet<EvalCaseRunDetail[]>(
         `/api/eval-case-runs?skill_version_id=${encodeURIComponent(query.skill_version_id)}&eval_set_id=${encodeURIComponent(query.eval_set_id)}`,
       ),
     getEvalCaseRun: (evalCaseRunId: string) => apiGet<EvalCaseRunDetail>(`/api/eval-case-runs/${encodeURIComponent(evalCaseRunId)}`),
-    getEvalRunHistory: (skillId: string) => apiGet<EvalRunHistory>(`/api/skills/${skillId}/eval-runs`),
+    getEvalRunHistory: (skillId: string, evalSetId?: string | null) => {
+      const params = new URLSearchParams();
+      if (evalSetId) params.set("eval_set_id", evalSetId);
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      return apiGet<EvalRunHistory>(`/api/skills/${encodeURIComponent(skillId)}/eval-runs${suffix}`);
+    },
     getEvalRun: (runId: string) => apiGet<EvalRunDetail>(`/api/eval-runs/${runId}`),
     createEvalCase: (payload: {
       skill_id: string;
+      eval_set_id: string;
       title: string;
-      input_text: string;
-      expected_output: string;
-      attachment_name?: string;
-      attachment_base64?: string;
-      prompt_template_id?: string;
-      prompt_text?: string;
-      model_provider_id?: string | null;
-      model_id?: string | null;
+      steps: EvalCaseStep[];
+      workspace_name?: string;
+      workspace_base64?: string;
+      runner_config?: EvalRunnerConfig;
       notes?: string;
     }) => apiSend<EvalCaseMutationResult>("/api/eval-cases", "POST", payload),
     updateEvalCase: (
       caseId: string,
       payload: {
         title: string;
-        input_text: string;
-        expected_output: string;
-        attachment_name?: string;
-        attachment_base64?: string;
-        prompt_template_id?: string;
-        prompt_text?: string;
-        model_provider_id?: string | null;
-        model_id?: string | null;
+        eval_set_id: string;
+        steps: EvalCaseStep[];
+        workspace_name?: string;
+        workspace_base64?: string;
+        preserve_workspace?: boolean;
+        runner_config?: EvalRunnerConfig;
         notes?: string;
         make_current: boolean;
       },
@@ -161,6 +187,16 @@ async function apiSend<T>(path: string, method: "POST" | "PATCH", body: unknown)
   return response.json() as Promise<T>;
 }
 
+async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) throw await parseApiError(response);
+  return response.json() as Promise<T>;
+}
+
 async function parseApiError(response: Response): Promise<ApiError> {
   try {
     const payload = (await response.json()) as {
@@ -168,7 +204,8 @@ async function parseApiError(response: Response): Promise<ApiError> {
       field_errors?: Record<string, string> | Array<{ field?: string; message?: string }>;
     };
     const message = typeof payload.detail === "string" ? payload.detail : `${response.status} ${response.statusText}`;
-    return new ApiError(message, response.status, normalizeFieldErrors(payload.field_errors));
+    const error = new ApiError(message, response.status, normalizeFieldErrors(payload.field_errors));
+    return new ApiError(apiErrorMessage(error), response.status, error.fieldErrors);
   } catch {
     return new ApiError(`${response.status} ${response.statusText}`, response.status);
   }

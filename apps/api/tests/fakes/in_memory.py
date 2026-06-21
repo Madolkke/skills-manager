@@ -104,8 +104,17 @@ class SkillHubService:
             id=new_id("casever"),
             case_id=case.id,
             version_number=1,
-            input_ref=self._artifact("eval_input", input_text),
-            expected_output_ref=self._artifact("expected_output", expected_output),
+            steps=(
+                {
+                    "id": "step-1",
+                    "title": "步骤 1",
+                    "input": input_text,
+                    "assertion_template_id": "agent_output_contains",
+                    "assertion_params": {"text": expected_output},
+                },
+            ),
+            workspace_ref=None,
+            runner_config={},
             notes=notes,
             created_at=now,
         )
@@ -114,7 +123,7 @@ class SkillHubService:
 
         return self._update_current_eval_set_cases(
             skill_id=skill_id,
-            case_version_ids=(*self.workspace.eval_set_cases[eval_set.id], case_version.id),
+            case_ids=(*self.workspace.eval_set_cases[eval_set.id], case.id),
         )
 
     def create_eval_case_version(
@@ -131,15 +140,23 @@ class SkillHubService:
             id=new_id("casever"),
             case_id=case_id,
             version_number=self._next_case_version_number(case_id),
-            input_ref=self._artifact("eval_input", input_text),
-            expected_output_ref=self._artifact("expected_output", expected_output),
+            steps=(
+                {
+                    "id": "step-1",
+                    "title": "步骤 1",
+                    "input": input_text,
+                    "assertion_template_id": "agent_output_contains",
+                    "assertion_params": {"text": expected_output},
+                },
+            ),
+            workspace_ref=None,
+            runner_config={},
             notes=notes,
             created_at=utc_now(),
         )
         self.workspace.eval_case_versions[version.id] = version
         if make_current:
             self.workspace.eval_cases[case_id] = replace(case, current_version_id=version.id)
-            self._replace_eval_set_case_version(case.skill_id, case_id, version.id)
         return version
 
     def record_eval_run(
@@ -171,29 +188,17 @@ class SkillHubService:
             run_context_hash=self._run_context_hash(tags, context),
         )
         self.workspace.eval_runs[run.id] = run
-        for case_version_id in self.workspace.eval_set_cases[eval_set.id]:
+        for case_id in self.workspace.eval_set_cases[eval_set.id]:
+            case_version_id = self._eval_case(case_id).current_version_id
             passed = bool(results.get(case_version_id, False))
             self.workspace.case_results.append(
                 CaseResult(run_id=run.id, case_version_id=case_version_id, passed=passed, score=1 if passed else 0)
             )
         return run
 
-    def _replace_eval_set_case_version(
-        self,
-        skill_id: str,
-        case_id: str,
-        case_version_id: str,
-    ) -> EvalSet:
+    def _update_current_eval_set_cases(self, skill_id: str, case_ids: tuple[str, ...]) -> EvalSet:
         eval_set = self._primary_eval_set(skill_id)
-        next_case_version_ids = tuple(
-            case_version_id if self._eval_case_version(item).case_id == case_id else item
-            for item in self.workspace.eval_set_cases[eval_set.id]
-        )
-        return self._update_current_eval_set_cases(skill_id=skill_id, case_version_ids=next_case_version_ids)
-
-    def _update_current_eval_set_cases(self, skill_id: str, case_version_ids: tuple[str, ...]) -> EvalSet:
-        eval_set = self._primary_eval_set(skill_id)
-        self.workspace.eval_set_cases[eval_set.id] = case_version_ids
+        self.workspace.eval_set_cases[eval_set.id] = case_ids
         return eval_set
 
     def _artifact(self, kind: str, content: str) -> ArtifactRef:

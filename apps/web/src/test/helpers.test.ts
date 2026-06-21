@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
-import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
+import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
+import { cleanCaseForm } from "../features/evaluation/lib/evalCaseManagement";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
-import { resolveApiBaseUrl } from "../lib/api";
+import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
 
 describe("skill evidence helpers", () => {
@@ -40,8 +41,8 @@ describe("skill evidence helpers", () => {
     expect(runnerState(null).label).toBe("未运行");
     expect(runnerState({ eval_case_run: { status: "running" }, job: { status: "running" } } as never).label).toBe("运行中");
     expect(runnerState({ eval_case_run: { status: "failed", error: "worker failed" } } as never).helper).toBe("worker failed");
-    expect(modelLabel({ case_version: { model_provider_id: "deepseek", model_id: "deepseek-v4-pro" } } as never)).toBe("deepseek/deepseek-v4-pro");
-    expect(promptSourceLabel({ case_version: { prompt_template_id: "file_workspace_task", prompt_text: "" } } as never)).toBe("工作目录文件任务");
+    expect(modelLabel({ case_version: { runner_config: { model_provider_id: "deepseek", model_id: "deepseek-v4-pro" } } } as never)).toBe("deepseek/deepseek-v4-pro");
+    expect(promptSourceLabel({ case_version: { steps: [{ id: "s1" }, { id: "s2" }] } } as never)).toBe("2 个步骤");
   });
 
   it("describes active runner feedback without inventing progress", () => {
@@ -57,7 +58,30 @@ describe("skill evidence helpers", () => {
     expect(summary.runningRuns).toBe(1);
     expect(summary.queuedRuns).toBe(1);
     expect(actionBarStatusText(summary, 2, 5)).toBe("正在运行 1 个测试例，页面每 5 秒自动刷新。");
-    expect(emptyActualOutputText(runnerState({ eval_case_run: { status: "running" } } as never))).toBe("等待 result.json 写入...");
+    expect(emptyActualOutputText(runnerState({ eval_case_run: { status: "running" } } as never))).toBe("等待步骤执行结果...");
+  });
+
+  it("merges configured steps with current runner progress", () => {
+    const item = {
+      case_version: {
+        steps: [
+          { id: "s1", title: "第一步", input: "生成 README", assertion_template_id: "agent_output_contains" },
+          { id: "s2", title: "第二步", input: "检查文件", assertion_template_id: "file_exists" },
+        ],
+      },
+    } as never;
+    const detail = {
+      eval_case_run: {
+        runner_metadata: {
+          current_stage_label: "第 2/2 步判定中",
+          current_step: { id: "s2", index: 2, stage: "asserting" },
+          step_results: [{ step_id: "s1", status: "passed", reason: "输出包含指定文本。", actual: "README" }],
+        },
+      },
+    } as never;
+
+    expect(stepTimelineRows(item, detail).map((step) => `${step.id}:${step.label}`)).toEqual(["s1:通过", "s2:判定中"]);
+    expect(stepTimelineRows(item, detail)[1].reason).toBe("第 2/2 步判定中");
   });
 
   it("formats evidence chain summaries for history", () => {
@@ -130,6 +154,30 @@ describe("skill evidence helpers", () => {
       configuredUrl: "http://api.skillhub.test:9000/",
       location: { protocol: "http:", hostname: "192.168.1.20" },
     })).toBe("http://api.skillhub.test:9000");
+  });
+
+  it("prefers concrete API field errors over generic request messages", () => {
+    expect(apiErrorMessage(new ApiError("请求字段不完整或格式不正确。", 422, { title: "填写标题。" }))).toBe("填写标题。");
+  });
+
+  it("only sends preserve_workspace when updating an existing eval case", () => {
+    const form = {
+      title: "新增文件测试",
+      steps: [
+        {
+          id: "",
+          title: "步骤 1",
+          input: "请创建 done.txt",
+          assertion_template_id: "file_created",
+          assertion_params: { directory: ".", filename: "done.txt" },
+        },
+      ],
+      runner_config: {},
+      notes: "",
+    };
+
+    expect(cleanCaseForm(form)).not.toHaveProperty("preserve_workspace");
+    expect(cleanCaseForm(form, { includePreserveWorkspace: true })).toHaveProperty("preserve_workspace", true);
   });
 
   it("calculates semantic version bumps", () => {

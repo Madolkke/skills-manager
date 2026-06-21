@@ -27,18 +27,14 @@ class CreateEvalCaseResult:
     eval_set_id: str
     eval_case_id: str
     eval_case_version_id: str
-    input_artifact_id: str
-    expected_output_artifact_id: str
-    attachment_artifact_id: str | None = None
+    workspace_artifact_id: str | None = None
 
 
 @dataclass(frozen=True)
 class CreatedEvalCaseResult:
     eval_case_id: str
     eval_case_version_id: str
-    input_artifact_id: str
-    expected_output_artifact_id: str
-    attachment_artifact_id: str | None = None
+    workspace_artifact_id: str | None = None
 
 
 @dataclass(frozen=True)

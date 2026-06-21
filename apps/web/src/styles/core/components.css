@@ -241,8 +241,11 @@
   }
 
   .runner-case-row.running::after,
+  .runner-step-card.running::after,
+  .runner-step-card.asserting::after,
   .runner-output-panel.running::after {
     animation: none;
     display: none;
   }
+
 }

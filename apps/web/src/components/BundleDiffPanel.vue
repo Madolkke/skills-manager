@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import clsx from "clsx";
 import { computed, ref, watch } from "vue";
+import DropdownSelect from "./DropdownSelect.vue";
 import { api, ApiError } from "../lib/api";
 import { versionName } from "../lib/format";
 import type { BundleDiff, BundleDiffFile, BundleDiffLine, BundleDiffStatus, SkillVersion } from "../types";
@@ -12,6 +13,10 @@ const diff = ref<BundleDiff | null>(null);
 const error = ref<string | null>(null);
 const loading = ref(false);
 const compareOptions = computed(() => props.versions.filter((version) => version.id !== props.current.id));
+const compareSelectOptions = computed(() => compareOptions.value.map((version) => ({
+  value: version.id,
+  label: `${versionName(version)}${version.id === props.previous?.id ? "（前一个）" : ""}`,
+})));
 const baseVersion = computed(() => compareOptions.value.find((version) => version.id === baseVersionId.value) ?? null);
 const changedFiles = computed(() => diff.value?.files.filter((file) => file.status !== "unchanged") ?? []);
 
@@ -69,11 +74,7 @@ function errorMessage(caught: unknown): string {
       <div class="commit-diff-tools">
         <label v-if="compareOptions.length > 0" class="diff-version-select">
           <span>对比版本</span>
-          <select v-model="baseVersionId">
-            <option v-for="version in compareOptions" :key="version.id" :value="version.id">
-              {{ versionName(version) }}{{ version.id === previous?.id ? "（前一个）" : "" }}
-            </option>
-          </select>
+          <DropdownSelect v-model="baseVersionId" :options="compareSelectOptions" aria-label="选择对比版本" compact />
         </label>
         <div v-if="diff" class="commit-diff-stats" aria-label="变更摘要">
           <span :class="clsx('commit-diff-stat', 'changed')"><strong>{{ diff.summary.changed }}</strong><small>变更</small></span>

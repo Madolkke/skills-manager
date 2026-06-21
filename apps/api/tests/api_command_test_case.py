@@ -46,13 +46,22 @@ class ApiCommandTestCase(PostgresTestCase):
         return response.json()
 
     def create_eval_case(self, skill_id: str):
+        skill = self.client.get(f"/api/skills/{skill_id}").json()
+        eval_set_id = skill["summary"]["primary_eval_set"]["id"]
         response = self.client.post(
             "/api/eval-cases",
             json={
                 "skill_id": skill_id,
+                "eval_set_id": eval_set_id,
                 "title": "PR: missing owner check",
-                "input_text": "Project.findMany()",
-                "expected_output": "Flag missing ownerId filter.",
+                "steps": [
+                    {
+                        "title": "检查 owner 过滤",
+                        "input": "Project.findMany()",
+                        "assertion_template_id": "agent_output_contains",
+                        "assertion_params": {"text": "Flag missing ownerId filter."},
+                    }
+                ],
             },
         )
         self.assertEqual(response.status_code, 200)

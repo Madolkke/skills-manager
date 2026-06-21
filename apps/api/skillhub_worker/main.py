@@ -1,56 +1,158 @@
 from __future__ import annotations
 
+from pathlib import Path
 import time
 from typing import Any
 
 from skillhub.api.database import create_postgres_engine, resolve_database_url
+from skillhub.application.eval_assertion_templates import AssertionContext, assertion_template
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub_worker.config import load_config
+from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
-from skillhub_worker.workspace import materialize_case_workspace, read_runner_result, render_prompt
+from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, render_step_prompt, workspace_snapshot
 
 
-def run_once(repository: SqlSkillRepository, client: OpencodeClient, *, config) -> bool:
+def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
     detail = repository.claim_next_eval_case_run_job(worker_id=config.worker_id)
     if detail is None:
         return False
     run = detail["eval_case_run"]
     job = detail.get("job") or {}
     eval_case_run_id = run["id"]
+    metadata: dict[str, Any] = {
+        "runner": "opencode_laminar",
+        "current_stage": "preparing",
+        "current_stage_label": "准备工作目录",
+        "step_results": [],
+    }
     try:
         paths = materialize_case_workspace(detail, host_root=config.workdir_host, container_root=config.workdir_container)
-        prompt = render_prompt(detail, paths)
+        metadata["workdir"] = paths["workdir"]
+        _persist_metadata(repository, eval_case_run_id, metadata)
         case_version = detail["case_version"]
-        provider_id = case_version.get("model_provider_id")
-        model_id = case_version.get("model_id")
-        client.health()
-        session_id = client.create_session(title=f"SkillHub Eval {eval_case_run_id}", directory=paths["container_dir"])
-        message_response = client.send_message(
-            session_id=session_id,
-            prompt=prompt,
-            provider_id=provider_id,
-            model_id=model_id,
-            directory=paths["container_dir"],
+        runner_config = dict(case_version.get("runner_config") or {})
+        provider_id = runner_config.get("model_provider_id")
+        model_id = runner_config.get("model_id")
+        steps = list(case_version.get("steps") or [])
+        metadata["current_stage"] = "creating_laminar_datapoint"
+        metadata["current_stage_label"] = "创建 Laminar 测评记录"
+        _persist_metadata(repository, eval_case_run_id, metadata)
+        refs = laminar.create_eval_datapoint(
+            name=f"SkillHub Eval {eval_case_run_id}",
+            data={"case_version_id": case_version["id"], "steps": steps},
+            target={"all_steps_must_pass": True},
+            metadata={"eval_case_run_id": eval_case_run_id, "skill_version_id": run["skill_version_id"]},
         )
-        result = read_runner_result(paths["host_result_json_path"])
+        _record_laminar_refs(metadata, refs)
+        if refs.error:
+            raise RuntimeError(refs.error)
+
+        client.health()
+        metadata["current_stage"] = "creating_opencode_session"
+        metadata["current_stage_label"] = "创建 Opencode 会话"
+        _persist_metadata(repository, eval_case_run_id, metadata)
+        session_id = client.create_session(title=f"SkillHub Eval {eval_case_run_id}", directory=paths["container_dir"])
+        metadata["opencode_session_id"] = session_id
+        metadata["session_id"] = session_id
+        _persist_metadata(repository, eval_case_run_id, metadata)
+
+        passed = True
+        actual_output = ""
+        failure_reason = ""
+        for index, step in enumerate(steps):
+            metadata["current_stage"] = "running_step"
+            metadata["current_stage_label"] = f"第 {index + 1}/{len(steps)} 步运行中"
+            metadata["current_step"] = _current_step_metadata(step, index, len(steps), "running")
+            _persist_metadata(repository, eval_case_run_id, metadata)
+            before = workspace_snapshot(Path(paths["host_workdir"]))
+            prompt = render_step_prompt(step=step, paths=paths, step_number=index + 1, total_steps=len(steps))
+            message_response = client.send_message(
+                session_id=session_id,
+                prompt=prompt,
+                provider_id=provider_id,
+                model_id=model_id,
+                directory=paths["container_dir"],
+            )
+            agent_output = compact_message_output(message_response)
+            after = workspace_snapshot(Path(paths["host_workdir"]))
+            metadata["current_stage"] = "asserting_step"
+            metadata["current_stage_label"] = f"第 {index + 1}/{len(steps)} 步判定中"
+            metadata["current_step"] = _current_step_metadata(step, index, len(steps), "asserting")
+            _persist_metadata(repository, eval_case_run_id, metadata)
+            result = assertion_template(step["assertion_template_id"]).evaluate(
+                AssertionContext(
+                    agent_output=agent_output,
+                    workdir=Path(paths["host_workdir"]),
+                    before_snapshot=before,
+                    after_snapshot=after,
+                    step=step,
+                    run_metadata=metadata,
+                ),
+                dict(step.get("assertion_params") or {}),
+            )
+            step_result = {
+                "step_id": step["id"],
+                "title": step["title"],
+                "status": "passed" if result.passed else "failed",
+                "assertion_template_id": step["assertion_template_id"],
+                "passed": result.passed,
+                "actual": result.actual,
+                "reason": result.reason,
+                "details": result.details,
+                "message_response": _compact_message_response(message_response),
+            }
+            metadata["step_results"].append(step_result)
+            actual_output = result.actual
+            _persist_metadata(repository, eval_case_run_id, metadata)
+            if not result.passed:
+                passed = False
+                failure_reason = result.reason
+                for skipped in steps[index + 1:]:
+                    metadata["step_results"].append(
+                        {
+                            "step_id": skipped["id"],
+                            "title": skipped["title"],
+                            "status": "skipped",
+                            "assertion_template_id": skipped["assertion_template_id"],
+                            "passed": None,
+                            "actual": "",
+                            "reason": "前置步骤失败，未执行。",
+                            "details": {},
+                        }
+                    )
+                break
+
+        metadata["current_stage"] = "updating_laminar"
+        metadata["current_stage_label"] = "写入 Laminar 测评结果"
+        metadata.pop("current_step", None)
+        _persist_metadata(repository, eval_case_run_id, metadata)
+        scores = {"passed": 1 if passed else 0}
+        for item in metadata["step_results"]:
+            if item["status"] != "skipped":
+                scores[f"step.{item['step_id']}"] = 1 if item["passed"] else 0
+        laminar_error = laminar.update_datapoint(refs=refs, executor_output={"step_results": metadata["step_results"]}, scores=scores, metadata=metadata)
+        if laminar_error:
+            metadata["laminar_error"] = laminar_error
+            raise RuntimeError(laminar_error)
+        metadata["current_stage"] = "completed"
+        metadata["current_stage_label"] = "测评完成"
         repository.finalize_eval_case_run(
             eval_case_run_id=eval_case_run_id,
-            passed=bool(result["passed"]),
-            actual_output=str(result["actual_output"]),
+            passed=passed,
+            actual_output=actual_output,
             actor=config.worker_id,
-            runner_metadata={
-                "runner": "opencode_server",
-                "session_id": session_id,
-                "provider_id": provider_id,
-                "model_id": model_id,
-                "prompt_template_id": case_version.get("prompt_template_id"),
-                "reason": result.get("reason", ""),
-                "message_response": _compact_message_response(message_response),
-                "workdir": paths["workdir"],
-            },
+            runner_metadata={**metadata, "reason": failure_reason},
         )
     except Exception as exc:
         attempts = int(job.get("attempts") or 1)
+        metadata["current_stage"] = "failed"
+        metadata["current_stage_label"] = "测评器执行失败"
+        if metadata:
+            try:
+                repository.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
+            except Exception:
+                pass
         if attempts < config.max_attempts:
             repository.retry_eval_case_run_job(eval_case_run_id=eval_case_run_id, error=str(exc))
         else:
@@ -63,10 +165,26 @@ def main() -> None:
     config.workdir_host.mkdir(parents=True, exist_ok=True)
     repository = SqlSkillRepository(create_postgres_engine(resolve_database_url()))
     client = OpencodeClient(base_url=config.opencode_base_url, timeout_seconds=config.timeout_seconds)
+    laminar = LaminarClient(
+        base_url=config.laminar_base_url,
+        http_port=config.laminar_http_port,
+        project_api_key=config.laminar_project_api_key,
+        timeout_seconds=config.timeout_seconds,
+    )
     while True:
-        did_work = run_once(repository, client, config=config)
+        did_work = run_once(repository, client, laminar, config=config)
         if not did_work:
             time.sleep(config.poll_interval_seconds)
+
+
+def _record_laminar_refs(metadata: dict[str, Any], refs: LaminarEvalRefs) -> None:
+    metadata["laminar_configured"] = refs.configured
+    if refs.evaluation_id:
+        metadata["laminar_evaluation_id"] = refs.evaluation_id
+    if refs.datapoint_id:
+        metadata["laminar_datapoint_id"] = refs.datapoint_id
+    if refs.error:
+        metadata["laminar_error"] = refs.error
 
 
 def _compact_message_response(response: Any) -> dict[str, Any]:
@@ -77,6 +195,23 @@ def _compact_message_response(response: Any) -> dict[str, Any]:
         if key in response:
             compact[key] = response[key]
     return compact
+
+
+def _current_step_metadata(step: dict[str, Any], index: int, total: int, stage: str) -> dict[str, Any]:
+    return {
+        "id": step.get("id"),
+        "title": step.get("title"),
+        "index": index + 1,
+        "total": total,
+        "stage": stage,
+    }
+
+
+def _persist_metadata(repository: SqlSkillRepository, eval_case_run_id: str, metadata: dict[str, Any]) -> None:
+    try:
+        repository.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

@@ -39,17 +39,6 @@
   font-weight: 820;
 }
 
-.evaluation-selector-card select {
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: white;
-  color: var(--ink);
-  padding: 0 12px;
-  font-weight: 760;
-}
-
 .selector-static-value {
   min-height: 44px;
   display: flex;

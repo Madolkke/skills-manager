@@ -2,6 +2,8 @@
 import clsx from "clsx";
 import { CheckCircle2, Circle, Grid2X2, List, Plus, Search } from "lucide-vue-next";
 import { computed, defineComponent, h, ref, type PropType } from "vue";
+import DropdownSelect from "../components/DropdownSelect.vue";
+import type { DropdownSelectOption } from "../components/dropdown";
 import { humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { SkillSummary } from "../types";
 
@@ -16,6 +18,11 @@ const query = ref("");
 const filter = ref<FilterKey>("all");
 const sortKey = ref<SortKey>("updated");
 const viewMode = ref<ViewMode>("grid");
+const sortOptions: DropdownSelectOption[] = [
+  { value: "updated", label: "最近更新" },
+  { value: "score", label: "验证得分" },
+  { value: "name", label: "名称" },
+];
 const filtered = computed(() => filterSkills(props.skills, query.value, filter.value, props.actor));
 const sorted = computed(() => sortSkills(filtered.value, sortKey.value));
 const counts = computed(() => skillCounts(props.skills, props.actor));
@@ -142,11 +149,7 @@ function updatedTime(item: SkillSummary): number {
         <div class="view-tools">
           <label class="sort-control">
             <span>排序</span>
-            <select v-model="sortKey">
-              <option value="updated">最近更新</option>
-              <option value="score">验证得分</option>
-              <option value="name">名称</option>
-            </select>
+            <DropdownSelect v-model="sortKey" :options="sortOptions" aria-label="排序方式" compact />
           </label>
           <button
             :class="clsx('icon-button', viewMode === 'grid' && 'active')"

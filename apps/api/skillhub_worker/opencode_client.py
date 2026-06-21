@@ -9,17 +9,17 @@ class OpencodeClient:
     def __init__(self, *, base_url: str, timeout_seconds: float) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = httpx.Timeout(timeout_seconds)
+        self._client = httpx.Client(base_url=self.base_url, timeout=self.timeout, trust_env=False)
 
     def health(self) -> None:
-        response = httpx.get(f"{self.base_url}/global/health", timeout=self.timeout)
+        response = self._client.get("/global/health")
         response.raise_for_status()
 
     def create_session(self, *, title: str, directory: str) -> str:
-        response = httpx.post(
-            f"{self.base_url}/session",
+        response = self._client.post(
+            "/session",
             params={"directory": directory},
             json={"title": title},
-            timeout=self.timeout,
         )
         response.raise_for_status()
         payload = response.json()
@@ -43,11 +43,10 @@ class OpencodeClient:
         }
         if provider_id and model_id:
             body["model"] = {"providerID": provider_id, "modelID": model_id}
-        response = httpx.post(
-            f"{self.base_url}/session/{session_id}/message",
+        response = self._client.post(
+            f"/session/{session_id}/message",
             params={"directory": directory},
             json=body,
-            timeout=self.timeout,
         )
         response.raise_for_status()
         return response.json()

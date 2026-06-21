@@ -2,27 +2,75 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
-from skillhub.application.eval_prompt_templates import list_eval_prompt_templates
+from skillhub.application.eval_assertion_templates import list_assertion_templates
 from skillhub.api.auth import ActorContext, actor_dependency
 from skillhub.api.database import repository_dependency
 from skillhub.api.responses import result_payload
 from skillhub.api.schemas import (
     AcceptEvalRunVerificationPayload,
+    AddEvalSetCasePayload,
     AggregateEvalRunPayload,
     CreateEvalCasePayload,
     CreateEvalCasesBatchPayload,
     CreateEvalCaseVersionPayload,
+    CreateEvalSetPayload,
     EnqueueEvalCaseRunPayload,
     ListEvalCaseRunsQuery,
+    ReorderEvalSetCasesPayload,
     RestoreEvalCaseVersionPayload,
+    UpdateEvalSetPayload,
 )
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
 
 def register_evaluation_routes(app: FastAPI) -> None:
-    @app.get("/api/eval-prompt-templates")
-    def eval_prompt_templates():
-        return list_eval_prompt_templates()
+    @app.get("/api/eval-assertion-templates")
+    def eval_assertion_templates():
+        return list_assertion_templates()
+
+    @app.post("/api/skills/{skill_id}/eval-sets")
+    def create_eval_set(
+        skill_id: str,
+        payload: CreateEvalSetPayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.create_eval_set(skill_id=skill_id, name=payload.name, description=payload.description))
+
+    @app.patch("/api/eval-sets/{eval_set_id}")
+    def update_eval_set(
+        eval_set_id: str,
+        payload: UpdateEvalSetPayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.update_eval_set(eval_set_id=eval_set_id, name=payload.name, description=payload.description))
+
+    @app.get("/api/skills/{skill_id}/eval-cases")
+    def list_eval_cases_for_skill(
+        skill_id: str,
+        exclude_eval_set_id: str | None = None,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.list_eval_cases_for_skill(skill_id=skill_id, exclude_eval_set_id=exclude_eval_set_id))
+
+    @app.post("/api/eval-sets/{eval_set_id}/cases")
+    def add_eval_case_to_set(
+        eval_set_id: str,
+        payload: AddEvalSetCasePayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.add_eval_case_to_set(eval_set_id=eval_set_id, case_id=payload.case_id, position=payload.position))
+
+    @app.delete("/api/eval-sets/{eval_set_id}/cases/{case_id}")
+    def remove_eval_case_from_set(eval_set_id: str, case_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.remove_eval_case_from_set(eval_set_id=eval_set_id, case_id=case_id))
+
+    @app.patch("/api/eval-sets/{eval_set_id}/cases/order")
+    def reorder_eval_set_cases(
+        eval_set_id: str,
+        payload: ReorderEvalSetCasesPayload,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.reorder_eval_set_cases(eval_set_id=eval_set_id, case_ids=payload.case_ids))
 
     @app.post("/api/eval-cases")
     def create_eval_case(
@@ -33,15 +81,12 @@ def register_evaluation_routes(app: FastAPI) -> None:
         return result_payload(
             repository.create_eval_case(
                 skill_id=payload.skill_id,
+                eval_set_id=payload.eval_set_id,
                 title=payload.title,
-                input_text=payload.input_text,
-                expected_output=payload.expected_output,
-                attachment_name=payload.attachment_name,
-                attachment_base64=payload.attachment_base64,
-                prompt_template_id=payload.prompt_template_id,
-                prompt_text=payload.prompt_text,
-                model_provider_id=payload.model_provider_id,
-                model_id=payload.model_id,
+                steps=[step.model_dump() for step in payload.steps],
+                workspace_name=payload.workspace_name,
+                workspace_base64=payload.workspace_base64,
+                runner_config=payload.runner_config.model_dump(),
                 actor=actor.id,
                 notes=payload.notes,
             )
@@ -53,7 +98,14 @@ def register_evaluation_routes(app: FastAPI) -> None:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.create_eval_cases_batch(skill_id=payload.skill_id, cases=[case.model_dump() for case in payload.cases], actor=actor.id))
+        return result_payload(
+            repository.create_eval_cases_batch(
+                skill_id=payload.skill_id,
+                eval_set_id=payload.eval_set_id,
+                cases=[case.model_dump() for case in payload.cases],
+                actor=actor.id,
+            )
+        )
 
     @app.post("/api/eval-case-versions")
     def create_eval_case_version(
@@ -66,14 +118,12 @@ def register_evaluation_routes(app: FastAPI) -> None:
         return result_payload(
             repository.create_eval_case_version(
                 case_id=payload.case_id,
-                input_text=payload.input_text,
-                expected_output=payload.expected_output,
-                attachment_name=payload.attachment_name,
-                attachment_base64=payload.attachment_base64,
-                prompt_template_id=payload.prompt_template_id,
-                prompt_text=payload.prompt_text,
-                model_provider_id=payload.model_provider_id,
-                model_id=payload.model_id,
+                eval_set_id=payload.eval_set_id,
+                steps=[step.model_dump() for step in payload.steps],
+                workspace_name=payload.workspace_name,
+                workspace_base64=payload.workspace_base64,
+                preserve_workspace=payload.preserve_workspace,
+                runner_config=payload.runner_config.model_dump(),
                 actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
@@ -92,14 +142,12 @@ def register_evaluation_routes(app: FastAPI) -> None:
         return result_payload(
             repository.create_eval_case_version(
                 case_id=case_id,
-                input_text=payload.input_text,
-                expected_output=payload.expected_output,
-                attachment_name=payload.attachment_name,
-                attachment_base64=payload.attachment_base64,
-                prompt_template_id=payload.prompt_template_id,
-                prompt_text=payload.prompt_text,
-                model_provider_id=payload.model_provider_id,
-                model_id=payload.model_id,
+                eval_set_id=payload.eval_set_id,
+                steps=[step.model_dump() for step in payload.steps],
+                workspace_name=payload.workspace_name,
+                workspace_base64=payload.workspace_base64,
+                preserve_workspace=payload.preserve_workspace,
+                runner_config=payload.runner_config.model_dump(),
                 actor=actor.id,
                 notes=payload.notes,
                 make_current=payload.make_current,
@@ -113,15 +161,15 @@ def register_evaluation_routes(app: FastAPI) -> None:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.restore_eval_case_version(case_id=case_id, source_case_version_id=payload.source_case_version_id, actor=actor.id, notes=payload.notes))
-
-    @app.delete("/api/eval-cases/{case_id}")
-    def archive_eval_case(
-        case_id: str,
-        actor: ActorContext = Depends(actor_dependency),
-        repository: SqlSkillRepository = Depends(repository_dependency),
-    ):
-        return result_payload(repository.archive_eval_case(case_id=case_id, actor=actor.id))
+        return result_payload(
+            repository.restore_eval_case_version(
+                case_id=case_id,
+                eval_set_id=payload.eval_set_id,
+                source_case_version_id=payload.source_case_version_id,
+                actor=actor.id,
+                notes=payload.notes,
+            )
+        )
 
     @app.post("/api/eval-case-runs")
     def enqueue_eval_case_run(

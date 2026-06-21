@@ -20,6 +20,28 @@ export type RunnerStatusRow = {
   value: string;
 };
 
+export type StepRunResult = {
+  step_id: string;
+  title: string;
+  status: "passed" | "failed" | "skipped" | string;
+  assertion_template_id: string;
+  passed?: boolean | null;
+  actual?: string;
+  reason?: string;
+  details?: Record<string, unknown>;
+};
+
+export type StepTimelineRow = {
+  id: string;
+  title: string;
+  input: string;
+  assertionTemplateId: string;
+  status: "pending" | "running" | "asserting" | "passed" | "failed" | "skipped";
+  label: string;
+  reason: string;
+  actual: string;
+};
+
 export type RunnerSummary = {
   confirmed: number;
   passed: number;
@@ -82,25 +104,13 @@ export function summarizeRunnerBoard(items: EvalSetCase[], runs: Record<string, 
 }
 
 export function modelLabel(item: EvalSetCase): string {
-  const provider = item.case_version.model_provider_id;
-  const model = item.case_version.model_id;
+  const provider = item.case_version.runner_config?.model_provider_id;
+  const model = item.case_version.runner_config?.model_id;
   return provider && model ? `${provider}/${model}` : "默认模型";
 }
 
 export function promptSourceLabel(item: EvalSetCase): string {
-  if (item.case_version.prompt_text.trim()) return "自定义提示词";
-  return promptTemplateLabel(item.case_version.prompt_template_id);
-}
-
-export function promptTemplateLabel(templateId: string): string {
-  const labels: Record<string, string> = {
-    standard_pass_fail: "通用判定",
-    file_workspace_task: "工作目录文件任务",
-    exact_match: "严格文本匹配",
-    semantic_judge: "语义判定",
-    custom: "自定义提示词",
-  };
-  return labels[templateId] ?? (templateId || "默认模板");
+  return `${item.case_version.steps.length} 个步骤`;
 }
 
 export function runTimeLabel(detail?: EvalCaseRunDetail | null): string {
@@ -116,7 +126,7 @@ export function runActivityHint(detail?: EvalCaseRunDetail | null): string {
 }
 
 export function emptyActualOutputText(state: RunnerState): string {
-  if (state.kind === "running") return "等待 result.json 写入...";
+  if (state.kind === "running") return "等待步骤执行结果...";
   if (state.kind === "queued") return "任务已入队，等待后台进程领取。";
   return state.helper;
 }
@@ -132,6 +142,10 @@ export function metadataText(detail: EvalCaseRunDetail | null | undefined, key: 
   return typeof value === "string" && value.trim() ? value : "";
 }
 
+export function currentStageLabel(detail: EvalCaseRunDetail | null | undefined): string {
+  return metadataText(detail, "current_stage_label");
+}
+
 export function runError(detail: EvalCaseRunDetail | null | undefined): string {
   return detail?.eval_case_run.error || detail?.job?.error || "";
 }
@@ -141,10 +155,61 @@ export function runnerStatusRows(detail: EvalCaseRunDetail | null | undefined): 
     { label: "运行", value: detail?.eval_case_run.status ?? "未运行" },
     { label: "任务", value: detail?.job?.status ?? "无任务" },
     { label: "次数", value: String(detail?.job?.attempts ?? 0) },
+    { label: "阶段", value: currentStageLabel(detail) || "-" },
     { label: "会话", value: metadataText(detail, "session_id") || "-" },
     { label: "工作目录", value: metadataText(detail, "workdir") || "-" },
+    { label: "Laminar", value: metadataText(detail, "laminar_datapoint_id") || (detail?.eval_case_run.runner_metadata?.laminar_configured === false ? "未配置" : "-") },
     { label: "更新", value: runTimeLabel(detail) },
   ];
+}
+
+export function stepRunResults(detail: EvalCaseRunDetail | null | undefined): StepRunResult[] {
+  const value = detail?.eval_case_run.runner_metadata?.step_results;
+  return Array.isArray(value) ? value as StepRunResult[] : [];
+}
+
+export function stepTimelineRows(item: EvalSetCase, detail: EvalCaseRunDetail | null | undefined): StepTimelineRow[] {
+  const results = new Map(stepRunResults(detail).map((step) => [step.step_id, step]));
+  const current = currentStep(detail);
+  return item.case_version.steps.map((step, index) => {
+    const result = results.get(step.id);
+    if (result) {
+      const status = normalizeStepStatus(result.status);
+      return {
+        id: step.id,
+        title: step.title,
+        input: step.input,
+        assertionTemplateId: step.assertion_template_id,
+        status,
+        label: stepStatusLabel(status),
+        reason: result.reason || "",
+        actual: result.actual || "",
+      };
+    }
+    if (current?.id === step.id || current?.index === index + 1) {
+      const status = current.stage === "asserting" ? "asserting" : "running";
+      return {
+        id: step.id,
+        title: step.title,
+        input: step.input,
+        assertionTemplateId: step.assertion_template_id,
+        status,
+        label: stepStatusLabel(status),
+        reason: currentStageLabel(detail),
+        actual: "",
+      };
+    }
+    return {
+      id: step.id,
+      title: step.title,
+      input: step.input,
+      assertionTemplateId: step.assertion_template_id,
+      status: "pending",
+      label: "待执行",
+      reason: "",
+      actual: "",
+    };
+  });
 }
 
 export function isActiveRun(status: string): boolean {
@@ -174,4 +239,29 @@ export function resolveRunnerPollInterval(rawValue: unknown): number {
   const value = Number(rawValue);
   if (!Number.isFinite(value) || value < 1000) return 5000;
   return Math.round(value);
+}
+
+function currentStep(detail: EvalCaseRunDetail | null | undefined): { id?: string; index?: number; stage?: string } | null {
+  const value = detail?.eval_case_run.runner_metadata?.current_step;
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  return {
+    id: typeof row.id === "string" ? row.id : undefined,
+    index: typeof row.index === "number" ? row.index : undefined,
+    stage: typeof row.stage === "string" ? row.stage : undefined,
+  };
+}
+
+function normalizeStepStatus(status: string): StepTimelineRow["status"] {
+  if (status === "passed" || status === "failed" || status === "skipped") return status;
+  return "pending";
+}
+
+function stepStatusLabel(status: StepTimelineRow["status"]): string {
+  if (status === "running") return "运行中";
+  if (status === "asserting") return "判定中";
+  if (status === "passed") return "通过";
+  if (status === "failed") return "不通过";
+  if (status === "skipped") return "已跳过";
+  return "待执行";
 }

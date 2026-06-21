@@ -1,64 +1,61 @@
 <script setup lang="ts">
 import clsx from "clsx";
-import { Copy, Download, Plus, Search } from "lucide-vue-next";
+import { ArrowDown, ArrowUp, Copy, Download, Link2, Plus, Search, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import EvalCaseModal, { type EvalCaseFormData } from "../features/evaluation/components/EvalCaseModal.vue";
-import { attachmentFileName, caseLifecycleLabel, cleanCaseForm, filterCases, sortCases, type CaseFilter, type CaseSortKey } from "../features/evaluation/lib/evalCaseManagement";
+import DropdownSelect from "../components/DropdownSelect.vue";
+import type { DropdownSelectOption } from "../components/dropdown";
+import CaseStepTimeline from "../features/evaluation/components/CaseStepTimeline.vue";
+import EvalCaseEditor from "../features/evaluation/components/EvalCaseEditor.vue";
+import EvalCaseLibraryPanel from "../features/evaluation/components/EvalCaseLibraryPanel.vue";
+import EvalSetSwitcher from "../features/evaluation/components/EvalSetSwitcher.vue";
+import { useEvalSetManagement } from "../features/evaluation/composables/useEvalSetManagement";
+import { workspaceFileName } from "../features/evaluation/lib/evalCaseManagement";
 import { api, ApiError } from "../lib/api";
 import { compactText, humanDate } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
-import type { EvalSetCase, EvalSetDetail, SkillDetail, ToastState } from "../types";
+import type { SkillDetail, ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail; selectedCaseId: string | null }>();
+const props = defineProps<{ skill: SkillDetail; selectedCaseId: string | null; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ navigate: [next: Partial<RouteState>]; refresh: []; toast: [toast: ToastState] }>();
 
-const evalSet = computed(() => props.skill.summary.primary_eval_set);
-const detail = ref<EvalSetDetail | null>(null);
-const query = ref("");
-const caseFilter = ref<CaseFilter>("all");
-const caseSort = ref<CaseSortKey>("position");
-const editor = ref<EvalSetCase | "new" | null>(null);
-const busy = ref(false);
-const cases = computed(() => sortCases(filterCases(detail.value?.cases ?? [], query.value, caseFilter.value), caseSort.value));
-const selected = computed(() => cases.value.find((item) => item.case.id === props.selectedCaseId) ?? cases.value[0] ?? null);
+const skillRef = computed(() => props.skill);
+const selectedCaseIdRef = computed(() => props.selectedCaseId);
+const selectedEvalSetIdRef = computed(() => props.selectedEvalSetId);
 
-watch(() => evalSet.value?.id, async (id) => {
-  if (!id) {
-    detail.value = null;
+const manager = useEvalSetManagement({
+  skill: skillRef,
+  selectedCaseId: selectedCaseIdRef,
+  selectedEvalSetId: selectedEvalSetIdRef,
+  navigate: (next) => emit("navigate", next),
+  refresh: () => emit("refresh"),
+  toast: (toast) => emit("toast", toast),
+});
+const sharedEvalSetNames = ref<string[]>([]);
+
+const caseSortOptions: DropdownSelectOption[] = [
+  { value: "position", label: "按列表顺序" },
+  { value: "title", label: "按标题排序" },
+  { value: "version", label: "按版本排序" },
+];
+
+watch(() => manager.selected.value?.case.id, async (caseId) => {
+  if (!caseId) {
+    sharedEvalSetNames.value = [];
     return;
   }
   try {
-    detail.value = await api.getEvalSet(id);
-  } catch (caught) {
-    emit("toast", { tone: "danger", message: errorMessage(caught) });
+    const history = await api.getEvalCaseHistory(caseId);
+    const currentEvalSetId = manager.selectedEvalSetId.value;
+    const memberships = history.versions[0]?.included_in_eval_sets ?? [];
+    sharedEvalSetNames.value = memberships
+      .filter((membership) => membership.eval_set_id !== currentEvalSetId)
+      .map((membership) => membership.name);
+  } catch {
+    sharedEvalSetNames.value = [];
   }
 }, { immediate: true });
 
-watch(selected, (item) => {
-  if (item && item.case.id !== props.selectedCaseId) emit("navigate", { selectedCaseId: item.case.id });
-});
-
-async function saveCase(form: EvalCaseFormData): Promise<void> {
-  busy.value = true;
-  try {
-    const payload = cleanCaseForm(form);
-    const saved = editor.value === "new"
-      ? await api.createEvalCase({ skill_id: props.skill.skill.id, ...payload })
-      : editor.value
-        ? await api.updateEvalCase(editor.value.case.id, { ...payload, make_current: true })
-        : null;
-    if (saved) emit("navigate", { selectedCaseId: saved.eval_case_id });
-    editor.value = null;
-    emit("toast", { tone: "success", message: "测试例已保存。" });
-    if (evalSet.value?.id) detail.value = await api.getEvalSet(evalSet.value.id);
-    emit("refresh");
-  } catch (caught) {
-    emit("toast", { tone: "danger", message: errorMessage(caught) });
-  } finally {
-    busy.value = false;
-  }
-}
-
+/** 复制详情中的步骤、备注等文本内容。 */
 async function copyText(value?: string | null): Promise<void> {
   const text = compactText(value, "无内容");
   try {
@@ -77,91 +74,146 @@ function errorMessage(caught: unknown): string {
 <template>
   <div class="evalset-layout">
     <aside class="case-sidebar">
-      <span class="back-link">当前测评集</span>
-      <div class="evalset-card">
-        <div class="evalset-title-row"><span class="green-dot" /><span>当前测评集</span></div>
-        <h1>{{ evalSet?.name ?? "Regression Set" }}</h1>
-        <p>{{ evalSet?.description ?? "" }}</p>
-        <div class="mini-grid">
-          <span>测试例<b>{{ detail?.cases.length ?? 0 }}</b></span>
-          <span>状态<b>{{ evalSet?.lifecycle_status ?? "-" }}</b></span>
-          <span>更新时间<b>{{ humanDate(evalSet?.updated_at) }}</b></span>
-        </div>
-      </div>
+      <EvalSetSwitcher
+        :active="manager.evalSet.value"
+        :busy="manager.busy.value"
+        :case-count="manager.detail.value?.cases.length ?? 0"
+        :eval-sets="manager.evalSets.value"
+        :selected-id="manager.selectedEvalSetId.value"
+        @create="manager.createEvalSet"
+        @select="manager.selectEvalSet"
+        @update="manager.updateEvalSet"
+      />
       <label class="search-field compact">
         <Search :size="18" />
-        <input v-model="query" placeholder="搜索测试例">
+        <input v-model="manager.query.value" placeholder="搜索测试例">
       </label>
       <div class="case-toolbar">
-        <button :class="clsx('select-button', caseFilter === 'all' && 'active')" type="button" @click="caseFilter = 'all'">全部</button>
-        <button :class="clsx('select-button', caseFilter === 'active' && 'active')" type="button" @click="caseFilter = 'active'">仅活跃</button>
         <label class="case-sort-control">
-          <select v-model="caseSort" aria-label="测试例排序">
-            <option value="position">按列表顺序</option>
-            <option value="title">按标题排序</option>
-            <option value="version">按版本排序</option>
-          </select>
+          <DropdownSelect v-model="manager.caseSort.value" :options="caseSortOptions" aria-label="测试例排序" compact />
         </label>
-        <button class="primary-button" type="button" @click="editor = 'new'"><Plus :size="17" />添加测试例</button>
+        <div class="case-toolbar-actions">
+          <button class="primary-button" type="button" @click="manager.startCreate"><Plus :size="17" />新建测试例</button>
+          <button class="secondary-button" type="button" @click="manager.openLibrary"><Link2 :size="17" />添加已有</button>
+        </div>
       </div>
+      <EvalCaseLibraryPanel
+        v-if="manager.libraryOpen.value"
+        :busy="manager.busy.value"
+        :items="manager.libraryItems.value"
+        @add="manager.addExistingCase"
+        @close="manager.libraryOpen.value = false"
+      />
       <div class="case-list">
         <button
-          v-for="item in cases"
-          :key="item.case.id"
-          :class="clsx('case-row', selected?.case.id === item.case.id && 'active')"
+          v-if="manager.editingMode.value === 'create'"
           type="button"
-          @click="emit('navigate', { selectedCaseId: item.case.id })"
+          :class="clsx('case-row', 'draft', manager.draftSelected.value && 'active')"
+          @click="manager.draftSelected.value = true"
+        >
+          <span class="case-position-mark">新</span>
+          <span class="case-row-copy">
+            <span class="case-row-topline"><strong class="case-row-title">新测试例（未保存）</strong></span>
+            <span class="case-row-metadata">
+              <span class="case-current-chip">填写后保存到当前测评集</span>
+              <span class="case-draft-chip"><span class="case-draft-dot" />草稿</span>
+            </span>
+          </span>
+        </button>
+        <button
+          v-for="item in manager.cases.value"
+          :key="item.case.id"
+          :class="clsx('case-row', manager.activeCaseRowId.value === item.case.id && 'active')"
+          type="button"
+          @click="manager.selectCase(item)"
         >
           <span class="case-position-mark">#{{ item.position + 1 }}</span>
           <span class="case-row-copy">
             <span class="case-row-topline"><strong class="case-row-title">{{ item.case.title }}</strong></span>
             <span class="case-row-metadata">
               <span class="case-version-pill">测试例 v{{ item.case_version.version_number }}</span>
-              <span :class="clsx('case-current-chip', item.case.current_version_id !== item.case_version.id && 'muted')">{{ item.case.current_version_id === item.case_version.id ? "当前" : "历史" }}</span>
-              <span :class="clsx('case-status-chip', item.case.lifecycle_status !== 'active' && 'muted')"><span class="case-status-dot" />{{ caseLifecycleLabel(item.case.lifecycle_status) }}</span>
+              <span class="case-time-chip">创建 {{ humanDate(item.case.created_at) }}</span>
+              <span class="case-time-chip">更新 {{ humanDate(item.case.updated_at) }}</span>
             </span>
           </span>
         </button>
       </div>
-      <p class="case-count">共 {{ detail?.cases.length ?? 0 }} 个测试例</p>
+      <p class="case-count">共 {{ manager.detail.value?.cases.length ?? 0 }} 个测试例</p>
     </aside>
 
     <section class="case-detail">
-      <template v-if="selected">
+      <EvalCaseEditor
+        v-if="manager.editingMode.value"
+        :key="manager.editingMode.value === 'create' ? 'new' : manager.editingCase.value?.case.id"
+        :case-item="manager.editingMode.value === 'edit' ? manager.editingCase.value : null"
+        :busy="manager.busy.value"
+        :title="manager.editorTitle.value"
+        :status-label="manager.editorStatus.value"
+        @cancel="manager.cancelEditor"
+        @submit="manager.saveCase"
+      />
+      <template v-else-if="manager.selected.value">
         <header class="case-detail-head">
           <div>
-            <h1>{{ selected.case.title }}</h1>
+            <h1>{{ manager.selected.value.case.title }}</h1>
             <div class="tag-row">
-              <span class="tag-chip">测试例 v{{ selected.case_version.version_number }}</span>
-              <span class="tag-chip">位置 {{ selected.position + 1 }}</span>
+              <span class="tag-chip">测试例 v{{ manager.selected.value.case_version.version_number }}</span>
+              <span class="tag-chip">位置 {{ manager.selected.value.position + 1 }}</span>
+              <span class="tag-chip">创建 {{ humanDate(manager.selected.value.case.created_at) }}</span>
+              <span class="tag-chip">更新 {{ humanDate(manager.selected.value.case.updated_at) }}</span>
               <a
-                v-if="selected.case_version.attachment_artifact"
+                v-if="manager.selected.value.case_version.workspace_artifact"
                 class="tag-chip"
-                :href="api.artifactDownloadUrl(selected.case_version.attachment_artifact.id)"
-                :download="attachmentFileName(selected.case_version.attachment_artifact.locator)"
+                :href="api.artifactDownloadUrl(manager.selected.value.case_version.workspace_artifact.id)"
+                :download="workspaceFileName(manager.selected.value.case_version.workspace_artifact.locator)"
               >
                 <Download :size="14" />
-                {{ attachmentFileName(selected.case_version.attachment_artifact.locator) }}
+                {{ workspaceFileName(manager.selected.value.case_version.workspace_artifact.locator) }}
               </a>
             </div>
+            <p v-if="sharedEvalSetNames.length" class="case-shared-hint">
+              这个测试例还被 {{ sharedEvalSetNames.join("、") }} 引用；编辑后会同步影响所有引用它的测评集。
+            </p>
           </div>
-          <div class="button-row"><button class="primary-button" type="button" @click="editor = selected">编辑测试例</button></div>
+          <div class="button-row">
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position === 0"
+              @click="manager.moveCase(manager.selected.value, -1)"
+            >
+              <ArrowUp :size="16" />
+              上移
+            </button>
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position >= (manager.detail.value?.cases.length ?? 1) - 1"
+              @click="manager.moveCase(manager.selected.value, 1)"
+            >
+              <ArrowDown :size="16" />
+              下移
+            </button>
+            <button class="secondary-button" type="button" @click="manager.removeCase(manager.selected.value)">
+              <Trash2 :size="16" />
+              移除引用
+            </button>
+            <button class="primary-button" type="button" @click="manager.startEdit(manager.selected.value)">编辑测试例</button>
+          </div>
         </header>
-        <section v-for="block in [
-          { title: '测试输入', text: selected.case_version.input_artifact.content_text },
-          { title: '预期结果', text: selected.case_version.expected_output_artifact.content_text },
-          { title: '备注', text: selected.case_version.notes },
-        ]" :key="block.title" class="case-block">
+        <CaseStepTimeline :steps="manager.selected.value.case_version.steps" @copy="copyText" />
+        <section class="case-block">
           <header>
-            <h2>{{ block.title }}</h2>
-            <button class="icon-button mini" type="button" :aria-label="`复制 ${block.title}`" @click="copyText(block.text)"><Copy :size="16" /></button>
+            <h2>备注</h2>
+            <button class="icon-button mini" type="button" aria-label="复制备注" @click="copyText(manager.selected.value.case_version.notes)"><Copy :size="16" /></button>
           </header>
-          <pre>{{ compactText(block.text, "无内容") }}</pre>
+          <pre>{{ compactText(manager.selected.value.case_version.notes, "无内容") }}</pre>
         </section>
       </template>
-      <div v-else class="quiet-panel">还没有测试例。</div>
+      <div v-else class="quiet-panel">
+        <strong>选择一个测试例查看详情</strong>
+        <p>也可以在左侧新建测试例，或把 Skill 中已有的测试例加入当前测评集。</p>
+      </div>
     </section>
-
-    <EvalCaseModal v-if="editor" :case-item="editor === 'new' ? null : editor" :busy="busy" @close="editor = null" @submit="saveCase" />
   </div>
 </template>

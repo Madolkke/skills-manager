@@ -40,11 +40,11 @@ const activeCount = computed(() => rows.value.filter((row) => row.state.kind ===
 
 function rowPreview(item: EvalSetCase, run: EvalCaseRunDetail | undefined, state: RunnerState): string {
   if (state.kind === "failed") return run?.eval_case_run.error || run?.job?.error || state.helper;
-  if (state.kind === "running") return "Opencode 测评器正在处理，等待写入 result.json。";
+  if (state.kind === "running") return "Opencode 测评器正在处理测试步骤。";
   if (state.kind === "queued") return "任务已入队，等待后台进程领取。";
   const output = run?.result_artifact?.content_text?.trim();
   if (output) return output;
-  return item.case_version.input_artifact.content_text?.trim() || "暂无输入内容。";
+  return item.case_version.steps[0]?.input?.trim() || "暂无步骤输入。";
 }
 </script>
 
