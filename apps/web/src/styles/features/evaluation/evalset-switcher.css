@@ -1,0 +1,165 @@
+.evalset-switcher {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 4%);
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.88fr) minmax(0, 1.12fr);
+  gap: 10px 14px;
+  align-items: start;
+}
+
+.evalset-title-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.evalset-switcher-controls {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.evalset-card {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 12px;
+}
+
+.evalset-card-head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 10px;
+  align-items: start;
+}
+
+.evalset-card h1 {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.evalset-card-head p {
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+.evalset-card-tools {
+  display: grid;
+  grid-template-columns: 36px;
+  gap: 7px;
+}
+
+.evalset-card-editor {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.evalset-card-editor label,
+.evalset-inline-form label {
+  display: grid;
+  gap: 5px;
+  color: #40516d;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.evalset-card-editor input,
+.evalset-card-editor textarea,
+.evalset-inline-form input,
+.evalset-inline-form textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.evalset-card-editor input {
+  font-size: 18px;
+  font-weight: 840;
+  line-height: 1.25;
+}
+
+.evalset-card-editor textarea,
+.evalset-inline-form textarea {
+  resize: vertical;
+  min-height: 66px;
+  line-height: 1.5;
+}
+
+.evalset-inline-form {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.evalset-inline-form .button-row {
+  gap: 8px;
+}
+
+.evalset-inline-form .primary-button,
+.evalset-inline-form .secondary-button,
+.evalset-switcher-controls > .secondary-button {
+  min-height: 40px;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.mini-grid span {
+  min-width: 0;
+  border: 1px solid #edf2f8;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 7px 8px;
+  color: var(--muted);
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.mini-grid b {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .evalset-switcher {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .evalset-switcher {
+    padding: 12px;
+  }
+
+  .mini-grid {
+    grid-template-columns: 1fr;
+  }
+}

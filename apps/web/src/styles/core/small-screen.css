@@ -30,7 +30,6 @@
   .case-detail,
   .case-sidebar,
   .evidence-panel,
-  .version-group,
   .run-history {
     padding: 16px;
   }
@@ -115,11 +114,16 @@
 
   .runner-action-bar {
     align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: 1fr;
     border-radius: var(--radius);
     padding: 12px;
   }
 
+  .runner-action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .runner-action-bar .secondary-button,
   .runner-action-bar .primary-button {
     width: 100%;
   }

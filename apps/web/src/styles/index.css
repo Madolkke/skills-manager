@@ -12,6 +12,7 @@
 @import "./features/evaluation/history.css";
 @import "./features/evaluation/history-lists.css";
 @import "./features/evaluation/evalsets.css";
+@import "./features/evaluation/evalset-switcher.css";
 @import "./features/evaluation/evaluation.css";
 @import "./features/evaluation/case-step-timeline.css";
 @import "./features/evaluation/case-version-roadmap.css";

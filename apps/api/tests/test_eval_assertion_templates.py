@@ -19,11 +19,41 @@ def context(tmp_path: Path, *, output: str = "", before: set[str] | None = None,
     )
 
 
+def opencode_context(tmp_path: Path) -> AssertionContext:
+    return AssertionContext(
+        agent_output="完成",
+        workdir=tmp_path,
+        before_snapshot=set(),
+        after_snapshot=set(),
+        step={"id": "step-1"},
+        run_metadata={},
+        reasoning_text="I should read README.md before answering.",
+        tool_calls=[
+            {
+                "tool": "read",
+                "status": "completed",
+                "input": {"filePath": "README.md"},
+                "output_preview": "README content",
+                "call_id": "call_1",
+            },
+            {
+                "tool": "bash",
+                "status": "completed",
+                "input": {"command": "ls"},
+                "output_preview": "README.md",
+                "call_id": "call_2",
+            },
+        ],
+    )
+
+
 def test_registry_returns_template_definitions():
     ids = {item["id"] for item in list_assertion_templates()}
 
     assert "agent_output_exact" in ids
     assert "file_created" in ids
+    assert "tool_called" in ids
+    assert "reasoning_contains" in ids
 
 
 def test_agent_output_contains_passes_and_fails(tmp_path: Path):
@@ -75,3 +105,44 @@ def test_file_content_similarity_uses_threshold(tmp_path: Path):
 
     assert template.evaluate(context(tmp_path), {"path": "answer.txt", "expected": "hello world", "threshold": 0.99}).passed is True
     assert template.evaluate(context(tmp_path), {"path": "answer.txt", "expected": "goodbye", "threshold": 0.9}).passed is False
+
+
+def test_tool_called_template_uses_standardized_tool_calls(tmp_path: Path):
+    template = assertion_template("tool_called")
+
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "read"}).passed is True
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "write"}).passed is False
+
+
+def test_tool_not_called_template_fails_when_tool_was_used(tmp_path: Path):
+    template = assertion_template("tool_not_called")
+
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "write"}).passed is True
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "read"}).passed is False
+
+
+def test_tool_call_count_template_supports_operators(tmp_path: Path):
+    template = assertion_template("tool_call_count")
+
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "read", "operator": "equals", "count": 1}).passed is True
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "read", "operator": "at_least", "count": 1}).passed is True
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "read", "operator": "at_most", "count": 0}).passed is False
+    with pytest.raises(InvariantError, match="operator"):
+        template.evaluate(opencode_context(tmp_path), {"tool": "read", "operator": "roughly", "count": 1})
+
+
+def test_tool_call_input_contains_template_checks_serialized_input(tmp_path: Path):
+    template = assertion_template("tool_call_input_contains")
+
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "read", "text": "README.md"}).passed is True
+    assert template.evaluate(opencode_context(tmp_path), {"tool": "bash", "text": "README.md"}).passed is False
+
+
+def test_reasoning_templates_check_reasoning_text(tmp_path: Path):
+    contains = assertion_template("reasoning_contains")
+    not_contains = assertion_template("reasoning_not_contains")
+
+    assert contains.evaluate(opencode_context(tmp_path), {"text": "README.md"}).passed is True
+    assert contains.evaluate(opencode_context(tmp_path), {"text": "database"}).passed is False
+    assert not_contains.evaluate(opencode_context(tmp_path), {"text": "database"}).passed is True
+    assert not_contains.evaluate(opencode_context(tmp_path), {"text": "README.md"}).passed is False

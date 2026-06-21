@@ -74,16 +74,6 @@ function errorMessage(caught: unknown): string {
 <template>
   <div class="evalset-layout">
     <aside class="case-sidebar">
-      <EvalSetSwitcher
-        :active="manager.evalSet.value"
-        :busy="manager.busy.value"
-        :case-count="manager.detail.value?.cases.length ?? 0"
-        :eval-sets="manager.evalSets.value"
-        :selected-id="manager.selectedEvalSetId.value"
-        @create="manager.createEvalSet"
-        @select="manager.selectEvalSet"
-        @update="manager.updateEvalSet"
-      />
       <label class="search-field compact">
         <Search :size="18" />
         <input v-model="manager.query.value" placeholder="搜索测试例">
@@ -141,79 +131,91 @@ function errorMessage(caught: unknown): string {
       <p class="case-count">共 {{ manager.detail.value?.cases.length ?? 0 }} 个测试例</p>
     </aside>
 
-    <section class="case-detail">
-      <EvalCaseEditor
-        v-if="manager.editingMode.value"
-        :key="manager.editingMode.value === 'create' ? 'new' : manager.editingCase.value?.case.id"
-        :case-item="manager.editingMode.value === 'edit' ? manager.editingCase.value : null"
+    <section class="evalset-main">
+      <EvalSetSwitcher
+        :active="manager.evalSet.value"
         :busy="manager.busy.value"
-        :title="manager.editorTitle.value"
-        :status-label="manager.editorStatus.value"
-        @cancel="manager.cancelEditor"
-        @submit="manager.saveCase"
+        :case-count="manager.detail.value?.cases.length ?? 0"
+        :eval-sets="manager.evalSets.value"
+        :selected-id="manager.selectedEvalSetId.value"
+        @create="manager.createEvalSet"
+        @select="manager.selectEvalSet"
+        @update="manager.updateEvalSet"
       />
-      <template v-else-if="manager.selected.value">
-        <header class="case-detail-head">
-          <div>
-            <h1>{{ manager.selected.value.case.title }}</h1>
-            <div class="tag-row">
-              <span class="tag-chip">测试例 v{{ manager.selected.value.case_version.version_number }}</span>
-              <span class="tag-chip">位置 {{ manager.selected.value.position + 1 }}</span>
-              <span class="tag-chip">创建 {{ humanDate(manager.selected.value.case.created_at) }}</span>
-              <span class="tag-chip">更新 {{ humanDate(manager.selected.value.case.updated_at) }}</span>
-              <a
-                v-if="manager.selected.value.case_version.workspace_artifact"
-                class="tag-chip"
-                :href="api.artifactDownloadUrl(manager.selected.value.case_version.workspace_artifact.id)"
-                :download="workspaceFileName(manager.selected.value.case_version.workspace_artifact.locator)"
-              >
-                <Download :size="14" />
-                {{ workspaceFileName(manager.selected.value.case_version.workspace_artifact.locator) }}
-              </a>
+      <section class="case-detail">
+        <EvalCaseEditor
+          v-if="manager.editingMode.value"
+          :key="manager.editingMode.value === 'create' ? 'new' : manager.editingCase.value?.case.id"
+          :case-item="manager.editingMode.value === 'edit' ? manager.editingCase.value : null"
+          :busy="manager.busy.value"
+          :title="manager.editorTitle.value"
+          :status-label="manager.editorStatus.value"
+          @cancel="manager.cancelEditor"
+          @submit="manager.saveCase"
+        />
+        <template v-else-if="manager.selected.value">
+          <header class="case-detail-head">
+            <div>
+              <h1>{{ manager.selected.value.case.title }}</h1>
+              <div class="tag-row">
+                <span class="tag-chip">测试例 v{{ manager.selected.value.case_version.version_number }}</span>
+                <span class="tag-chip">位置 {{ manager.selected.value.position + 1 }}</span>
+                <span class="tag-chip">创建 {{ humanDate(manager.selected.value.case.created_at) }}</span>
+                <span class="tag-chip">更新 {{ humanDate(manager.selected.value.case.updated_at) }}</span>
+                <a
+                  v-if="manager.selected.value.case_version.workspace_artifact"
+                  class="tag-chip"
+                  :href="api.artifactDownloadUrl(manager.selected.value.case_version.workspace_artifact.id)"
+                  :download="workspaceFileName(manager.selected.value.case_version.workspace_artifact.locator)"
+                >
+                  <Download :size="14" />
+                  {{ workspaceFileName(manager.selected.value.case_version.workspace_artifact.locator) }}
+                </a>
+              </div>
+              <p v-if="sharedEvalSetNames.length" class="case-shared-hint">
+                这个测试例还被 {{ sharedEvalSetNames.join("、") }} 引用；编辑后会同步影响所有引用它的测评集。
+              </p>
             </div>
-            <p v-if="sharedEvalSetNames.length" class="case-shared-hint">
-              这个测试例还被 {{ sharedEvalSetNames.join("、") }} 引用；编辑后会同步影响所有引用它的测评集。
-            </p>
-          </div>
-          <div class="button-row">
-            <button
-              class="secondary-button"
-              type="button"
-              :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position === 0"
-              @click="manager.moveCase(manager.selected.value, -1)"
-            >
-              <ArrowUp :size="16" />
-              上移
-            </button>
-            <button
-              class="secondary-button"
-              type="button"
-              :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position >= (manager.detail.value?.cases.length ?? 1) - 1"
-              @click="manager.moveCase(manager.selected.value, 1)"
-            >
-              <ArrowDown :size="16" />
-              下移
-            </button>
-            <button class="secondary-button" type="button" @click="manager.removeCase(manager.selected.value)">
-              <Trash2 :size="16" />
-              移除引用
-            </button>
-            <button class="primary-button" type="button" @click="manager.startEdit(manager.selected.value)">编辑测试例</button>
-          </div>
-        </header>
-        <CaseStepTimeline :steps="manager.selected.value.case_version.steps" @copy="copyText" />
-        <section class="case-block">
-          <header>
-            <h2>备注</h2>
-            <button class="icon-button mini" type="button" aria-label="复制备注" @click="copyText(manager.selected.value.case_version.notes)"><Copy :size="16" /></button>
+            <div class="button-row">
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position === 0"
+                @click="manager.moveCase(manager.selected.value, -1)"
+              >
+                <ArrowUp :size="16" />
+                上移
+              </button>
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position >= (manager.detail.value?.cases.length ?? 1) - 1"
+                @click="manager.moveCase(manager.selected.value, 1)"
+              >
+                <ArrowDown :size="16" />
+                下移
+              </button>
+              <button class="secondary-button" type="button" @click="manager.removeCase(manager.selected.value)">
+                <Trash2 :size="16" />
+                移除引用
+              </button>
+              <button class="primary-button" type="button" @click="manager.startEdit(manager.selected.value)">编辑测试例</button>
+            </div>
           </header>
-          <pre>{{ compactText(manager.selected.value.case_version.notes, "无内容") }}</pre>
-        </section>
-      </template>
-      <div v-else class="quiet-panel">
-        <strong>选择一个测试例查看详情</strong>
-        <p>也可以在左侧新建测试例，或把 Skill 中已有的测试例加入当前测评集。</p>
-      </div>
+          <CaseStepTimeline :steps="manager.selected.value.case_version.steps" @copy="copyText" />
+          <section class="case-block">
+            <header>
+              <h2>备注</h2>
+              <button class="icon-button mini" type="button" aria-label="复制备注" @click="copyText(manager.selected.value.case_version.notes)"><Copy :size="16" /></button>
+            </header>
+            <pre>{{ compactText(manager.selected.value.case_version.notes, "无内容") }}</pre>
+          </section>
+        </template>
+        <div v-else class="quiet-panel">
+          <strong>选择一个测试例查看详情</strong>
+          <p>也可以在左侧新建测试例，或把 Skill 中已有的测试例加入当前测评集。</p>
+        </div>
+      </section>
     </section>
   </div>
 </template>

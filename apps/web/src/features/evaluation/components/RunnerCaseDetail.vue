@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Play } from "lucide-vue-next";
 import { computed } from "vue";
+import OpencodeTraceDetails from "./OpencodeTraceDetails.vue";
 import RunnerDetailPanel from "./RunnerDetailPanel.vue";
 import { modelLabel, promptSourceLabel, stepTimelineRows, type RunnerState } from "../lib/evalRunner";
 import type { EvalCaseRunDetail, EvalSetCase } from "../../../types";
@@ -62,6 +63,7 @@ const runButtonDisabled = computed(() => {
           <pre>{{ step.input }}</pre>
           <p v-if="step.reason">{{ step.reason }}</p>
           <pre v-if="step.actual">{{ step.actual }}</pre>
+          <OpencodeTraceDetails :trace="step.opencodeTrace" />
         </article>
       </section>
       <RunnerDetailPanel

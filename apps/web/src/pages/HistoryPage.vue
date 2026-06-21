@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import clsx from "clsx";
-import { Copy, FileCheck2, GitCommitHorizontal } from "lucide-vue-next";
+import { FileCheck2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
+import HistoryCaseResultCard from "../features/evaluation/components/HistoryCaseResultCard.vue";
 import { api, ApiError } from "../lib/api";
 import { humanDate, scoreKind, versionName } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
@@ -72,13 +73,11 @@ function selectEvalSet(id: string): void {
   <div class="history-layout">
     <section class="history-workspace">
       <header class="section-heading">
-        <div>
-          <h1>历史与证据链</h1>
-          <p>每次测评记录绑定准确的 Skill 版本与当前测评集，并保存运行环境、运行结果与判定结果。</p>
-        </div>
         <div class="history-heading-actions">
-          <DropdownSelect :model-value="evalSetId" :options="evalSetOptions" aria-label="按测评集筛选历史" @update:model-value="selectEvalSet" />
-          <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'evaluate', selectedEvalSetId: evalSetId, selectedRunId: null })">进入测评</button>
+          <label class="history-evalset-filter">
+            <span>选择测评集</span>
+            <DropdownSelect :model-value="evalSetId" :options="evalSetOptions" aria-label="按测评集筛选历史" @update:model-value="selectEvalSet" />
+          </label>
         </div>
       </header>
 
@@ -90,22 +89,20 @@ function selectEvalSet(id: string): void {
             <p>{{ humanDate(activeContext.eval_run.created_at) }} · {{ activeContext.eval_run.created_by }}</p>
           </div>
         </header>
-        <div class="evidence-grid">
-          <span><small>Skill 版本</small><strong>{{ versionName(activeContext.skill_version) }}</strong></span>
-          <span><small>测评集</small><strong>{{ activeContext.eval_set.name }}</strong></span>
-          <span><small>上下文摘要</small><strong>{{ compactDigest(activeContext.eval_run.run_context_hash) }}</strong></span>
-        </div>
-        <div class="case-result-list">
-          <article v-for="item in run?.case_results ?? []" :key="item.case_version.id" class="case-result-card">
-            <header>
-              <strong>{{ item.case.title }}</strong>
-              <span :class="clsx('case-result-chip', item.result.passed ? 'passed' : 'failed')">{{ item.result.passed ? "通过" : "不通过" }}</span>
-            </header>
-            <div class="evaluation-comparison-grid">
-              <section><h3>测试步骤</h3><pre>{{ JSON.stringify(item.case_version.steps, null, 2) }}</pre></section>
-              <section><h3>运行结果</h3><pre>{{ item.result_artifact?.content_text ?? "" }}</pre></section>
+        <div class="run-evidence-body">
+          <div class="evidence-grid">
+            <span><small>Skill 版本</small><strong>{{ versionName(activeContext.skill_version) }}</strong></span>
+            <span><small>测评集</small><strong>{{ activeContext.eval_set.name }}</strong></span>
+            <span><small>上下文摘要</small><strong>{{ compactDigest(activeContext.eval_run.run_context_hash) }}</strong></span>
+          </div>
+          <div class="case-result-list">
+            <HistoryCaseResultCard v-for="item in run?.case_results ?? []" :key="item.case_version.id" :item="item" @copy="copyText" />
+            <div v-if="run && run.case_results.length === 0" class="history-empty inline">
+              <FileCheck2 :size="22" />
+              <strong>这次聚合没有测试例结果</strong>
+              <p>请回到“测评”页确认当前测评集中的测试例已经完成运行。</p>
             </div>
-          </article>
+          </div>
         </div>
       </section>
       <div v-else class="history-empty">
@@ -113,39 +110,22 @@ function selectEvalSet(id: string): void {
         <strong>还没有测评记录</strong>
         <p>先在“测评”页选择 Skill 版本与测评集版本，通过 Opencode 测评器完成测试例后聚合结果。</p>
       </div>
-
-      <section class="version-history">
-        <header class="history-section-head">
-          <h2>Skill 版本链</h2>
-          <p>每个 Skill 版本都是不可变快照；环境差异记录在测评记录上。</p>
-        </header>
-        <div class="version-group">
-          <h3>{{ skill.skill.slug }}</h3>
-          <div class="version-stack">
-            <div v-for="version in skill.versions" :key="version.id" :class="clsx('version-row', version.id === skill.skill.current_version_id && 'current')">
-              <GitCommitHorizontal :size="18" />
-              <strong>{{ versionName(version) }}</strong>
-              <span>{{ version.change_summary }}</span>
-              <small>{{ compactDigest(version.content_digest) }}</small>
-              <button class="icon-button mini" type="button" :aria-label="`复制 ${versionName(version)} 摘要`" @click="copyText('版本摘要', version.content_digest)">
-                <Copy :size="14" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
     </section>
 
     <aside class="run-history">
       <div class="run-history-head"><div><h2>测评记录</h2><p>{{ runs.length }} 次记录</p></div></div>
       <button
-        v-for="item in runs"
+        v-for="(item, index) in runs"
         :key="item.eval_run.id"
         :class="clsx('run-row', activeRunId === item.eval_run.id && 'active')"
         type="button"
         @click="emit('navigate', { selectedRunId: item.eval_run.id })"
       >
-        <span :class="clsx('run-score', scoreKind(item.eval_run))">{{ runScoreText(item.eval_run.summary) }}</span>
+        <span class="run-row-tags">
+          <span class="run-row-count">第 {{ runs.length - index }} 次</span>
+          <span v-if="index === 0" class="run-latest-chip">最新</span>
+          <span :class="clsx('run-score', scoreKind(item.eval_run))">{{ runScoreText(item.eval_run.summary) }}</span>
+        </span>
         <strong>{{ versionName(item.skill_version) }}</strong>
         <small>{{ item.eval_set.name }} · {{ humanDate(item.eval_run.created_at) }}</small>
       </button>

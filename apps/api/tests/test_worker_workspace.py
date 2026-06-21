@@ -8,6 +8,7 @@ import zipfile
 
 import pytest
 
+from skillhub_worker.opencode_trace import extract_opencode_trace
 from skillhub_worker.workspace import compact_message_output, render_step_prompt, _extract_zip_to_workdir
 
 
@@ -40,6 +41,64 @@ def test_compact_message_output_prefers_text_parts():
     payload = {"parts": [{"type": "text", "text": "hello"}]}
 
     assert compact_message_output(payload) == "hello"
+
+
+def test_compact_message_output_omits_opencode_reasoning_parts():
+    payload = [
+        {
+            "info": {"role": "user"},
+            "parts": [{"type": "text", "text": "输出 helloworld"}],
+        },
+        {
+            "info": {"role": "assistant"},
+            "parts": [
+                {"type": "reasoning", "text": "I should output helloworld."},
+                {"type": "text", "text": "helloworld"},
+            ],
+        },
+    ]
+
+    assert compact_message_output(payload) == "helloworld"
+
+
+def test_extract_opencode_trace_captures_reasoning_text_and_tool_calls():
+    payload = [
+        {"info": {"role": "user"}, "parts": [{"type": "text", "text": "请读取 README.md"}]},
+        {
+            "info": {"role": "assistant", "finish": "stop", "providerID": "deepseek", "modelID": "deepseek-v4-flash"},
+            "parts": [
+                {"type": "reasoning", "text": "I should inspect README.md."},
+                {
+                    "type": "tool",
+                    "tool": "read",
+                    "callID": "call_1",
+                    "state": {
+                        "status": "completed",
+                        "input": {"filePath": "README.md"},
+                        "output": "README content",
+                    },
+                },
+                {"type": "text", "text": "已读取 README.md"},
+            ],
+        },
+    ]
+
+    trace = extract_opencode_trace(payload)
+
+    assert trace["text_output"] == "已读取 README.md"
+    assert trace["reasoning_text"] == "I should inspect README.md."
+    assert trace["finish"] == "stop"
+    assert trace["provider_id"] == "deepseek"
+    assert trace["model_id"] == "deepseek-v4-flash"
+    assert trace["tool_calls"] == [
+        {
+            "tool": "read",
+            "status": "completed",
+            "input": {"filePath": "README.md"},
+            "output_preview": "README content",
+            "call_id": "call_1",
+        }
+    ]
 
 
 def test_compact_message_output_falls_back_to_json():

@@ -10,6 +10,7 @@ from skillhub.infrastructure.db.repositories import SqlSkillRepository
 from skillhub_worker.config import load_config
 from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
+from skillhub_worker.opencode_trace import extract_opencode_trace
 from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, render_step_prompt, workspace_snapshot
 
 
@@ -74,6 +75,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
                 model_id=model_id,
                 directory=paths["container_dir"],
             )
+            opencode_trace = extract_opencode_trace(message_response)
             agent_output = compact_message_output(message_response)
             after = workspace_snapshot(Path(paths["host_workdir"]))
             metadata["current_stage"] = "asserting_step"
@@ -88,6 +90,8 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
                     after_snapshot=after,
                     step=step,
                     run_metadata=metadata,
+                    reasoning_text=str(opencode_trace.get("reasoning_text") or ""),
+                    tool_calls=list(opencode_trace.get("tool_calls") or []),
                 ),
                 dict(step.get("assertion_params") or {}),
             )
@@ -101,6 +105,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
                 "reason": result.reason,
                 "details": result.details,
                 "message_response": _compact_message_response(message_response),
+                "opencode_trace": _public_opencode_trace(opencode_trace),
             }
             metadata["step_results"].append(step_result)
             actual_output = result.actual
@@ -195,6 +200,17 @@ def _compact_message_response(response: Any) -> dict[str, Any]:
         if key in response:
             compact[key] = response[key]
     return compact
+
+
+def _public_opencode_trace(trace: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "reasoning_text": str(trace.get("reasoning_text") or ""),
+        "tool_calls": list(trace.get("tool_calls") or []),
+        "text_output": str(trace.get("text_output") or ""),
+        "finish": str(trace.get("finish") or ""),
+        "model_id": str(trace.get("model_id") or ""),
+        "provider_id": str(trace.get("provider_id") or ""),
+    }
 
 
 def _current_step_metadata(step: dict[str, Any], index: int, total: int, stage: str) -> dict[str, Any]:

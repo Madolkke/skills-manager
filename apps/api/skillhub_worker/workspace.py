@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import base64
-import json
 from pathlib import Path, PurePosixPath
 import shutil
 import zipfile
+
+from skillhub_worker.opencode_trace import compact_message_output
 
 
 def materialize_case_workspace(case_detail: dict, *, host_root: Path, container_root: str) -> dict[str, str]:
@@ -53,32 +54,6 @@ def workspace_snapshot(workdir: Path) -> set[str]:
         for path in workdir.rglob("*")
         if path.is_file()
     }
-
-
-def compact_message_output(response: object) -> str:
-    text = _find_text(response)
-    if text.strip():
-        return text.strip()
-    try:
-        return json.dumps(response, ensure_ascii=False, sort_keys=True)
-    except TypeError:
-        return str(response)
-
-
-def _find_text(value: object) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        return "\n".join(part for item in value if (part := _find_text(item)).strip())
-    if not isinstance(value, dict):
-        return ""
-    for key in ("text", "content", "message", "output"):
-        part = _find_text(value.get(key))
-        if part.strip():
-            return part
-    if "parts" in value:
-        return _find_text(value["parts"])
-    return ""
 
 
 def _write_skill_bundle(skill_version: dict, skill_dir: Path) -> None:

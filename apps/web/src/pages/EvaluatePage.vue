@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Info } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
 import RunnerActionBar from "../features/evaluation/components/RunnerActionBar.vue";
@@ -7,7 +6,6 @@ import RunnerCaseDetail from "../features/evaluation/components/RunnerCaseDetail
 import RunnerCaseQueue from "../features/evaluation/components/RunnerCaseQueue.vue";
 import RunnerStatusBoard from "../features/evaluation/components/RunnerStatusBoard.vue";
 import { useOpencodeEvaluation } from "../features/evaluation/composables/useOpencodeEvaluation";
-import TagInput from "../components/TagInput.vue";
 import { api, ApiError } from "../lib/api";
 import { runnerState } from "../features/evaluation/lib/evalRunner";
 import { versionName } from "../lib/format";
@@ -25,35 +23,34 @@ const evalSetId = computed(() => {
   return evalSets.value.some((item) => item.id === requested) ? requested ?? "" : fallbackEvalSetId.value;
 });
 const skillVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
-const environmentTags = ref<string[]>([]);
 const detail = ref<EvalSetDetail | null>(null);
 const activeCaseId = ref<string | null>(null);
 const cases = computed(() => detail.value?.cases ?? []);
 const active = computed(() => cases.value.find((item) => item.case_version.id === activeCaseId.value) ?? null);
 const selectedVersion = computed(() => versions.value.find((version) => version.id === skillVersionId.value));
+const selectedVersionSummary = computed(() => cleanVersionSummary(selectedVersion.value?.change_summary));
 const versionOptions = computed(() => versions.value.map((version) => ({ value: version.id, label: versionName(version) })));
 const evalSetOptions = computed(() => evalSets.value.map((item) => ({ value: item.id, label: item.name, description: `${item.description || "暂无描述"} · ${item.id === fallbackEvalSetId.value ? "默认" : "自定义"}` })));
 const evalSetLoaded = computed(() => Boolean(detail.value));
 const {
   board: opencodeBoard,
   busy,
-  canAggregate: canAggregateOpencode,
+  canRunFormalEvaluation,
   opencodeRunsByCase,
   pollIntervalSeconds,
   polling,
   runningCaseId,
   summary: opencodeSummary,
   actualOutputForCase,
-  aggregate,
   runAll,
   runCase,
+  runFormalEvaluation,
   runForCase,
   retryFailed,
 } = useOpencodeEvaluation({
   cases,
   skillVersionId,
   evalSetId,
-  environmentTags,
   ready: evalSetLoaded,
   emitToast: (toast) => emit("toast", toast),
 });
@@ -97,8 +94,8 @@ async function copyText(label: string, text?: string | null): Promise<void> {
   }
 }
 
-async function aggregateOpencodeRun(): Promise<void> {
-  const evalRunId = await aggregate();
+async function runFormalOpencodeEvaluation(): Promise<void> {
+  const evalRunId = await runFormalEvaluation();
   if (!evalRunId) return;
   emit("refresh");
   emit("navigate", { tab: "history", selectedEvalSetId: evalSetId.value, selectedRunId: evalRunId });
@@ -135,6 +132,12 @@ function errorMessage(caught: unknown): string {
   return "操作失败。";
 }
 
+function cleanVersionSummary(value?: string | null): string {
+  const text = value?.trim() ?? "";
+  if (!text || text.startsWith("Imported standard skill bundle with")) return "";
+  return text;
+}
+
 </script>
 
 <template>
@@ -145,27 +148,24 @@ function errorMessage(caught: unknown): string {
           <span>Skill 版本</span>
           <DropdownSelect v-model="skillVersionId" :options="versionOptions" aria-label="选择 Skill 版本" />
         </label>
-        <p>{{ selectedVersion?.change_summary ?? "无版本说明。" }}</p>
+        <p v-if="selectedVersionSummary">{{ selectedVersionSummary }}</p>
       </div>
       <div class="evaluation-selector-card">
         <label class="field-label">
           <span>当前测评集</span>
           <DropdownSelect :model-value="evalSetId" :options="evalSetOptions" aria-label="选择测评集" @update:model-value="selectEvalSet" />
         </label>
-        <small>{{ cases.length }} 个测试例</small>
       </div>
-      <div class="evaluation-selector-card">
-        <span>运行环境标签</span>
-        <TagInput :value="environmentTags" :suggestions="['local', 'opencode', 'windows', 'macos', 'linux']" @change="environmentTags = $event" />
-        <small class="selector-helper">{{ polling ? "正在刷新任务状态" : `每 ${pollIntervalSeconds} 秒轮询一次` }}</small>
-      </div>
-      <div class="info-box">
-        <Info :size="18" />
-        <div>
-          <strong>通过 Opencode 容器执行测评</strong>
-          <p>页面会恢复上一次任务结果，并显示队列、后台进程、会话、工作目录与错误信息。</p>
-        </div>
-      </div>
+      <RunnerActionBar
+        :busy="busy"
+        :can-run-formal="canRunFormalEvaluation"
+        :case-count="cases.length"
+        :poll-interval-seconds="pollIntervalSeconds"
+        :summary="opencodeSummary"
+        @retry-failed="retryFailed"
+        @run-all="runAll"
+        @run-formal="runFormalOpencodeEvaluation"
+      />
     </section>
 
     <section class="eval-progress-panel runner-progress-panel">
@@ -207,16 +207,5 @@ function errorMessage(caught: unknown): string {
         @run="runActiveCase"
       />
     </div>
-
-    <RunnerActionBar
-      :busy="busy"
-      :can-aggregate="canAggregateOpencode"
-      :case-count="cases.length"
-      :poll-interval-seconds="pollIntervalSeconds"
-      :summary="opencodeSummary"
-      @aggregate="aggregateOpencodeRun"
-      @retry-failed="retryFailed"
-      @run-all="runAll"
-    />
   </div>
 </template>

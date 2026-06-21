@@ -20,6 +20,23 @@ export type RunnerStatusRow = {
   value: string;
 };
 
+export type OpencodeToolCall = {
+  tool: string;
+  status: string;
+  input: unknown;
+  output_preview: string;
+  call_id: string;
+};
+
+export type OpencodeTrace = {
+  reasoning_text: string;
+  tool_calls: OpencodeToolCall[];
+  text_output: string;
+  finish: string;
+  model_id: string;
+  provider_id: string;
+};
+
 export type StepRunResult = {
   step_id: string;
   title: string;
@@ -29,6 +46,7 @@ export type StepRunResult = {
   actual?: string;
   reason?: string;
   details?: Record<string, unknown>;
+  opencode_trace?: OpencodeTrace;
 };
 
 export type StepTimelineRow = {
@@ -40,6 +58,7 @@ export type StepTimelineRow = {
   label: string;
   reason: string;
   actual: string;
+  opencodeTrace?: OpencodeTrace;
 };
 
 export type RunnerSummary = {
@@ -184,6 +203,7 @@ export function stepTimelineRows(item: EvalSetCase, detail: EvalCaseRunDetail | 
         label: stepStatusLabel(status),
         reason: result.reason || "",
         actual: result.actual || "",
+        opencodeTrace: result.opencode_trace,
       };
     }
     if (current?.id === step.id || current?.index === index + 1) {

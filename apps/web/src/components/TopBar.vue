@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, Settings, Workflow } from "lucide-vue-next";
+import { Boxes, Plus, Settings, Workflow } from "lucide-vue-next";
 import { onBeforeUnmount, ref, watch } from "vue";
 import { slugTitle } from "../lib/format";
 import type { SkillDetail } from "../types";
@@ -27,7 +27,13 @@ function handleClick(event: MouseEvent): void {
 
 <template>
   <header class="top-bar">
-    <button class="breadcrumb-root" type="button" @click="emit('home')">SkillHub</button>
+    <button class="breadcrumb-root brand-button" type="button" @click="emit('home')">
+      <span class="brand-mark" aria-hidden="true"><Boxes :size="19" :stroke-width="2.3" /></span>
+      <span class="brand-copy">
+        <strong>SkillHub</strong>
+        <small>技能工作台</small>
+      </span>
+    </button>
     <template v-if="currentSkill">
       <span class="breadcrumb-separator">/</span>
       <strong class="breadcrumb-current">{{ slugTitle(currentSkill.skill.slug) }}</strong>
@@ -38,7 +44,7 @@ function handleClick(event: MouseEvent): void {
         <Workflow :size="16" />
         工作流编排
       </button>
-      <button class="primary-button" type="button" @click="emit('create')">
+      <button class="primary-button top-create-button" type="button" @click="emit('create')">
         <Plus :size="16" />
         新建 Skill
       </button>

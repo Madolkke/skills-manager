@@ -2,7 +2,6 @@
   min-width: 0;
   min-height: 640px;
   padding: 24px;
-  padding-bottom: 188px;
 }
 
 .runner-case-head {
@@ -122,6 +121,59 @@
   white-space: pre-wrap;
 }
 
+.opencode-trace-details {
+  border: 1px solid #d7e5ff;
+  border-radius: var(--radius);
+  background: #f7fbff;
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
+.opencode-trace-details summary {
+  cursor: pointer;
+  color: #244365;
+  font-weight: 820;
+}
+
+.opencode-trace-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.opencode-trace-block header {
+  justify-content: flex-start;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.opencode-tool-list {
+  display: grid;
+  gap: 8px;
+}
+
+.opencode-tool-call {
+  border: 1px solid #d5dfec;
+  border-radius: var(--radius);
+  background: white;
+  padding: 10px;
+}
+
+.opencode-tool-call strong {
+  display: block;
+  color: #172033;
+  font-size: 13px;
+}
+
+.opencode-tool-call small {
+  color: var(--muted);
+  display: block;
+  line-height: 1.45;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
 .evaluation-comparison-grid {
   min-width: 0;
   display: grid;
@@ -156,32 +208,50 @@
 }
 
 .runner-action-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-  margin-top: 18px;
+  min-width: 0;
   min-height: 76px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgb(255 255 255 / 94%);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 20px 55px rgb(15 23 42 / 14%);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px 12px 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 5%);
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 14px;
 }
 
-.runner-action-bar > span {
+.runner-action-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.runner-action-copy strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.runner-action-copy span {
   min-width: 0;
   color: var(--muted);
+  font-size: 13px;
   font-weight: 760;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+.runner-action-buttons {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(150px, 1.2fr);
+  gap: 8px;
 }
 
 .runner-action-bar .primary-button {
-  flex: 0 0 auto;
-  min-width: 132px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.runner-action-bar .secondary-button {
+  min-width: 0;
   white-space: nowrap;
 }

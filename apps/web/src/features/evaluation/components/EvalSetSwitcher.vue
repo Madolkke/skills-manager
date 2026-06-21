@@ -74,12 +74,44 @@ function submit(): void {
 <template>
   <section class="evalset-switcher">
     <div class="evalset-title-row"><span class="green-dot" /><span>当前测评集</span></div>
-    <DropdownSelect
-      :model-value="selectedId"
-      :options="options"
-      aria-label="选择测评集"
-      @update:model-value="emit('select', $event)"
-    />
+    <div class="evalset-switcher-controls">
+      <DropdownSelect
+        :model-value="selectedId"
+        :options="options"
+        aria-label="选择测评集"
+        compact
+        @update:model-value="emit('select', $event)"
+      />
+      <div class="mini-grid">
+        <span>测试例<b>{{ caseCount }}</b></span>
+        <span>创建时间<b>{{ humanDate(active?.created_at) }}</b></span>
+        <span>更新时间<b>{{ humanDate(active?.updated_at) }}</b></span>
+      </div>
+      <form v-if="creating" class="evalset-inline-form" @submit.prevent="submit">
+        <label>
+          <span>测评集名称</span>
+          <input v-model="name" maxlength="120" placeholder="例如：核心回归">
+        </label>
+        <label>
+          <span>描述</span>
+          <textarea v-model="description" maxlength="1000" rows="3" placeholder="说明这组测试覆盖的场景" />
+        </label>
+        <div class="button-row">
+          <button class="primary-button" type="submit" :disabled="busy || !name.trim()">
+            <Check :size="16" />
+            创建
+          </button>
+          <button class="secondary-button" type="button" :disabled="busy" @click="cancelForms">
+            <X :size="16" />
+            取消
+          </button>
+        </div>
+      </form>
+      <button v-else class="secondary-button full-width" type="button" @click="startCreate">
+        <Plus :size="16" />
+        新建测评集
+      </button>
+    </div>
     <form class="evalset-card compact" @submit.prevent="submit">
       <div class="evalset-card-head">
         <div v-if="editing" class="evalset-card-editor">
@@ -108,35 +140,6 @@ function submit(): void {
           <Edit3 :size="15" />
         </button>
       </div>
-      <div class="mini-grid">
-        <span>测试例<b>{{ caseCount }}</b></span>
-        <span>创建时间<b>{{ humanDate(active?.created_at) }}</b></span>
-        <span>更新时间<b>{{ humanDate(active?.updated_at) }}</b></span>
-      </div>
     </form>
-    <form v-if="creating" class="evalset-inline-form" @submit.prevent="submit">
-      <label>
-        <span>测评集名称</span>
-        <input v-model="name" maxlength="120" placeholder="例如：核心回归">
-      </label>
-      <label>
-        <span>描述</span>
-        <textarea v-model="description" maxlength="1000" rows="3" placeholder="说明这组测试覆盖的场景" />
-      </label>
-      <div class="button-row">
-        <button class="primary-button" type="submit" :disabled="busy || !name.trim()">
-          <Check :size="16" />
-          创建
-        </button>
-        <button class="secondary-button" type="button" :disabled="busy" @click="cancelForms">
-          <X :size="16" />
-          取消
-        </button>
-      </div>
-    </form>
-    <button v-else class="secondary-button full-width" type="button" @click="startCreate">
-      <Plus :size="16" />
-      新建测评集
-    </button>
   </section>
 </template>

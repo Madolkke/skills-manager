@@ -52,39 +52,41 @@
   grid-column: 1 / -1;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: white;
-  min-height: 180px;
-  padding: 34px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  min-height: 190px;
+  padding: 28px;
   display: grid;
-  grid-template-columns: minmax(460px, 1.55fr) repeat(4, minmax(130px, 1fr));
-  gap: 28px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 24px;
+  align-items: stretch;
 }
 
-.skill-title-block {
+.skill-summary-main {
   display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  gap: 26px;
-  align-items: center;
+  gap: 20px;
+  align-content: space-between;
   min-width: 0;
 }
 
 .skill-identity-card {
-  min-height: 124px;
   margin: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #f8fbff;
-  padding: 14px;
+  background: white;
+  padding: 12px;
   display: grid;
-  gap: 12px;
-  align-content: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .skill-identity-card div {
-  display: grid;
-  gap: 3px;
   min-width: 0;
+  border: 1px solid #e6edf6;
+  border-radius: 8px;
+  background: #fbfdff;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
 }
 
 .skill-identity-card dt {
@@ -104,24 +106,36 @@
   min-width: 0;
 }
 
-.skill-title-block h1 {
+.skill-title-copy h1 {
   font-size: 36px;
   line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
-.skill-title-block p {
+.skill-title-copy p {
+  max-width: 780px;
   color: var(--muted);
   line-height: 1.6;
-  margin: 12px 0 18px;
+  margin-top: 12px;
+}
+
+.skill-summary-metrics {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .summary-metric {
-  min-height: 92px;
-  border-left: 1px solid var(--soft-line);
-  padding-left: 24px;
+  min-width: 0;
+  min-height: 126px;
+  border: 1px solid #e6edf6;
+  border-radius: var(--radius);
+  background: white;
+  padding: 16px;
   display: grid;
-  gap: 6px;
-  align-content: center;
+  gap: 8px;
+  align-content: space-between;
 }
 
 .summary-metric span,
@@ -131,7 +145,10 @@
 }
 
 .summary-metric strong {
-  font-size: 26px;
+  min-width: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .summary-metric strong.summary-value-chip {

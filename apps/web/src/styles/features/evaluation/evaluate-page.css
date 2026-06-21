@@ -1,6 +1,6 @@
 .evaluate-page {
-  padding-bottom: 172px;
-  scroll-padding-bottom: 172px;
+  padding-bottom: 0;
+  scroll-padding-bottom: 24px;
 }
 
 .evaluation-selectors {
@@ -9,7 +9,7 @@
   background: white;
   padding: 14px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  grid-template-columns: minmax(min(230px, 100%), 0.9fr) minmax(min(230px, 100%), 0.9fr) minmax(min(360px, 100%), 1.35fr);
   gap: 14px;
   align-items: stretch;
 }
@@ -24,11 +24,6 @@
   border: 1px solid var(--soft-line);
   border-radius: var(--radius);
   background: #fbfdff;
-}
-
-.selector-helper {
-  color: var(--muted);
-  font-weight: 740;
 }
 
 .selector-title {
@@ -49,28 +44,6 @@
   color: var(--ink);
   padding: 0 12px;
   font-weight: 760;
-}
-
-.info-box {
-  min-width: 0;
-  border: 1px solid #cfe0ff;
-  background: #f2f7ff;
-  border-radius: var(--radius);
-  color: #355071;
-  padding: 12px 14px;
-  line-height: 1.5;
-  display: flex;
-  gap: 12px;
-}
-
-.info-box svg {
-  flex: 0 0 auto;
-  color: var(--blue);
-  margin-top: 2px;
-}
-
-.info-box p {
-  margin-top: 4px;
 }
 
 .eval-progress-panel {

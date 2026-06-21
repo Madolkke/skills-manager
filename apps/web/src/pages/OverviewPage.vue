@@ -25,7 +25,11 @@ function skillLifecycleLabel(status: string): string {
 <template>
   <div class="overview-grid">
     <section class="skill-summary-panel">
-      <div class="skill-title-block">
+      <div class="skill-summary-main">
+        <div class="skill-title-copy">
+          <h1>{{ slugTitle(skill.skill.slug) }}</h1>
+          <p>{{ compactText(version?.change_summary, "这个 Skill 还没有说明。") }}</p>
+        </div>
         <dl class="skill-identity-card" aria-label="Skill 身份信息">
           <div>
             <dt>根目录</dt>
@@ -40,25 +44,23 @@ function skillLifecycleLabel(status: string): string {
             <dd>{{ lifecycleLabel }}</dd>
           </div>
         </dl>
-        <div class="skill-title-copy">
-          <h1>{{ slugTitle(skill.skill.slug) }}</h1>
-          <p>{{ compactText(version?.change_summary, "这个 Skill 还没有说明。") }}</p>
+      </div>
+      <div class="skill-summary-metrics">
+        <div class="summary-metric">
+          <span>当前版本</span>
+          <strong>{{ versionName(version) }}</strong>
+          <small v-if="version?.created_at">更新于 {{ humanDate(version.created_at) }}</small>
         </div>
-      </div>
-      <div class="summary-metric">
-        <span>当前版本</span>
-        <strong>{{ versionName(version) }}</strong>
-        <small v-if="version?.created_at">更新于 {{ humanDate(version.created_at) }}</small>
-      </div>
-      <div class="summary-metric">
-        <span>验证分数</span>
-        <strong :class="scoreKind(run)">{{ scoreLabel(run) }}</strong>
-        <small>{{ run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "尚无测评" }}</small>
-      </div>
-      <div class="summary-metric">
-        <span>测评集</span>
-        <strong>{{ evalSet?.name ?? "未创建" }}</strong>
-        <small>{{ evalSet ? "单一当前测评集" : "无测评集" }}</small>
+        <div class="summary-metric">
+          <span>验证分数</span>
+          <strong :class="scoreKind(run)">{{ scoreLabel(run) }}</strong>
+          <small>{{ run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "尚无测评" }}</small>
+        </div>
+        <div class="summary-metric">
+          <span>测评集</span>
+          <strong>{{ evalSet?.name ?? "未创建" }}</strong>
+          <small>{{ evalSet ? "默认测评集" : "无测评集" }}</small>
+        </div>
       </div>
     </section>
 

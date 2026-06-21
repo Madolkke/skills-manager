@@ -14,10 +14,12 @@ type UseOpencodeEvaluationInput = {
   cases: ComputedRef<EvalSetCase[]>;
   skillVersionId: { value: string };
   evalSetId: ComputedRef<string>;
-  environmentTags: { value: string[] };
   ready: ComputedRef<boolean>;
   emitToast: (toast: ToastState) => void;
 };
+
+const ENVIRONMENT_TAGS: string[] = [];
+const RUN_CONTEXT: Record<string, unknown> = {};
 
 export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
   const opencodeRunsByCase = ref<Record<string, EvalCaseRunDetail>>({});
@@ -30,8 +32,10 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
   const summary = computed(() => summarizeOpencodeRuns(input.cases.value, opencodeRunsByCase.value));
   const board = computed(() => summarizeRunnerBoard(input.cases.value, opencodeRunsByCase.value));
   const pollIntervalSeconds = computed(() => Math.round(pollIntervalMs / 1000));
-  const canAggregate = computed(() => !busy.value && input.cases.value.length > 0 && summary.value.failedRuns === 0 && summary.value.pending === 0);
   const hasActiveJobs = computed(() => Object.values(opencodeRunsByCase.value).some((run) => isActiveRun(run.eval_case_run.status)));
+  const canRunFormalEvaluation = computed(
+    () => !busy.value && !hasActiveJobs.value && input.cases.value.length > 0 && Boolean(input.skillVersionId.value) && Boolean(input.evalSetId.value),
+  );
 
   watch([() => input.skillVersionId.value, input.evalSetId, input.ready], async () => {
     if (!input.ready.value || !input.skillVersionId.value || !input.evalSetId.value) return;
@@ -51,6 +55,13 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     return caseVersionId ? opencodeRunsByCase.value[caseVersionId]?.result_artifact?.content_text ?? "" : "";
   }
 
+  function applyRunDetail(detail: EvalCaseRunDetail): void {
+    opencodeRunsByCase.value = {
+      ...opencodeRunsByCase.value,
+      [detail.eval_case_run.case_version_id]: detail,
+    };
+  }
+
   async function loadLatestRuns(): Promise<void> {
     if (!input.skillVersionId.value || !input.evalSetId.value) return;
     try {
@@ -66,22 +77,26 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     }
   }
 
+  async function queueCaseRun(item: EvalSetCase): Promise<EvalCaseRunDetail> {
+    const caseVersionId = item.case_version.id;
+    const queued = await api.enqueueEvalCaseRun({
+      skill_version_id: input.skillVersionId.value,
+      eval_set_id: input.evalSetId.value,
+      case_version_id: caseVersionId,
+      environment_tags: ENVIRONMENT_TAGS,
+      run_context: RUN_CONTEXT,
+    });
+    const detail = queuedRecordToDetail(queued, item);
+    applyRunDetail(detail);
+    startPolling();
+    return detail;
+  }
+
   async function runCase(item: EvalSetCase, options: { silent?: boolean } = {}): Promise<void> {
     const caseVersionId = item.case_version.id;
     runningCaseId.value = caseVersionId;
     try {
-      const queued = await api.enqueueEvalCaseRun({
-        skill_version_id: input.skillVersionId.value,
-        eval_set_id: input.evalSetId.value,
-        case_version_id: caseVersionId,
-        environment_tags: input.environmentTags.value,
-        run_context: {},
-      });
-      opencodeRunsByCase.value = {
-        ...opencodeRunsByCase.value,
-        [caseVersionId]: queuedRecordToDetail(queued, item),
-      };
-      startPolling();
+      await queueCaseRun(item);
       void refreshRuns();
       if (!options.silent) input.emitToast({ tone: "success", message: "Opencode 测试例已入队，状态会自动刷新。" });
     } catch (caught) {
@@ -105,6 +120,41 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     }
   }
 
+  async function runFormalEvaluation(): Promise<string | null> {
+    if (busy.value || input.cases.value.length === 0 || !input.skillVersionId.value || !input.evalSetId.value) return null;
+    busy.value = true;
+    try {
+      const queued = [];
+      for (const item of input.cases.value) {
+        runningCaseId.value = item.case_version.id;
+        queued.push(await queueCaseRun(item));
+      }
+      runningCaseId.value = null;
+      input.emitToast({ tone: "success", message: "正式测评已全部入队，完成后会自动聚合。" });
+      const finished = await waitForBatch(queued.map((detail) => detail.eval_case_run.id));
+      const failed = finished.filter((detail) => detail.eval_case_run.status !== "succeeded");
+      if (failed.length > 0) {
+        input.emitToast({ tone: "danger", message: `${failed.length} 个测试例执行失败，正式测评未聚合。` });
+        return null;
+      }
+      const recorded = await api.aggregateEvalRun({
+        skill_version_id: input.skillVersionId.value,
+        eval_set_id: input.evalSetId.value,
+        environment_tags: ENVIRONMENT_TAGS,
+        run_context: RUN_CONTEXT,
+      });
+      input.emitToast({ tone: "success", message: "正式测评已完成并聚合。" });
+      return recorded.eval_run_id;
+    } catch (caught) {
+      input.emitToast({ tone: "danger", message: errorMessage(caught) });
+      return null;
+    } finally {
+      runningCaseId.value = null;
+      busy.value = false;
+      syncPolling();
+    }
+  }
+
   async function retryFailed(): Promise<void> {
     if (busy.value) return;
     const failed = input.cases.value.filter((item) => runnerState(opencodeRunsByCase.value[item.case_version.id]).kind === "failed");
@@ -121,23 +171,12 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     }
   }
 
-  async function aggregate(): Promise<string | null> {
-    if (!canAggregate.value) return null;
-    busy.value = true;
-    try {
-      const recorded = await api.aggregateEvalRun({
-        skill_version_id: input.skillVersionId.value,
-        eval_set_id: input.evalSetId.value,
-        environment_tags: input.environmentTags.value,
-        run_context: {},
-      });
-      input.emitToast({ tone: "success", message: "Opencode 测评已聚合。" });
-      return recorded.eval_run_id;
-    } catch (caught) {
-      input.emitToast({ tone: "danger", message: errorMessage(caught) });
-      return null;
-    } finally {
-      busy.value = false;
+  async function waitForBatch(evalCaseRunIds: string[]): Promise<EvalCaseRunDetail[]> {
+    while (true) {
+      const details = await Promise.all(evalCaseRunIds.map((id) => api.getEvalCaseRun(id)));
+      for (const detail of details) applyRunDetail(detail);
+      if (details.every((detail) => !isActiveRun(detail.eval_case_run.status))) return details;
+      await delay(pollIntervalMs);
     }
   }
 
@@ -173,19 +212,23 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
   return {
     board,
     busy,
-    canAggregate,
+    canRunFormalEvaluation,
     opencodeRunsByCase,
     pollIntervalSeconds,
     polling,
     runningCaseId,
     summary,
     actualOutputForCase,
-    aggregate,
     runAll,
     runCase,
+    runFormalEvaluation,
     runForCase,
     retryFailed,
   };
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function errorMessage(caught: unknown): string {

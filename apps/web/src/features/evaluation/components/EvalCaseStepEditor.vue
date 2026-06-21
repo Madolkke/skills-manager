@@ -6,7 +6,7 @@ import type { DropdownSelectGroup, DropdownSelectOption } from "../../../compone
 import type { EvalAssertionTemplate, EvalCaseStep } from "../../../types";
 import type { StepValidation } from "./EvalCaseEditor.vue";
 
-const categoryOrder = ["语义判定", "Agent 输出", "工作目录文件"];
+const categoryOrder = ["语义判定", "Agent 输出", "Opencode 过程", "工作目录文件"];
 
 const props = defineProps<{
   step: EvalCaseStep;

@@ -1,8 +1,14 @@
 .evalset-layout {
   display: grid;
-  grid-template-columns: 430px minmax(0, 1fr);
+  grid-template-columns: 390px minmax(0, 1fr);
   gap: 22px;
   align-items: start;
+}
+
+.evalset-main {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
 }
 
 .case-sidebar,
@@ -23,113 +29,6 @@
   color: var(--blue);
   text-align: left;
   font-weight: 760;
-}
-
-.evalset-card {
-  border: 1px solid var(--soft-line);
-  border-radius: var(--radius);
-  padding: 18px;
-  display: grid;
-  gap: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-}
-
-.evalset-switcher {
-  display: grid;
-  gap: 12px;
-}
-
-.evalset-card.compact {
-  padding: 14px;
-}
-
-.evalset-card-head {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
-  gap: 10px;
-  align-items: start;
-}
-
-.evalset-card-tools {
-  display: grid;
-  grid-template-columns: 38px;
-  gap: 8px;
-}
-
-.evalset-card-editor {
-  min-width: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.evalset-card-editor label {
-  display: grid;
-  gap: 6px;
-  color: #40516d;
-  font-size: 13px;
-  font-weight: 780;
-}
-
-.evalset-card-editor input,
-.evalset-card-editor textarea {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: white;
-  color: var(--ink);
-  padding: 9px 11px;
-  font: inherit;
-}
-
-.evalset-card-editor input {
-  font-size: 20px;
-  font-weight: 840;
-  line-height: 1.25;
-}
-
-.evalset-card-editor textarea {
-  resize: vertical;
-  min-height: 78px;
-  line-height: 1.55;
-}
-
-.evalset-card-head p {
-  color: var(--muted);
-  margin-top: 6px;
-  line-height: 1.5;
-}
-
-.evalset-inline-form {
-  border: 1px solid var(--soft-line);
-  border-radius: var(--radius);
-  background: #fbfdff;
-  padding: 14px;
-  display: grid;
-  gap: 12px;
-}
-
-.evalset-inline-form label {
-  display: grid;
-  gap: 7px;
-  color: #40516d;
-  font-weight: 780;
-}
-
-.evalset-inline-form input,
-.evalset-inline-form textarea {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: white;
-  color: var(--ink);
-  padding: 10px 12px;
-  font: inherit;
-}
-
-.evalset-inline-form textarea {
-  resize: vertical;
-  line-height: 1.55;
 }
 
 .case-toolbar-actions {
@@ -214,110 +113,4 @@
   margin-top: 12px;
   color: #53637b;
   line-height: 1.55;
-}
-
-.evalset-card h1 {
-  font-size: 25px;
-}
-
-.evalset-name-row,
-.evalset-name-editor {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.evalset-name-row h1 {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.evalset-name-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px 38px;
-}
-
-.evalset-name-editor input {
-  min-width: 0;
-  height: 42px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0 10px;
-  font-weight: 820;
-}
-
-.evalset-version-list {
-  border: 1px solid var(--soft-line);
-  border-radius: var(--radius);
-  background: white;
-  display: grid;
-  overflow: hidden;
-}
-
-.evalset-version-list > strong {
-  padding: 12px 14px;
-  color: #53637b;
-  border-bottom: 1px solid var(--soft-line);
-}
-
-.evalset-version-row {
-  min-height: 48px;
-  border: 0;
-  border-bottom: 1px solid var(--soft-line);
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 14px;
-  text-align: left;
-}
-
-.evalset-version-row:last-child {
-  border-bottom: 0;
-}
-
-.evalset-version-row.active {
-  background: #f4f8ff;
-  color: var(--blue);
-}
-
-.evalset-version-row span {
-  font-weight: 820;
-  overflow-wrap: anywhere;
-}
-
-.evalset-version-row small {
-  color: var(--muted);
-  font-weight: 720;
-  text-align: right;
-}
-
-.evalset-title-row {
-  display: grid;
-  grid-template-columns: 10px 1fr;
-  gap: 8px;
-  align-items: center;
-  color: var(--muted);
-  font-weight: 760;
-}
-
-.mini-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.25fr;
-  gap: 10px;
-}
-
-.mini-grid span {
-  background: #f8fbff;
-  border-radius: var(--radius);
-  padding: 10px;
-  color: var(--muted);
-  display: grid;
-  gap: 4px;
-}
-
-.mini-grid b {
-  color: var(--ink);
 }
