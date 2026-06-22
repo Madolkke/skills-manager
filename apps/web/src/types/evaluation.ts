@@ -49,6 +49,11 @@ export type EvalCaseStep = {
   id: string;
   title: string;
   input: string;
+  assertions: EvalStepAssertion[];
+};
+
+export type EvalStepAssertion = {
+  id: string;
   assertion_template_id: string;
   assertion_params: Record<string, unknown>;
 };

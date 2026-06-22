@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import Modal from "../../../components/Modal.vue";
 import type { EvalSetCase } from "../../../types";
-import EvalCaseEditor, { type EvalCaseFormData } from "./EvalCaseEditor.vue";
+import type { EvalCaseFormData } from "../lib/evalCaseForm";
+import EvalCaseEditor from "./EvalCaseEditor.vue";
 
-export type { EvalCaseFormData, StepValidation } from "./EvalCaseEditor.vue";
+export type { EvalCaseFormData, StepValidation } from "../lib/evalCaseForm";
 
 const props = defineProps<{ caseItem?: EvalSetCase | null; busy: boolean }>();
 const emit = defineEmits<{ close: []; submit: [data: EvalCaseFormData] }>();

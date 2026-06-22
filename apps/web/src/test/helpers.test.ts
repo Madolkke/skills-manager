@@ -65,8 +65,18 @@ describe("skill evidence helpers", () => {
     const item = {
       case_version: {
         steps: [
-          { id: "s1", title: "第一步", input: "生成 README", assertion_template_id: "agent_output_contains" },
-          { id: "s2", title: "第二步", input: "检查文件", assertion_template_id: "file_exists" },
+          {
+            id: "s1",
+            title: "第一步",
+            input: "生成 README",
+            assertions: [{ id: "assertion-1", assertion_template_id: "agent_output_contains", assertion_params: { text: "README" } }],
+          },
+          {
+            id: "s2",
+            title: "第二步",
+            input: "检查文件",
+            assertions: [{ id: "assertion-1", assertion_template_id: "file_exists", assertion_params: { path: "README.md" } }],
+          },
         ],
       },
     } as never;
@@ -168,8 +178,13 @@ describe("skill evidence helpers", () => {
           id: "",
           title: "步骤 1",
           input: "请创建 done.txt",
-          assertion_template_id: "file_created",
-          assertion_params: { directory: ".", filename: "done.txt" },
+          assertions: [
+            {
+              id: "assertion-1",
+              assertion_template_id: "file_created",
+              assertion_params: { directory: ".", filename: "done.txt" },
+            },
+          ],
         },
       ],
       runner_config: {},

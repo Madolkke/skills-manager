@@ -88,14 +88,21 @@ class AssignSkillRolePayload(BaseModel):
     subject_type: str = "user"
 
 
+class EvalStepAssertionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = None
+    assertion_template_id: str = "agent_output_semantic"
+    assertion_params: dict[str, Any] = Field(default_factory=dict)
+
+
 class EvalCaseStepPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str | None = None
     title: str | None = None
     input: EvalCaseInput
-    assertion_template_id: str = "agent_output_semantic"
-    assertion_params: dict[str, Any] = Field(default_factory=dict)
+    assertions: list[EvalStepAssertionPayload] = Field(min_length=1)
 
 
 class EvalCaseRunnerConfigPayload(BaseModel):

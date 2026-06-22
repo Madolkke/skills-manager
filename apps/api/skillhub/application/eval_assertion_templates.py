@@ -194,17 +194,34 @@ def assertion_template(template_id: str) -> AssertionTemplate:
 
 
 def normalize_assertion_step(step: dict[str, Any], index: int) -> dict[str, Any]:
-    template_id = str(step.get("assertion_template_id") or "agent_output_semantic")
-    template = assertion_template(template_id)
     input_text = str(step.get("input") or "").strip()
     if not input_text:
         raise InvariantError("Eval case step input is required.")
+    assertions = step.get("assertions")
+    raw_assertions = assertions if isinstance(assertions, list) and assertions else [_legacy_assertion(step)]
     return {
         "id": str(step.get("id") or f"step-{index + 1}"),
         "title": str(step.get("title") or f"步骤 {index + 1}").strip() or f"步骤 {index + 1}",
         "input": input_text,
+        "assertions": [normalize_step_assertion(assertion, assertion_index) for assertion_index, assertion in enumerate(raw_assertions)],
+    }
+
+
+def normalize_step_assertion(assertion: dict[str, Any], index: int) -> dict[str, Any]:
+    template_id = str(assertion.get("assertion_template_id") or "agent_output_semantic")
+    template = assertion_template(template_id)
+    return {
+        "id": str(assertion.get("id") or f"assertion-{index + 1}"),
         "assertion_template_id": template_id,
-        "assertion_params": template.normalize_params(step.get("assertion_params") if isinstance(step.get("assertion_params"), dict) else {}),
+        "assertion_params": template.normalize_params(assertion.get("assertion_params") if isinstance(assertion.get("assertion_params"), dict) else {}),
+    }
+
+
+def _legacy_assertion(step: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": "assertion-1",
+        "assertion_template_id": step.get("assertion_template_id") or "agent_output_semantic",
+        "assertion_params": step.get("assertion_params") if isinstance(step.get("assertion_params"), dict) else {},
     }
 
 

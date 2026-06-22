@@ -121,6 +121,45 @@
   white-space: pre-wrap;
 }
 
+.runner-step-assertions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.runner-assertion-card {
+  min-width: 0;
+  border: 1px solid #d5dfec;
+  border-left: 3px solid #cbd5e1;
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 10px;
+}
+
+.runner-assertion-card.passed {
+  border-left-color: #16a34a;
+}
+
+.runner-assertion-card.failed {
+  border-left-color: #dc2626;
+  background: #fffafa;
+}
+
+.runner-assertion-card.skipped {
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.runner-assertion-card header strong {
+  color: #172033;
+  font-family: var(--mono-font);
+  font-size: 12px;
+}
+
+.runner-assertion-card pre {
+  max-height: 160px;
+}
+
 .opencode-trace-details {
   border: 1px solid #d7e5ff;
   border-radius: var(--radius);

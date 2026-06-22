@@ -201,7 +201,7 @@ class SqlRepositoryEvalRunTest(SqlRepositoryTestCase):
         self.assertEqual(detail.eval_run["environment_tags"], ["linux"])
         self.assertEqual(detail.case_results[0]["result"]["passed"], True)
         self.assertEqual(detail.case_results[0]["result_artifact"]["content_text"], "Flagged token logging.")
-        self.assertEqual(detail.case_results[0]["case_version"]["steps"][0]["assertion_params"]["text"], "Flag token logging.")
+        self.assertEqual(detail.case_results[0]["case_version"]["steps"][0]["assertions"][0]["assertion_params"]["text"], "Flag token logging.")
         self.assertEqual([item["position"] for item in detail.case_results], [0, 1])
         self.assertEqual([item["case"]["title"] for item in detail.case_results], ["Token logging", "Tenant scope"])
 

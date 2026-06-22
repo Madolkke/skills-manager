@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import desc, select
 
+from skillhub.application.eval_assertion_templates import normalize_assertion_step
 from skillhub.infrastructure.db import tables
 
 
@@ -161,7 +162,9 @@ class ReadModelMixin:
                 .mappings()
                 .one()
             )
+        detail = self._row_dict(case_version)
+        detail["steps"] = [normalize_assertion_step(step, index) for index, step in enumerate(detail.get("steps") or [])]
         return {
-            **self._row_dict(case_version),
+            **detail,
             "workspace_artifact": self._row_dict(workspace_artifact) if workspace_artifact is not None else None,
         }

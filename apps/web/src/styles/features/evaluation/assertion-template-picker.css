@@ -32,6 +32,49 @@
   line-height: 1.45;
 }
 
+.scenario-assertion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.scenario-assertion-card {
+  min-width: 0;
+  border: 1px solid #dce8f7;
+  border-radius: var(--radius);
+  background: #ffffff;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgb(15 23 42 / 4%);
+}
+
+.scenario-assertion-card > header {
+  min-width: 0;
+  border-bottom: 1px solid #edf2f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+}
+
+.scenario-assertion-card > header div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.scenario-assertion-card > header strong {
+  color: #172033;
+  font-weight: 840;
+}
+
+.scenario-assertion-card > header span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
 @media (max-width: 900px) {
   .assertion-filter-row {
     grid-template-columns: 1fr;

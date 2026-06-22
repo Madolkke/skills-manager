@@ -59,9 +59,19 @@ const runButtonDisabled = computed(() => {
             <strong>{{ step.title }}</strong>
             <span>{{ step.label }}</span>
           </header>
-          <small>{{ step.assertionTemplateId }}</small>
+          <small>{{ step.assertions.length }} 个判断条件</small>
           <pre>{{ step.input }}</pre>
           <p v-if="step.reason">{{ step.reason }}</p>
+          <div class="runner-step-assertions">
+            <article v-for="assertion in step.assertions" :key="assertion.id" :class="['runner-assertion-card', assertion.status]">
+              <header>
+                <strong>{{ assertion.assertionTemplateId }}</strong>
+                <span>{{ assertion.label }}</span>
+              </header>
+              <p v-if="assertion.reason">{{ assertion.reason }}</p>
+              <pre v-if="assertion.actual">{{ assertion.actual }}</pre>
+            </article>
+          </div>
           <pre v-if="step.actual">{{ step.actual }}</pre>
           <OpencodeTraceDetails :trace="step.opencodeTrace" />
         </article>

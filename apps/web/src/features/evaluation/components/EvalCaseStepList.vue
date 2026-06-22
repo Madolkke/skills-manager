@@ -2,7 +2,7 @@
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, CheckCircle2, Plus, Trash2 } from "lucide-vue-next";
 import type { EvalAssertionTemplate, EvalCaseStep } from "../../../types";
-import type { StepValidation } from "./EvalCaseEditor.vue";
+import type { StepValidation } from "../lib/evalCaseForm";
 
 const props = defineProps<{
   steps: EvalCaseStep[];
@@ -13,8 +13,11 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ select: [index: number]; add: []; remove: [index: number]; move: [index: number, direction: -1 | 1] }>();
 
-function templateName(step: EvalCaseStep): string {
-  return props.templates.find((template) => template.id === step.assertion_template_id)?.name ?? step.assertion_template_id;
+function assertionSummary(step: EvalCaseStep): string {
+  if (step.assertions.length === 0) return "缺少判断条件";
+  const first = step.assertions[0];
+  const firstName = props.templates.find((template) => template.id === first.assertion_template_id)?.name ?? first.assertion_template_id;
+  return step.assertions.length === 1 ? firstName : `${step.assertions.length} 个判断条件 · ${firstName}`;
 }
 </script>
 
@@ -37,7 +40,7 @@ function templateName(step: EvalCaseStep): string {
           <span class="scenario-step-index">{{ index + 1 }}</span>
           <span class="scenario-step-copy">
             <strong>{{ step.title || `步骤 ${index + 1}` }}</strong>
-            <small>{{ templateName(step) }}</small>
+            <small>{{ assertionSummary(step) }}</small>
             <em v-if="showValidation && !validations[index]?.complete">{{ validations[index]?.message }}</em>
           </span>
           <CheckCircle2 v-if="validations[index]?.complete" :size="16" />

@@ -27,6 +27,52 @@ SCHEMA_PATCHES = (
     "alter table eval_case_versions add column if not exists workspace_artifact_id text references artifacts(id)",
     "alter table eval_case_versions add column if not exists steps jsonb not null default '[]'::jsonb",
     "alter table eval_case_versions add column if not exists runner_config jsonb not null default '{}'::jsonb",
+    """
+    update eval_case_versions ecv
+    set steps = migrated.steps
+    from (
+      select
+        ecv_inner.id,
+        coalesce(
+          jsonb_agg(
+            case
+              when jsonb_typeof(step_item.step -> 'assertions') = 'array'
+                   and jsonb_array_length(step_item.step -> 'assertions') > 0
+                then step_item.step - 'assertion_template_id' - 'assertion_params'
+              else
+                (step_item.step - 'assertion_template_id' - 'assertion_params')
+                || jsonb_build_object(
+                  'assertions',
+                  jsonb_build_array(
+                    jsonb_build_object(
+                      'id', 'assertion-1',
+                      'assertion_template_id', coalesce(nullif(step_item.step ->> 'assertion_template_id', ''), 'agent_output_semantic'),
+                      'assertion_params',
+                        case
+                          when jsonb_typeof(step_item.step -> 'assertion_params') = 'object'
+                            then step_item.step -> 'assertion_params'
+                          else '{}'::jsonb
+                        end
+                    )
+                  )
+                )
+            end
+            order by step_item.ordinality
+          ),
+          '[]'::jsonb
+        ) as steps
+      from eval_case_versions ecv_inner
+      cross join lateral jsonb_array_elements(ecv_inner.steps) with ordinality as step_item(step, ordinality)
+      where exists (
+        select 1
+        from jsonb_array_elements(ecv_inner.steps) existing_step
+        where existing_step ? 'assertion_template_id'
+           or existing_step ? 'assertion_params'
+      )
+      group by ecv_inner.id
+    ) migrated
+    where ecv.id = migrated.id
+    """,
     "alter table jobs add column if not exists attempts integer not null default 0",
     "alter table jobs add column if not exists locked_by text",
     "alter table jobs add column if not exists last_heartbeat_at timestamptz",

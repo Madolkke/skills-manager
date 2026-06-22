@@ -129,8 +129,12 @@ class ApiSkillManagementTest(ApiCommandTestCase):
                     {
                         "title": "更新后的步骤",
                         "input": "Project.findMany({ where: {} })",
-                        "assertion_template_id": "agent_output_contains",
-                        "assertion_params": {"text": "ownerId"},
+                        "assertions": [
+                            {
+                                "assertion_template_id": "agent_output_contains",
+                                "assertion_params": {"text": "ownerId"},
+                            }
+                        ],
                     }
                 ],
                 "make_current": True,
@@ -182,8 +186,12 @@ class ApiSkillManagementTest(ApiCommandTestCase):
                     {
                         "title": "读取工作目录",
                         "input": "Review the attached archive.",
-                        "assertion_template_id": "agent_output_contains",
-                        "assertion_params": {"text": "Flag missing test coverage."},
+                        "assertions": [
+                            {
+                                "assertion_template_id": "agent_output_contains",
+                                "assertion_params": {"text": "Flag missing test coverage."},
+                            }
+                        ],
                     }
                 ],
                 "workspace_name": "context.zip",
@@ -212,8 +220,12 @@ class ApiSkillManagementTest(ApiCommandTestCase):
                     {
                         "title": "读取工作目录",
                         "input": "Read workspace files.",
-                        "assertion_template_id": "agent_output_contains",
-                        "assertion_params": {"text": "Find the answer."},
+                        "assertions": [
+                            {
+                                "assertion_template_id": "agent_output_contains",
+                                "assertion_params": {"text": "Find the answer."},
+                            }
+                        ],
                     }
                 ],
                 "runner_config": {"model_provider_id": "deepseek", "model_id": "deepseek-v4-pro"},
@@ -223,9 +235,44 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         case_version = eval_set["cases"][0]["case_version"]
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(case_version["steps"][0]["assertion_template_id"], "agent_output_contains")
+        self.assertEqual(case_version["steps"][0]["assertions"][0]["assertion_template_id"], "agent_output_contains")
         self.assertEqual(case_version["runner_config"]["model_provider_id"], "deepseek")
         self.assertEqual(case_version["runner_config"]["model_id"], "deepseek-v4-pro")
+
+    def test_eval_case_step_supports_multiple_assertions(self):
+        skill = self.create_skill("case-multi-assertions")
+
+        response = self.client.post(
+            "/api/eval-cases",
+            json={
+                "skill_id": skill["skill_id"],
+                "eval_set_id": skill["eval_set_id"],
+                "title": "Multi assertion case",
+                "steps": [
+                    {
+                        "title": "生成并检查输出",
+                        "input": "请输出 helloworld，并创建 done.txt",
+                        "assertions": [
+                            {
+                                "assertion_template_id": "agent_output_contains",
+                                "assertion_params": {"text": "helloworld"},
+                            },
+                            {
+                                "assertion_template_id": "file_created",
+                                "assertion_params": {"directory": ".", "filename": "done.txt"},
+                            },
+                        ],
+                    }
+                ],
+            },
+        )
+        eval_set = self.client.get(f"/api/eval-sets/{response.json()['eval_set_id']}").json()
+        step = eval_set["cases"][0]["case_version"]["steps"][0]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("assertion_template_id", step)
+        self.assertEqual([item["id"] for item in step["assertions"]], ["assertion-1", "assertion-2"])
+        self.assertEqual([item["assertion_template_id"] for item in step["assertions"]], ["agent_output_contains", "file_created"])
 
     def test_eval_assertion_templates_endpoint_returns_builtin_templates(self):
         response = self.client.get("/api/eval-assertion-templates")

@@ -109,8 +109,13 @@ class SkillHubService:
                     "id": "step-1",
                     "title": "步骤 1",
                     "input": input_text,
-                    "assertion_template_id": "agent_output_contains",
-                    "assertion_params": {"text": expected_output},
+                    "assertions": (
+                        {
+                            "id": "assertion-1",
+                            "assertion_template_id": "agent_output_contains",
+                            "assertion_params": {"text": expected_output},
+                        },
+                    ),
                 },
             ),
             workspace_ref=None,
@@ -145,8 +150,13 @@ class SkillHubService:
                     "id": "step-1",
                     "title": "步骤 1",
                     "input": input_text,
-                    "assertion_template_id": "agent_output_contains",
-                    "assertion_params": {"text": expected_output},
+                    "assertions": (
+                        {
+                            "id": "assertion-1",
+                            "assertion_template_id": "agent_output_contains",
+                            "assertion_params": {"text": expected_output},
+                        },
+                    ),
                 },
             ),
             workspace_ref=None,

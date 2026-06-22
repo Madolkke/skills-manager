@@ -19,7 +19,7 @@ const filteredItems = computed(() => {
   const normalized = query.value.trim().toLowerCase();
   if (!normalized) return props.items;
   return props.items.filter((item) => {
-    const stepText = item.case_version.steps.map((step) => [step.title, step.input, JSON.stringify(step.assertion_params)].join(" ")).join(" ");
+    const stepText = item.case_version.steps.map((step) => [step.title, step.input, JSON.stringify(step.assertions)].join(" ")).join(" ");
     return [item.case.title, stepText].join(" ").toLowerCase().includes(normalized);
   });
 });

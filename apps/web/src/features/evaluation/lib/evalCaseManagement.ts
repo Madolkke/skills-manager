@@ -1,5 +1,5 @@
-import type { EvalCaseFormData } from "../components/EvalCaseEditor.vue";
 import type { EvalSetCase } from "../../../types";
+import type { EvalCaseFormData } from "./evalCaseForm";
 
 export type CaseSortKey = "position" | "title" | "version";
 export type CleanEvalCaseFormOptions = {
@@ -10,7 +10,7 @@ export function filterCases(items: EvalSetCase[], value: string): EvalSetCase[] 
   const normalized = value.trim().toLowerCase();
   return items.filter((item) => {
     if (!normalized) return true;
-    const stepText = item.case_version.steps.map((step) => [step.title, step.input, JSON.stringify(step.assertion_params)].join(" ")).join(" ");
+    const stepText = item.case_version.steps.map((step) => [step.title, step.input, JSON.stringify(step.assertions)].join(" ")).join(" ");
     return [item.case.title, stepText].join(" ").toLowerCase().includes(normalized);
   });
 }
@@ -29,8 +29,11 @@ export function cleanCaseForm(form: EvalCaseFormData, options: CleanEvalCaseForm
       id: step.id || `step-${index + 1}`,
       title: step.title.trim() || `步骤 ${index + 1}`,
       input: step.input.trim(),
-      assertion_template_id: step.assertion_template_id,
-      assertion_params: step.assertion_params,
+      assertions: step.assertions.map((assertion, assertionIndex) => ({
+        id: assertion.id || `assertion-${assertionIndex + 1}`,
+        assertion_template_id: assertion.assertion_template_id,
+        assertion_params: assertion.assertion_params,
+      })),
     })),
     workspace_name: form.workspace_name,
     workspace_base64: form.workspace_base64,

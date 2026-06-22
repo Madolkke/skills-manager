@@ -41,7 +41,7 @@ class ApiEvalFlowTest(ApiCommandTestCase):
         self.assertEqual(detail["eval_run"]["environment_tags"], ["codex", "windows"])
         self.assertEqual(detail["case_results"][0]["result_artifact"]["content_text"], "The run missed the ownerId finding.")
         self.assertEqual(
-            detail["case_results"][0]["case_version"]["steps"][0]["assertion_params"]["text"],
+            detail["case_results"][0]["case_version"]["steps"][0]["assertions"][0]["assertion_params"]["text"],
             "Flag missing ownerId filter.",
         )
 

@@ -1,8 +1,8 @@
 import { computed, ref, watch, type ComputedRef } from "vue";
 import { api, ApiError } from "../../../lib/api";
 import type { RouteState } from "../../../lib/navigation";
-import type { EvalCaseFormData } from "../components/EvalCaseEditor.vue";
 import { cleanCaseForm, filterCases, sortCases, type CaseSortKey } from "../lib/evalCaseManagement";
+import type { EvalCaseFormData } from "../lib/evalCaseForm";
 import type { EvalCaseLibraryItem, EvalSetCase, EvalSetDetail, EvalSetSummary, SkillDetail, ToastState } from "../../../types";
 
 type UseEvalSetManagementInput = {

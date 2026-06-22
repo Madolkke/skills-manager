@@ -1,4 +1,4 @@
-import type { EvalCaseRunDetail, EvalCaseRunRecord, EvalSetCase } from "../../../types";
+import type { EvalCaseRunDetail, EvalCaseRunRecord, EvalCaseStep, EvalSetCase, EvalStepAssertion } from "../../../types";
 import { humanDate } from "../../../lib/format";
 
 export type RunnerStateKind = "not-run" | "queued" | "running" | "passed" | "failed" | "rejected";
@@ -37,27 +37,47 @@ export type OpencodeTrace = {
   provider_id: string;
 };
 
-export type StepRunResult = {
-  step_id: string;
-  title: string;
-  status: "passed" | "failed" | "skipped" | string;
+export type AssertionRunResult = {
+  assertion_id: string;
   assertion_template_id: string;
+  status: "passed" | "failed" | "skipped" | string;
   passed?: boolean | null;
   actual?: string;
   reason?: string;
   details?: Record<string, unknown>;
+};
+
+export type StepRunResult = {
+  step_id: string;
+  title: string;
+  status: "passed" | "failed" | "skipped" | string;
+  passed?: boolean | null;
+  actual?: string;
+  reason?: string;
+  details?: Record<string, unknown>;
+  assertions?: AssertionRunResult[];
   opencode_trace?: OpencodeTrace;
+};
+
+export type StepTimelineAssertionRow = {
+  id: string;
+  assertionTemplateId: string;
+  status: "pending" | "running" | "asserting" | "passed" | "failed" | "skipped";
+  label: string;
+  reason: string;
+  actual: string;
+  details?: Record<string, unknown>;
 };
 
 export type StepTimelineRow = {
   id: string;
   title: string;
   input: string;
-  assertionTemplateId: string;
   status: "pending" | "running" | "asserting" | "passed" | "failed" | "skipped";
   label: string;
   reason: string;
   actual: string;
+  assertions: StepTimelineAssertionRow[];
   opencodeTrace?: OpencodeTrace;
 };
 
@@ -198,11 +218,11 @@ export function stepTimelineRows(item: EvalSetCase, detail: EvalCaseRunDetail | 
         id: step.id,
         title: step.title,
         input: step.input,
-        assertionTemplateId: step.assertion_template_id,
         status,
         label: stepStatusLabel(status),
         reason: result.reason || "",
         actual: result.actual || "",
+        assertions: assertionTimelineRows(step, result.assertions, status),
         opencodeTrace: result.opencode_trace,
       };
     }
@@ -212,22 +232,22 @@ export function stepTimelineRows(item: EvalSetCase, detail: EvalCaseRunDetail | 
         id: step.id,
         title: step.title,
         input: step.input,
-        assertionTemplateId: step.assertion_template_id,
         status,
         label: stepStatusLabel(status),
         reason: currentStageLabel(detail),
         actual: "",
+        assertions: assertionTimelineRows(step, undefined, status),
       };
     }
     return {
       id: step.id,
       title: step.title,
       input: step.input,
-      assertionTemplateId: step.assertion_template_id,
       status: "pending",
       label: "待执行",
       reason: "",
       actual: "",
+      assertions: assertionTimelineRows(step, undefined, "pending"),
     };
   });
 }
@@ -275,6 +295,49 @@ function currentStep(detail: EvalCaseRunDetail | null | undefined): { id?: strin
 function normalizeStepStatus(status: string): StepTimelineRow["status"] {
   if (status === "passed" || status === "failed" || status === "skipped") return status;
   return "pending";
+}
+
+function assertionTimelineRows(
+  step: EvalCaseStep,
+  results: AssertionRunResult[] | undefined,
+  fallbackStatus: StepTimelineAssertionRow["status"],
+): StepTimelineAssertionRow[] {
+  const resultMap = new Map((results ?? []).map((result) => [result.assertion_id, result]));
+  return stepAssertions(step).map((assertion) => {
+    const result = resultMap.get(assertion.id);
+    if (result) {
+      const status = normalizeStepStatus(result.status);
+      return {
+        id: assertion.id,
+        assertionTemplateId: assertion.assertion_template_id,
+        status,
+        label: stepStatusLabel(status),
+        reason: result.reason || "",
+        actual: result.actual || "",
+        details: result.details,
+      };
+    }
+    return {
+      id: assertion.id,
+      assertionTemplateId: assertion.assertion_template_id,
+      status: fallbackStatus,
+      label: stepStatusLabel(fallbackStatus),
+      reason: "",
+      actual: "",
+    };
+  });
+}
+
+function stepAssertions(step: EvalCaseStep): EvalStepAssertion[] {
+  if (step.assertions.length) return step.assertions;
+  const legacy = step as EvalCaseStep & { assertion_template_id?: string; assertion_params?: Record<string, unknown> };
+  return [
+    {
+      id: "assertion-1",
+      assertion_template_id: legacy.assertion_template_id ?? "agent_output_semantic",
+      assertion_params: legacy.assertion_params ?? {},
+    },
+  ];
 }
 
 function stepStatusLabel(status: StepTimelineRow["status"]): string {

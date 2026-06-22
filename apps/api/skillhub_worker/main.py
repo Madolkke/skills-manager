@@ -82,48 +82,49 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
             metadata["current_stage_label"] = f"第 {index + 1}/{len(steps)} 步判定中"
             metadata["current_step"] = _current_step_metadata(step, index, len(steps), "asserting")
             _persist_metadata(repository, eval_case_run_id, metadata)
-            result = assertion_template(step["assertion_template_id"]).evaluate(
-                AssertionContext(
-                    agent_output=agent_output,
-                    workdir=Path(paths["host_workdir"]),
-                    before_snapshot=before,
-                    after_snapshot=after,
-                    step=step,
-                    run_metadata=metadata,
-                    reasoning_text=str(opencode_trace.get("reasoning_text") or ""),
-                    tool_calls=list(opencode_trace.get("tool_calls") or []),
-                ),
-                dict(step.get("assertion_params") or {}),
+            context = AssertionContext(
+                agent_output=agent_output,
+                workdir=Path(paths["host_workdir"]),
+                before_snapshot=before,
+                after_snapshot=after,
+                step=step,
+                run_metadata=metadata,
+                reasoning_text=str(opencode_trace.get("reasoning_text") or ""),
+                tool_calls=list(opencode_trace.get("tool_calls") or []),
             )
+            assertion_results = [_evaluate_assertion(context, assertion) for assertion in _step_assertions(step)]
+            step_passed = all(item["passed"] for item in assertion_results)
+            failed_count = sum(1 for item in assertion_results if not item["passed"])
+            step_reason = "全部判断条件通过。" if step_passed else f"{failed_count} 个判断条件未通过。"
             step_result = {
                 "step_id": step["id"],
                 "title": step["title"],
-                "status": "passed" if result.passed else "failed",
-                "assertion_template_id": step["assertion_template_id"],
-                "passed": result.passed,
-                "actual": result.actual,
-                "reason": result.reason,
-                "details": result.details,
+                "status": "passed" if step_passed else "failed",
+                "passed": step_passed,
+                "actual": agent_output,
+                "reason": step_reason,
+                "details": {"assertion_count": len(assertion_results), "failed_count": failed_count},
+                "assertions": assertion_results,
                 "message_response": _compact_message_response(message_response),
                 "opencode_trace": _public_opencode_trace(opencode_trace),
             }
             metadata["step_results"].append(step_result)
-            actual_output = result.actual
+            actual_output = agent_output
             _persist_metadata(repository, eval_case_run_id, metadata)
-            if not result.passed:
+            if not step_passed:
                 passed = False
-                failure_reason = result.reason
+                failure_reason = step_reason
                 for skipped in steps[index + 1:]:
                     metadata["step_results"].append(
                         {
                             "step_id": skipped["id"],
                             "title": skipped["title"],
                             "status": "skipped",
-                            "assertion_template_id": skipped["assertion_template_id"],
                             "passed": None,
                             "actual": "",
                             "reason": "前置步骤失败，未执行。",
                             "details": {},
+                            "assertions": [_skipped_assertion(assertion) for assertion in _step_assertions(skipped)],
                         }
                     )
                 break
@@ -136,6 +137,8 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
         for item in metadata["step_results"]:
             if item["status"] != "skipped":
                 scores[f"step.{item['step_id']}"] = 1 if item["passed"] else 0
+                for assertion in item.get("assertions") or []:
+                    scores[f"step.{item['step_id']}.assertion.{assertion['assertion_id']}"] = 1 if assertion["passed"] else 0
         laminar_error = laminar.update_datapoint(refs=refs, executor_output={"step_results": metadata["step_results"]}, scores=scores, metadata=metadata)
         if laminar_error:
             metadata["laminar_error"] = laminar_error
@@ -211,6 +214,44 @@ def _public_opencode_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "model_id": str(trace.get("model_id") or ""),
         "provider_id": str(trace.get("provider_id") or ""),
     }
+
+
+def _evaluate_assertion(context: AssertionContext, assertion: dict[str, Any]) -> dict[str, Any]:
+    result = assertion_template(str(assertion["assertion_template_id"])).evaluate(context, dict(assertion.get("assertion_params") or {}))
+    return {
+        "assertion_id": assertion["id"],
+        "assertion_template_id": assertion["assertion_template_id"],
+        "status": "passed" if result.passed else "failed",
+        "passed": result.passed,
+        "actual": result.actual,
+        "reason": result.reason,
+        "details": result.details,
+    }
+
+
+def _skipped_assertion(assertion: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "assertion_id": assertion["id"],
+        "assertion_template_id": assertion["assertion_template_id"],
+        "status": "skipped",
+        "passed": None,
+        "actual": "",
+        "reason": "前置步骤失败，未执行。",
+        "details": {},
+    }
+
+
+def _step_assertions(step: dict[str, Any]) -> list[dict[str, Any]]:
+    assertions = step.get("assertions")
+    if isinstance(assertions, list) and assertions:
+        return [dict(assertion) for assertion in assertions if isinstance(assertion, dict)]
+    return [
+        {
+            "id": "assertion-1",
+            "assertion_template_id": step.get("assertion_template_id") or "agent_output_semantic",
+            "assertion_params": step.get("assertion_params") if isinstance(step.get("assertion_params"), dict) else {},
+        }
+    ]
 
 
 def _current_step_metadata(step: dict[str, Any], index: int, total: int, stage: str) -> dict[str, Any]:

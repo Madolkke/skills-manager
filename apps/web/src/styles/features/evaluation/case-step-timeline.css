@@ -228,6 +228,43 @@
   padding: 12px;
 }
 
+.case-step-assertion-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.case-step-assertion-card {
+  min-width: 0;
+  border: 1px solid #e0e9f5;
+  border-radius: var(--radius);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.case-step-assertion-head {
+  min-width: 0;
+  border-bottom: 1px solid #edf2f8;
+  background: #fbfdff;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.case-step-assertion-head strong {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 840;
+}
+
+.case-step-assertion-head small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
 .case-param-row {
   min-width: 0;
   border: 1px solid #e6edf6;

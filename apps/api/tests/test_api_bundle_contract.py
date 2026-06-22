@@ -54,7 +54,7 @@ class ApiBundleContractTest(ApiCommandTestCase):
                 "skill_id": skill["skill_id"],
                 "eval_set_id": skill["eval_set_id"],
                 "title": "Invalid step",
-                "steps": [{"title": "Missing input", "assertion_template_id": "agent_output_contains"}],
+                "steps": [{"title": "Missing input", "assertions": [{"assertion_template_id": "agent_output_contains"}]}],
             },
         )
 

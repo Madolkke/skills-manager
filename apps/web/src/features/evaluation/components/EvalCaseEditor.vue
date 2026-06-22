@@ -1,25 +1,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { api } from "../../../lib/api";
-import type { EvalAssertionTemplate, EvalCaseStep, EvalRunnerConfig, EvalSetCase } from "../../../types";
+import type { EvalAssertionTemplate, EvalSetCase } from "../../../types";
+import {
+  artifactFileName,
+  createEvalCaseForm,
+  defaultAssertion,
+  defaultStep,
+  formatBytes,
+  nextAssertionIndex,
+  validateStep,
+  type EvalCaseFormData,
+} from "../lib/evalCaseForm";
 import EvalCaseAdvancedSettings from "./EvalCaseAdvancedSettings.vue";
 import EvalCaseScenarioBasics from "./EvalCaseScenarioBasics.vue";
 import EvalCaseStepEditor from "./EvalCaseStepEditor.vue";
 import EvalCaseStepList from "./EvalCaseStepList.vue";
-
-export type EvalCaseFormData = {
-  title: string;
-  steps: EvalCaseStep[];
-  workspace_name?: string;
-  workspace_base64?: string;
-  runner_config: EvalRunnerConfig;
-  notes: string;
-};
-
-export type StepValidation = {
-  complete: boolean;
-  message: string;
-};
 
 const props = defineProps<{
   caseItem?: EvalSetCase | null;
@@ -35,14 +31,7 @@ const selectedStepIndex = ref(0);
 const attemptedSubmit = ref(false);
 const advancedOpen = ref(Boolean(props.caseItem?.case_version.notes || props.caseItem?.case_version.runner_config.model_provider_id));
 const workspaceLabel = ref(props.caseItem?.case_version.workspace_artifact ? artifactFileName(props.caseItem.case_version.workspace_artifact.locator) : "未选择压缩包");
-const form = ref<EvalCaseFormData>({
-  title: props.caseItem?.case.title ?? "",
-  steps: props.caseItem?.case_version.steps.length ? props.caseItem.case_version.steps.map(cloneStep) : [defaultStep()],
-  workspace_name: undefined,
-  workspace_base64: undefined,
-  runner_config: { ...(props.caseItem?.case_version.runner_config ?? {}) },
-  notes: props.caseItem?.case_version.notes ?? "",
-});
+const form = ref<EvalCaseFormData>(createEvalCaseForm(props.caseItem));
 
 const groupedTemplates = computed(() => {
   const groups = new Map<string, EvalAssertionTemplate[]>();
@@ -55,7 +44,7 @@ const modelLabel = computed(() => {
   const model = form.value.runner_config.model_id;
   return provider && model ? `${provider}/${model}` : "Opencode 默认模型";
 });
-const stepValidations = computed(() => form.value.steps.map(validateStep));
+const stepValidations = computed(() => form.value.steps.map((step) => validateStep(step, templateFor)));
 const invalidStepCount = computed(() => stepValidations.value.filter((item) => !item.complete).length);
 const titleValid = computed(() => Boolean(form.value.title.trim()));
 const saveStatus = computed(() => {
@@ -68,22 +57,6 @@ onMounted(async () => {
   templates.value = await api.listEvalAssertionTemplates();
 });
 
-/** 创建一个最小可保存的默认测试步骤。 */
-function defaultStep(): EvalCaseStep {
-  return {
-    id: "",
-    title: "步骤 1",
-    input: "",
-    assertion_template_id: "agent_output_semantic",
-    assertion_params: { expected: "", threshold: 0.85 },
-  };
-}
-
-/** 复制步骤数据，避免编辑表单直接修改父级列表对象。 */
-function cloneStep(step: EvalCaseStep): EvalCaseStep {
-  return { ...step, assertion_params: { ...step.assertion_params } };
-}
-
 /** 根据模板 id 查找当前可用模板。 */
 function templateFor(id: string): EvalAssertionTemplate | undefined {
   return templates.value.find((template) => template.id === id);
@@ -91,7 +64,7 @@ function templateFor(id: string): EvalAssertionTemplate | undefined {
 
 /** 新增步骤并自动切换到新步骤。 */
 function addStep(): void {
-  form.value.steps.push({ ...defaultStep(), title: `步骤 ${form.value.steps.length + 1}` });
+  form.value.steps.push(defaultStep(form.value.steps.length));
   selectedStepIndex.value = form.value.steps.length - 1;
 }
 
@@ -117,13 +90,27 @@ function moveStep(index: number, direction: -1 | 1): void {
   selectedStepIndex.value = nextIndex;
 }
 
-/** 切换判断模板，并按模板 schema 重置参数。 */
-function changeTemplate(templateId: string): void {
+/** 新增判断条件，并使用默认语义判定模板。 */
+function addAssertion(): void {
   const step = activeStep.value;
-  step.assertion_template_id = templateId;
-  step.assertion_params = {};
-  for (const param of templateFor(templateId)?.params_schema ?? []) {
-    step.assertion_params[param.name] = param.default ?? "";
+  step.assertions.push(defaultAssertion(nextAssertionIndex(step.assertions)));
+}
+
+/** 删除判断条件，至少保留一个条件用于提交。 */
+function removeAssertion(assertionId: string): void {
+  const step = activeStep.value;
+  if (step.assertions.length === 1) return;
+  step.assertions = step.assertions.filter((assertion) => assertion.id !== assertionId);
+}
+
+/** 切换判断模板，并按模板 schema 重置参数。 */
+function changeTemplate(payload: { assertionId: string; templateId: string }): void {
+  const assertion = activeStep.value.assertions.find((item) => item.id === payload.assertionId);
+  if (!assertion) return;
+  assertion.assertion_template_id = payload.templateId;
+  assertion.assertion_params = {};
+  for (const param of templateFor(payload.templateId)?.params_schema ?? []) {
+    assertion.assertion_params[param.name] = param.default ?? "";
   }
 }
 
@@ -150,8 +137,9 @@ function updateActiveInput(value: string): void {
 }
 
 /** 更新当前步骤判断模板参数。 */
-function updateActiveParam(payload: { name: string; value: string | number }): void {
-  activeStep.value.assertion_params[payload.name] = payload.value;
+function updateActiveParam(payload: { assertionId: string; name: string; value: string | number }): void {
+  const assertion = activeStep.value.assertions.find((item) => item.id === payload.assertionId);
+  if (assertion) assertion.assertion_params[payload.name] = payload.value;
 }
 
 /** 读取 zip 文件并写入提交表单。 */
@@ -180,18 +168,6 @@ function submit(): void {
   emit("submit", form.value);
 }
 
-/** 校验单个步骤是否满足保存条件。 */
-function validateStep(step: EvalCaseStep): StepValidation {
-  if (!step.input.trim()) return { complete: false, message: "缺少输入" };
-  const template = templateFor(step.assertion_template_id);
-  for (const param of template?.params_schema ?? []) {
-    if (!param.required) continue;
-    const value = step.assertion_params[param.name];
-    if (value === null || value === undefined || (typeof value === "string" && !value.trim())) return { complete: false, message: `缺少${param.label}` };
-  }
-  return { complete: true, message: "完整" };
-}
-
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -199,16 +175,6 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("读取压缩包失败。"));
     reader.readAsDataURL(file);
   });
-}
-
-function artifactFileName(locator: string): string {
-  return locator.split(":").at(-1) || "workspace.zip";
-}
-
-function formatBytes(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 </script>
 
@@ -239,11 +205,12 @@ function formatBytes(size: number): string {
         :step="activeStep"
         :index="selectedStepIndex"
         :grouped-templates="groupedTemplates"
-        :template="templateFor(activeStep.assertion_template_id)"
         :validation="stepValidations[selectedStepIndex]"
         :show-validation="attemptedSubmit"
         @title="updateActiveTitle"
         @input="updateActiveInput"
+        @add-assertion="addAssertion"
+        @remove-assertion="removeAssertion"
         @template="changeTemplate"
         @param="updateActiveParam"
       />

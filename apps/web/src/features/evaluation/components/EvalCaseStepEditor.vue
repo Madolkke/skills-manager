@@ -3,8 +3,8 @@ import clsx from "clsx";
 import { computed, ref, watch } from "vue";
 import DropdownSelect from "../../../components/DropdownSelect.vue";
 import type { DropdownSelectGroup, DropdownSelectOption } from "../../../components/dropdown";
-import type { EvalAssertionTemplate, EvalCaseStep } from "../../../types";
-import type { StepValidation } from "./EvalCaseEditor.vue";
+import type { EvalAssertionTemplate, EvalCaseStep, EvalStepAssertion } from "../../../types";
+import type { StepValidation } from "../lib/evalCaseForm";
 
 const categoryOrder = ["语义判定", "Agent 输出", "Opencode 过程", "工作目录文件"];
 
@@ -12,22 +12,21 @@ const props = defineProps<{
   step: EvalCaseStep;
   index: number;
   groupedTemplates: Array<{ category: string; items: EvalAssertionTemplate[] }>;
-  template?: EvalAssertionTemplate;
   validation?: StepValidation;
   showValidation: boolean;
 }>();
 const emit = defineEmits<{
   title: [value: string];
   input: [value: string];
-  template: [id: string];
-  param: [payload: { name: string; value: string | number }];
+  addAssertion: [];
+  removeAssertion: [assertionId: string];
+  template: [payload: { assertionId: string; templateId: string }];
+  param: [payload: { assertionId: string; name: string; value: string | number }];
 }>();
 
 const categoryFilter = ref("all");
 const templateQuery = ref("");
 const sortedGroups = computed(() => [...props.groupedTemplates].sort((left, right) => categoryRank(left.category) - categoryRank(right.category) || left.category.localeCompare(right.category)));
-const selectedTemplate = computed(() => props.template ?? templateFor(props.step.assertion_template_id));
-const selectedRequiredParams = computed(() => requiredParams(selectedTemplate.value));
 const categoryOptions = computed<DropdownSelectOption[]>(() => [
   { value: "all", label: "全部分类", description: `${templateCount(sortedGroups.value)} 个模板` },
   ...sortedGroups.value.map((group) => ({ value: group.category, label: group.category, description: `${group.items.length} 个模板` })),
@@ -38,31 +37,21 @@ const matchedTemplateGroups = computed<DropdownSelectGroup[]>(() => {
     .filter((group) => categoryFilter.value === "all" || group.category === categoryFilter.value)
     .map((group) => ({
       label: group.category,
-      options: group.items
-        .filter((template) => templateMatches(template, query))
-        .map(templateOption),
+      options: group.items.filter((template) => templateMatches(template, query)).map(templateOption),
     }))
     .filter((group) => group.options.length > 0);
 });
-const filteredGroups = computed<DropdownSelectGroup[]>(() => {
-  const groups = matchedTemplateGroups.value.map((group) => ({ ...group, options: [...group.options] }));
-  const selected = selectedTemplate.value;
-  if (selected && !groups.some((group) => group.options.some((option) => option.value === selected.id))) {
-    groups.unshift({ label: "当前选择", options: [templateOption(selected)] });
-  }
-  return groups;
-});
 const filteredTemplateCount = computed(() => templateCount(matchedTemplateGroups.value));
 
-watch(() => [props.step.assertion_template_id, props.groupedTemplates.map((group) => `${group.category}:${group.items.map((item) => item.id).join(",")}`).join("|")] as const, () => {
+watch(() => props.groupedTemplates.map((group) => `${group.category}:${group.items.map((item) => item.id).join(",")}`).join("|"), () => {
   if (categoryFilter.value !== "all" && !sortedGroups.value.some((group) => group.category === categoryFilter.value)) {
     categoryFilter.value = "all";
   }
 }, { immediate: true });
 
-/** 读取当前参数值，保证模板输入控件始终收到可显示的字符串或数字。 */
-function paramValue(name: string): string | number {
-  const value = props.step.assertion_params[name];
+/** 读取指定判断条件参数值，保证输入控件始终收到可显示的字符串或数字。 */
+function paramValue(assertion: EvalStepAssertion, name: string): string | number {
+  const value = assertion.assertion_params[name];
   return typeof value === "number" || typeof value === "string" ? value : "";
 }
 
@@ -80,10 +69,20 @@ function templateFor(id: string): EvalAssertionTemplate | undefined {
   }
 }
 
+/** 当前判断条件的模板下拉分组，确保当前选择不会被过滤条件隐藏。 */
+function templateGroupsFor(assertion: EvalStepAssertion): DropdownSelectGroup[] {
+  const groups = matchedTemplateGroups.value.map((group) => ({ ...group, options: [...group.options] }));
+  const selected = templateFor(assertion.assertion_template_id);
+  if (selected && !groups.some((group) => group.options.some((option) => option.value === selected.id))) {
+    groups.unshift({ label: "当前选择", options: [templateOption(selected)] });
+  }
+  return groups;
+}
+
 /** 计算模板参数摘要，帮助用户快速判断选择后要填写什么。 */
 function paramSummary(template: EvalAssertionTemplate): string {
   const total = template.params_schema.length;
-  const required = requiredParams(template).length;
+  const required = template.params_schema.filter((param) => param.required).length;
   if (!total) return "无需填写参数";
   if (required === total) return `${total} 个必填参数`;
   if (!required) return `${total} 个可选参数`;
@@ -97,11 +96,6 @@ function templateOption(template: EvalAssertionTemplate): DropdownSelectOption {
     label: template.name,
     description: `${paramSummary(template)} · ${template.description}`,
   };
-}
-
-/** 返回模板中的必填参数列表。 */
-function requiredParams(template?: EvalAssertionTemplate): EvalAssertionTemplate["params_schema"] {
-  return template?.params_schema.filter((param) => param.required) ?? [];
 }
 
 /** 判断模板是否匹配当前关键词过滤器。 */
@@ -118,11 +112,6 @@ function normalizeFilterText(value: string): string {
 /** 统计模板数量，兼容模板组和下拉选项组。 */
 function templateCount(groups: Array<{ items?: unknown[]; options?: unknown[] }>): number {
   return groups.reduce((total, group) => total + (group.items?.length ?? group.options?.length ?? 0), 0);
-}
-
-/** 同步下拉选择结果。 */
-function selectTemplate(value: string): void {
-  emit("template", value);
 }
 </script>
 
@@ -149,9 +138,10 @@ function selectTemplate(value: string): void {
     <section class="scenario-template-panel">
       <div class="scenario-panel-heading">
         <div>
-          <strong>判断模板</strong>
-          <span>{{ selectedTemplate?.category ?? "未加载" }}</span>
+          <strong>判断条件</strong>
+          <span>{{ step.assertions.length }} 个条件，全部通过才算本步骤通过</span>
         </div>
+        <button class="secondary-button compact" type="button" @click="emit('addAssertion')">添加判断条件</button>
       </div>
 
       <div class="assertion-filter-row">
@@ -165,57 +155,66 @@ function selectTemplate(value: string): void {
         </label>
       </div>
 
-      <label class="field-label compact">
-        判断模板
-        <DropdownSelect
-          :model-value="step.assertion_template_id"
-          :groups="filteredGroups"
-          :placeholder="filteredTemplateCount ? '选择判断模板' : '没有匹配的模板'"
-          aria-label="判断模板"
-          @update:model-value="selectTemplate"
-        />
-        <span class="field-help">当前筛选出 {{ filteredTemplateCount }} 个模板。切换模板后，下面的参数表单会自动刷新。</span>
-      </label>
+      <div class="scenario-assertion-list">
+        <article v-for="(assertion, assertionIndex) in step.assertions" :key="assertion.id" class="scenario-assertion-card">
+          <header>
+            <div>
+              <strong>判断条件 {{ assertionIndex + 1 }}</strong>
+              <span>{{ templateFor(assertion.assertion_template_id)?.category ?? "未加载" }}</span>
+            </div>
+            <button class="secondary-button compact" type="button" :disabled="step.assertions.length === 1" @click="emit('removeAssertion', assertion.id)">删除</button>
+          </header>
 
-      <div class="assertion-template-summary">
-        <span>当前判断条件</span>
-        <strong>{{ selectedTemplate?.name ?? "模板加载中" }}</strong>
-        <p>{{ selectedTemplate?.description ?? "正在加载可用判断模板..." }}</p>
-        <small>
-          {{ selectedRequiredParams.length ? `需要填写：${selectedRequiredParams.map((param) => param.label).join("、")}` : "无需额外填写必填参数" }}
-        </small>
+          <label class="field-label compact">
+            判断模板
+            <DropdownSelect
+              :model-value="assertion.assertion_template_id"
+              :groups="templateGroupsFor(assertion)"
+              :placeholder="filteredTemplateCount ? '选择判断模板' : '没有匹配的模板'"
+              aria-label="判断模板"
+              @update:model-value="emit('template', { assertionId: assertion.id, templateId: $event })"
+            />
+            <span class="field-help">当前筛选出 {{ filteredTemplateCount }} 个模板。切换模板后，本条件的参数会自动刷新。</span>
+          </label>
+
+          <div class="assertion-template-summary">
+            <span>当前判断条件</span>
+            <strong>{{ templateFor(assertion.assertion_template_id)?.name ?? "模板加载中" }}</strong>
+            <p>{{ templateFor(assertion.assertion_template_id)?.description ?? "正在加载可用判断模板..." }}</p>
+          </div>
+
+          <section class="scenario-param-grid">
+            <label v-for="param in templateFor(assertion.assertion_template_id)?.params_schema ?? []" :key="param.name" class="field-label">
+              {{ param.label }}
+              <textarea
+                v-if="param.type === 'textarea'"
+                :value="paramValue(assertion, param.name)"
+                :placeholder="param.placeholder"
+                :required="param.required"
+                @input="emit('param', { assertionId: assertion.id, name: param.name, value: ($event.target as HTMLTextAreaElement).value })"
+              />
+              <input
+                v-else-if="param.type === 'number'"
+                :value="paramValue(assertion, param.name)"
+                type="number"
+                step="0.01"
+                :min="param.min ?? undefined"
+                :max="param.max ?? undefined"
+                :required="param.required"
+                @input="emit('param', { assertionId: assertion.id, name: param.name, value: Number(($event.target as HTMLInputElement).value) })"
+              >
+              <input
+                v-else
+                :value="paramValue(assertion, param.name)"
+                :placeholder="param.placeholder"
+                :required="param.required"
+                @input="emit('param', { assertionId: assertion.id, name: param.name, value: ($event.target as HTMLInputElement).value })"
+              >
+              <span v-if="param.help" class="field-help">{{ param.help }}</span>
+            </label>
+          </section>
+        </article>
       </div>
-    </section>
-
-    <section class="scenario-param-grid">
-      <label v-for="param in template?.params_schema ?? []" :key="param.name" class="field-label">
-        {{ param.label }}
-        <textarea
-          v-if="param.type === 'textarea'"
-          :value="paramValue(param.name)"
-          :placeholder="param.placeholder"
-          :required="param.required"
-          @input="emit('param', { name: param.name, value: ($event.target as HTMLTextAreaElement).value })"
-        />
-        <input
-          v-else-if="param.type === 'number'"
-          :value="paramValue(param.name)"
-          type="number"
-          step="0.01"
-          :min="param.min ?? undefined"
-          :max="param.max ?? undefined"
-          :required="param.required"
-          @input="emit('param', { name: param.name, value: Number(($event.target as HTMLInputElement).value) })"
-        >
-        <input
-          v-else
-          :value="paramValue(param.name)"
-          :placeholder="param.placeholder"
-          :required="param.required"
-          @input="emit('param', { name: param.name, value: ($event.target as HTMLInputElement).value })"
-        >
-        <span v-if="param.help" class="field-help">{{ param.help }}</span>
-      </label>
     </section>
   </section>
 </template>

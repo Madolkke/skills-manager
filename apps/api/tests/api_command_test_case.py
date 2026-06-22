@@ -58,8 +58,12 @@ class ApiCommandTestCase(PostgresTestCase):
                     {
                         "title": "检查 owner 过滤",
                         "input": "Project.findMany()",
-                        "assertion_template_id": "agent_output_contains",
-                        "assertion_params": {"text": "Flag missing ownerId filter."},
+                        "assertions": [
+                            {
+                                "assertion_template_id": "agent_output_contains",
+                                "assertion_params": {"text": "Flag missing ownerId filter."},
+                            }
+                        ],
                     }
                 ],
             },

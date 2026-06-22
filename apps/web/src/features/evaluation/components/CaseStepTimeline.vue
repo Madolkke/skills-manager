@@ -2,7 +2,7 @@
 import { Copy, FileText, ListChecks } from "lucide-vue-next";
 import { computed } from "vue";
 import { compactText } from "../../../lib/format";
-import type { EvalCaseStep } from "../../../types";
+import type { EvalCaseStep, EvalStepAssertion } from "../../../types";
 
 const props = defineProps<{ steps: EvalCaseStep[] }>();
 const emit = defineEmits<{ copy: [value: string] }>();
@@ -31,6 +31,23 @@ function assertionParamRows(params: Record<string, unknown> = {}): AssertionPara
         multiline: Array.isArray(rawValue) || isPlainObject(rawValue) || value.length > 72 || value.includes("\n"),
       };
     });
+}
+
+function stepAssertions(step: EvalCaseStep): EvalStepAssertion[] {
+  if (step.assertions.length) return step.assertions;
+  const legacy = step as EvalCaseStep & { assertion_template_id?: string; assertion_params?: Record<string, unknown> };
+  return [
+    {
+      id: "assertion-1",
+      assertion_template_id: legacy.assertion_template_id ?? "agent_output_semantic",
+      assertion_params: legacy.assertion_params ?? {},
+    },
+  ];
+}
+
+function assertionCountLabel(step: EvalCaseStep): string {
+  const count = stepAssertions(step).length;
+  return `${count} 个判断条件`;
 }
 
 function paramSummary(params: Record<string, unknown> = {}): string {
@@ -79,10 +96,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
           <header class="case-step-card-head">
             <div>
               <strong>{{ compactText(step.title, `步骤 ${index + 1}`) }}</strong>
-              <span class="case-template-chip">{{ step.assertion_template_id }}</span>
+              <span class="case-template-chip">{{ assertionCountLabel(step) }}</span>
             </div>
             <div class="case-step-card-tools">
-              <span class="case-param-count">{{ paramSummary(step.assertion_params) }}</span>
+              <span class="case-param-count">全部通过才算本步骤通过</span>
               <button class="icon-button mini" type="button" :aria-label="`复制步骤 ${index + 1}`" @click="copyStep(step)">
                 <Copy :size="15" />
               </button>
@@ -95,14 +112,23 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
               <pre>{{ compactText(step.input, "无内容") }}</pre>
             </section>
             <section class="case-step-panel case-step-param-panel">
-              <header><ListChecks :size="15" /><span>判断参数</span></header>
-              <p v-if="assertionParamRows(step.assertion_params).length === 0" class="case-step-empty">无需额外参数</p>
-              <div v-else class="case-step-param-grid">
-                <div v-for="row in assertionParamRows(step.assertion_params)" :key="row.name" class="case-param-row">
-                  <b>{{ row.name }}</b>
-                  <pre v-if="row.multiline" class="case-param-value">{{ row.value }}</pre>
-                  <span v-else class="case-param-value">{{ row.value }}</span>
-                </div>
+              <header><ListChecks :size="15" /><span>判断条件</span></header>
+              <div class="case-step-assertion-list">
+                <article v-for="(assertion, assertionIndex) in stepAssertions(step)" :key="assertion.id" class="case-step-assertion-card">
+                  <div class="case-step-assertion-head">
+                    <strong>条件 {{ assertionIndex + 1 }}</strong>
+                    <span class="case-template-chip">{{ assertion.assertion_template_id }}</span>
+                    <small>{{ paramSummary(assertion.assertion_params) }}</small>
+                  </div>
+                  <p v-if="assertionParamRows(assertion.assertion_params).length === 0" class="case-step-empty">无需额外参数</p>
+                  <div v-else class="case-step-param-grid">
+                    <div v-for="row in assertionParamRows(assertion.assertion_params)" :key="row.name" class="case-param-row">
+                      <b>{{ row.name }}</b>
+                      <pre v-if="row.multiline" class="case-param-value">{{ row.value }}</pre>
+                      <span v-else class="case-param-value">{{ row.value }}</span>
+                    </div>
+                  </div>
+                </article>
               </div>
             </section>
           </div>
