@@ -1,5 +1,8 @@
 from tests.api_command_test_case import ApiCommandTestCase
 import base64
+from io import BytesIO
+import json
+from zipfile import ZipFile
 
 
 class ApiSkillManagementTest(ApiCommandTestCase):
@@ -371,6 +374,61 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertIn("evaluator", capabilities["effective_roles"])
         self.assertTrue(capabilities["permissions"]["eval.run"])
 
+    def test_skill_scoped_groups_can_be_managed_from_skill_settings(self):
+        first = self.create_skill("skill-group-first")
+        second = self.create_skill("skill-group-second")
+
+        created = self.client.post(
+            f"/api/skills/{first['skill_id']}/groups",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"name": "reviewers", "description": "Skill local reviewers"},
+        )
+        duplicate_other_skill = self.client.post(
+            f"/api/skills/{second['skill_id']}/groups",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"name": "reviewers"},
+        )
+        group_id = created.json()["id"]
+        member = self.client.post(
+            f"/api/skills/{first['skill_id']}/groups/{group_id}/members",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"subject_id": "qa-user"},
+        )
+        assigned = self.client.post(
+            f"/api/skills/{first['skill_id']}/role-assignments",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"subject_type": "group", "subject_id": group_id, "role": "evaluator"},
+        )
+        first_capabilities = self.client.get(f"/api/skills/{first['skill_id']}/capabilities", headers={"X-SkillHub-Actor": "qa-user"}).json()
+        second_capabilities = self.client.get(f"/api/skills/{second['skill_id']}/capabilities", headers={"X-SkillHub-Actor": "qa-user"}).json()
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(created.json()["scope_type"], "skill")
+        self.assertEqual(created.json()["scope_id"], first["skill_id"])
+        self.assertEqual(duplicate_other_skill.status_code, 200)
+        self.assertEqual(member.status_code, 200)
+        self.assertEqual(assigned.status_code, 200)
+        self.assertIn(group_id, first_capabilities["groups"])
+        self.assertTrue(first_capabilities["permissions"]["eval.run"])
+        self.assertFalse(second_capabilities["permissions"]["eval.run"])
+
+    def test_skill_scoped_groups_cannot_be_assigned_cross_skill(self):
+        first = self.create_skill("skill-group-scope-first")
+        second = self.create_skill("skill-group-scope-second")
+        group = self.client.post(
+            f"/api/skills/{first['skill_id']}/groups",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"name": "local reviewers"},
+        ).json()
+
+        response = self.client.post(
+            f"/api/skills/{second['skill_id']}/role-assignments",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"subject_type": "group", "subject_id": group["id"], "role": "evaluator"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_skill_tags_accept_long_arbitrary_value_and_update_response_includes_tags(self):
         skill = self.create_skill("arbitrary-tags")
         long_tag = "任意 Tag / 允许空格、符号和 emoji 🔐 " + ("x" * 80)
@@ -596,9 +654,93 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.create_skill("duplicate-skill")
 
         response = self.client.post("/api/skills", json=self.skill_payload("duplicate-skill"))
+        other_owner = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "other-owner"},
+            json={**self.skill_payload("duplicate-skill"), "owner_ref": "other-owner"},
+        )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["field_errors"][0]["field"], "slug")
+        self.assertEqual(other_owner.status_code, 200)
+
+    def test_external_skill_zip_upsert_creates_and_updates_owner_scoped_skill(self):
+        first_tag = self.create_tag_value("domain", "api")
+        second_tag = self.create_tag_value("domain", "worker")
+
+        created = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-user", "tags": json.dumps([first_tag])},
+            files={"file": ("skill.zip", self.skill_zip("external-reviewer"), "application/zip")},
+        )
+        updated = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-user", "tags": json.dumps([second_tag])},
+            files={"file": ("skill.zip", self.skill_zip("external-reviewer", body="Updated guidance."), "application/zip")},
+        )
+        other_owner = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "another-user", "tags": json.dumps([first_tag])},
+            files={"file": ("skill.zip", self.skill_zip("external-reviewer"), "application/zip")},
+        )
+        updated_detail = self.client.get(f"/api/skills/{updated.json()['skill_id']}").json()
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(created.json()["operation"], "created")
+        self.assertEqual(created.json()["version"], "0.0.1")
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["operation"], "updated")
+        self.assertEqual(updated.json()["skill_id"], created.json()["skill_id"])
+        self.assertEqual(updated.json()["version"], "0.0.2")
+        self.assertEqual(updated_detail["skill"]["tags"][0]["value"], "worker")
+        self.assertEqual(other_owner.status_code, 200)
+        self.assertNotEqual(other_owner.json()["skill_id"], created.json()["skill_id"])
+
+    def test_external_skill_zip_upsert_rejects_existing_version_and_unknown_tag(self):
+        tag = self.create_tag_value("domain", "external")
+        created = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-version-user", "tags": json.dumps([tag]), "version": "1.0.0"},
+            files={"file": ("skill.zip", self.skill_zip("external-version"), "application/zip")},
+        )
+
+        duplicate_version = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-version-user", "tags": json.dumps([tag]), "version": "1.0.0"},
+            files={"file": ("skill.zip", self.skill_zip("external-version"), "application/zip")},
+        )
+        unknown_tag = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-version-user", "tags": json.dumps([{"group_id": "domain", "value": "missing"}])},
+            files={"file": ("skill.zip", self.skill_zip("external-version"), "application/zip")},
+        )
+        detail = self.client.get(f"/api/skills/{created.json()['skill_id']}").json()
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(duplicate_version.status_code, 400)
+        self.assertEqual(duplicate_version.json()["field_errors"][0]["field"], "version")
+        self.assertEqual(unknown_tag.status_code, 400)
+        self.assertEqual(unknown_tag.json()["field_errors"][0]["field"], "tags")
+        self.assertEqual(len(detail["versions"]), 1)
+
+    def test_external_skill_zip_upsert_uses_actor_owner_scope_not_role_assignments(self):
+        tag = self.create_tag_value("domain", "external-owner")
+        created = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-owner", "tags": json.dumps([tag])},
+            files={"file": ("skill.zip", self.skill_zip("external-owner-skill"), "application/zip")},
+        )
+
+        updated = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-owner", "tags": json.dumps([tag])},
+            files={"file": ("skill.zip", self.skill_zip("external-owner-skill", body="Updated without role."), "application/zip")},
+        )
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["operation"], "updated")
+        self.assertEqual(updated.json()["skill_id"], created.json()["skill_id"])
 
     def test_create_skill_rejects_invalid_slug_format(self):
         response = self.client.post("/api/skills", json=self.skill_payload("Invalid Slug"))
@@ -617,3 +759,20 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(assignments[0]["subject_id"], "maintainer-one")
         self.assertEqual(assignments[0]["role"], "admin")
+
+    def skill_zip(self, slug: str, body: str = "Review backend changes.") -> bytes:
+        archive = BytesIO()
+        with ZipFile(archive, "w") as zip_file:
+            zip_file.writestr(
+                f"{slug}/SKILL.md",
+                (
+                    "---\n"
+                    f"name: {slug}\n"
+                    "description: Review pull requests for auth and data access regressions.\n"
+                    "---\n"
+                    "# Reviewer\n"
+                    f"{body}\n"
+                ),
+            )
+            zip_file.writestr(f"{slug}/references/checklist.md", "Check owner filters.\n")
+        return archive.getvalue()

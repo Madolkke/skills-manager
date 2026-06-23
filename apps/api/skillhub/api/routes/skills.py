@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI
 from skillhub.api.auth import ActorContext, actor_dependency
 from skillhub.api.database import repository_dependency
 from skillhub.api.responses import parse_skill_import_payload, result_payload
-from skillhub.api.schemas import AssignSkillRolePayload, CreateSkillPayload, ImportSkillPayload, UpdateSkillPayload, content_ref
+from skillhub.api.schemas import AssignSkillRolePayload, CreateSkillPayload, ImportSkillPayload, SkillGroupMemberPayload, SkillGroupPayload, UpdateSkillPayload, content_ref
 from skillhub.domain.models import ContentRef
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
@@ -100,6 +100,63 @@ def register_skill_routes(app: FastAPI) -> None:
     @app.get("/api/skills/{skill_id}/role-assignments")
     def skill_role_assignments(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.list_skill_role_assignments(skill_id=skill_id))
+
+    @app.get("/api/skills/{skill_id}/groups")
+    def skill_groups(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.list_skill_groups(skill_id=skill_id, actor=actor.id))
+
+    @app.post("/api/skills/{skill_id}/groups")
+    def create_skill_group(
+        skill_id: str,
+        payload: SkillGroupPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.create_skill_group(skill_id=skill_id, name=payload.name, description=payload.description, actor=actor.id))
+
+    @app.patch("/api/skills/{skill_id}/groups/{group_id}")
+    def update_skill_group(
+        skill_id: str,
+        group_id: str,
+        payload: SkillGroupPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.update_skill_group(skill_id=skill_id, group_id=group_id, name=payload.name, description=payload.description, actor=actor.id))
+
+    @app.delete("/api/skills/{skill_id}/groups/{group_id}")
+    def delete_skill_group(
+        skill_id: str,
+        group_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.delete_skill_group(skill_id=skill_id, group_id=group_id, actor=actor.id))
+
+    @app.post("/api/skills/{skill_id}/groups/{group_id}/members")
+    def add_skill_group_member(
+        skill_id: str,
+        group_id: str,
+        payload: SkillGroupMemberPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.add_skill_group_member(skill_id=skill_id, group_id=group_id, subject_id=payload.subject_id, subject_type=payload.subject_type, actor=actor.id))
+
+    @app.delete("/api/skills/{skill_id}/groups/{group_id}/members/{subject_id}")
+    def remove_skill_group_member(
+        skill_id: str,
+        group_id: str,
+        subject_id: str,
+        subject_type: str = "user",
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.remove_skill_group_member(skill_id=skill_id, group_id=group_id, subject_id=subject_id, subject_type=subject_type, actor=actor.id))
 
     @app.get("/api/skills/{skill_id}/capabilities")
     def skill_capabilities(

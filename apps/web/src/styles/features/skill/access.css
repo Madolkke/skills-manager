@@ -28,9 +28,139 @@
   margin: 0;
 }
 
+.access-card h4 {
+  margin: 0;
+}
+
+.access-panel .danger-button {
+  min-height: 40px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  background: #fff1f2;
+  color: #be123c;
+  padding: 9px 12px;
+  font-weight: 700;
+}
+
+.access-panel .danger-button:hover {
+  border-color: #fb7185;
+  background: #ffe4e6;
+}
+
+.access-card-title {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-help {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #c9d6e8;
+  border-radius: 999px;
+  background: white;
+  color: #53637b;
+  display: inline-grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: help;
+}
+
+.role-help:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 18%);
+  outline-offset: 2px;
+}
+
+.role-help-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(360px, calc(100vw - 48px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 14%);
+  padding: 12px;
+  display: none;
+  gap: 7px;
+  color: #40516d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.role-help-popover strong,
+.role-help-popover span {
+  display: block;
+}
+
+.role-help-popover strong {
+  color: var(--ink);
+}
+
+.role-help:hover + .role-help-popover,
+.role-help:focus + .role-help-popover,
+.role-help-popover:hover {
+  display: grid;
+}
+
 .access-role-form {
   display: grid;
   gap: 10px;
+}
+
+.access-subhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.access-subhead p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.access-group-manager,
+.access-group-list {
+  display: grid;
+  gap: 10px;
+}
+
+.access-group-manager {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: white;
+  padding: 12px;
+}
+
+.access-group-row {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.access-group-row small,
+.access-group-row p {
+  display: block;
+  color: var(--muted);
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.access-member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .access-role-form {
@@ -78,6 +208,20 @@
   gap: 12px;
 }
 
+.skill-tag-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.skill-tag-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-tag-add-panel,
 .skill-tag-group {
   border: 1px solid var(--soft-line);
   border-radius: 8px;
@@ -85,6 +229,10 @@
   padding: 12px;
   display: grid;
   gap: 8px;
+}
+
+.skill-tag-add-panel {
+  background: #fff;
 }
 
 .skill-tag-group-title {
@@ -99,10 +247,15 @@
   font-size: 12px;
 }
 
-.skill-tag-options {
+.skill-tag-options,
+.skill-tag-add-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.skill-tag-add-options {
+  padding-top: 2px;
 }
 
 .skill-tag-option {
@@ -139,7 +292,13 @@
 
 @media (max-width: 860px) {
   .access-grid,
-  .access-role-form {
+  .access-role-form,
+  .access-subhead,
+  .skill-tag-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .access-subhead {
+    flex-direction: column;
   }
 }

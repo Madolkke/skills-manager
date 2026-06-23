@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { tagKey, tagLabel } from "../lib/skillTags";
-import type { SkillTagPayload, TagGroup } from "../types";
+import type { SkillTagPayload, TagGroup, TagValueOption } from "../types";
 
 const props = withDefaults(
   defineProps<{
@@ -11,42 +11,137 @@ const props = withDefaults(
   }>(),
   { disabled: false },
 );
-const emit = defineEmits<{ change: [tags: SkillTagPayload[]] }>();
+const emit = defineEmits<{
+  change: [tags: SkillTagPayload[]];
+  done: [tags: SkillTagPayload[]];
+}>();
 
-const selected = computed(() => new Set(props.value.map(tagKey)));
-const hasValues = computed(() => props.groups.some((group) => group.values.length > 0));
+const editing = ref(false);
+const activeGroupId = ref("");
+const draft = ref<SkillTagPayload[]>([]);
+
+const sourceTags = computed(() => (editing.value ? draft.value : props.value));
+const selected = computed(() => new Set(sourceTags.value.map(tagKey)));
+const sortedGroups = computed(() => [...props.groups].sort((a, b) => a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name)));
+const groupsWithValues = computed(() => sortedGroups.value.filter((group) => group.values.length > 0));
+const hasValues = computed(() => groupsWithValues.value.length > 0);
+const activeGroup = computed(() => groupsWithValues.value.find((group) => group.id === activeGroupId.value) ?? groupsWithValues.value[0] ?? null);
+const activeValues = computed(() => sortValues(activeGroup.value?.values ?? []));
+const selectedTags = computed(() => decorateTags(sourceTags.value));
+
+watch(groupsWithValues, (groups) => {
+  if (!groups.length) {
+    activeGroupId.value = "";
+    editing.value = false;
+    return;
+  }
+  if (!groups.some((group) => group.id === activeGroupId.value)) activeGroupId.value = groups[0].id;
+}, { immediate: true });
+
+watch(() => props.disabled, (disabled) => {
+  if (disabled) cancelEdit();
+});
+
+watch(() => props.value, (value) => {
+  if (!editing.value) draft.value = [...value];
+}, { deep: true });
+
+function decorateTags(tags: SkillTagPayload[]): Array<SkillTagPayload & { label: string; groupOrder: number }> {
+  return tags
+    .map((tag) => {
+      const group = props.groups.find((item) => item.id === tag.group_id);
+      const value = group?.values.find((item) => item.value === tag.value);
+      return { ...tag, label: tagLabel({ ...tag, value_display_name: value?.display_name }, props.groups), groupOrder: group?.sort_order ?? 0 };
+    })
+    .sort((a, b) => a.groupOrder - b.groupOrder || a.label.localeCompare(b.label));
+}
+
+function sortValues(values: TagValueOption[]): TagValueOption[] {
+  return [...values].sort((a, b) => a.sort_order - b.sort_order || optionLabel(a).localeCompare(optionLabel(b)));
+}
+
+function optionLabel(option: TagValueOption): string {
+  return option.display_name?.trim() || option.value;
+}
+
+function startEdit(): void {
+  if (props.disabled) return;
+  draft.value = props.value.map((tag) => ({ ...tag }));
+  editing.value = true;
+}
+
+function finishEdit(): void {
+  editing.value = false;
+  const next = draft.value.map((tag) => ({ ...tag }));
+  emit("change", next);
+  emit("done", next);
+}
+
+function cancelEdit(): void {
+  editing.value = false;
+  draft.value = props.value.map((tag) => ({ ...tag }));
+}
 
 function toggle(groupId: string, value: string): void {
-  if (props.disabled) return;
+  if (props.disabled || !editing.value) return;
   const key = tagKey({ group_id: groupId, value });
-  const next = props.value.filter((tag) => tagKey(tag) !== key);
+  const next = draft.value.filter((tag) => tagKey(tag) !== key);
   if (!selected.value.has(key)) next.push({ group_id: groupId, value });
-  emit("change", next);
+  draft.value = next;
+}
+
+function removeTag(tag: SkillTagPayload): void {
+  if (props.disabled || !editing.value) return;
+  draft.value = draft.value.filter((item) => tagKey(item) !== tagKey(tag));
 }
 </script>
 
 <template>
   <div class="skill-tag-picker">
-    <p v-if="!groups.length" class="field-help">还没有 Tag Group。请先在后台管理页维护可选 Tag。</p>
-    <p v-else-if="!hasValues" class="field-help">Tag Group 中还没有可选 Tag。请先在后台管理页添加 Tag 值。</p>
-    <div v-for="group in groups" :key="group.id" class="skill-tag-group">
-      <div class="skill-tag-group-title">
-        <strong>{{ group.display_name }}</strong>
-        <code>{{ group.id }}</code>
+    <div class="skill-tag-toolbar">
+      <div class="skill-tag-selected">
+        <span v-for="tag in selectedTags" :key="tagKey(tag)" class="tag-chip editable">
+          {{ tag.label }}
+          <button v-if="editing && !disabled" type="button" :aria-label="`移除 ${tag.label}`" @click="removeTag(tag)">×</button>
+        </span>
+        <span v-if="!selectedTags.length" class="tag-chip muted">尚未添加 Tag</span>
       </div>
-      <p v-if="group.description" class="field-help">{{ group.description }}</p>
-      <div v-if="group.values.length" class="skill-tag-options">
-        <label v-for="option in group.values" :key="option.value" class="skill-tag-option" :class="{ selected: selected.has(tagKey({ group_id: group.id, value: option.value })) }">
+
+      <div v-if="!disabled" class="button-row">
+        <button v-if="!editing" class="secondary-button" type="button" :disabled="!hasValues" @click="startEdit">编辑 Tags</button>
+        <template v-else>
+          <button class="primary-button" type="button" @click="finishEdit">完成</button>
+          <button class="secondary-button" type="button" @click="cancelEdit">取消</button>
+        </template>
+      </div>
+    </div>
+
+    <p v-if="!groups.length" class="field-help">还没有 Tag Group。请先在后台管理页维护可选 Tag。</p>
+
+    <section v-if="editing && activeGroup" class="skill-tag-add-panel">
+      <label class="field-label compact">
+        <span>选择 Tag Group</span>
+        <select v-model="activeGroupId">
+          <option v-for="group in groupsWithValues" :key="group.id" :value="group.id">{{ group.display_name }}</option>
+        </select>
+      </label>
+
+      <div class="skill-tag-add-options">
+        <label
+          v-for="option in activeValues"
+          :key="option.value"
+          class="skill-tag-option"
+          :class="{ selected: selected.has(tagKey({ group_id: activeGroup.id, value: option.value })) }"
+        >
           <input
             type="checkbox"
-            :disabled="disabled"
-            :checked="selected.has(tagKey({ group_id: group.id, value: option.value }))"
-            @change="toggle(group.id, option.value)"
+            :checked="selected.has(tagKey({ group_id: activeGroup.id, value: option.value }))"
+            @change="toggle(activeGroup.id, option.value)"
           />
-          <span>{{ tagLabel({ group_id: group.id, value: option.value, value_display_name: option.display_name }, groups) }}</span>
+          <span>{{ optionLabel(option) }}</span>
         </label>
       </div>
-      <p v-else class="field-help">这个 Tag Group 还没有可选值。</p>
-    </div>
+      <p v-if="activeGroup.description" class="field-help">{{ activeGroup.description }}</p>
+    </section>
   </div>
 </template>

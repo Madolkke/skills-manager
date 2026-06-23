@@ -55,6 +55,10 @@ class SkillTagPayload(BaseModel):
     value: TagValue
 
 
+class ExternalSkillUpsertTagsPayload(BaseModel):
+    tags: list[SkillTagPayload] = Field(min_length=1)
+
+
 class CreateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: IdentityRef
@@ -96,6 +100,16 @@ class UpdateSkillPayload(BaseModel):
 class AssignSkillRolePayload(BaseModel):
     subject_id: str
     role: str
+    subject_type: str = "user"
+
+
+class SkillGroupPayload(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Annotated[str, Field(max_length=1000)] = ""
+
+
+class SkillGroupMemberPayload(BaseModel):
+    subject_id: str
     subject_type: str = "user"
 
 

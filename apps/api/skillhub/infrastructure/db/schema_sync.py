@@ -24,6 +24,19 @@ CLEANUP_PATCHES = (
 )
 
 SCHEMA_PATCHES = (
+    "alter table skills drop constraint if exists skills_slug_key",
+    """
+    do $$
+    begin
+      if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'skills'::regclass
+          and conname = 'skills_owner_slug_unique'
+      ) then
+        alter table skills add constraint skills_owner_slug_unique unique (owner_ref, slug);
+      end if;
+    end $$;
+    """,
     "alter table skill_versions add column if not exists version text",
     "alter table skill_versions add column if not exists display_name text",
     """
@@ -210,12 +223,41 @@ SCHEMA_PATCHES = (
     """
     create table if not exists groups (
       id text primary key,
-      name text not null unique,
+      scope_type text not null default 'global',
+      scope_id text not null default 'default',
+      name text not null,
       description text not null default '',
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
-      created_by text not null
+      created_by text not null,
+      constraint groups_scope_type_check check (scope_type in ('global', 'skill')),
+      constraint groups_scope_name_unique unique (scope_type, scope_id, name)
     )
+    """,
+    "alter table groups add column if not exists scope_type text not null default 'global'",
+    "alter table groups add column if not exists scope_id text not null default 'default'",
+    "update groups set scope_type = 'global' where scope_type is null",
+    "update groups set scope_id = 'default' where scope_id is null",
+    "alter table groups alter column scope_type set not null",
+    "alter table groups alter column scope_id set not null",
+    "alter table groups drop constraint if exists groups_name_key",
+    "alter table groups drop constraint if exists groups_scope_type_check",
+    """
+    alter table groups
+      add constraint groups_scope_type_check
+      check (scope_type in ('global', 'skill'))
+    """,
+    """
+    do $$
+    begin
+      if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'groups'::regclass
+          and conname = 'groups_scope_name_unique'
+      ) then
+        alter table groups add constraint groups_scope_name_unique unique (scope_type, scope_id, name);
+      end if;
+    end $$;
     """,
     """
     create table if not exists group_memberships (
@@ -302,6 +344,7 @@ SCHEMA_PATCHES = (
     "create index if not exists skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value)",
     "create index if not exists tag_groups_sort_idx on tag_groups (sort_order, id)",
     "create index if not exists tag_values_group_sort_idx on tag_values (tag_group_id, sort_order, value)",
+    "create index if not exists groups_scope_idx on groups (scope_type, scope_id, name)",
     "create index if not exists group_memberships_subject_idx on group_memberships (subject_type, subject_id)",
     "create index if not exists role_assignments_subject_idx on role_assignments (subject_type, subject_id)",
 )

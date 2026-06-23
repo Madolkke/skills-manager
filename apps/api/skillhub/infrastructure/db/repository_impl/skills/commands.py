@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.domain.errors import FieldError, FieldInvariantError
@@ -103,7 +103,7 @@ class SkillCommandMixin:
                     )
                 )
         except IntegrityError as exc:
-            raise skill_slug_conflict(slug) from exc
+            raise skill_slug_conflict(slug, owner_ref) from exc
 
         return CreateSkillResult(
             skill_id=skill_id,
@@ -198,7 +198,7 @@ class SkillCommandMixin:
                     self._set_skill_tags(connection, skill_id=skill_id, tags=tags, actor=actor or "system", created_at=updated_at)
                 return {**self._row_dict(self._skill_row(connection, skill_id)), "tags": self._skill_tags(connection, skill_id)}
         except IntegrityError as exc:
-            raise skill_slug_conflict(slug) from exc
+            raise skill_slug_conflict(slug, owner_ref) from exc
 
     def update_skill_admin(
         self,
@@ -212,6 +212,8 @@ class SkillCommandMixin:
         try:
             with self.engine.begin() as connection:
                 skill = self._skill_row(connection, skill_id)
+                target_slug = slug or skill["slug"]
+                target_owner_ref = owner_ref or skill["owner_ref"]
                 values: dict[str, Any] = {"updated_at": updated_at}
                 if slug is not None:
                     values["slug"] = slug
@@ -233,7 +235,146 @@ class SkillCommandMixin:
                 )
                 return {**self._row_dict(self._skill_row(connection, skill_id)), "tags": self._skill_tags(connection, skill_id)}
         except IntegrityError as exc:
-            raise skill_slug_conflict(slug or skill_id) from exc
+            raise skill_slug_conflict(target_slug, target_owner_ref) from exc
+
+    def upsert_skill_bundle_for_owner(
+        self,
+        *,
+        owner_ref: str,
+        slug: str,
+        actor: str,
+        bundle_digest: str,
+        bundle_manifest_text: str,
+        file_count: int,
+        entry_path: str,
+        tags: list[dict[str, Any]],
+        change_summary: str | None = None,
+        display_name: str | None = None,
+        version: str | None = None,
+        make_current: bool = True,
+    ) -> dict[str, Any]:
+        created_at = utc_now()
+        clean_tags = self._clean_skill_tags(tags)
+        try:
+            with self.engine.begin() as connection:
+                self._require_tag_values_exist(connection, clean_tags)
+                skill = (
+                    connection.execute(
+                        select(tables.skills)
+                        .where(tables.skills.c.owner_ref == owner_ref)
+                        .where(tables.skills.c.slug == slug)
+                        .where(tables.skills.c.lifecycle_status == "active")
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                operation = "updated" if skill is not None else "created"
+                if skill is None:
+                    self._require_protected_tag_creation_permission(connection, tags=clean_tags, actor=actor)
+                bundle_artifact_id = self._insert_text_artifact(
+                    connection,
+                    kind="skill_bundle",
+                    namespace=f"external-skill-upsert:{owner_ref}:{slug}",
+                    content=bundle_manifest_text,
+                    actor=actor,
+                    created_at=created_at,
+                )
+                content_ref = ContentRef(kind="artifact", locator=f"artifact:{bundle_artifact_id}", digest=bundle_digest, path=entry_path)
+                skill_id = skill["id"] if skill is not None else new_id("skill")
+                skill_version_id = new_id("skillver")
+                semver = normalize_semver(version or ("0.0.1" if skill is None else self._next_skill_semver(connection, skill_id)))
+                version_number = 1 if skill is None else self._next_skill_version_number(connection, skill_id)
+
+                if skill is None:
+                    eval_set_id = new_id("evalset")
+                    connection.execute(
+                        insert(tables.skills).values(
+                            id=skill_id,
+                            slug=slug,
+                            owner_ref=owner_ref,
+                            current_version_id=None,
+                            lifecycle_status="active",
+                            created_at=created_at,
+                            updated_at=created_at,
+                        )
+                    )
+                    connection.execute(
+                        insert(tables.eval_sets).values(
+                            id=eval_set_id,
+                            skill_id=skill_id,
+                            name="Primary",
+                            description="Primary regression suite",
+                            created_at=created_at,
+                            updated_at=created_at,
+                        )
+                    )
+                    self._grant_skill_role(connection, skill_id=skill_id, subject_id=actor, role="admin", actor=actor, created_at=created_at)
+                    connection.execute(
+                        insert(tables.audit_events).values(
+                            id=new_id("audit"),
+                            actor_ref=actor,
+                            action="role.assigned",
+                            resource_type="skill",
+                            resource_id=skill_id,
+                            payload={"subject_type": "user", "subject_id": actor, "role": "admin", "reason": "skill.external_upsert_creator"},
+                            created_at=created_at,
+                        )
+                    )
+                else:
+                    eval_set_id = self._primary_eval_set_row(connection, skill_id)["id"]
+
+                connection.execute(
+                    insert(tables.skill_versions).values(
+                        id=skill_version_id,
+                        skill_id=skill_id,
+                        version_number=version_number,
+                        version=semver,
+                        display_name=display_name,
+                        content_ref=self._content_ref_payload(content_ref),
+                        content_digest=content_ref.digest,
+                        change_summary=change_summary or f"Uploaded skill bundle with {file_count} files.",
+                        created_at=created_at,
+                        created_by=actor,
+                    )
+                )
+                if skill is None or make_current:
+                    connection.execute(
+                        update(tables.skills)
+                        .where(tables.skills.c.id == skill_id)
+                        .values(current_version_id=skill_version_id, updated_at=created_at)
+                    )
+                    current_version_id = skill_version_id
+                else:
+                    current_version_id = skill["current_version_id"]
+                self._set_skill_tags(connection, skill_id=skill_id, tags=clean_tags, actor=actor, created_at=created_at)
+        except IntegrityError as exc:
+            if version is not None:
+                raise FieldInvariantError(
+                    "SkillVersion version already exists for this skill.",
+                    [
+                        FieldError(
+                            field="version",
+                            message="这个 Skill 已经存在相同版本号。",
+                            code="skill_version.version_conflict",
+                        )
+                    ],
+                ) from exc
+            raise skill_slug_conflict(slug, owner_ref) from exc
+        return {
+            "operation": operation,
+            "skill_id": skill_id,
+            "slug": slug,
+            "owner_ref": owner_ref,
+            "skill_version_id": skill_version_id,
+            "version_number": version_number,
+            "version": semver,
+            "current_version_id": current_version_id,
+            "eval_set_id": eval_set_id,
+            "bundle_artifact_id": bundle_artifact_id,
+            "bundle_digest": bundle_digest,
+            "file_count": file_count,
+            "entry_path": entry_path,
+        }
 
     def archive_skill(self, *, skill_id: str, actor: str) -> None:
         updated_at = utc_now()

@@ -116,8 +116,10 @@ async function revokeRole(role: RoleAssignment): Promise<void> {
   await runAdminAction(() => api.adminDeleteRoleAssignment(role.id), "授权已撤销。");
 }
 
-async function saveSkillTags(skill: SkillSummary): Promise<void> {
-  await runAdminAction(() => api.adminUpdateSkill(skill.skill.id, { tags: tagDrafts.value[skill.skill.id] ?? [] }), "Skill Tag 已更新。");
+async function saveSkillTags(skill: SkillSummary, tags?: SkillTagPayload[]): Promise<void> {
+  const nextTags = tags ?? tagDrafts.value[skill.skill.id] ?? [];
+  tagDrafts.value[skill.skill.id] = nextTags;
+  await runAdminAction(() => api.adminUpdateSkill(skill.skill.id, { tags: nextTags }), "Skill Tag 已更新。");
 }
 
 async function runAdminAction(action: () => Promise<unknown>, successMessage: string): Promise<void> {

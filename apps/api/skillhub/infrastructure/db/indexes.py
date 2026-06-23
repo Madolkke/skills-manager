@@ -57,6 +57,7 @@ Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_t
 Index("skill_tags_group_value_idx", skill_tags.c.tag_group_id, skill_tags.c.tag_value)
 Index("tag_groups_sort_idx", tag_groups.c.sort_order, tag_groups.c.id)
 Index("tag_values_group_sort_idx", tag_values.c.tag_group_id, tag_values.c.sort_order, tag_values.c.value)
+Index("groups_scope_idx", groups.c.scope_type, groups.c.scope_id, groups.c.name)
 Index("group_memberships_subject_idx", group_memberships.c.subject_type, group_memberships.c.subject_id)
 Index("jobs_status_created_at_idx", jobs.c.status, jobs.c.created_at)
 Index("role_assignments_subject_idx", role_assignments.c.subject_type, role_assignments.c.subject_id)

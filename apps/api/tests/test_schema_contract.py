@@ -98,6 +98,7 @@ class SchemaContractTest(unittest.TestCase):
 
     def test_append_only_version_uniqueness_constraints_exist(self):
         for constraint in [
+            "unique (owner_ref, slug)",
             "unique (skill_id, version_number)",
             "unique (skill_id, version)",
             "unique (case_id, version_number)",
@@ -172,6 +173,7 @@ class SchemaContractTest(unittest.TestCase):
             "create index skill_tags_group_value_idx",
             "create index tag_groups_sort_idx",
             "create index tag_values_group_sort_idx",
+            "create index groups_scope_idx",
             "create index group_memberships_subject_idx",
             "create index role_assignments_subject_idx",
         ]:
@@ -183,6 +185,9 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("create table tag_values", self.normalized)
         self.assertIn("create table groups", self.normalized)
         self.assertIn("create table group_memberships", self.normalized)
+        self.assertIn("scope_type text not null default 'global'", self._table_sql("groups"))
+        self.assertIn("scope_id text not null default 'default'", self._table_sql("groups"))
+        self.assertIn("unique (scope_type, scope_id, name)", self._table_sql("groups"))
         self.assertIn("tag_group_id text not null", self._table_sql("skill_tags"))
         self.assertIn("tag_value text not null", self._table_sql("skill_tags"))
         self.assertIn("foreign key (tag_group_id, tag_value) references tag_values(tag_group_id, value)", self.normalized)

@@ -11,7 +11,7 @@ defineProps<{
 
 const emit = defineEmits<{
   updateDraft: [skillId: string, tags: SkillTagPayload[]];
-  save: [skill: SkillSummary];
+  save: [skill: SkillSummary, tags?: SkillTagPayload[]];
 }>();
 </script>
 
@@ -29,8 +29,7 @@ const emit = defineEmits<{
         <strong>{{ slugTitle(item.skill.slug) }}</strong>
         <small>{{ item.skill.id }}</small>
       </div>
-      <SkillTagPicker :value="tagDrafts[item.skill.id] ?? []" :groups="tagGroups" @change="emit('updateDraft', item.skill.id, $event)" />
-      <button class="secondary-button" type="button" @click="emit('save', item)">保存 Tag</button>
+      <SkillTagPicker :value="tagDrafts[item.skill.id] ?? []" :groups="tagGroups" @change="emit('updateDraft', item.skill.id, $event)" @done="emit('save', item, $event)" />
     </div>
     <p v-if="!skills.length" class="field-help">还没有 Skill。</p>
   </section>

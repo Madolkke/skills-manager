@@ -51,12 +51,13 @@ skills = Table(
     "skills",
     metadata,
     Column("id", Text, primary_key=True),
-    Column("slug", Text, nullable=False, unique=True),
+    Column("slug", Text, nullable=False),
     Column("owner_ref", Text, nullable=False),
     Column("current_version_id", Text),
     Column("lifecycle_status", Text, nullable=False, server_default=text("'active'")),
     timestamp_column(),
     timestamp_column("updated_at"),
+    UniqueConstraint("owner_ref", "slug", name="skills_owner_slug_unique"),
     CheckConstraint("lifecycle_status in ('active', 'archived')", name="skills_lifecycle_status_check"),
 )
 
@@ -316,11 +317,15 @@ groups = Table(
     "groups",
     metadata,
     Column("id", Text, primary_key=True),
-    Column("name", Text, nullable=False, unique=True),
+    Column("scope_type", Text, nullable=False, server_default=text("'global'")),
+    Column("scope_id", Text, nullable=False, server_default=text("'default'")),
+    Column("name", Text, nullable=False),
     Column("description", Text, nullable=False, server_default=text("''")),
     timestamp_column(),
     timestamp_column("updated_at"),
     Column("created_by", Text, nullable=False),
+    CheckConstraint("scope_type in ('global', 'skill')", name="groups_scope_type_check"),
+    UniqueConstraint("scope_type", "scope_id", "name", name="groups_scope_name_unique"),
 )
 
 group_memberships = Table(

@@ -91,6 +91,17 @@ function skillApi() {
     updateSkill: (skillId: string, payload: { slug: string; owner_ref: string; tags?: SkillTagPayload[] }) =>
       apiSend<SkillDetail["skill"]>(`/api/skills/${encodeURIComponent(skillId)}`, "PATCH", payload),
     getSkillCapabilities: (skillId: string) => apiGet<SkillCapabilities>(`/api/skills/${encodeURIComponent(skillId)}/capabilities`),
+    listSkillGroups: (skillId: string) => apiGet<AdminGroup[]>(`/api/skills/${encodeURIComponent(skillId)}/groups`),
+    createSkillGroup: (skillId: string, payload: { name: string; description?: string }) =>
+      apiSend<AdminGroup>(`/api/skills/${encodeURIComponent(skillId)}/groups`, "POST", payload),
+    updateSkillGroup: (skillId: string, groupId: string, payload: { name: string; description?: string }) =>
+      apiSend<AdminGroup>(`/api/skills/${encodeURIComponent(skillId)}/groups/${encodeURIComponent(groupId)}`, "PATCH", payload),
+    deleteSkillGroup: (skillId: string, groupId: string) =>
+      apiDelete<{ ok: boolean }>(`/api/skills/${encodeURIComponent(skillId)}/groups/${encodeURIComponent(groupId)}`),
+    addSkillGroupMember: (skillId: string, groupId: string, payload: { subject_id: string; subject_type?: string }) =>
+      apiSend<AdminGroup>(`/api/skills/${encodeURIComponent(skillId)}/groups/${encodeURIComponent(groupId)}/members`, "POST", payload),
+    removeSkillGroupMember: (skillId: string, groupId: string, subjectId: string) =>
+      apiDelete<AdminGroup>(`/api/skills/${encodeURIComponent(skillId)}/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(subjectId)}`),
     assignSkillRole: (skillId: string, payload: { subject_type: "user" | "group"; subject_id: string; role: string }) =>
       apiSend<RoleAssignment>(`/api/skills/${encodeURIComponent(skillId)}/role-assignments`, "POST", payload),
   };
@@ -217,6 +228,8 @@ function adminApi() {
 
 export type AdminGroup = {
   id: string;
+  scope_type: "global" | "skill";
+  scope_id: string;
   name: string;
   description: string;
   members: Array<{ group_id: string; subject_type: string; subject_id: string }>;

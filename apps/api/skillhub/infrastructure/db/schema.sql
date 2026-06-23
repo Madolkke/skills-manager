@@ -15,12 +15,13 @@ create table artifacts (
 
 create table skills (
   id text primary key,
-  slug text not null unique,
+  slug text not null,
   owner_ref text not null,
   current_version_id text,
   lifecycle_status text not null default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint skills_owner_slug_unique unique (owner_ref, slug),
   constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))
 );
 
@@ -211,11 +212,15 @@ create table saved_views (
 
 create table groups (
   id text primary key,
-  name text not null unique,
+  scope_type text not null default 'global',
+  scope_id text not null default 'default',
+  name text not null,
   description text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  created_by text not null
+  created_by text not null,
+  constraint groups_scope_type_check check (scope_type in ('global', 'skill')),
+  constraint groups_scope_name_unique unique (scope_type, scope_id, name)
 );
 
 create table group_memberships (
@@ -314,6 +319,7 @@ create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
 create index tag_groups_sort_idx on tag_groups (sort_order, id);
 create index tag_values_group_sort_idx on tag_values (tag_group_id, sort_order, value);
+create index groups_scope_idx on groups (scope_type, scope_id, name);
 create index group_memberships_subject_idx on group_memberships (subject_type, subject_id);
 create index jobs_status_created_at_idx on jobs (status, created_at);
 create index role_assignments_subject_idx on role_assignments (subject_type, subject_id);
