@@ -6,6 +6,7 @@ defineProps<{
   busy: boolean;
   canRunFormal: boolean;
   caseCount: number;
+  disabled?: boolean;
   pollIntervalSeconds: number;
   summary: RunnerSummary;
 }>();
@@ -24,11 +25,11 @@ defineEmits<{
       <span>{{ actionBarStatusText(summary, caseCount, pollIntervalSeconds) }}</span>
     </div>
     <div class="runner-action-buttons">
-      <button class="secondary-button" type="button" :disabled="busy || caseCount === 0" @click="$emit('runAll')">
+      <button class="secondary-button" type="button" :disabled="disabled || busy || caseCount === 0" @click="$emit('runAll')">
         <Play :size="17" />
         {{ busy ? "运行中..." : "运行全部" }}
       </button>
-      <button class="secondary-button" type="button" :disabled="busy || summary.failedRuns === 0" @click="$emit('retryFailed')">
+      <button class="secondary-button" type="button" :disabled="disabled || busy || summary.failedRuns === 0" @click="$emit('retryFailed')">
         <RotateCcw :size="17" />
         重试失败
       </button>

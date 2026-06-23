@@ -11,13 +11,15 @@ from skillhub.infrastructure.db import tables
 
 
 class EvalSetCommandMixin:
-    def create_eval_set(self, *, skill_id: str, name: str, description: str = "") -> dict[str, Any]:
+    def create_eval_set(self, *, skill_id: str, name: str, description: str = "", actor: str | None = None) -> dict[str, Any]:
         created_at = utc_now()
         eval_set_id = new_id("evalset")
         clean_name = self._clean_eval_set_name(name)
         try:
             with self.engine.begin() as connection:
                 self._skill_row(connection, skill_id)
+                if actor is not None:
+                    self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.manage")
                 connection.execute(
                     insert(tables.eval_sets).values(
                         id=eval_set_id,
@@ -32,12 +34,14 @@ class EvalSetCommandMixin:
         except IntegrityError as exc:
             raise self._eval_set_name_conflict(clean_name) from exc
 
-    def update_eval_set(self, *, eval_set_id: str, name: str, description: str = "") -> dict[str, Any]:
+    def update_eval_set(self, *, eval_set_id: str, name: str, description: str = "", actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
         clean_name = self._clean_eval_set_name(name)
         try:
             with self.engine.begin() as connection:
-                self._eval_set_row(connection, eval_set_id)
+                eval_set = self._eval_set_row(connection, eval_set_id)
+                if actor is not None:
+                    self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
                 connection.execute(
                     update(tables.eval_sets)
                     .where(tables.eval_sets.c.id == eval_set_id)
@@ -73,10 +77,12 @@ class EvalSetCommandMixin:
                 cases.append({"case": self._row_dict(eval_case), "case_version": self._case_version_detail(connection, case_version)})
             return cases
 
-    def add_eval_case_to_set(self, *, eval_set_id: str, case_id: str, position: int | None = None) -> dict[str, Any]:
+    def add_eval_case_to_set(self, *, eval_set_id: str, case_id: str, position: int | None = None, actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
         with self.engine.begin() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
+            if actor is not None:
+                self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
             eval_case = self._eval_case_row(connection, case_id)
             if eval_case["skill_id"] != eval_set["skill_id"]:
                 raise InvariantError("Eval case and eval set must belong to the same skill.")
@@ -96,10 +102,12 @@ class EvalSetCommandMixin:
             )
         return self.eval_set_detail(eval_set_id)
 
-    def remove_eval_case_from_set(self, *, eval_set_id: str, case_id: str) -> dict[str, Any]:
+    def remove_eval_case_from_set(self, *, eval_set_id: str, case_id: str, actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
         with self.engine.begin() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
+            if actor is not None:
+                self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
             case_ids = self._eval_set_case_ids(connection, eval_set_id)
             if case_id not in case_ids:
                 raise self._eval_case_not_in_set(case_id)
@@ -112,10 +120,12 @@ class EvalSetCommandMixin:
             )
         return self.eval_set_detail(eval_set_id)
 
-    def reorder_eval_set_cases(self, *, eval_set_id: str, case_ids: list[str]) -> dict[str, Any]:
+    def reorder_eval_set_cases(self, *, eval_set_id: str, case_ids: list[str], actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
         with self.engine.begin() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
+            if actor is not None:
+                self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
             current_case_ids = self._eval_set_case_ids(connection, eval_set_id)
             if set(case_ids) != set(current_case_ids) or len(case_ids) != len(current_case_ids):
                 raise FieldInvariantError(

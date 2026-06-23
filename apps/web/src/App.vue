@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import IdentitySettingsModal from "./components/IdentitySettingsModal.vue";
 import Toast from "./components/Toast.vue";
 import TopBar from "./components/TopBar.vue";
 import { api, ApiError } from "./lib/api";
+import { getActorId } from "./lib/identity";
 import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/navigation";
+import AdminPage from "./pages/AdminPage.vue";
 import HubPage from "./pages/HubPage.vue";
 import NewSkillModal from "./pages/NewSkillModal.vue";
 import SkillPage from "./pages/SkillPage.vue";
@@ -17,8 +20,9 @@ const session = ref<SessionInfo | null>(null);
 const loading = ref(true);
 const toast = ref<ToastState>(null);
 const newSkillOpen = ref(false);
+const identityOpen = ref(false);
 
-const actor = computed(() => session.value?.actor ?? "product-operator");
+const actor = computed(() => session.value?.actor ?? getActorId());
 const sectionShell = computed(() => (route.value.section === "workflows" ? "workflow-shell" : route.value.skillId ? "skill-shell" : "hub-shell"));
 const shellClass = computed(() => `app-shell ${sectionShell.value}`);
 const currentSkill = computed(() => (route.value.section === "skills" && route.value.skillId ? skill.value : null));
@@ -38,8 +42,8 @@ async function load(): Promise<void> {
   loading.value = true;
   try {
     const targetRoute = route.value;
-    const [sessionInfo, list] = await Promise.all([api.getSession(), api.listSkills()]);
-    session.value = sessionInfo;
+    const [, list] = await Promise.all([api.getSession(), api.listSkills()]);
+    session.value = { actor: getActorId(), subject_type: "user" };
     skills.value = list;
     if (targetRoute.section === "skills" && targetRoute.skillId) {
       try {
@@ -95,6 +99,13 @@ function goWorkflows(): void {
   navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
+function handleIdentityChanged(nextActor: string): void {
+  session.value = { actor: nextActor, subject_type: "user" };
+  identityOpen.value = false;
+  toast.value = { tone: "success", message: "身份已切换。" };
+  void load();
+}
+
 function handleSkillCreated(skillId: string): void {
   newSkillOpen.value = false;
   toast.value = { tone: "success", message: "Skill 已创建。" };
@@ -121,10 +132,12 @@ function isMissingSkillError(error: unknown): boolean {
         @home="goHome"
         @create="newSkillOpen = true"
         @workflows="goWorkflows"
+        @settings="identityOpen = true"
       />
       <main :class="mainClass">
+        <AdminPage v-if="route.section === 'admin'" @toast="toast = $event" />
         <SkillPage
-          v-if="route.section === 'skills' && route.skillId && skill"
+          v-else-if="route.section === 'skills' && route.skillId && skill"
           :skill="skill"
           :tab="route.tab"
           :route="route"
@@ -146,6 +159,7 @@ function isMissingSkillError(error: unknown): boolean {
       </main>
     </div>
     <NewSkillModal v-if="newSkillOpen" :actor="actor" @close="newSkillOpen = false" @created="handleSkillCreated" />
+    <IdentitySettingsModal v-if="identityOpen" :actor="actor" @close="identityOpen = false" @changed="handleIdentityChanged" />
     <Toast :toast="toast" @close="toast = null" />
   </div>
 </template>

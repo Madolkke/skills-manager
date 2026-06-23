@@ -53,6 +53,7 @@ class SavedViewCommandMixin:
         try:
             with self.engine.begin() as connection:
                 self._skill_row(connection, skill_id)
+                self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="saved_view.manage")
                 connection.execute(insert(tables.saved_views).values(**values))
                 row = connection.execute(select(tables.saved_views).where(tables.saved_views.c.id == values["id"])).mappings().one()
         except IntegrityError as exc:
@@ -62,8 +63,13 @@ class SavedViewCommandMixin:
             ) from exc
         return self._row_dict(row)
 
-    def delete_saved_view(self, saved_view_id: str) -> dict[str, bool]:
+    def delete_saved_view(self, saved_view_id: str, actor: str | None = None) -> dict[str, bool]:
         with self.engine.begin() as connection:
+            row = connection.execute(select(tables.saved_views).where(tables.saved_views.c.id == saved_view_id)).mappings().one_or_none()
+            if row is None:
+                raise NotFoundError(f"SavedView not found: {saved_view_id}")
+            if actor is not None:
+                self._require_skill_permission(connection, skill_id=row["skill_id"], actor=actor, permission="saved_view.manage")
             result = connection.execute(tables.saved_views.delete().where(tables.saved_views.c.id == saved_view_id))
             if result.rowcount == 0:
                 raise NotFoundError(f"SavedView not found: {saved_view_id}")

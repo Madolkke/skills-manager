@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import desc, insert, select, update
+from sqlalchemy import insert, select, update
 
 from skillhub.application.eval_runner import OPENCODE_RUNNER
 from skillhub.domain.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.domain.models import new_id, normalize_tags, utc_now
 from skillhub.infrastructure.db import tables
-from skillhub.infrastructure.db.repository_impl.shared.results import RecordEvalCaseRunResult, RecordEvalRunResult
+from skillhub.infrastructure.db.repository_impl.shared.results import RecordEvalCaseRunResult
 
 
 class EvalRunCommandMixin:
@@ -32,6 +32,7 @@ class EvalRunCommandMixin:
             eval_set = self._eval_set_row(connection, eval_set_id)
             case_version = self._eval_case_version_row(connection, case_version_id)
             self._require_same_skill_for_case_run(skill_version, eval_set, case_version)
+            self._require_skill_permission(connection, skill_id=skill_version["skill_id"], actor=actor, permission="eval.run")
             self._require_current_eval_set_case_version(connection, eval_set_id=eval_set_id, case_version=case_version)
             result = self._insert_eval_case_run(
                 connection,
@@ -166,134 +167,6 @@ class EvalRunCommandMixin:
             retried = self._eval_case_run_row(connection, eval_case_run_id)
         return self._case_run_result(retried)
 
-    def eval_case_run_detail(self, eval_case_run_id: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
-            return self._eval_case_run_detail_from_row(connection, self._eval_case_run_row(connection, eval_case_run_id))
-
-    def latest_eval_case_run_details(
-        self,
-        *,
-        skill_version_id: str,
-        eval_set_id: str,
-        environment_tags: list[str] | tuple[str, ...] | None = None,
-        run_context: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        context_hash = None
-        if environment_tags is not None or run_context is not None:
-            tags = normalize_tags(list(environment_tags or []))
-            context = self._canonical_json_object(run_context or {})
-            context_hash = self._run_context_hash(tags, context)
-        with self.engine.connect() as connection:
-            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_id)
-            statement = (
-                select(tables.eval_case_runs)
-                .where(tables.eval_case_runs.c.skill_version_id == skill_version_id)
-                .where(tables.eval_case_runs.c.eval_set_id == eval_set_id)
-                .where(tables.eval_case_runs.c.case_version_id.in_(case_version_ids))
-                .order_by(desc(tables.eval_case_runs.c.created_at), desc(tables.eval_case_runs.c.id))
-            )
-            if context_hash is not None:
-                statement = statement.where(tables.eval_case_runs.c.run_context_hash == context_hash)
-            rows = connection.execute(statement).mappings().all()
-            latest: dict[str, Any] = {}
-            for row in rows:
-                latest.setdefault(row["case_version_id"], row)
-            return [self._eval_case_run_detail_from_row(connection, latest[case_version_id]) for case_version_id in case_version_ids if case_version_id in latest]
-
-    def _eval_case_run_detail_from_row(self, connection, case_run) -> dict[str, Any]:
-        skill = self._skill_row(connection, case_run["skill_id"])
-        skill_version = self._skill_version_detail(connection, self._skill_version_row(connection, case_run["skill_version_id"]))
-        eval_set = self._eval_set_row(connection, case_run["eval_set_id"])
-        case_version = self._eval_case_version_row(connection, case_run["case_version_id"])
-        case_version_detail = self._case_version_detail(connection, case_version)
-        eval_case = self._eval_case_row(connection, case_version["case_id"])
-        result_artifact = None
-        if case_run["result_artifact_id"] is not None:
-            result_artifact = (
-                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_run["result_artifact_id"]))
-                .mappings()
-                .one_or_none()
-            )
-        job = None
-        if case_run["job_id"] is not None:
-            job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == case_run["job_id"])).mappings().one_or_none()
-        return {
-            "eval_case_run": self._row_dict(case_run),
-            "job": self._row_dict(job) if job is not None else None,
-            "skill": self._row_dict(skill),
-            "skill_version": skill_version,
-            "eval_set": self._row_dict(eval_set),
-            "case": self._row_dict(eval_case),
-            "case_version": case_version_detail,
-            "result_artifact": self._row_dict(result_artifact) if result_artifact is not None else None,
-        }
-
-    def aggregate_eval_run(
-        self,
-        *,
-        skill_version_id: str,
-        eval_set_id: str,
-        actor: str,
-        environment_tags: list[str] | tuple[str, ...] | None = None,
-        run_context: dict[str, Any] | None = None,
-    ) -> RecordEvalRunResult:
-        created_at = utc_now()
-        eval_run_id = new_id("evalrun")
-        tags = normalize_tags(list(environment_tags or []))
-        context = self._canonical_json_object(run_context or {})
-        context_hash = self._run_context_hash(tags, context)
-
-        with self.engine.begin() as connection:
-            skill_version = self._skill_version_row(connection, skill_version_id)
-            eval_set = self._eval_set_row(connection, eval_set_id)
-            if skill_version["skill_id"] != eval_set["skill_id"]:
-                raise InvariantError("EvalRun must bind a skill version and eval set from the same skill.")
-            skill_id = skill_version["skill_id"]
-            case_version_ids = self._eval_set_case_version_ids(connection, eval_set_id)
-            latest_case_runs = self._latest_succeeded_case_runs(
-                connection,
-                skill_version_id=skill_version_id,
-                eval_set_id=eval_set_id,
-                case_version_ids=case_version_ids,
-                context_hash=context_hash,
-            )
-            self._require_complete_case_runs(case_version_ids, latest_case_runs)
-            passed_count = sum(1 for case_version_id in case_version_ids if latest_case_runs[case_version_id]["passed"])
-            failed_count = len(case_version_ids) - passed_count
-            summary = {"passed": passed_count, "failed": failed_count, "total": len(case_version_ids)}
-            connection.execute(
-                insert(tables.eval_runs).values(
-                    id=eval_run_id,
-                    skill_id=skill_id,
-                    skill_version_id=skill_version_id,
-                    eval_set_id=eval_set_id,
-                    status="finished",
-                    environment_tags=list(tags),
-                    run_context=context,
-                    run_context_hash=context_hash,
-                    summary=summary,
-                    result_artifact_id=None,
-                    created_at=created_at,
-                    created_by=actor,
-                )
-            )
-            connection.execute(
-                insert(tables.case_results),
-                [
-                    {
-                        "run_id": eval_run_id,
-                        "skill_id": skill_id,
-                        "case_version_id": case_version_id,
-                        "passed": latest_case_runs[case_version_id]["passed"],
-                        "score": latest_case_runs[case_version_id]["score"],
-                        "result_artifact_id": latest_case_runs[case_version_id]["result_artifact_id"],
-                        "created_at": created_at,
-                    }
-                    for case_version_id in case_version_ids
-                ],
-            )
-        return RecordEvalRunResult(eval_run_id, skill_id, skill_version_id, eval_set_id, passed_count, failed_count, len(case_version_ids), tags, context, context_hash)
-
     def _insert_eval_case_run(
         self,
         connection,
@@ -353,44 +226,6 @@ class EvalRunCommandMixin:
             actor=actor,
             created_at=created_at,
         )
-
-    def _latest_succeeded_case_runs(
-        self,
-        connection,
-        *,
-        skill_version_id: str,
-        eval_set_id: str,
-        case_version_ids: list[str],
-        context_hash: str,
-    ) -> dict[str, Any]:
-        rows = (
-            connection.execute(
-                select(tables.eval_case_runs)
-                .where(tables.eval_case_runs.c.skill_version_id == skill_version_id)
-                .where(tables.eval_case_runs.c.eval_set_id == eval_set_id)
-                .where(tables.eval_case_runs.c.case_version_id.in_(case_version_ids))
-                .where(tables.eval_case_runs.c.run_context_hash == context_hash)
-                .where(tables.eval_case_runs.c.status == "succeeded")
-                .order_by(desc(tables.eval_case_runs.c.finished_at), desc(tables.eval_case_runs.c.id))
-            )
-            .mappings()
-            .all()
-        )
-        latest: dict[str, Any] = {}
-        for row in rows:
-            latest.setdefault(row["case_version_id"], row)
-        return latest
-
-    def _require_complete_case_runs(self, case_version_ids: list[str], latest_case_runs: dict[str, Any]) -> None:
-        missing = [case_version_id for case_version_id in case_version_ids if case_version_id not in latest_case_runs]
-        if missing:
-            raise FieldInvariantError(
-                "EvalRun aggregation requires finished case runs.",
-                [
-                    FieldError(field=f"case_runs.{case_version_id}", message="该 case 尚未完成测评。", code="eval_run.case_run_missing")
-                    for case_version_id in missing
-                ],
-            )
 
     def _require_same_skill_for_case_run(self, skill_version, eval_set, case_version) -> None:
         if skill_version["skill_id"] != eval_set["skill_id"] or skill_version["skill_id"] != case_version["skill_id"]:

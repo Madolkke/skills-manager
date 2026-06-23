@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from skillhub.application.eval_assertion_templates import AssertionContext, assertion_template, list_assertion_templates
+from skillhub.application.eval_assertion_templates import AssertionContext, assertion_template, list_assertion_templates, safe_workdir_path
 from skillhub.domain.errors import InvariantError
 
 
@@ -81,6 +81,19 @@ def test_file_template_rejects_path_traversal(tmp_path: Path):
 
     with pytest.raises(InvariantError, match="Unsafe workdir path"):
         template.evaluate(context(tmp_path), {"directory": "..", "filename": "escape.txt"})
+
+
+def test_safe_workdir_path_rejects_resolved_escape(tmp_path: Path):
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    link = tmp_path / "linked-outside"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("Symlink creation is unavailable in this environment.")
+
+    with pytest.raises(InvariantError, match="Unsafe workdir path"):
+        safe_workdir_path(tmp_path, "linked-outside", "secret.txt")
 
 
 @pytest.mark.parametrize(

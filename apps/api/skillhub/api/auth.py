@@ -12,6 +12,7 @@ from fastapi import Cookie, Header, Response
 from skillhub.domain.errors import InvariantError, PermissionDeniedError
 
 ACTOR_HEADER = "X-SkillHub-Actor"
+ADMIN_KEY_HEADER = "X-SkillHub-Admin-Key"
 ACTOR_COOKIE = "skillhub_actor"
 DEFAULT_LOCAL_ACTOR = "product-operator"
 ACTOR_PATTERN = re.compile(r"^[A-Za-z0-9._@-]{1,120}$")
@@ -79,6 +80,14 @@ def actor_dependency(
     if skillhub_actor is not None:
         return ActorContext(id=verify_actor_session(skillhub_actor))
     return ActorContext(id=normalize_actor(x_skillhub_actor or DEFAULT_LOCAL_ACTOR))
+
+
+def admin_key_dependency(x_skillhub_admin_key: str | None = Header(default=None, alias=ADMIN_KEY_HEADER)) -> None:
+    expected = environ.get("SKILLHUB_ADMIN_CONSOLE_KEY", "").strip()
+    if not expected:
+        raise PermissionDeniedError("Admin console is not configured.")
+    if not x_skillhub_admin_key or not hmac.compare_digest(x_skillhub_admin_key, expected):
+        raise PermissionDeniedError("Invalid admin console key.")
 
 
 def _session_secret() -> bytes:

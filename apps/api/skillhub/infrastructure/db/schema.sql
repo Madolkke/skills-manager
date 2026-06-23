@@ -209,6 +209,60 @@ create table saved_views (
   constraint saved_views_skill_type_name_unique unique (skill_id, view_type, name)
 );
 
+create table groups (
+  id text primary key,
+  name text not null unique,
+  description text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null
+);
+
+create table group_memberships (
+  group_id text not null references groups(id),
+  subject_type text not null,
+  subject_id text not null,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  primary key (group_id, subject_type, subject_id),
+  constraint group_memberships_subject_type_check check (subject_type in ('user'))
+);
+
+create table tag_groups (
+  id text primary key,
+  display_name text not null,
+  description text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null,
+  constraint tag_groups_id_format_check check (id ~ '^[A-Za-z0-9_-]+$'),
+  constraint tag_groups_display_name_non_empty check (length(btrim(display_name)) > 0)
+);
+
+create table tag_values (
+  tag_group_id text not null references tag_groups(id),
+  value text not null,
+  display_name text,
+  description text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null,
+  primary key (tag_group_id, value),
+  constraint tag_values_value_non_empty check (length(btrim(value)) > 0)
+);
+
+create table skill_tags (
+  skill_id text not null references skills(id),
+  tag_group_id text not null,
+  tag_value text not null,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  primary key (skill_id, tag_group_id, tag_value),
+  constraint skill_tags_tag_value_fkey foreign key (tag_group_id, tag_value) references tag_values(tag_group_id, value)
+);
+
 create table role_assignments (
   id text primary key,
   subject_type text not null,
@@ -218,7 +272,9 @@ create table role_assignments (
   role text not null,
   created_at timestamptz not null default now(),
   created_by text not null,
-  constraint role_assignments_role_check check (role in ('owner', 'maintainer', 'evaluator', 'viewer')),
+  constraint role_assignments_subject_type_check check (subject_type in ('user', 'group')),
+  constraint role_assignments_resource_type_check check (resource_type in ('skill', 'skill_tag')),
+  constraint role_assignments_role_check check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer')),
   constraint role_assignments_scope_unique unique (subject_type, subject_id, resource_type, resource_id, role)
 );
 
@@ -255,6 +311,11 @@ create index eval_case_runs_context_hash_idx on eval_case_runs (run_context_hash
 create index accepted_verifications_context_idx on accepted_verifications (skill_id, skill_version_id, eval_set_id, run_context_hash);
 create index accepted_verifications_eval_run_id_idx on accepted_verifications (eval_run_id);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
+create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
+create index tag_groups_sort_idx on tag_groups (sort_order, id);
+create index tag_values_group_sort_idx on tag_values (tag_group_id, sort_order, value);
+create index group_memberships_subject_idx on group_memberships (subject_type, subject_id);
 create index jobs_status_created_at_idx on jobs (status, created_at);
+create index role_assignments_subject_idx on role_assignments (subject_type, subject_id);
 create index role_assignments_resource_idx on role_assignments (resource_type, resource_id);
 create index audit_events_resource_idx on audit_events (resource_type, resource_id, created_at desc);

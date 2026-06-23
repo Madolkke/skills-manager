@@ -15,6 +15,10 @@ def register_skill_routes(app: FastAPI) -> None:
     def list_skills(repository: SqlSkillRepository = Depends(repository_dependency)):
         return result_payload(repository.list_skills())
 
+    @app.get("/api/tag-groups")
+    def list_tag_groups(repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.list_tag_groups())
+
     @app.post("/api/skills")
     def create_skill(
         payload: CreateSkillPayload,
@@ -29,6 +33,7 @@ def register_skill_routes(app: FastAPI) -> None:
                 change_summary=payload.change_summary,
                 display_name=payload.display_name,
                 version=payload.version,
+                tags=payload.tags,
                 actor=actor.id,
             )
         )
@@ -53,6 +58,7 @@ def register_skill_routes(app: FastAPI) -> None:
             change_summary=f"Imported standard skill bundle with {bundle.file_count} files.",
             display_name=payload.display_name,
             version=payload.version,
+            tags=payload.tags,
             actor=actor.id,
         )
         return {
@@ -66,12 +72,21 @@ def register_skill_routes(app: FastAPI) -> None:
         }
 
     @app.get("/api/skills/{skill_id}")
-    def skill_detail(skill_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
-        return result_payload(repository.skill_detail(skill_id))
+    def skill_detail(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.skill_detail(skill_id, actor=actor.id))
 
     @app.patch("/api/skills/{skill_id}")
-    def update_skill(skill_id: str, payload: UpdateSkillPayload, repository: SqlSkillRepository = Depends(repository_dependency)):
-        return result_payload(repository.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref))
+    def update_skill(
+        skill_id: str,
+        payload: UpdateSkillPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref, tags=payload.tags, actor=actor.id))
 
     @app.delete("/api/skills/{skill_id}")
     def archive_skill(

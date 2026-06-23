@@ -24,6 +24,40 @@ CLEANUP_PATCHES = (
 )
 
 SCHEMA_PATCHES = (
+    "alter table skill_versions add column if not exists version text",
+    "alter table skill_versions add column if not exists display_name text",
+    """
+    update skill_versions
+    set version = '0.0.' || version_number::text
+    where version is null
+    """,
+    "alter table skill_versions alter column version set not null",
+    """
+    do $$
+    begin
+      if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'skill_versions'::regclass
+          and conname = 'skill_versions_version_semver_check'
+      ) then
+        alter table skill_versions
+          add constraint skill_versions_version_semver_check
+          check (version ~ '^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$');
+      end if;
+    end $$;
+    """,
+    """
+    do $$
+    begin
+      if not exists (
+        select 1 from pg_constraint
+        where conrelid = 'skill_versions'::regclass
+          and conname = 'skill_versions_skill_semver_unique'
+      ) then
+        alter table skill_versions add constraint skill_versions_skill_semver_unique unique (skill_id, version);
+      end if;
+    end $$;
+    """,
     "alter table eval_case_versions add column if not exists workspace_artifact_id text references artifacts(id)",
     "alter table eval_case_versions add column if not exists steps jsonb not null default '[]'::jsonb",
     "alter table eval_case_versions add column if not exists runner_config jsonb not null default '{}'::jsonb",
@@ -88,6 +122,7 @@ SCHEMA_PATCHES = (
     "alter table eval_runs drop column if exists strategy",
     "alter table eval_sets drop column if exists lifecycle_status",
     "alter table eval_cases drop column if exists lifecycle_status",
+    "alter table skills drop column if exists visibility",
     "alter table eval_set_cases add column if not exists case_id text",
     "alter table eval_set_cases drop constraint if exists eval_set_cases_pkey",
     """
@@ -172,6 +207,103 @@ SCHEMA_PATCHES = (
     end $$;
     """,
     "alter table eval_set_cases drop column if exists case_version_id",
+    """
+    create table if not exists groups (
+      id text primary key,
+      name text not null unique,
+      description text not null default '',
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      created_by text not null
+    )
+    """,
+    """
+    create table if not exists group_memberships (
+      group_id text not null references groups(id),
+      subject_type text not null,
+      subject_id text not null,
+      created_at timestamptz not null default now(),
+      created_by text not null,
+      primary key (group_id, subject_type, subject_id),
+      constraint group_memberships_subject_type_check check (subject_type in ('user'))
+    )
+    """,
+    """
+    create table if not exists tag_groups (
+      id text primary key,
+      display_name text not null,
+      description text not null default '',
+      sort_order integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      created_by text not null,
+      constraint tag_groups_id_format_check check (id ~ '^[A-Za-z0-9_-]+$'),
+      constraint tag_groups_display_name_non_empty check (length(btrim(display_name)) > 0)
+    )
+    """,
+    """
+    create table if not exists tag_values (
+      tag_group_id text not null references tag_groups(id),
+      value text not null,
+      display_name text,
+      description text not null default '',
+      sort_order integer not null default 0,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      created_by text not null,
+      primary key (tag_group_id, value),
+      constraint tag_values_value_non_empty check (length(btrim(value)) > 0)
+    )
+    """,
+    """
+    do $$
+    begin
+      if exists (
+        select 1 from information_schema.columns
+        where table_schema = current_schema()
+          and table_name = 'skill_tags'
+          and column_name = 'tag'
+      ) then
+        delete from role_assignments where resource_type = 'skill_tag';
+        drop table skill_tags;
+      end if;
+    end $$;
+    """,
+    """
+    create table if not exists skill_tags (
+      skill_id text not null references skills(id),
+      tag_group_id text not null,
+      tag_value text not null,
+      created_at timestamptz not null default now(),
+      created_by text not null,
+      primary key (skill_id, tag_group_id, tag_value),
+      constraint skill_tags_tag_value_fkey foreign key (tag_group_id, tag_value) references tag_values(tag_group_id, value)
+    )
+    """,
+    "alter table role_assignments drop constraint if exists role_assignments_subject_type_check",
+    "alter table role_assignments drop constraint if exists role_assignments_resource_type_check",
+    "alter table role_assignments drop constraint if exists role_assignments_role_check",
+    """
+    alter table role_assignments
+      add constraint role_assignments_subject_type_check
+      check (subject_type in ('user', 'group'))
+    """,
+    """
+    alter table role_assignments
+      add constraint role_assignments_resource_type_check
+      check (resource_type in ('skill', 'skill_tag'))
+    """,
+    """
+    alter table role_assignments
+      add constraint role_assignments_role_check
+      check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer'))
+    """,
+    "drop index if exists skill_tags_tag_idx",
+    "create index if not exists skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value)",
+    "create index if not exists tag_groups_sort_idx on tag_groups (sort_order, id)",
+    "create index if not exists tag_values_group_sort_idx on tag_values (tag_group_id, sort_order, value)",
+    "create index if not exists group_memberships_subject_idx on group_memberships (subject_type, subject_id)",
+    "create index if not exists role_assignments_subject_idx on role_assignments (subject_type, subject_id)",
 )
 
 

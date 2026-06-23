@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import os
 
 from skillhub.api.main import create_app
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
@@ -8,6 +9,7 @@ from tests.postgres_test_case import PostgresTestCase
 class ApiCommandTestCase(PostgresTestCase):
     def setUp(self) -> None:
         super().setUp()
+        os.environ["SKILLHUB_ADMIN_CONSOLE_KEY"] = "test-admin-key"
         self.client = TestClient(create_app(self.engine))
         self.repository = SqlSkillRepository(self.engine)
 
@@ -27,6 +29,36 @@ class ApiCommandTestCase(PostgresTestCase):
         response = self.client.post("/api/skills", json=self.skill_payload(slug))
         self.assertEqual(response.status_code, 200)
         return response.json()
+
+    def create_tag_value(
+        self,
+        group_id: str = "domain",
+        value: str = "security",
+        display_name: str | None = None,
+    ):
+        groups = self.client.get("/api/admin/tag-groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+        self.assertEqual(groups.status_code, 200)
+        existing_group = next((item for item in groups.json() if item["id"] == group_id), None)
+        if existing_group is None:
+            group = self.client.post(
+                "/api/admin/tag-groups",
+                headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+                json={"id": group_id, "display_name": group_id, "description": ""},
+            )
+            self.assertEqual(group.status_code, 200)
+            existing_group = group.json()
+        if not any(item["value"] == value for item in existing_group.get("values", [])):
+            created = self.client.post(
+                f"/api/admin/tag-groups/{group_id}/values",
+                headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+                json={"value": value, "display_name": display_name, "description": ""},
+            )
+            self.assertEqual(created.status_code, 200)
+        return {"group_id": group_id, "value": value}
+
+    def tag_resource_id(self, group_id: str, value: str) -> str:
+        encoded = base64.urlsafe_b64encode(value.encode("utf-8")).decode("ascii").rstrip("=")
+        return f"{group_id}:{encoded}"
 
     def create_skill_version(self, skill_id: str, slug: str):
         response = self.client.post(

@@ -22,13 +22,13 @@ class ReadModelMixin:
             )
             return [
                 {
-                    "skill": self._row_dict(row),
+                    "skill": self._skill_record(connection, row),
                     "summary": self._skill_summary(connection, row),
                 }
                 for row in rows
             ]
 
-    def skill_detail(self, skill_id: str) -> dict[str, Any]:
+    def skill_detail(self, skill_id: str, actor: str | None = None) -> dict[str, Any]:
         with self.engine.connect() as connection:
             skill = self._skill_row(connection, skill_id)
             version_rows = (
@@ -63,15 +63,17 @@ class ReadModelMixin:
             summary = self._skill_summary(connection, skill)
             role_assignments = self._skill_role_assignments(connection, skill_id)
             audit_events = self._skill_audit_events(connection, skill_id, limit=10)
-        return {
-            "skill": self._row_dict(skill),
-            "summary": summary,
-            "versions": versions,
-            "eval_sets": eval_sets,
-            "latest_eval_runs": latest_runs,
-            "role_assignments": role_assignments,
-            "audit_events": audit_events,
-        }
+            capabilities = self._skill_capabilities(connection, skill_id=skill_id, actor=actor or "", subject_type="user") if actor else None
+            return {
+                "skill": self._skill_record(connection, skill),
+                "summary": summary,
+                "versions": versions,
+                "eval_sets": eval_sets,
+                "latest_eval_runs": latest_runs,
+                "role_assignments": role_assignments,
+                "audit_events": audit_events,
+                "capabilities": capabilities,
+            }
 
     def _skill_summary(self, connection, skill) -> dict[str, Any]:
         current_version = None
@@ -105,11 +107,14 @@ class ReadModelMixin:
             )
             latest_eval_run = self._row_dict(latest_row) if latest_row is not None else None
         return {
-            "skill": self._row_dict(skill),
+            "skill": self._skill_record(connection, skill),
             "current_version": current_version,
             "primary_eval_set": primary_eval_set,
             "latest_accepted_eval_run": latest_eval_run,
         }
+
+    def _skill_record(self, connection, skill) -> dict[str, Any]:
+        return {**self._row_dict(skill), "tags": self._skill_tags(connection, skill["id"])}
 
     def _skill_version_detail(self, connection, version) -> dict[str, Any]:
         detail = self._row_dict(version)

@@ -13,10 +13,15 @@ import type {
   EvalRunHistory,
   EvalSetDetail,
   EvalSetSummary,
+  RoleAssignment,
   SessionInfo,
+  SkillCapabilities,
   SkillDetail,
+  SkillTagPayload,
   SkillSummary,
+  TagGroup,
 } from "../types";
+import { getActorId } from "./identity";
 
 const API_BASE_URL = resolveApiBaseUrl({
   configuredUrl: import.meta.env.VITE_SKILLHUB_API_URL,
@@ -63,6 +68,7 @@ export const api = {
   ...skillApi(),
   ...artifactApi(),
   ...evaluationApi(),
+  ...adminApi(),
 };
 
 function sessionApi() {
@@ -74,13 +80,19 @@ function sessionApi() {
 function skillApi() {
   return {
     listSkills: () => apiGet<SkillSummary[]>("/api/skills"),
+    listTagGroups: () => apiGet<TagGroup[]>("/api/tag-groups"),
     getSkill: (skillId: string) => apiGet<SkillDetail>(`/api/skills/${skillId}`),
-    importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string; version?: string }) =>
+    importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string; version?: string; tags?: SkillTagPayload[] }) =>
       apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
     createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string; version?: string }) =>
       apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
     updateSkillVersionName: (versionId: string, displayName: string | null) =>
       apiSend<unknown>(`/api/skill-versions/${versionId}`, "PATCH", { display_name: displayName }),
+    updateSkill: (skillId: string, payload: { slug: string; owner_ref: string; tags?: SkillTagPayload[] }) =>
+      apiSend<SkillDetail["skill"]>(`/api/skills/${encodeURIComponent(skillId)}`, "PATCH", payload),
+    getSkillCapabilities: (skillId: string) => apiGet<SkillCapabilities>(`/api/skills/${encodeURIComponent(skillId)}/capabilities`),
+    assignSkillRole: (skillId: string, payload: { subject_type: "user" | "group"; subject_id: string; role: string }) =>
+      apiSend<RoleAssignment>(`/api/skills/${encodeURIComponent(skillId)}/role-assignments`, "POST", payload),
   };
 }
 
@@ -167,34 +179,92 @@ function evaluationApi() {
   };
 }
 
-async function apiGet<T>(path: string): Promise<T> {
+function adminApi() {
+  return {
+    adminListSkills: () => apiGet<SkillSummary[]>("/api/admin/skills", { admin: true }),
+    adminUpdateSkill: (skillId: string, payload: { slug?: string; owner_ref?: string; tags?: SkillTagPayload[] }) =>
+      apiSend<SkillDetail["skill"]>(`/api/admin/skills/${encodeURIComponent(skillId)}`, "PATCH", payload, { admin: true }),
+    adminListGroups: () => apiGet<AdminGroup[]>("/api/admin/groups", { admin: true }),
+    adminCreateGroup: (payload: { name: string; description?: string }) => apiSend<AdminGroup>("/api/admin/groups", "POST", payload, { admin: true }),
+    adminUpdateGroup: (groupId: string, payload: { name: string; description?: string }) =>
+      apiSend<AdminGroup>(`/api/admin/groups/${encodeURIComponent(groupId)}`, "PATCH", payload, { admin: true }),
+    adminDeleteGroup: (groupId: string) =>
+      apiDelete<{ ok: boolean }>(`/api/admin/groups/${encodeURIComponent(groupId)}`, { admin: true }),
+    adminAddGroupMember: (groupId: string, payload: { subject_id: string; subject_type?: string }) =>
+      apiSend<AdminGroup>(`/api/admin/groups/${encodeURIComponent(groupId)}/members`, "POST", payload, { admin: true }),
+    adminRemoveGroupMember: (groupId: string, subjectId: string) =>
+      apiDelete<AdminGroup>(`/api/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(subjectId)}`, { admin: true }),
+    adminListTagGroups: () => apiGet<TagGroup[]>("/api/admin/tag-groups", { admin: true }),
+    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number }) =>
+      apiSend<TagGroup>("/api/admin/tag-groups", "POST", payload, { admin: true }),
+    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number }) =>
+      apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, "PATCH", payload, { admin: true }),
+    adminDeleteTagGroup: (groupId: string) =>
+      apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, { admin: true }),
+    adminCreateTagValue: (groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }) =>
+      apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}/values`, "POST", payload, { admin: true }),
+    adminUpdateTagValue: (groupId: string, value: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }) =>
+      apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}/values/${encodeURIComponent(value)}`, "PATCH", payload, { admin: true }),
+    adminDeleteTagValue: (groupId: string, value: string) =>
+      apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}/values/${encodeURIComponent(value)}`, { admin: true }),
+    adminListRoleAssignments: () => apiGet<RoleAssignment[]>("/api/admin/role-assignments", { admin: true }),
+    adminAssignRole: (payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag"; resource_id: string; role: string }) =>
+      apiSend<RoleAssignment>("/api/admin/role-assignments", "POST", payload, { admin: true }),
+    adminDeleteRoleAssignment: (roleAssignmentId: string) =>
+      apiDelete<{ ok: boolean }>(`/api/admin/role-assignments/${encodeURIComponent(roleAssignmentId)}`, { admin: true }),
+  };
+}
+
+export type AdminGroup = {
+  id: string;
+  name: string;
+  description: string;
+  members: Array<{ group_id: string; subject_type: string; subject_id: string }>;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+};
+
+type RequestOptions = { admin?: boolean };
+
+async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
-    headers: { accept: "application/json" },
+    headers: requestHeaders(options),
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;
 }
 
-async function apiSend<T>(path: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+async function apiSend<T>(path: string, method: "POST" | "PATCH", body: unknown, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     credentials: "include",
-    headers: { accept: "application/json", "content-type": "application/json" },
+    headers: requestHeaders({ ...options, json: true } as RequestOptions & { json: boolean }),
     body: JSON.stringify(body),
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;
 }
 
-async function apiDelete<T>(path: string): Promise<T> {
+async function apiDelete<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "DELETE",
     credentials: "include",
-    headers: { accept: "application/json" },
+    headers: requestHeaders(options),
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;
+}
+
+function requestHeaders(options: RequestOptions & { json?: boolean } = {}): HeadersInit {
+  const headers: Record<string, string> = { accept: "application/json", "X-SkillHub-Actor": getActorId() };
+  if (options.json) headers["content-type"] = "application/json";
+  if (options.admin) {
+    const key = typeof window === "undefined" ? "" : window.sessionStorage.getItem("skillhub.admin.key") || "";
+    if (key) headers["X-SkillHub-Admin-Key"] = key;
+  }
+  return headers;
 }
 
 async function parseApiError(response: Response): Promise<ApiError> {

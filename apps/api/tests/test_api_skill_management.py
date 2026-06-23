@@ -149,6 +149,38 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(secondary_detail["cases"][0]["case_version"]["id"], updated.json()["eval_case_version_id"])
         self.assertEqual(primary_detail["cases"][0]["case"]["title"], "Updated shared case")
 
+    def test_eval_case_title_update_rolls_back_when_version_creation_fails(self):
+        skill = self.create_skill("case-title-rollback")
+        case = self.create_eval_case(skill["skill_id"])
+
+        response = self.client.patch(
+            f"/api/eval-cases/{case['eval_case_id']}",
+            json={
+                "case_id": case["eval_case_id"],
+                "eval_set_id": case["eval_set_id"],
+                "title": "Half saved title",
+                "steps": [
+                    {
+                        "title": "无效模型配置",
+                        "input": "输出 helloworld",
+                        "assertions": [
+                            {
+                                "assertion_template_id": "agent_output_contains",
+                                "assertion_params": {"text": "helloworld"},
+                            }
+                        ],
+                    }
+                ],
+                "runner_config": {"model_provider_id": "deepseek"},
+                "make_current": True,
+            },
+        )
+        detail = self.client.get(f"/api/eval-sets/{case['eval_set_id']}").json()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(detail["cases"][0]["case"]["title"], "PR: missing owner check")
+        self.assertEqual(detail["cases"][0]["case_version"]["id"], case["eval_case_version_id"])
+
     def test_eval_set_membership_rejects_cross_skill_case_and_reorders(self):
         first = self.create_skill("membership-first")
         second = self.create_skill("membership-second")
@@ -299,6 +331,233 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("variant.promote", response.json()["permissions"])
         self.assertTrue(response.json()["permissions"]["verification.accept"])
+        self.assertIn("admin", response.json()["effective_roles"])
+
+    def test_all_actors_can_read_skill_but_unassigned_actor_cannot_write(self):
+        skill = self.create_skill("public-read-permission")
+
+        listed = self.client.get("/api/skills", headers={"X-SkillHub-Actor": "guest-user"})
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}", headers={"X-SkillHub-Actor": "guest-user"})
+        update = self.client.patch(
+            f"/api/skills/{skill['skill_id']}",
+            headers={"X-SkillHub-Actor": "guest-user"},
+            json={"slug": "public-read-permission-v2", "owner_ref": "skillhub-lab"},
+        )
+
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(update.status_code, 403)
+
+    def test_group_and_tag_roles_are_combined_for_effective_permissions(self):
+        tag = self.create_tag_value("domain", "安全 组 🔐")
+        skill = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator"},
+            json={**self.skill_payload("group-tag-permission"), "tags": [tag]},
+        ).json()
+        self.client.post("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"name": "qa-team"})
+        groups = self.client.get("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+        group_id = groups[0]["id"]
+        self.client.post(f"/api/admin/groups/{group_id}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "qa-user"})
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "group", "subject_id": group_id, "resource_type": "skill_tag", "resource_id": self.tag_resource_id("domain", "安全 组 🔐"), "role": "evaluator"},
+        )
+
+        capabilities = self.client.get(f"/api/skills/{skill['skill_id']}/capabilities", headers={"X-SkillHub-Actor": "qa-user"}).json()
+
+        self.assertIn(group_id, capabilities["groups"])
+        self.assertIn("evaluator", capabilities["effective_roles"])
+        self.assertTrue(capabilities["permissions"]["eval.run"])
+
+    def test_skill_tags_accept_long_arbitrary_value_and_update_response_includes_tags(self):
+        skill = self.create_skill("arbitrary-tags")
+        long_tag = "任意 Tag / 允许空格、符号和 emoji 🔐 " + ("x" * 80)
+        tag = self.create_tag_value("free_form", long_tag)
+
+        response = self.client.patch(
+            f"/api/skills/{skill['skill_id']}",
+            headers={"X-SkillHub-Actor": "product-operator"},
+            json={"slug": "arbitrary-tags", "owner_ref": "skillhub-lab", "tags": [tag]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["tags"][0]["group_id"], "free_form")
+        self.assertEqual(response.json()["tags"][0]["value"], long_tag)
+
+    def test_protected_tag_changes_require_admin_role(self):
+        tag = self.create_tag_value("risk", "protected tag")
+        skill = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator"},
+            json={**self.skill_payload("protected-tag-skill"), "tags": [tag]},
+        ).json()
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            headers={"X-SkillHub-Actor": "creator"},
+            json={"subject_id": "maintainer-one", "role": "maintainer"},
+        )
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "user", "subject_id": "qa", "resource_type": "skill_tag", "resource_id": self.tag_resource_id("risk", "protected tag"), "role": "evaluator"},
+        )
+
+        denied = self.client.patch(
+            f"/api/skills/{skill['skill_id']}",
+            headers={"X-SkillHub-Actor": "maintainer-one"},
+            json={"slug": "protected-tag-skill", "owner_ref": "skillhub-lab", "tags": []},
+        )
+        allowed = self.client.patch(
+            f"/api/skills/{skill['skill_id']}",
+            headers={"X-SkillHub-Actor": "creator"},
+            json={"slug": "protected-tag-skill", "owner_ref": "skillhub-lab", "tags": []},
+        )
+
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(allowed.json()["tags"], [])
+
+    def test_creating_skill_with_protected_tag_requires_tag_admin_role(self):
+        tag = self.create_tag_value("risk", "protected create")
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "user", "subject_id": "tag-admin", "resource_type": "skill_tag", "resource_id": self.tag_resource_id("risk", "protected create"), "role": "admin"},
+        )
+
+        denied = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "ordinary-user"},
+            json={**self.skill_payload("ordinary-protected-create"), "tags": [tag]},
+        )
+        allowed = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "tag-admin"},
+            json={**self.skill_payload("admin-protected-create"), "tags": [tag]},
+        )
+
+        self.assertEqual(denied.status_code, 400)
+        self.assertEqual(allowed.status_code, 200)
+
+    def test_same_tag_value_in_different_groups_does_not_share_permissions(self):
+        self.create_tag_value("domain", "shared")
+        self.create_tag_value("team", "shared")
+        first = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator-one"},
+            json={**self.skill_payload("tag-scope-domain"), "tags": [{"group_id": "domain", "value": "shared"}]},
+        ).json()
+        second = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator-two"},
+            json={**self.skill_payload("tag-scope-team"), "tags": [{"group_id": "team", "value": "shared"}]},
+        ).json()
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "user", "subject_id": "scoped-user", "resource_type": "skill_tag", "resource_id": self.tag_resource_id("domain", "shared"), "role": "evaluator"},
+        )
+
+        first_capabilities = self.client.get(f"/api/skills/{first['skill_id']}/capabilities", headers={"X-SkillHub-Actor": "scoped-user"}).json()
+        second_capabilities = self.client.get(f"/api/skills/{second['skill_id']}/capabilities", headers={"X-SkillHub-Actor": "scoped-user"}).json()
+
+        self.assertTrue(first_capabilities["permissions"]["eval.run"])
+        self.assertFalse(second_capabilities["permissions"]["eval.run"])
+
+    def test_admin_delete_group_removes_memberships_and_group_roles(self):
+        skill = self.create_skill("delete-group-scope")
+        self.client.post("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"name": "cleanup-team"})
+        group_id = self.client.get("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()[0]["id"]
+        self.client.post(f"/api/admin/groups/{group_id}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "cleanup-user"})
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "group", "subject_id": group_id, "resource_type": "skill", "resource_id": skill["skill_id"], "role": "evaluator"},
+        )
+
+        deleted = self.client.delete(f"/api/admin/groups/{group_id}", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+        groups = self.client.get("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+        roles = self.client.get("/api/admin/role-assignments", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(groups, [])
+        self.assertFalse(any(role["subject_type"] == "group" and role["subject_id"] == group_id for role in roles))
+
+    def test_admin_delete_tag_value_removes_skill_tags_and_matching_tag_roles_only(self):
+        self.create_tag_value("domain", "shared")
+        self.create_tag_value("team", "shared")
+        first = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator-one"},
+            json={**self.skill_payload("delete-tag-value-domain"), "tags": [{"group_id": "domain", "value": "shared"}]},
+        ).json()
+        second = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator-two"},
+            json={**self.skill_payload("delete-tag-value-team"), "tags": [{"group_id": "team", "value": "shared"}]},
+        ).json()
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "user", "subject_id": "domain-user", "resource_type": "skill_tag", "resource_id": self.tag_resource_id("domain", "shared"), "role": "evaluator"},
+        )
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "user", "subject_id": "team-user", "resource_type": "skill_tag", "resource_id": self.tag_resource_id("team", "shared"), "role": "evaluator"},
+        )
+
+        deleted = self.client.delete("/api/admin/tag-groups/domain/values/shared", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+        first_detail = self.client.get(f"/api/skills/{first['skill_id']}").json()
+        second_detail = self.client.get(f"/api/skills/{second['skill_id']}").json()
+        roles = self.client.get("/api/admin/role-assignments", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(first_detail["skill"]["tags"], [])
+        self.assertEqual(second_detail["skill"]["tags"][0]["group_id"], "team")
+        self.assertFalse(any(role["resource_id"] == self.tag_resource_id("domain", "shared") for role in roles))
+        self.assertTrue(any(role["resource_id"] == self.tag_resource_id("team", "shared") for role in roles))
+
+    def test_admin_delete_tag_group_removes_values_skill_tags_and_matching_roles(self):
+        tag = self.create_tag_value("cleanup", "one")
+        self.create_tag_value("cleanup", "two")
+        skill = self.client.post(
+            "/api/skills",
+            headers={"X-SkillHub-Actor": "creator"},
+            json={**self.skill_payload("delete-tag-group"), "tags": [tag]},
+        ).json()
+        self.client.post(
+            "/api/admin/role-assignments",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"subject_type": "user", "subject_id": "cleanup-user", "resource_type": "skill_tag", "resource_id": self.tag_resource_id("cleanup", "one"), "role": "evaluator"},
+        )
+
+        deleted = self.client.delete("/api/admin/tag-groups/cleanup", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+        tag_groups = self.client.get("/api/admin/tag-groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+        roles = self.client.get("/api/admin/role-assignments", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(detail["skill"]["tags"], [])
+        self.assertEqual(tag_groups, [])
+        self.assertFalse(any(role["resource_type"] == "skill_tag" and role["resource_id"].startswith("cleanup:") for role in roles))
+
+    def test_admin_api_requires_configured_key(self):
+        denied = self.client.get("/api/admin/skills", headers={"X-SkillHub-Admin-Key": "wrong"})
+        allowed = self.client.get("/api/admin/skills", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(allowed.status_code, 200)
+
+    def test_admin_duplicate_group_returns_domain_error(self):
+        first = self.client.post("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"name": "qa-team"})
+        duplicate = self.client.post("/api/admin/groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"name": "qa-team"})
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn("Group already exists", duplicate.json()["detail"])
 
     def test_saved_run_view_endpoints_create_list_and_delete_view(self):
         skill = self.create_skill("saved-view-api")
@@ -347,7 +606,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(response.json()["field_errors"][0]["field"], "slug")
 
-    def test_request_actor_header_controls_created_owner(self):
+    def test_request_actor_header_controls_created_admin(self):
         response = self.client.post(
             "/api/skills",
             headers={"X-SkillHub-Actor": "maintainer-one"},
@@ -357,3 +616,4 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(assignments[0]["subject_id"], "maintainer-one")
+        self.assertEqual(assignments[0]["role"], "admin")

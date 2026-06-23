@@ -1,0 +1,145 @@
+.access-panel {
+  padding: 22px;
+}
+
+.access-panel .panel-title-row p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.access-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.access-card {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.access-card h3 {
+  margin: 0;
+}
+
+.access-role-form {
+  display: grid;
+  gap: 10px;
+}
+
+.access-role-form {
+  grid-template-columns: 120px minmax(0, 1fr) 140px auto;
+}
+
+.access-role-form input,
+.access-role-form select {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: white;
+}
+
+.access-role-list {
+  display: grid;
+  gap: 8px;
+}
+
+.access-role-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: white;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+
+.tag-chip.muted {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.skill-tag-row {
+  margin-top: 14px;
+}
+
+.skill-tag-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.skill-tag-group {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: white;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.skill-tag-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.skill-tag-group-title code {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.skill-tag-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-tag-option {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.skill-tag-option:hover {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.skill-tag-option.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: #1d4ed8;
+}
+
+.skill-tag-option input {
+  margin: 0;
+}
+
+.permission-hint {
+  margin-top: 10px;
+}
+
+@media (max-width: 860px) {
+  .access-grid,
+  .access-role-form {
+    grid-template-columns: 1fr;
+  }
+}

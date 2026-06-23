@@ -13,10 +13,15 @@ from skillhub.infrastructure.db.tables import (
     eval_runs,
     eval_set_cases,
     eval_sets,
+    group_memberships,
+    groups,
     jobs,
     role_assignments,
     saved_views,
+    skill_tags,
     skill_versions,
+    tag_groups,
+    tag_values,
 )
 
 
@@ -49,6 +54,11 @@ Index(
 )
 Index("accepted_verifications_eval_run_id_idx", accepted_verifications.c.eval_run_id)
 Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
+Index("skill_tags_group_value_idx", skill_tags.c.tag_group_id, skill_tags.c.tag_value)
+Index("tag_groups_sort_idx", tag_groups.c.sort_order, tag_groups.c.id)
+Index("tag_values_group_sort_idx", tag_values.c.tag_group_id, tag_values.c.sort_order, tag_values.c.value)
+Index("group_memberships_subject_idx", group_memberships.c.subject_type, group_memberships.c.subject_id)
 Index("jobs_status_created_at_idx", jobs.c.status, jobs.c.created_at)
+Index("role_assignments_subject_idx", role_assignments.c.subject_type, role_assignments.c.subject_id)
 Index("role_assignments_resource_idx", role_assignments.c.resource_type, role_assignments.c.resource_id)
 Index("audit_events_resource_idx", audit_events.c.resource_type, audit_events.c.resource_id, audit_events.c.created_at.desc())

@@ -12,6 +12,7 @@ const props = defineProps<{
   active: EvalSetSummary | null;
   caseCount: number;
   busy?: boolean;
+  disabled?: boolean;
 }>();
 const emit = defineEmits<{
   select: [evalSetId: string];
@@ -38,6 +39,7 @@ watch(() => [props.active?.id, props.active?.name, props.active?.description] as
 
 /** 打开新建测评集表单，并初始化输入内容。 */
 function startCreate(): void {
+  if (props.disabled) return;
   creating.value = true;
   editing.value = false;
   name.value = "";
@@ -46,7 +48,7 @@ function startCreate(): void {
 
 /** 打开当前测评集编辑表单。 */
 function startEdit(): void {
-  if (!props.active) return;
+  if (!props.active || props.disabled) return;
   editing.value = true;
   creating.value = false;
   name.value = props.active.name;
@@ -64,7 +66,7 @@ function cancelForms(): void {
 /** 提交新建或编辑表单。 */
 function submit(): void {
   const cleanName = name.value.trim();
-  if (!cleanName || props.busy) return;
+  if (!cleanName || props.busy || props.disabled) return;
   const payload = { name: cleanName, description: description.value.trim() };
   if (creating.value) emit("create", payload);
   if (editing.value) emit("update", payload);
@@ -107,7 +109,7 @@ function submit(): void {
           </button>
         </div>
       </form>
-      <button v-else class="secondary-button full-width" type="button" @click="startCreate">
+      <button v-else class="secondary-button full-width" type="button" :disabled="disabled" @click="startCreate">
         <Plus :size="16" />
         新建测评集
       </button>
@@ -136,7 +138,7 @@ function submit(): void {
             <X :size="15" />
           </button>
         </div>
-        <button v-else class="icon-button mini" type="button" aria-label="编辑测评集" :disabled="!active" @click="startEdit">
+        <button v-else class="icon-button mini" type="button" aria-label="编辑测评集" :disabled="!active || disabled" @click="startEdit">
           <Edit3 :size="15" />
         </button>
       </div>

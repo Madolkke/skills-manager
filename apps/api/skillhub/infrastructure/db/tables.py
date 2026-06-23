@@ -267,6 +267,74 @@ jobs = Table(
     CheckConstraint("status in ('queued', 'running', 'succeeded', 'failed', 'canceled')", name="jobs_status_check"),
 )
 
+skill_tags = Table(
+    "skill_tags",
+    metadata,
+    Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
+    Column("tag_group_id", Text, nullable=False),
+    Column("tag_value", Text, nullable=False),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    PrimaryKeyConstraint("skill_id", "tag_group_id", "tag_value"),
+    ForeignKeyConstraint(
+        ["tag_group_id", "tag_value"],
+        ["tag_values.tag_group_id", "tag_values.value"],
+        name="skill_tags_tag_value_fkey",
+    ),
+)
+
+tag_groups = Table(
+    "tag_groups",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("display_name", Text, nullable=False),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    Column("sort_order", Integer, nullable=False, server_default=text("0")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("id ~ '^[A-Za-z0-9_-]+$'", name="tag_groups_id_format_check"),
+    CheckConstraint("length(btrim(display_name)) > 0", name="tag_groups_display_name_non_empty"),
+)
+
+tag_values = Table(
+    "tag_values",
+    metadata,
+    Column("tag_group_id", Text, ForeignKey("tag_groups.id"), nullable=False),
+    Column("value", Text, nullable=False),
+    Column("display_name", Text),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    Column("sort_order", Integer, nullable=False, server_default=text("0")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+    PrimaryKeyConstraint("tag_group_id", "value"),
+    CheckConstraint("length(btrim(value)) > 0", name="tag_values_value_non_empty"),
+)
+
+groups = Table(
+    "groups",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("name", Text, nullable=False, unique=True),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+)
+
+group_memberships = Table(
+    "group_memberships",
+    metadata,
+    Column("group_id", Text, ForeignKey("groups.id"), nullable=False),
+    Column("subject_type", Text, nullable=False),
+    Column("subject_id", Text, nullable=False),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    PrimaryKeyConstraint("group_id", "subject_type", "subject_id"),
+    CheckConstraint("subject_type in ('user')", name="group_memberships_subject_type_check"),
+)
+
 role_assignments = Table(
     "role_assignments",
     metadata,
@@ -278,7 +346,9 @@ role_assignments = Table(
     Column("role", Text, nullable=False),
     timestamp_column(),
     Column("created_by", Text, nullable=False),
-    CheckConstraint("role in ('owner', 'maintainer', 'evaluator', 'viewer')", name="role_assignments_role_check"),
+    CheckConstraint("subject_type in ('user', 'group')", name="role_assignments_subject_type_check"),
+    CheckConstraint("resource_type in ('skill', 'skill_tag')", name="role_assignments_resource_type_check"),
+    CheckConstraint("role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer')", name="role_assignments_role_check"),
     UniqueConstraint("subject_type", "subject_id", "resource_type", "resource_id", "role", name="role_assignments_scope_unique"),
 )
 

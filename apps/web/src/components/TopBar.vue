@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillDet
   actor: "product-operator",
   currentSkill: null,
 });
-const emit = defineEmits<{ home: []; create: []; workflows: [] }>();
+const emit = defineEmits<{ home: []; create: []; workflows: []; settings: [] }>();
 
 const menuOpen = ref(false);
 const menuRef = ref<HTMLDivElement | null>(null);
@@ -61,7 +61,7 @@ function handleClick(event: MouseEvent): void {
       </button>
       <div v-if="menuOpen" class="actor-dropdown">
         <div class="actor-dropdown-header">{{ props.actor }}</div>
-        <button class="actor-dropdown-item" type="button" @click="menuOpen = false">
+        <button class="actor-dropdown-item" type="button" @click="menuOpen = false; emit('settings')">
           <Settings :size="15" />
           设置
         </button>

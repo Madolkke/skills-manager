@@ -1,6 +1,6 @@
-export type AppSection = "hub" | "skills" | "workflows";
+export type AppSection = "hub" | "skills" | "workflows" | "admin";
 
-export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history";
+export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history" | "settings";
 
 export type RouteState = {
   section: AppSection;
@@ -15,6 +15,17 @@ export type RouteState = {
 export function readRoute(): RouteState {
   const url = new URL(window.location.href);
   const skillId = url.searchParams.get("skill");
+  if (url.pathname === "/skills/admin") {
+    return {
+      section: "admin",
+      skillId: null,
+      tab: "overview",
+      selectedCaseId: null,
+      selectedEvalSetId: null,
+      selectedVersionId: null,
+      selectedRunId: null,
+    };
+  }
   return {
     section: normalizeSection(url.searchParams.get("section"), skillId),
     skillId,
@@ -30,6 +41,12 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
   const current = readRoute();
   const route = { ...current, ...next };
   const url = new URL(window.location.href);
+  if (route.section === "admin") {
+    url.pathname = "/skills/admin";
+    url.search = "";
+    window.history.pushState(route, "", url);
+    return route;
+  }
   url.pathname = "/skills";
   url.search = "";
   if (route.section !== "hub") url.searchParams.set("section", route.section);
@@ -50,6 +67,6 @@ function normalizeSection(value: string | null, skillId: string | null): AppSect
 }
 
 function normalizeTab(value: string | null): SkillTab {
-  if (value === "versions" || value === "evalsets" || value === "evaluate" || value === "history") return value;
+  if (value === "versions" || value === "evalsets" || value === "evaluate" || value === "history" || value === "settings") return value;
   return "overview";
 }

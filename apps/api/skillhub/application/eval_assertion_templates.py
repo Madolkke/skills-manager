@@ -231,7 +231,13 @@ def safe_workdir_path(workdir: Path, *parts: str) -> Path:
     relative = PurePosixPath(joined or ".")
     if relative.is_absolute() or any(part == ".." or _is_windows_drive(part) for part in relative.parts):
         raise InvariantError(f"Unsafe workdir path: {joined}")
-    return (workdir / Path(*[part for part in relative.parts if part not in {"", "."}])).resolve()
+    root = workdir.resolve()
+    target = (root / Path(*[part for part in relative.parts if part not in {"", "."}])).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise InvariantError(f"Unsafe workdir path: {joined}") from exc
+    return target
 
 
 def _similarity(left: str, right: str) -> float:

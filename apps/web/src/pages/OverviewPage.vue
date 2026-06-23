@@ -4,6 +4,7 @@ import { computed } from "vue";
 import BundleBrowser from "../components/BundleBrowser.vue";
 import { compactText, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
+import { tagLabel } from "../lib/skillTags";
 import type { SkillDetail } from "../types";
 
 const props = defineProps<{ skill: SkillDetail }>();
@@ -44,6 +45,9 @@ function skillLifecycleLabel(status: string): string {
             <dd>{{ lifecycleLabel }}</dd>
           </div>
         </dl>
+        <div v-if="skill.skill.tags?.length" class="tag-row skill-tag-row">
+          <span v-for="tag in skill.skill.tags" :key="`${tag.group_id}:${tag.value}`" class="tag-chip">{{ tagLabel(tag) }}</span>
+        </div>
       </div>
       <div class="skill-summary-metrics">
         <div class="summary-metric">
@@ -63,7 +67,6 @@ function skillLifecycleLabel(status: string): string {
         </div>
       </div>
     </section>
-
     <section class="primary-panel bundle-panel">
       <div class="panel-title-row">
         <h2>Skill bundle</h2>

@@ -147,3 +147,22 @@ class ApiEvalFlowTest(ApiCommandTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["field_errors"][0]["field"], f"case_runs.{case['eval_case_version_id']}")
+
+    def test_aggregate_eval_run_rejects_empty_eval_set(self):
+        skill = self.create_skill("empty-run-validation")
+        empty_set = self.client.post(
+            f"/api/skills/{skill['skill_id']}/eval-sets",
+            json={"name": "Empty"},
+        ).json()
+
+        response = self.client.post(
+            "/api/eval-runs/aggregations",
+            json={
+                "skill_version_id": skill["skill_version_id"],
+                "eval_set_id": empty_set["id"],
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["field_errors"][0]["field"], "eval_set_id")
+        self.assertEqual(response.json()["field_errors"][0]["code"], "eval_run.eval_set_empty")

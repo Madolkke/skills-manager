@@ -31,6 +31,7 @@ const manager = useEvalSetManagement({
   toast: (toast) => emit("toast", toast),
 });
 const sharedEvalSetNames = ref<string[]>([]);
+const canManageEval = computed(() => Boolean(props.skill.capabilities?.permissions["eval.manage"]));
 
 const caseSortOptions: DropdownSelectOption[] = [
   { value: "position", label: "按列表顺序" },
@@ -83,10 +84,11 @@ function errorMessage(caught: unknown): string {
           <DropdownSelect v-model="manager.caseSort.value" :options="caseSortOptions" aria-label="测试例排序" compact />
         </label>
         <div class="case-toolbar-actions">
-          <button class="primary-button" type="button" @click="manager.startCreate"><Plus :size="17" />新建测试例</button>
-          <button class="secondary-button" type="button" @click="manager.openLibrary"><Link2 :size="17" />添加已有</button>
+          <button class="primary-button" type="button" :disabled="!canManageEval" @click="manager.startCreate"><Plus :size="17" />新建测试例</button>
+          <button class="secondary-button" type="button" :disabled="!canManageEval" @click="manager.openLibrary"><Link2 :size="17" />添加已有</button>
         </div>
       </div>
+      <p v-if="!canManageEval" class="field-help permission-hint">当前身份没有管理测评集和测试例的权限。</p>
       <EvalCaseLibraryPanel
         v-if="manager.libraryOpen.value"
         :busy="manager.busy.value"
@@ -136,6 +138,7 @@ function errorMessage(caught: unknown): string {
         :active="manager.evalSet.value"
         :busy="manager.busy.value"
         :case-count="manager.detail.value?.cases.length ?? 0"
+        :disabled="!canManageEval"
         :eval-sets="manager.evalSets.value"
         :selected-id="manager.selectedEvalSetId.value"
         @create="manager.createEvalSet"
@@ -180,7 +183,7 @@ function errorMessage(caught: unknown): string {
               <button
                 class="secondary-button"
                 type="button"
-                :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position === 0"
+                :disabled="!canManageEval || manager.caseSort.value !== 'position' || manager.selected.value.position === 0"
                 @click="manager.moveCase(manager.selected.value, -1)"
               >
                 <ArrowUp :size="16" />
@@ -189,17 +192,17 @@ function errorMessage(caught: unknown): string {
               <button
                 class="secondary-button"
                 type="button"
-                :disabled="manager.caseSort.value !== 'position' || manager.selected.value.position >= (manager.detail.value?.cases.length ?? 1) - 1"
+                :disabled="!canManageEval || manager.caseSort.value !== 'position' || manager.selected.value.position >= (manager.detail.value?.cases.length ?? 1) - 1"
                 @click="manager.moveCase(manager.selected.value, 1)"
               >
                 <ArrowDown :size="16" />
                 下移
               </button>
-              <button class="secondary-button" type="button" @click="manager.removeCase(manager.selected.value)">
+              <button class="secondary-button" type="button" :disabled="!canManageEval" @click="manager.removeCase(manager.selected.value)">
                 <Trash2 :size="16" />
                 移除引用
               </button>
-              <button class="primary-button" type="button" @click="manager.startEdit(manager.selected.value)">编辑测试例</button>
+              <button class="primary-button" type="button" :disabled="!canManageEval" @click="manager.startEdit(manager.selected.value)">编辑测试例</button>
             </div>
           </header>
           <CaseStepTimeline :steps="manager.selected.value.case_version.steps" @copy="copyText" />

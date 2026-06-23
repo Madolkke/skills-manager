@@ -32,6 +32,7 @@ const selectedVersionSummary = computed(() => cleanVersionSummary(selectedVersio
 const versionOptions = computed(() => versions.value.map((version) => ({ value: version.id, label: versionName(version) })));
 const evalSetOptions = computed(() => evalSets.value.map((item) => ({ value: item.id, label: item.name, description: `${item.description || "暂无描述"} · ${item.id === fallbackEvalSetId.value ? "默认" : "自定义"}` })));
 const evalSetLoaded = computed(() => Boolean(detail.value));
+const canRunEvaluation = computed(() => Boolean(props.skill.capabilities?.permissions["eval.run"]));
 const {
   board: opencodeBoard,
   busy,
@@ -95,6 +96,10 @@ async function copyText(label: string, text?: string | null): Promise<void> {
 }
 
 async function runFormalOpencodeEvaluation(): Promise<void> {
+  if (!canRunEvaluation.value) {
+    emit("toast", { tone: "danger", message: "当前身份没有运行测评权限。" });
+    return;
+  }
   const evalRunId = await runFormalEvaluation();
   if (!evalRunId) return;
   emit("refresh");
@@ -103,6 +108,10 @@ async function runFormalOpencodeEvaluation(): Promise<void> {
 
 async function runActiveCase(): Promise<void> {
   if (!active.value) return;
+  if (!canRunEvaluation.value) {
+    emit("toast", { tone: "danger", message: "当前身份没有运行测评权限。" });
+    return;
+  }
   await runCase(active.value);
 }
 
@@ -158,8 +167,9 @@ function cleanVersionSummary(value?: string | null): string {
       </div>
       <RunnerActionBar
         :busy="busy"
-        :can-run-formal="canRunFormalEvaluation"
+        :can-run-formal="canRunFormalEvaluation && canRunEvaluation"
         :case-count="cases.length"
+        :disabled="!canRunEvaluation"
         :poll-interval-seconds="pollIntervalSeconds"
         :summary="opencodeSummary"
         @retry-failed="retryFailed"
@@ -206,6 +216,7 @@ function cleanVersionSummary(value?: string | null): string {
         @copy="copyText"
         @run="runActiveCase"
       />
+      <p v-if="!canRunEvaluation" class="field-help permission-hint">当前身份没有运行测评权限，需要 evaluator、maintainer、owner 或 admin 角色。</p>
     </div>
   </div>
 </template>

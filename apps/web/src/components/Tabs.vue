@@ -11,6 +11,7 @@ const labels: Record<SkillTab, string> = {
   evalsets: "测评集",
   evaluate: "测评",
   history: "历史",
+  settings: "设置",
 };
 
 const tabs = Object.keys(labels) as SkillTab[];

@@ -31,5 +31,9 @@ def register_saved_view_routes(app: FastAPI) -> None:
         )
 
     @app.delete("/api/saved-views/{saved_view_id}")
-    def delete_saved_view(saved_view_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
-        return result_payload(repository.delete_saved_view(saved_view_id))
+    def delete_saved_view(
+        saved_view_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.delete_saved_view(saved_view_id, actor=actor.id))

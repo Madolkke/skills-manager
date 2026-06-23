@@ -49,6 +49,7 @@ def register_version_routes(app: FastAPI) -> None:
     def update_skill_version_name(
         skill_version_id: str,
         payload: UpdateVersionDisplayNamePayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.update_skill_version_name(skill_version_id=skill_version_id, display_name=payload.display_name))
+        return result_payload(repository.update_skill_version_name(skill_version_id=skill_version_id, display_name=payload.display_name, actor=actor.id))

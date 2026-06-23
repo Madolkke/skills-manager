@@ -24,6 +24,7 @@ class SkillCommandMixin:
         actor: str,
         display_name: str | None = None,
         version: str | None = None,
+        tags: list[dict[str, Any]] | None = None,
     ) -> CreateSkillResult:
         created_at = utc_now()
         skill_id = new_id("skill")
@@ -33,6 +34,7 @@ class SkillCommandMixin:
 
         try:
             with self.engine.begin() as connection:
+                self._require_protected_tag_creation_permission(connection, tags=tags or [], actor=actor)
                 connection.execute(
                     insert(tables.skills).values(
                         id=skill_id,
@@ -63,6 +65,14 @@ class SkillCommandMixin:
                     .where(tables.skills.c.id == skill_id)
                     .values(current_version_id=skill_version_id, updated_at=created_at)
                 )
+                self._set_skill_tags(
+                    connection,
+                    skill_id=skill_id,
+                    tags=tags or [],
+                    actor=actor,
+                    created_at=created_at,
+                    enforce_protected=False,
+                )
                 connection.execute(
                     insert(tables.eval_sets).values(
                         id=eval_set_id,
@@ -77,7 +87,7 @@ class SkillCommandMixin:
                     connection,
                     skill_id=skill_id,
                     subject_id=actor,
-                    role="owner",
+                    role="admin",
                     actor=actor,
                     created_at=created_at,
                 )
@@ -88,7 +98,7 @@ class SkillCommandMixin:
                         action="role.assigned",
                         resource_type="skill",
                         resource_id=skill_id,
-                        payload={"subject_type": "user", "subject_id": actor, "role": "owner", "reason": "skill.creator"},
+                        payload={"subject_type": "user", "subject_id": actor, "role": "admin", "reason": "skill.creator"},
                         created_at=created_at,
                     )
                 )
@@ -119,6 +129,7 @@ class SkillCommandMixin:
         try:
             with self.engine.begin() as connection:
                 self._skill_row(connection, skill_id)
+                self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.version.create")
                 version_number = self._next_skill_version_number(connection, skill_id)
                 semver = normalize_semver(version or self._next_skill_semver(connection, skill_id))
                 connection.execute(
@@ -159,9 +170,11 @@ class SkillCommandMixin:
             version=semver,
         )
 
-    def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None) -> dict[str, Any]:
+    def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None, actor: str | None = None) -> dict[str, Any]:
         with self.engine.begin() as connection:
-            self._skill_version_row(connection, skill_version_id)
+            version = self._skill_version_row(connection, skill_version_id)
+            if actor is not None:
+                self._require_skill_permission(connection, skill_id=version["skill_id"], actor=actor, permission="skill.version.create")
             connection.execute(
                 update(tables.skill_versions)
                 .where(tables.skill_versions.c.id == skill_version_id)
@@ -169,19 +182,58 @@ class SkillCommandMixin:
             )
             return self._row_dict(self._skill_version_row(connection, skill_version_id))
 
-    def update_skill(self, *, skill_id: str, slug: str, owner_ref: str) -> dict[str, Any]:
+    def update_skill(self, *, skill_id: str, slug: str, owner_ref: str, actor: str | None = None, tags: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         updated_at = utc_now()
         try:
             with self.engine.begin() as connection:
                 self._skill_row(connection, skill_id)
+                if actor is not None:
+                    self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.edit")
                 connection.execute(
                     update(tables.skills)
                     .where(tables.skills.c.id == skill_id)
                     .values(slug=slug, owner_ref=owner_ref, updated_at=updated_at)
                 )
-                return self._row_dict(self._skill_row(connection, skill_id))
+                if tags is not None:
+                    self._set_skill_tags(connection, skill_id=skill_id, tags=tags, actor=actor or "system", created_at=updated_at)
+                return {**self._row_dict(self._skill_row(connection, skill_id)), "tags": self._skill_tags(connection, skill_id)}
         except IntegrityError as exc:
             raise skill_slug_conflict(slug) from exc
+
+    def update_skill_admin(
+        self,
+        *,
+        skill_id: str,
+        slug: str | None = None,
+        owner_ref: str | None = None,
+        tags: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        updated_at = utc_now()
+        try:
+            with self.engine.begin() as connection:
+                skill = self._skill_row(connection, skill_id)
+                values: dict[str, Any] = {"updated_at": updated_at}
+                if slug is not None:
+                    values["slug"] = slug
+                if owner_ref is not None:
+                    values["owner_ref"] = owner_ref
+                connection.execute(update(tables.skills).where(tables.skills.c.id == skill_id).values(**values))
+                if tags is not None:
+                    self._set_skill_tags(connection, skill_id=skill_id, tags=tags, actor="admin-console", created_at=updated_at, enforce_protected=False)
+                connection.execute(
+                    insert(tables.audit_events).values(
+                        id=new_id("audit"),
+                        actor_ref="admin-console",
+                        action="skill.admin_updated",
+                        resource_type="skill",
+                        resource_id=skill_id,
+                        payload={"previous_slug": skill["slug"]},
+                        created_at=updated_at,
+                    )
+                )
+                return {**self._row_dict(self._skill_row(connection, skill_id)), "tags": self._skill_tags(connection, skill_id)}
+        except IntegrityError as exc:
+            raise skill_slug_conflict(slug or skill_id) from exc
 
     def archive_skill(self, *, skill_id: str, actor: str) -> None:
         updated_at = utc_now()

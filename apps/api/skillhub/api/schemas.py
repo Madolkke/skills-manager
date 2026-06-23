@@ -9,10 +9,13 @@ from skillhub.domain.semver import SEMVER_PATTERN
 
 
 SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
-TAG_PATTERN = r"^[A-Za-z0-9._-]+$"
+TAG_GROUP_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
+ENV_TAG_PATTERN = r"^[A-Za-z0-9._-]+$"
 IDENTITY_REF_PATTERN = r"^[A-Za-z0-9._@-]{1,120}$"
 SkillSlug = Annotated[str, Field(min_length=1, max_length=64, pattern=SLUG_PATTERN)]
-TagValue = Annotated[str, Field(min_length=1, max_length=64, pattern=TAG_PATTERN)]
+TagGroupId = Annotated[str, Field(min_length=1, max_length=80, pattern=TAG_GROUP_ID_PATTERN)]
+TagValue = Annotated[str, Field(min_length=1)]
+EnvironmentTagValue = Annotated[str, Field(min_length=1, max_length=64, pattern=ENV_TAG_PATTERN)]
 IdentityRef = Annotated[str, Field(min_length=1, max_length=120, pattern=IDENTITY_REF_PATTERN)]
 
 EVAL_CASE_TITLE_MAX_LENGTH = 160
@@ -47,6 +50,11 @@ class ContentRefPayload(BaseModel):
     path: str | None = None
 
 
+class SkillTagPayload(BaseModel):
+    group_id: TagGroupId
+    value: TagValue
+
+
 class CreateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: IdentityRef
@@ -54,6 +62,7 @@ class CreateSkillPayload(BaseModel):
     change_summary: VersionChangeSummary
     display_name: VersionDisplayName | None = None
     version: SkillVersionSemVer | None = None
+    tags: list[SkillTagPayload] = Field(default_factory=list)
 
 
 class ImportSkillPayload(BaseModel):
@@ -61,6 +70,7 @@ class ImportSkillPayload(BaseModel):
     source: dict[str, Any]
     display_name: VersionDisplayName | None = None
     version: SkillVersionSemVer | None = None
+    tags: list[SkillTagPayload] = Field(default_factory=list)
 
 
 class CreateSkillVersionPayload(BaseModel):
@@ -80,12 +90,57 @@ class UpdateVersionDisplayNamePayload(BaseModel):
 class UpdateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: IdentityRef
+    tags: list[SkillTagPayload] | None = None
 
 
 class AssignSkillRolePayload(BaseModel):
-    subject_id: IdentityRef
+    subject_id: str
     role: str
     subject_type: str = "user"
+
+
+class AdminGroupPayload(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Annotated[str, Field(max_length=1000)] = ""
+
+
+class AdminGroupMemberPayload(BaseModel):
+    subject_id: str
+    subject_type: str = "user"
+
+
+class AdminRoleAssignmentPayload(BaseModel):
+    subject_type: str = "user"
+    subject_id: str
+    resource_type: str
+    resource_id: str
+    role: str
+
+
+class AdminTagGroupPayload(BaseModel):
+    id: TagGroupId
+    display_name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Annotated[str, Field(max_length=1000)] = ""
+    sort_order: int = 0
+
+
+class AdminTagGroupUpdatePayload(BaseModel):
+    display_name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Annotated[str, Field(max_length=1000)] = ""
+    sort_order: int = 0
+
+
+class AdminTagValuePayload(BaseModel):
+    value: TagValue
+    display_name: Annotated[str, Field(max_length=120)] | None = None
+    description: Annotated[str, Field(max_length=1000)] = ""
+    sort_order: int = 0
+
+
+class AdminSkillUpdatePayload(BaseModel):
+    slug: SkillSlug | None = None
+    owner_ref: IdentityRef | None = None
+    tags: list[SkillTagPayload] | None = None
 
 
 class EvalStepAssertionPayload(BaseModel):
@@ -199,14 +254,14 @@ class EnqueueEvalCaseRunPayload(BaseModel):
     skill_version_id: str
     eval_set_id: str
     case_version_id: str
-    environment_tags: list[TagValue] = Field(default_factory=list)
+    environment_tags: list[EnvironmentTagValue] = Field(default_factory=list)
     run_context: dict[str, Any] = Field(default_factory=dict)
 
 
 class ListEvalCaseRunsQuery(BaseModel):
     skill_version_id: str
     eval_set_id: str
-    environment_tags: list[TagValue] | None = None
+    environment_tags: list[EnvironmentTagValue] | None = None
     run_context: dict[str, Any] | None = None
 
 
@@ -215,7 +270,7 @@ class AggregateEvalRunPayload(BaseModel):
 
     skill_version_id: str
     eval_set_id: str
-    environment_tags: list[TagValue] = Field(default_factory=list)
+    environment_tags: list[EnvironmentTagValue] = Field(default_factory=list)
     run_context: dict[str, Any] = Field(default_factory=dict)
 
 

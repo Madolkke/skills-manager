@@ -26,6 +26,11 @@ class SchemaContractTest(unittest.TestCase):
             "eval_case_runs",
             "accepted_verifications",
             "saved_views",
+            "skill_tags",
+            "tag_groups",
+            "tag_values",
+            "groups",
+            "group_memberships",
             "jobs",
             "role_assignments",
             "audit_events",
@@ -164,8 +169,28 @@ class SchemaContractTest(unittest.TestCase):
             "create index case_results_case_version_id_idx",
             "create index eval_case_runs_case_version_id_idx",
             "create index eval_case_runs_job_id_idx",
+            "create index skill_tags_group_value_idx",
+            "create index tag_groups_sort_idx",
+            "create index tag_values_group_sort_idx",
+            "create index group_memberships_subject_idx",
+            "create index role_assignments_subject_idx",
         ]:
             self.assertIn(index, self.normalized)
+
+    def test_skill_tags_groups_and_roles_support_group_tag_authorization(self):
+        self.assertIn("create table skill_tags", self.normalized)
+        self.assertIn("create table tag_groups", self.normalized)
+        self.assertIn("create table tag_values", self.normalized)
+        self.assertIn("create table groups", self.normalized)
+        self.assertIn("create table group_memberships", self.normalized)
+        self.assertIn("tag_group_id text not null", self._table_sql("skill_tags"))
+        self.assertIn("tag_value text not null", self._table_sql("skill_tags"))
+        self.assertIn("foreign key (tag_group_id, tag_value) references tag_values(tag_group_id, value)", self.normalized)
+        self.assertIn("check (id ~ '^[a-za-z0-9_-]+$')", self._table_sql("tag_groups"))
+        self.assertIn("resource_type text not null", self._table_sql("role_assignments"))
+        self.assertIn("check (resource_type in ('skill', 'skill_tag'))", self._table_sql("role_assignments"))
+        self.assertIn("check (subject_type in ('user', 'group'))", self._table_sql("role_assignments"))
+        self.assertIn("check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer'))", self._table_sql("role_assignments"))
 
     def test_status_and_score_constraints_are_explicit(self):
         self.assertIn("constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))", self.normalized)

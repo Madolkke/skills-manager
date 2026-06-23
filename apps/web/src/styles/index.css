@@ -7,6 +7,8 @@
 @import "./features/skill/skill.css";
 @import "./features/skill/bundle.css";
 @import "./features/skill/workspaces.css";
+@import "./features/skill/access.css";
+@import "./features/skill/admin.css";
 @import "./features/versions/version-upload.css";
 @import "./features/versions/version-diff.css";
 @import "./features/evaluation/history.css";

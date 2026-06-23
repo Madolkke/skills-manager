@@ -8,6 +8,7 @@ import EvalSetsPage from "./EvalSetsPage.vue";
 import EvaluatePage from "./EvaluatePage.vue";
 import HistoryPage from "./HistoryPage.vue";
 import OverviewPage from "./OverviewPage.vue";
+import SettingsPage from "./SettingsPage.vue";
 import UploadVersionModal from "./UploadVersionModal.vue";
 import VersionsPage from "./VersionsPage.vue";
 
@@ -20,7 +21,7 @@ const emit = defineEmits<{
 }>();
 
 const uploadOpen = ref(false);
-const canUploadVersion = computed(() => props.tab === "overview" || props.tab === "versions");
+const canUploadVersion = computed(() => (props.tab === "overview" || props.tab === "versions") && Boolean(props.skill.capabilities?.permissions["skill.version.create"]));
 
 watch(() => [props.skill.skill.id, props.tab] as const, () => {
   uploadOpen.value = false;
@@ -78,6 +79,12 @@ function finishUpload(): void {
       :selected-run-id="route.selectedRunId"
       :selected-eval-set-id="route.selectedEvalSetId"
       @navigate="emit('navigate', $event)"
+      @toast="emit('toast', $event)"
+    />
+    <SettingsPage
+      v-else-if="tab === 'settings'"
+      :skill="skill"
+      @refresh="emit('refresh')"
       @toast="emit('toast', $event)"
     />
 

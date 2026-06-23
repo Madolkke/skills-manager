@@ -49,6 +49,7 @@ class EvalCaseCommandMixin:
         workspace_base64 = workspace_base64 or attachment_base64
         with self.engine.begin() as connection:
             eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
+            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.manage")
             workspace_artifact_id = self._create_case_workspace(
                 connection,
                 skill_id=skill_id,
@@ -102,6 +103,7 @@ class EvalCaseCommandMixin:
         created_cases: list[CreatedEvalCaseResult] = []
         with self.engine.begin() as connection:
             eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
+            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.manage")
             for item in cases:
                 title = self._required_text(item, "title")
                 if not title:
@@ -160,6 +162,7 @@ class EvalCaseCommandMixin:
         *,
         case_id: str,
         eval_set_id: str | None = None,
+        title: str | None = None,
         steps: list[dict[str, Any]] | None = None,
         actor: str,
         workspace_name: str | None = None,
@@ -181,6 +184,7 @@ class EvalCaseCommandMixin:
             eval_case = self._eval_case_row(connection, case_id)
             skill_id = eval_case["skill_id"]
             eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
+            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.manage")
             self._require_eval_set_contains_case(connection, eval_set_id=eval_set["id"], case_id=case_id)
             version_number = self._next_eval_case_version_number(connection, case_id)
             workspace_artifact_id = self._create_case_workspace(
@@ -208,10 +212,15 @@ class EvalCaseCommandMixin:
                 )
             )
             if make_current:
+                values: dict[str, Any] = {"current_version_id": eval_case_version_id, "updated_at": created_at}
+                if title is not None:
+                    values["title"] = title
+                connection.execute(update(tables.eval_cases).where(tables.eval_cases.c.id == case_id).values(**values))
+            elif title is not None:
                 connection.execute(
                     update(tables.eval_cases)
                     .where(tables.eval_cases.c.id == case_id)
-                    .values(current_version_id=eval_case_version_id, updated_at=created_at)
+                    .values(title=title, updated_at=created_at)
                 )
         return CreateEvalCaseResult(skill_id, eval_set["id"], case_id, eval_case_version_id, workspace_artifact_id)
 

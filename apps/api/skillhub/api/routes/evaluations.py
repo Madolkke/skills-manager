@@ -32,17 +32,19 @@ def register_evaluation_routes(app: FastAPI) -> None:
     def create_eval_set(
         skill_id: str,
         payload: CreateEvalSetPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.create_eval_set(skill_id=skill_id, name=payload.name, description=payload.description))
+        return result_payload(repository.create_eval_set(skill_id=skill_id, name=payload.name, description=payload.description, actor=actor.id))
 
     @app.patch("/api/eval-sets/{eval_set_id}")
     def update_eval_set(
         eval_set_id: str,
         payload: UpdateEvalSetPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.update_eval_set(eval_set_id=eval_set_id, name=payload.name, description=payload.description))
+        return result_payload(repository.update_eval_set(eval_set_id=eval_set_id, name=payload.name, description=payload.description, actor=actor.id))
 
     @app.get("/api/skills/{skill_id}/eval-cases")
     def list_eval_cases_for_skill(
@@ -56,21 +58,28 @@ def register_evaluation_routes(app: FastAPI) -> None:
     def add_eval_case_to_set(
         eval_set_id: str,
         payload: AddEvalSetCasePayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.add_eval_case_to_set(eval_set_id=eval_set_id, case_id=payload.case_id, position=payload.position))
+        return result_payload(repository.add_eval_case_to_set(eval_set_id=eval_set_id, case_id=payload.case_id, position=payload.position, actor=actor.id))
 
     @app.delete("/api/eval-sets/{eval_set_id}/cases/{case_id}")
-    def remove_eval_case_from_set(eval_set_id: str, case_id: str, repository: SqlSkillRepository = Depends(repository_dependency)):
-        return result_payload(repository.remove_eval_case_from_set(eval_set_id=eval_set_id, case_id=case_id))
+    def remove_eval_case_from_set(
+        eval_set_id: str,
+        case_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.remove_eval_case_from_set(eval_set_id=eval_set_id, case_id=case_id, actor=actor.id))
 
     @app.patch("/api/eval-sets/{eval_set_id}/cases/order")
     def reorder_eval_set_cases(
         eval_set_id: str,
         payload: ReorderEvalSetCasesPayload,
+        actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        return result_payload(repository.reorder_eval_set_cases(eval_set_id=eval_set_id, case_ids=payload.case_ids))
+        return result_payload(repository.reorder_eval_set_cases(eval_set_id=eval_set_id, case_ids=payload.case_ids, actor=actor.id))
 
     @app.post("/api/eval-cases")
     def create_eval_case(
@@ -113,12 +122,11 @@ def register_evaluation_routes(app: FastAPI) -> None:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        if payload.title is not None:
-            repository.update_eval_case_title(case_id=payload.case_id, title=payload.title)
         return result_payload(
             repository.create_eval_case_version(
                 case_id=payload.case_id,
                 eval_set_id=payload.eval_set_id,
+                title=payload.title,
                 steps=[step.model_dump() for step in payload.steps],
                 workspace_name=payload.workspace_name,
                 workspace_base64=payload.workspace_base64,
@@ -137,12 +145,11 @@ def register_evaluation_routes(app: FastAPI) -> None:
         actor: ActorContext = Depends(actor_dependency),
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
-        if payload.title is not None:
-            repository.update_eval_case_title(case_id=case_id, title=payload.title)
         return result_payload(
             repository.create_eval_case_version(
                 case_id=case_id,
                 eval_set_id=payload.eval_set_id,
+                title=payload.title,
                 steps=[step.model_dump() for step in payload.steps],
                 workspace_name=payload.workspace_name,
                 workspace_base64=payload.workspace_base64,
