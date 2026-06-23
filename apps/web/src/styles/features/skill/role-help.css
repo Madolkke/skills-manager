@@ -1,0 +1,51 @@
+.role-help {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #c9d6e8;
+  border-radius: 999px;
+  background: white;
+  color: #53637b;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: help;
+}
+
+.role-help:focus-visible {
+  outline: 3px solid rgb(37 99 235 / 18%);
+  outline-offset: 2px;
+}
+
+.role-help-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(360px, calc(100vw - 48px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 18px 42px rgb(15 23 42 / 14%);
+  padding: 12px;
+  display: none;
+  gap: 7px;
+  color: #40516d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.role-help-popover strong,
+.role-help-popover span {
+  display: block;
+}
+
+.role-help-popover strong {
+  color: var(--ink);
+}
+
+.role-help:hover + .role-help-popover,
+.role-help:focus + .role-help-popover,
+.role-help-popover:hover {
+  display: grid;
+}

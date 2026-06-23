@@ -16,6 +16,14 @@ from skillhub.infrastructure.db.tables import (
     group_memberships,
     groups,
     jobs,
+    notifications,
+    publish_records,
+    publish_targets,
+    review_check_results,
+    review_request_publish_targets,
+    review_request_reviewers,
+    review_requests,
+    review_responses,
     role_assignments,
     saved_views,
     skill_tags,
@@ -53,6 +61,15 @@ Index(
     accepted_verifications.c.run_context_hash,
 )
 Index("accepted_verifications_eval_run_id_idx", accepted_verifications.c.eval_run_id)
+Index("review_requests_skill_version_idx", review_requests.c.skill_version_id)
+Index("review_request_reviewers_actor_idx", review_request_reviewers.c.reviewer_actor)
+Index("review_responses_reviewer_idx", review_responses.c.reviewer_actor)
+Index("review_request_publish_targets_target_idx", review_request_publish_targets.c.publish_target_id)
+Index("review_check_results_check_idx", review_check_results.c.check_id)
+Index("publish_targets_enabled_idx", publish_targets.c.enabled, publish_targets.c.target_key)
+Index("publish_records_skill_version_idx", publish_records.c.skill_version_id)
+Index("publish_records_target_status_idx", publish_records.c.publish_target_id, publish_records.c.status)
+Index("notifications_recipient_idx", notifications.c.recipient_actor_id, notifications.c.created_at.desc())
 Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
 Index("skill_tags_group_value_idx", skill_tags.c.tag_group_id, skill_tags.c.tag_value)
 Index("tag_groups_sort_idx", tag_groups.c.sort_order, tag_groups.c.id)

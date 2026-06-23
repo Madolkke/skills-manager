@@ -198,6 +198,118 @@ create table accepted_verifications (
   constraint accepted_verifications_eval_run_skill_fkey foreign key (eval_run_id, skill_id) references eval_runs(id, skill_id)
 );
 
+create table review_requests (
+  id text primary key,
+  skill_id text not null,
+  skill_version_id text not null,
+  status text not null,
+  summary jsonb not null default '{}'::jsonb,
+  closed_at timestamptz,
+  closed_by text,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  constraint review_requests_status_check check (status in ('open', 'closed', 'cancelled')),
+  constraint review_requests_id_skill_unique unique (id, skill_id),
+  constraint review_requests_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id)
+);
+
+create table review_request_reviewers (
+  review_request_id text not null,
+  skill_id text not null,
+  reviewer_actor text not null,
+  source_subject_type text not null,
+  source_subject_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (review_request_id, reviewer_actor),
+  constraint review_request_reviewers_source_type_check check (source_subject_type in ('user', 'group')),
+  constraint review_request_reviewers_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+);
+
+create table review_responses (
+  review_request_id text not null,
+  skill_id text not null,
+  reviewer_actor text not null,
+  score integer not null,
+  comment text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (review_request_id, reviewer_actor),
+  constraint review_responses_score_check check (score in (-1, 0, 1)),
+  constraint review_responses_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id),
+  constraint review_responses_reviewer_fkey foreign key (review_request_id, reviewer_actor) references review_request_reviewers(review_request_id, reviewer_actor)
+);
+
+create table publish_targets (
+  id text primary key,
+  target_key text not null,
+  name text not null,
+  description text not null default '',
+  enabled boolean not null default true,
+  gate_expression jsonb not null default '{}'::jsonb,
+  config jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null,
+  constraint publish_targets_key_unique unique (target_key),
+  constraint publish_targets_key_non_empty check (length(btrim(target_key)) > 0),
+  constraint publish_targets_gate_expression_object check (jsonb_typeof(gate_expression) = 'object'),
+  constraint publish_targets_config_object check (jsonb_typeof(config) = 'object')
+);
+
+create table review_request_publish_targets (
+  review_request_id text not null,
+  skill_id text not null,
+  publish_target_id text not null references publish_targets(id),
+  auto_submit_on_pass boolean not null default true,
+  created_at timestamptz not null default now(),
+  primary key (review_request_id, publish_target_id),
+  constraint review_request_publish_targets_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+);
+
+create table review_check_results (
+  review_request_id text not null,
+  skill_id text not null,
+  check_id text not null,
+  passed boolean not null,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  primary key (review_request_id, check_id),
+  constraint review_check_results_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+);
+
+create table publish_records (
+  id text primary key,
+  skill_id text not null,
+  skill_version_id text not null,
+  review_request_id text not null,
+  publish_target_id text not null references publish_targets(id),
+  status text not null,
+  check_snapshot jsonb not null default '[]'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  confirmed_at timestamptz,
+  confirmed_by text,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  constraint publish_records_status_check check (status in ('pending_confirmation', 'released', 'cancelled', 'failed')),
+  constraint publish_records_version_target_unique unique (skill_version_id, publish_target_id),
+  constraint publish_records_id_skill_unique unique (id, skill_id),
+  constraint publish_records_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
+  constraint publish_records_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+);
+
+create table notifications (
+  id text primary key,
+  recipient_actor_id text not null,
+  type text not null,
+  title text not null,
+  body text not null default '',
+  resource_type text not null,
+  resource_id text not null,
+  read_at timestamptz,
+  created_at timestamptz not null default now(),
+  created_by text not null
+);
+
 create table saved_views (
   id text primary key,
   skill_id text not null references skills(id),
@@ -279,7 +391,7 @@ create table role_assignments (
   created_by text not null,
   constraint role_assignments_subject_type_check check (subject_type in ('user', 'group')),
   constraint role_assignments_resource_type_check check (resource_type in ('skill', 'skill_tag')),
-  constraint role_assignments_role_check check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer')),
+  constraint role_assignments_role_check check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'reviewer', 'viewer')),
   constraint role_assignments_scope_unique unique (subject_type, subject_id, resource_type, resource_id, role)
 );
 
@@ -315,6 +427,15 @@ create index eval_case_runs_job_id_idx on eval_case_runs (job_id);
 create index eval_case_runs_context_hash_idx on eval_case_runs (run_context_hash);
 create index accepted_verifications_context_idx on accepted_verifications (skill_id, skill_version_id, eval_set_id, run_context_hash);
 create index accepted_verifications_eval_run_id_idx on accepted_verifications (eval_run_id);
+create index review_requests_skill_version_idx on review_requests (skill_version_id);
+create index review_request_reviewers_actor_idx on review_request_reviewers (reviewer_actor);
+create index review_responses_reviewer_idx on review_responses (reviewer_actor);
+create index review_request_publish_targets_target_idx on review_request_publish_targets (publish_target_id);
+create index review_check_results_check_idx on review_check_results (check_id);
+create index publish_targets_enabled_idx on publish_targets (enabled, target_key);
+create index publish_records_skill_version_idx on publish_records (skill_version_id);
+create index publish_records_target_status_idx on publish_records (publish_target_id, status);
+create index notifications_recipient_idx on notifications (recipient_actor_id, created_at desc);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
 create index tag_groups_sort_idx on tag_groups (sort_order, id);

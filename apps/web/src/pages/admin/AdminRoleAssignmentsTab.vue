@@ -68,6 +68,7 @@ function assignRole(): void {
         <select v-model="form.role">
           <option value="viewer">viewer</option>
           <option value="evaluator">evaluator</option>
+          <option value="reviewer">reviewer</option>
           <option value="maintainer">maintainer</option>
           <option value="owner">owner</option>
           <option value="admin">admin</option>
@@ -93,6 +94,7 @@ function assignRole(): void {
           <option value="">全部角色</option>
           <option value="viewer">viewer</option>
           <option value="evaluator">evaluator</option>
+          <option value="reviewer">reviewer</option>
           <option value="maintainer">maintainer</option>
           <option value="owner">owner</option>
           <option value="admin">admin</option>

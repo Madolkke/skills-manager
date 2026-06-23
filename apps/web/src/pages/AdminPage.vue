@@ -3,9 +3,11 @@ import { ref } from "vue";
 import { ADMIN_TABS, type AdminTab } from "../lib/admin";
 import { api, ApiError, type AdminGroup } from "../lib/api";
 import { toTagPayloads } from "../lib/skillTags";
-import type { RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, TagValueOption } from "../types";
+import type { PublishGateCheckDefinition, PublishGateExpression, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, TagValueOption } from "../types";
 import AdminGroupsTab from "./admin/AdminGroupsTab.vue";
 import AdminOverviewTab from "./admin/AdminOverviewTab.vue";
+import AdminPublishTab from "./admin/AdminPublishTab.vue";
+import AdminPublishTargetsTab from "./admin/AdminPublishTargetsTab.vue";
 import AdminRoleAssignmentsTab from "./admin/AdminRoleAssignmentsTab.vue";
 import AdminSkillTagsTab from "./admin/AdminSkillTagsTab.vue";
 import AdminTagGroupsTab from "./admin/AdminTagGroupsTab.vue";
@@ -20,6 +22,9 @@ const skills = ref<SkillSummary[]>([]);
 const groups = ref<AdminGroup[]>([]);
 const tagGroups = ref<TagGroup[]>([]);
 const roles = ref<RoleAssignment[]>([]);
+const publishTargets = ref<PublishTarget[]>([]);
+const publishGateChecks = ref<PublishGateCheckDefinition[]>([]);
+const publishRecords = ref<PublishRecord[]>([]);
 const selectedGroupId = ref("");
 const selectedTagGroupId = ref("");
 const tagDrafts = ref<Record<string, SkillTagPayload[]>>({});
@@ -33,11 +38,22 @@ async function unlock(): Promise<void> {
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    const [nextSkills, nextGroups, nextTagGroups, nextRoles] = await Promise.all([api.adminListSkills(), api.adminListGroups(), api.adminListTagGroups(), api.adminListRoleAssignments()]);
+    const [nextSkills, nextGroups, nextTagGroups, nextRoles, nextPublishTargets, nextPublishGateChecks, nextPublishRecords] = await Promise.all([
+      api.adminListSkills(),
+      api.adminListGroups(),
+      api.adminListTagGroups(),
+      api.adminListRoleAssignments(),
+      api.adminListPublishTargets(),
+      api.adminListPublishGateChecks(),
+      api.adminListPublishRecords(),
+    ]);
     skills.value = nextSkills;
     groups.value = nextGroups;
     tagGroups.value = nextTagGroups;
     roles.value = nextRoles;
+    publishTargets.value = nextPublishTargets;
+    publishGateChecks.value = nextPublishGateChecks;
+    publishRecords.value = nextPublishRecords;
     tagDrafts.value = Object.fromEntries(nextSkills.map((item) => [item.skill.id, toTagPayloads(item.skill.tags ?? [])]));
     if (!selectedGroupId.value && nextGroups.length) selectedGroupId.value = nextGroups[0].id;
     if (!selectedTagGroupId.value && nextTagGroups.length) selectedTagGroupId.value = nextTagGroups[0].id;
@@ -114,6 +130,20 @@ async function assignRole(payload: { subject_type: "user" | "group"; subject_id:
 async function revokeRole(role: RoleAssignment): Promise<void> {
   if (!confirm(`将撤销 ${role.subject_type}:${role.subject_id} 的 ${role.role} 授权。是否继续？`)) return;
   await runAdminAction(() => api.adminDeleteRoleAssignment(role.id), "授权已撤销。");
+}
+
+async function updatePublishTarget(targetId: string, payload: { enabled: boolean; gate_expression: PublishGateExpression }): Promise<void> {
+  await runAdminAction(() => api.adminUpdatePublishTarget(targetId, payload), "发布源已更新。");
+}
+
+async function confirmPublishRecord(record: PublishRecord): Promise<void> {
+  if (!confirm(`确认发布 ${record.skill?.slug ?? record.skill_id} 到 ${record.publish_target?.name ?? record.publish_target_id}？`)) return;
+  await runAdminAction(() => api.adminConfirmPublishRecord(record.id), "发布单已确认。");
+}
+
+async function cancelPublishRecord(record: PublishRecord): Promise<void> {
+  if (!confirm("将取消该待确认发布单。是否继续？")) return;
+  await runAdminAction(() => api.adminCancelPublishRecord(record.id), "发布单已取消。");
 }
 
 async function saveSkillTags(skill: SkillSummary, tags?: SkillTagPayload[]): Promise<void> {
@@ -200,12 +230,24 @@ function showError(error: unknown): void {
         @toast="emit('toast', { tone: 'danger', message: $event })"
       />
       <AdminSkillTagsTab
-        v-else
+        v-else-if="activeTab === 'skill-tags'"
         :skills="skills"
         :tag-groups="tagGroups"
         :tag-drafts="tagDrafts"
         @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
         @save="saveSkillTags"
+      />
+      <AdminPublishTargetsTab
+        v-else-if="activeTab === 'publish-targets'"
+        :targets="publishTargets"
+        :checks="publishGateChecks"
+        @update="updatePublishTarget"
+      />
+      <AdminPublishTab
+        v-else
+        :records="publishRecords"
+        @confirm-record="confirmPublishRecord"
+        @cancel-record="cancelPublishRecord"
       />
     </template>
   </div>

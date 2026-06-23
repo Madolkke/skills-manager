@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI
 from skillhub.api.auth import admin_key_dependency
 from skillhub.api.database import repository_dependency
 from skillhub.api.responses import result_payload
-from skillhub.api.schemas import AdminGroupMemberPayload, AdminGroupPayload, AdminRoleAssignmentPayload, AdminSkillUpdatePayload, AdminTagGroupPayload, AdminTagGroupUpdatePayload, AdminTagValuePayload
+from skillhub.api.schemas import AdminGroupMemberPayload, AdminGroupPayload, AdminPublishTargetUpdatePayload, AdminRoleAssignmentPayload, AdminSkillUpdatePayload, AdminTagGroupPayload, AdminTagGroupUpdatePayload, AdminTagValuePayload
 from skillhub.infrastructure.db.repositories import SqlSkillRepository
 
 
@@ -193,3 +193,46 @@ def register_admin_routes(app: FastAPI) -> None:
         repository: SqlSkillRepository = Depends(repository_dependency),
     ):
         return result_payload(repository.revoke_role_assignment_admin(role_assignment_id=role_assignment_id))
+
+    @app.get("/api/admin/publish-targets")
+    def admin_publish_targets(_: None = admin_auth, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.list_publish_targets())
+
+    @app.get("/api/admin/publish-gate-checks")
+    def admin_publish_gate_checks(_: None = admin_auth, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.list_publish_gate_checks())
+
+    @app.patch("/api/admin/publish-targets/{publish_target_id}")
+    def admin_update_publish_target(
+        publish_target_id: str,
+        payload: AdminPublishTargetUpdatePayload,
+        _: None = admin_auth,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(
+            repository.update_publish_target(
+                publish_target_id=publish_target_id,
+                enabled=payload.enabled,
+                gate_expression=payload.gate_expression,
+            )
+        )
+
+    @app.get("/api/admin/publish-records")
+    def admin_publish_records(_: None = admin_auth, repository: SqlSkillRepository = Depends(repository_dependency)):
+        return result_payload(repository.list_publish_records())
+
+    @app.post("/api/admin/publish-records/{publish_record_id}/confirm")
+    def admin_confirm_publish_record(
+        publish_record_id: str,
+        _: None = admin_auth,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.confirm_publish_record(publish_record_id=publish_record_id))
+
+    @app.post("/api/admin/publish-records/{publish_record_id}/cancel")
+    def admin_cancel_publish_record(
+        publish_record_id: str,
+        _: None = admin_auth,
+        repository: SqlSkillRepository = Depends(repository_dependency),
+    ):
+        return result_payload(repository.cancel_publish_record(publish_record_id=publish_record_id))

@@ -1,7 +1,7 @@
 import { encodeSkillTagResourceId, tagLabel } from "./skillTags";
 import type { RoleAssignment, SkillSummary, TagGroup } from "../types";
 
-export type AdminTab = "overview" | "groups" | "tag-groups" | "roles" | "skill-tags";
+export type AdminTab = "overview" | "groups" | "tag-groups" | "roles" | "skill-tags" | "publish-targets" | "publish";
 
 export const ADMIN_TABS: Array<{ id: AdminTab; label: string }> = [
   { id: "overview", label: "概览" },
@@ -9,6 +9,8 @@ export const ADMIN_TABS: Array<{ id: AdminTab; label: string }> = [
   { id: "tag-groups", label: "Tag Group" },
   { id: "roles", label: "权限授权" },
   { id: "skill-tags", label: "Skill Tags" },
+  { id: "publish-targets", label: "发布源" },
+  { id: "publish", label: "发布确认" },
 ];
 
 export function roleResourceLabel(role: RoleAssignment, tagGroups: TagGroup[], skills: SkillSummary[] = []): string {

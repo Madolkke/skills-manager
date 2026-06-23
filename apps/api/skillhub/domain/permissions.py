@@ -3,7 +3,7 @@ from __future__ import annotations
 Role = str
 Permission = str
 
-VALID_ROLES: set[Role] = {"admin", "owner", "maintainer", "evaluator", "viewer"}
+VALID_ROLES: set[Role] = {"admin", "owner", "maintainer", "evaluator", "reviewer", "viewer"}
 
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
     "admin": {
@@ -15,10 +15,14 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         "tag.protected.manage",
         "verification.accept",
         "saved_view.manage",
+        "review.manage",
+        "review.respond",
+        "publish.request",
     },
-    "owner": {"role.manage", "skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage"},
-    "maintainer": {"skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage"},
+    "owner": {"role.manage", "skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage", "review.manage", "publish.request"},
+    "maintainer": {"skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage", "review.manage", "publish.request"},
     "evaluator": {"eval.run"},
+    "reviewer": {"review.respond"},
     "viewer": set(),
 }
 
@@ -31,6 +35,9 @@ PERMISSION_LABELS: dict[Permission, str] = {
     "tag.protected.manage": "admin",
     "verification.accept": "maintainer, owner, or admin",
     "saved_view.manage": "maintainer, owner, or admin",
+    "review.manage": "maintainer, owner, or admin",
+    "review.respond": "reviewer",
+    "publish.request": "maintainer, owner, or admin",
 }
 
 

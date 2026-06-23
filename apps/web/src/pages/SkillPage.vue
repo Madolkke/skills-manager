@@ -8,6 +8,8 @@ import EvalSetsPage from "./EvalSetsPage.vue";
 import EvaluatePage from "./EvaluatePage.vue";
 import HistoryPage from "./HistoryPage.vue";
 import OverviewPage from "./OverviewPage.vue";
+import PublishPage from "./PublishPage.vue";
+import ReviewPage from "./ReviewPage.vue";
 import SettingsPage from "./SettingsPage.vue";
 import UploadVersionModal from "./UploadVersionModal.vue";
 import VersionsPage from "./VersionsPage.vue";
@@ -79,6 +81,17 @@ function finishUpload(): void {
       :selected-run-id="route.selectedRunId"
       :selected-eval-set-id="route.selectedEvalSetId"
       @navigate="emit('navigate', $event)"
+      @toast="emit('toast', $event)"
+    />
+    <ReviewPage
+      v-else-if="tab === 'reviews'"
+      :skill="skill"
+      @refresh="emit('refresh')"
+      @toast="emit('toast', $event)"
+    />
+    <PublishPage
+      v-else-if="tab === 'publish'"
+      :skill="skill"
       @toast="emit('toast', $event)"
     />
     <SettingsPage

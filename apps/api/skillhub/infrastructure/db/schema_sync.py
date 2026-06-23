@@ -338,7 +338,264 @@ SCHEMA_PATCHES = (
     """
     alter table role_assignments
       add constraint role_assignments_role_check
-      check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer'))
+      check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'reviewer', 'viewer'))
+    """,
+    """
+    create table if not exists publish_targets (
+      id text primary key,
+      target_key text not null,
+      name text not null,
+      description text not null default '',
+      enabled boolean not null default true,
+      gate_expression jsonb not null default '{}'::jsonb,
+      config jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      created_by text not null,
+      constraint publish_targets_key_unique unique (target_key),
+      constraint publish_targets_key_non_empty check (length(btrim(target_key)) > 0),
+      constraint publish_targets_gate_expression_object check (jsonb_typeof(gate_expression) = 'object'),
+      constraint publish_targets_config_object check (jsonb_typeof(config) = 'object')
+    )
+    """,
+    "alter table publish_targets add column if not exists gate_expression jsonb not null default '{}'::jsonb",
+    "alter table publish_targets add column if not exists config jsonb not null default '{}'::jsonb",
+    "alter table publish_targets drop constraint if exists publish_targets_required_checks_array",
+    "alter table publish_targets drop constraint if exists publish_targets_gate_expression_object",
+    "alter table publish_targets drop column if exists required_checks",
+    """
+    alter table publish_targets
+      add constraint publish_targets_gate_expression_object
+      check (jsonb_typeof(gate_expression) = 'object')
+    """,
+    """
+    do $$
+    begin
+      if to_regclass('publish_records') is not null then
+        delete from publish_records
+        where publish_target_id in (
+          select id from publish_targets
+          where target_key not in ('yunxi', 'agentcenter', 'custom1', 'custom2')
+        );
+      end if;
+    end $$;
+    """,
+    """
+    do $$
+    begin
+      if to_regclass('review_request_publish_targets') is not null then
+        delete from review_request_publish_targets
+        where publish_target_id in (
+          select id from publish_targets
+          where target_key not in ('yunxi', 'agentcenter', 'custom1', 'custom2')
+        );
+      end if;
+    end $$;
+    """,
+    "delete from publish_targets where target_key not in ('yunxi', 'agentcenter', 'custom1', 'custom2')",
+    """
+    insert into publish_targets (
+      id,
+      target_key,
+      name,
+      description,
+      enabled,
+      gate_expression,
+      config,
+      created_at,
+      updated_at,
+      created_by
+    )
+    values
+      (
+        'target_yunxi',
+        'yunxi',
+        '云析',
+        '云析发布源',
+        true,
+        jsonb_build_object(
+          'type', 'group',
+          'op', 'and',
+          'children', jsonb_build_array(
+            jsonb_build_object('type', 'check', 'check_id', 'min_responses', 'params', jsonb_build_object('min', 1)),
+            jsonb_build_object('type', 'check', 'check_id', 'no_negative_score', 'params', jsonb_build_object())
+          )
+        ),
+        '{}'::jsonb,
+        now(),
+        now(),
+        'system'
+      ),
+      (
+        'target_agentcenter',
+        'agentcenter',
+        'AgentCenter',
+        'AgentCenter 发布源',
+        true,
+        jsonb_build_object(
+          'type', 'group',
+          'op', 'and',
+          'children', jsonb_build_array(
+            jsonb_build_object('type', 'check', 'check_id', 'min_responses', 'params', jsonb_build_object('min', 1)),
+            jsonb_build_object('type', 'check', 'check_id', 'no_negative_score', 'params', jsonb_build_object())
+          )
+        ),
+        '{}'::jsonb,
+        now(),
+        now(),
+        'system'
+      ),
+      (
+        'target_custom1',
+        'custom1',
+        '自定义1',
+        '预留自定义发布源 1',
+        true,
+        jsonb_build_object(
+          'type', 'group',
+          'op', 'and',
+          'children', jsonb_build_array(
+            jsonb_build_object('type', 'check', 'check_id', 'min_responses', 'params', jsonb_build_object('min', 1)),
+            jsonb_build_object('type', 'check', 'check_id', 'no_negative_score', 'params', jsonb_build_object())
+          )
+        ),
+        '{}'::jsonb,
+        now(),
+        now(),
+        'system'
+      ),
+      (
+        'target_custom2',
+        'custom2',
+        '自定义2',
+        '预留自定义发布源 2',
+        true,
+        jsonb_build_object(
+          'type', 'group',
+          'op', 'and',
+          'children', jsonb_build_array(
+            jsonb_build_object('type', 'check', 'check_id', 'min_responses', 'params', jsonb_build_object('min', 1)),
+            jsonb_build_object('type', 'check', 'check_id', 'no_negative_score', 'params', jsonb_build_object())
+          )
+        ),
+        '{}'::jsonb,
+        now(),
+        now(),
+        'system'
+      )
+    on conflict (target_key) do update
+    set
+      name = excluded.name,
+      description = excluded.description,
+      config = '{}'::jsonb,
+      gate_expression = case
+        when publish_targets.gate_expression = '{}'::jsonb then excluded.gate_expression
+        else publish_targets.gate_expression
+      end,
+      updated_at = now()
+    """,
+    """
+    create table if not exists review_requests (
+      id text primary key,
+      skill_id text not null,
+      skill_version_id text not null,
+      status text not null,
+      summary jsonb not null default '{}'::jsonb,
+      closed_at timestamptz,
+      closed_by text,
+      created_at timestamptz not null default now(),
+      created_by text not null,
+      constraint review_requests_status_check check (status in ('open', 'closed', 'cancelled')),
+      constraint review_requests_id_skill_unique unique (id, skill_id),
+      constraint review_requests_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id)
+    )
+    """,
+    "alter table review_requests drop constraint if exists review_requests_skill_version_unique",
+    """
+    create table if not exists review_request_reviewers (
+      review_request_id text not null,
+      skill_id text not null,
+      reviewer_actor text not null,
+      source_subject_type text not null,
+      source_subject_id text not null,
+      created_at timestamptz not null default now(),
+      primary key (review_request_id, reviewer_actor),
+      constraint review_request_reviewers_source_type_check check (source_subject_type in ('user', 'group')),
+      constraint review_request_reviewers_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+    )
+    """,
+    """
+    create table if not exists review_responses (
+      review_request_id text not null,
+      skill_id text not null,
+      reviewer_actor text not null,
+      score integer not null,
+      comment text not null default '',
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      primary key (review_request_id, reviewer_actor),
+      constraint review_responses_score_check check (score in (-1, 0, 1)),
+      constraint review_responses_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id),
+      constraint review_responses_reviewer_fkey foreign key (review_request_id, reviewer_actor) references review_request_reviewers(review_request_id, reviewer_actor)
+    )
+    """,
+    """
+    create table if not exists review_request_publish_targets (
+      review_request_id text not null,
+      skill_id text not null,
+      publish_target_id text not null references publish_targets(id),
+      auto_submit_on_pass boolean not null default true,
+      created_at timestamptz not null default now(),
+      primary key (review_request_id, publish_target_id),
+      constraint review_request_publish_targets_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+    )
+    """,
+    """
+    create table if not exists review_check_results (
+      review_request_id text not null,
+      skill_id text not null,
+      check_id text not null,
+      passed boolean not null,
+      details jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default now(),
+      primary key (review_request_id, check_id),
+      constraint review_check_results_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+    )
+    """,
+    """
+    create table if not exists publish_records (
+      id text primary key,
+      skill_id text not null,
+      skill_version_id text not null,
+      review_request_id text not null,
+      publish_target_id text not null references publish_targets(id),
+      status text not null,
+      check_snapshot jsonb not null default '[]'::jsonb,
+      metadata jsonb not null default '{}'::jsonb,
+      confirmed_at timestamptz,
+      confirmed_by text,
+      created_at timestamptz not null default now(),
+      created_by text not null,
+      constraint publish_records_status_check check (status in ('pending_confirmation', 'released', 'cancelled', 'failed')),
+      constraint publish_records_version_target_unique unique (skill_version_id, publish_target_id),
+      constraint publish_records_id_skill_unique unique (id, skill_id),
+      constraint publish_records_skill_version_skill_fkey foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id),
+      constraint publish_records_review_skill_fkey foreign key (review_request_id, skill_id) references review_requests(id, skill_id)
+    )
+    """,
+    """
+    create table if not exists notifications (
+      id text primary key,
+      recipient_actor_id text not null,
+      type text not null,
+      title text not null,
+      body text not null default '',
+      resource_type text not null,
+      resource_id text not null,
+      read_at timestamptz,
+      created_at timestamptz not null default now(),
+      created_by text not null
+    )
     """,
     "drop index if exists skill_tags_tag_idx",
     "create index if not exists skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value)",
@@ -347,6 +604,15 @@ SCHEMA_PATCHES = (
     "create index if not exists groups_scope_idx on groups (scope_type, scope_id, name)",
     "create index if not exists group_memberships_subject_idx on group_memberships (subject_type, subject_id)",
     "create index if not exists role_assignments_subject_idx on role_assignments (subject_type, subject_id)",
+    "create index if not exists review_requests_skill_version_idx on review_requests (skill_version_id)",
+    "create index if not exists review_request_reviewers_actor_idx on review_request_reviewers (reviewer_actor)",
+    "create index if not exists review_responses_reviewer_idx on review_responses (reviewer_actor)",
+    "create index if not exists review_request_publish_targets_target_idx on review_request_publish_targets (publish_target_id)",
+    "create index if not exists review_check_results_check_idx on review_check_results (check_id)",
+    "create index if not exists publish_targets_enabled_idx on publish_targets (enabled, target_key)",
+    "create index if not exists publish_records_skill_version_idx on publish_records (skill_version_id)",
+    "create index if not exists publish_records_target_status_idx on publish_records (publish_target_id, status)",
+    "create index if not exists notifications_recipient_idx on notifications (recipient_actor_id, created_at desc)",
 )
 
 

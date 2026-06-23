@@ -1,0 +1,128 @@
+.access-role-form {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 190px auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.access-role-field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: #53637b;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.access-role-field input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--ink);
+  padding: 8px 12px;
+  outline: none;
+}
+
+.access-role-field input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 10%);
+}
+
+.access-role-form .dropdown-trigger {
+  min-height: 38px;
+}
+
+.role-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.role-subject {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.role-subject-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.role-subject-name,
+.role-subject-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-subject-name {
+  color: #172033;
+  font-weight: 820;
+}
+
+.role-subject-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.role-subject-badge {
+  order: -1;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 860;
+  line-height: 1;
+}
+
+.role-subject-badge.user {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.role-subject-badge.group {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.role-chip {
+  border: 1px solid #dbe7f6;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: var(--blue);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 860;
+  line-height: 1;
+}
+
+@media (max-width: 920px) {
+  .access-role-form {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .role-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .role-chip {
+    width: fit-content;
+  }
+}
+
+@media (max-width: 520px) {
+  .role-subject {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}

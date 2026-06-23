@@ -62,7 +62,7 @@ export type TagGroup = {
   created_by?: string;
 };
 
-export type SkillRole = "viewer" | "evaluator" | "maintainer" | "owner" | "admin";
+export type SkillRole = "viewer" | "evaluator" | "reviewer" | "maintainer" | "owner" | "admin";
 
 export type RoleAssignment = {
   id: string;

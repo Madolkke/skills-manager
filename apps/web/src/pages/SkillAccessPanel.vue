@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import SkillTagPicker from "../components/SkillTagPicker.vue";
 import { api, ApiError, type AdminGroup } from "../lib/api";
 import { toTagPayloads } from "../lib/skillTags";
 import AdminGroupFormModal from "./admin/AdminGroupFormModal.vue";
 import AdminGroupMemberModal from "./admin/AdminGroupMemberModal.vue";
+import SkillGroupsSettingsSection from "./settings/SkillGroupsSettingsSection.vue";
+import SkillRolesSettingsSection from "./settings/SkillRolesSettingsSection.vue";
+import SkillTagsSettingsSection from "./settings/SkillTagsSettingsSection.vue";
 import type { SkillDetail, SkillTagPayload, TagGroup, ToastState } from "../types";
 
 const props = defineProps<{ skill: SkillDetail }>();
@@ -20,10 +22,18 @@ const busy = ref(false);
 const groupModalMode = ref<"create" | "edit" | null>(null);
 const editingGroup = ref<AdminGroup | null>(null);
 const memberGroup = ref<AdminGroup | null>(null);
+const activeSection = ref<"tags" | "groups" | "roles">("tags");
 
 const permissions = computed(() => props.skill.capabilities?.permissions ?? {});
 const canEditSkill = computed(() => Boolean(permissions.value["skill.edit"]));
 const canManageRoles = computed(() => Boolean(permissions.value["role.manage"]));
+const effectiveRoles = computed(() => props.skill.capabilities?.effective_roles ?? []);
+
+const sections = computed(() => [
+  { id: "tags" as const, label: "Skill Tags", meta: `${tags.value.length} 个 Tag` },
+  { id: "groups" as const, label: "用户组", meta: `${skillGroups.value.length} 个用户组` },
+  { id: "roles" as const, label: "角色授权", meta: `${props.skill.role_assignments.length} 条授权` },
+]);
 
 watch(() => props.skill.skill.id, () => {
   tags.value = toTagPayloads(props.skill.skill.tags ?? []);
@@ -156,6 +166,11 @@ function openEditGroup(group: AdminGroup): void {
   groupModalMode.value = "edit";
 }
 
+function setSubjectType(next: "user" | "group"): void {
+  subjectType.value = next;
+  subjectId.value = "";
+}
+
 function showError(error: unknown): void {
   const message = error instanceof ApiError || error instanceof Error ? error.message : "操作失败。";
   emit("toast", { tone: "danger", message });
@@ -164,93 +179,66 @@ function showError(error: unknown): void {
 
 <template>
   <section class="primary-panel access-panel">
-    <div class="panel-title-row">
-      <div>
-        <h2>权限与 Tag</h2>
-        <p>Skill 默认公开可见，权限只控制编辑、测评运行和授权等操作。</p>
-      </div>
-      <div class="tag-row">
-        <span v-for="item in skill.capabilities?.effective_roles ?? []" :key="item" class="tag-chip">{{ item }}</span>
-        <span v-if="!(skill.capabilities?.effective_roles ?? []).length" class="tag-chip muted">无操作角色</span>
-      </div>
-    </div>
+    <div class="settings-layout">
+      <aside class="settings-nav" aria-label="设置模块">
+        <div class="settings-nav-summary">
+          <span>当前角色</span>
+          <div class="settings-role-chips">
+            <span v-for="item in effectiveRoles" :key="item" class="tag-chip">{{ item }}</span>
+            <span v-if="!effectiveRoles.length" class="tag-chip muted">无操作角色</span>
+          </div>
+          <p>Skill 默认公开可见；这里仅管理编辑、测评运行和授权权限。</p>
+        </div>
 
-    <div class="access-grid">
-      <div class="access-card">
-        <h3>Skill Tags</h3>
-        <SkillTagPicker :value="tags" :groups="tagGroups" :disabled="!canEditSkill || busy" @change="tags = $event" @done="saveTags" />
-      </div>
+        <div class="settings-nav-list">
+          <button
+            v-for="section in sections"
+            :key="section.id"
+            class="settings-nav-item"
+            :class="{ active: activeSection === section.id }"
+            type="button"
+            @click="activeSection = section.id"
+          >
+            <span>{{ section.label }}</span>
+            <small>{{ section.meta }}</small>
+          </button>
+        </div>
+      </aside>
 
-      <div class="access-card">
-        <div class="access-card-title">
-          <h3>Skill 角色</h3>
-          <span class="role-help" tabindex="0" aria-label="查看角色含义">?</span>
-          <div class="role-help-popover" role="tooltip">
-            <strong>角色含义</strong>
-            <span>viewer：显式只读成员，当前等同公开查看。</span>
-            <span>evaluator：可以运行测评和重试。</span>
-            <span>maintainer：可以编辑 Skill、版本、测评集、测试例和普通 Tag。</span>
-            <span>owner：可以管理普通角色授权。</span>
-            <span>admin：拥有所有权限，并可管理受保护 Tag。</span>
-          </div>
-        </div>
-        <section v-if="canManageRoles" class="access-group-manager">
-          <div class="access-subhead">
-            <div>
-              <h4>用户组</h4>
-              <p>这些用户组只属于当前 Skill。</p>
-            </div>
-            <button class="secondary-button" type="button" :disabled="busy" @click="openCreateGroup">创建用户组</button>
-          </div>
-          <div class="access-group-list">
-            <div v-for="group in skillGroups" :key="group.id" class="access-group-row">
-              <div>
-                <strong>{{ group.name }}</strong>
-                <small>{{ group.members.length }} 个成员</small>
-                <p v-if="group.description">{{ group.description }}</p>
-              </div>
-              <div class="access-member-list">
-                <span v-for="member in group.members" :key="member.subject_id" class="tag-chip editable">
-                  {{ member.subject_id }}
-                  <button type="button" :disabled="busy" @click="removeMember(group, member.subject_id)">×</button>
-                </span>
-                <span v-if="!group.members.length" class="tag-chip muted">暂无成员</span>
-              </div>
-              <div class="button-row">
-                <button class="secondary-button" type="button" :disabled="busy" @click="memberGroup = group">添加成员</button>
-                <button class="secondary-button" type="button" :disabled="busy" @click="openEditGroup(group)">编辑</button>
-                <button class="danger-button" type="button" :disabled="busy" @click="deleteGroup(group)">删除</button>
-              </div>
-            </div>
-            <p v-if="!skillGroups.length" class="field-help">还没有当前 Skill 的用户组。</p>
-          </div>
-        </section>
-        <div v-if="canManageRoles" class="access-role-form">
-          <select v-model="subjectType">
-            <option value="user">用户</option>
-            <option value="group">用户组</option>
-          </select>
-          <input v-if="subjectType === 'user'" v-model="subjectId" placeholder="身份 ID" />
-          <select v-else v-model="subjectId">
-            <option value="">选择用户组</option>
-            <option v-for="group in skillGroups" :key="group.id" :value="group.id">{{ group.name }}</option>
-          </select>
-          <select v-model="role">
-            <option value="viewer">viewer</option>
-            <option value="evaluator">evaluator</option>
-            <option value="maintainer">maintainer</option>
-            <option value="owner">owner</option>
-            <option value="admin">admin</option>
-          </select>
-          <button class="primary-button" type="button" :disabled="busy || !subjectId.trim()" @click="assignRole">授权</button>
-        </div>
-        <p v-else class="field-help">只有 owner 或 admin 可以管理 Skill 角色。</p>
-        <div class="access-role-list">
-          <div v-for="assignment in skill.role_assignments" :key="assignment.id" class="access-role-row">
-            <span>{{ assignment.subject_type }}:{{ assignment.subject_id }}</span>
-            <strong>{{ assignment.role }}</strong>
-          </div>
-        </div>
+      <div class="settings-content">
+        <SkillTagsSettingsSection
+          v-if="activeSection === 'tags'"
+          :tags="tags"
+          :tag-groups="tagGroups"
+          :disabled="!canEditSkill || busy"
+          @change="tags = $event"
+          @done="saveTags"
+        />
+        <SkillGroupsSettingsSection
+          v-else-if="activeSection === 'groups'"
+          :groups="skillGroups"
+          :busy="busy"
+          :can-manage="canManageRoles"
+          @create="openCreateGroup"
+          @edit="openEditGroup"
+          @delete="deleteGroup"
+          @add-member="memberGroup = $event"
+          @remove-member="removeMember"
+        />
+        <SkillRolesSettingsSection
+          v-else
+          :assignments="skill.role_assignments"
+          :groups="skillGroups"
+          :busy="busy"
+          :can-manage="canManageRoles"
+          :subject-type="subjectType"
+          :subject-id="subjectId"
+          :role="role"
+          @update:subject-type="setSubjectType"
+          @update:subject-id="subjectId = $event"
+          @update:role="role = $event"
+          @assign="assignRole"
+        />
       </div>
     </div>
     <AdminGroupFormModal

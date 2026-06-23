@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Boxes, Plus, Settings, Workflow } from "lucide-vue-next";
+import { Boxes, ClipboardCheck, Plus, Settings, Workflow } from "lucide-vue-next";
 import { onBeforeUnmount, ref, watch } from "vue";
 import { slugTitle } from "../lib/format";
 import type { SkillDetail } from "../types";
@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillDet
   actor: "product-operator",
   currentSkill: null,
 });
-const emit = defineEmits<{ home: []; create: []; workflows: []; settings: [] }>();
+const emit = defineEmits<{ home: []; create: []; workflows: []; settings: []; reviews: [] }>();
 
 const menuOpen = ref(false);
 const menuRef = ref<HTMLDivElement | null>(null);
@@ -64,6 +64,10 @@ function handleClick(event: MouseEvent): void {
         <button class="actor-dropdown-item" type="button" @click="menuOpen = false; emit('settings')">
           <Settings :size="15" />
           设置
+        </button>
+        <button class="actor-dropdown-item" type="button" @click="menuOpen = false; emit('reviews')">
+          <ClipboardCheck :size="15" />
+          我的评审
         </button>
       </div>
     </div>

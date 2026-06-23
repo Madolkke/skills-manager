@@ -11,6 +11,8 @@ const labels: Record<SkillTab, string> = {
   evalsets: "测评集",
   evaluate: "测评",
   history: "历史",
+  reviews: "评审",
+  publish: "发布",
   settings: "设置",
 };
 

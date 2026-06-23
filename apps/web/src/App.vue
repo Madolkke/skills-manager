@@ -9,6 +9,7 @@ import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/nav
 import AdminPage from "./pages/AdminPage.vue";
 import HubPage from "./pages/HubPage.vue";
 import NewSkillModal from "./pages/NewSkillModal.vue";
+import MyReviewsPage from "./pages/MyReviewsPage.vue";
 import SkillPage from "./pages/SkillPage.vue";
 import WorkflowPage from "./pages/WorkflowPage.vue";
 import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types";
@@ -99,6 +100,10 @@ function goWorkflows(): void {
   navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
+function goMyReviews(): void {
+  navigate({ section: "my-reviews", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
+}
+
 function handleIdentityChanged(nextActor: string): void {
   session.value = { actor: nextActor, subject_type: "user" };
   identityOpen.value = false;
@@ -133,6 +138,7 @@ function isMissingSkillError(error: unknown): boolean {
         @create="newSkillOpen = true"
         @workflows="goWorkflows"
         @settings="identityOpen = true"
+        @reviews="goMyReviews"
       />
       <main :class="mainClass">
         <AdminPage v-if="route.section === 'admin'" @toast="toast = $event" />
@@ -147,6 +153,12 @@ function isMissingSkillError(error: unknown): boolean {
           @toast="toast = $event"
         />
         <WorkflowPage v-else-if="route.section === 'workflows'" @back="goHome" />
+        <MyReviewsPage
+          v-else-if="route.section === 'my-reviews'"
+          :actor="actor"
+          @open-skill="openSkill"
+          @toast="toast = $event"
+        />
         <HubPage
           v-else
           :skills="skills"

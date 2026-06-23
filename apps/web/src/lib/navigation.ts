@@ -1,6 +1,6 @@
-export type AppSection = "hub" | "skills" | "workflows" | "admin";
+export type AppSection = "hub" | "skills" | "workflows" | "admin" | "my-reviews";
 
-export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history" | "settings";
+export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history" | "reviews" | "publish" | "settings";
 
 export type RouteState = {
   section: AppSection;
@@ -18,6 +18,17 @@ export function readRoute(): RouteState {
   if (url.pathname === "/skills/admin") {
     return {
       section: "admin",
+      skillId: null,
+      tab: "overview",
+      selectedCaseId: null,
+      selectedEvalSetId: null,
+      selectedVersionId: null,
+      selectedRunId: null,
+    };
+  }
+  if (url.pathname === "/skills/reviews") {
+    return {
+      section: "my-reviews",
       skillId: null,
       tab: "overview",
       selectedCaseId: null,
@@ -47,6 +58,12 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
     window.history.pushState(route, "", url);
     return route;
   }
+  if (route.section === "my-reviews") {
+    url.pathname = "/skills/reviews";
+    url.search = "";
+    window.history.pushState(route, "", url);
+    return route;
+  }
   url.pathname = "/skills";
   url.search = "";
   if (route.section !== "hub") url.searchParams.set("section", route.section);
@@ -61,12 +78,12 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
 }
 
 function normalizeSection(value: string | null, skillId: string | null): AppSection {
-  if (value === "skills" || value === "workflows") return value;
+  if (value === "skills" || value === "workflows" || value === "my-reviews") return value;
   if (skillId) return "skills";
   return "hub";
 }
 
 function normalizeTab(value: string | null): SkillTab {
-  if (value === "versions" || value === "evalsets" || value === "evaluate" || value === "history" || value === "settings") return value;
+  if (value === "versions" || value === "evalsets" || value === "evaluate" || value === "history" || value === "reviews" || value === "publish" || value === "settings") return value;
   return "overview";
 }

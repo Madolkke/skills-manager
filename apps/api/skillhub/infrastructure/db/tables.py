@@ -235,6 +235,134 @@ accepted_verifications = Table(
     ForeignKeyConstraint(["eval_run_id", "skill_id"], ["eval_runs.id", "eval_runs.skill_id"], name="accepted_verifications_eval_run_skill_fkey"),
 )
 
+review_requests = Table(
+    "review_requests",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("skill_id", Text, nullable=False),
+    Column("skill_version_id", Text, nullable=False),
+    Column("status", Text, nullable=False),
+    Column("summary", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    Column("closed_at", DateTime(timezone=True)),
+    Column("closed_by", Text),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("status in ('open', 'closed', 'cancelled')", name="review_requests_status_check"),
+    UniqueConstraint("id", "skill_id", name="review_requests_id_skill_unique"),
+    ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="review_requests_skill_version_skill_fkey"),
+)
+
+review_request_reviewers = Table(
+    "review_request_reviewers",
+    metadata,
+    Column("review_request_id", Text, nullable=False),
+    Column("skill_id", Text, nullable=False),
+    Column("reviewer_actor", Text, nullable=False),
+    Column("source_subject_type", Text, nullable=False),
+    Column("source_subject_id", Text, nullable=False),
+    timestamp_column(),
+    PrimaryKeyConstraint("review_request_id", "reviewer_actor"),
+    CheckConstraint("source_subject_type in ('user', 'group')", name="review_request_reviewers_source_type_check"),
+    ForeignKeyConstraint(["review_request_id", "skill_id"], ["review_requests.id", "review_requests.skill_id"], name="review_request_reviewers_review_skill_fkey"),
+)
+
+review_responses = Table(
+    "review_responses",
+    metadata,
+    Column("review_request_id", Text, nullable=False),
+    Column("skill_id", Text, nullable=False),
+    Column("reviewer_actor", Text, nullable=False),
+    Column("score", Integer, nullable=False),
+    Column("comment", Text, nullable=False, server_default=text("''")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    PrimaryKeyConstraint("review_request_id", "reviewer_actor"),
+    CheckConstraint("score in (-1, 0, 1)", name="review_responses_score_check"),
+    ForeignKeyConstraint(["review_request_id", "skill_id"], ["review_requests.id", "review_requests.skill_id"], name="review_responses_review_skill_fkey"),
+    ForeignKeyConstraint(["review_request_id", "reviewer_actor"], ["review_request_reviewers.review_request_id", "review_request_reviewers.reviewer_actor"], name="review_responses_reviewer_fkey"),
+)
+
+publish_targets = Table(
+    "publish_targets",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("target_key", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    Column("enabled", Boolean, nullable=False, server_default=text("true")),
+    Column("gate_expression", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    Column("config", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+    UniqueConstraint("target_key", name="publish_targets_key_unique"),
+    CheckConstraint("length(btrim(target_key)) > 0", name="publish_targets_key_non_empty"),
+    CheckConstraint("jsonb_typeof(gate_expression) = 'object'", name="publish_targets_gate_expression_object"),
+    CheckConstraint("jsonb_typeof(config) = 'object'", name="publish_targets_config_object"),
+)
+
+review_request_publish_targets = Table(
+    "review_request_publish_targets",
+    metadata,
+    Column("review_request_id", Text, nullable=False),
+    Column("skill_id", Text, nullable=False),
+    Column("publish_target_id", Text, ForeignKey("publish_targets.id"), nullable=False),
+    Column("auto_submit_on_pass", Boolean, nullable=False, server_default=text("true")),
+    timestamp_column(),
+    PrimaryKeyConstraint("review_request_id", "publish_target_id"),
+    ForeignKeyConstraint(["review_request_id", "skill_id"], ["review_requests.id", "review_requests.skill_id"], name="review_request_publish_targets_review_skill_fkey"),
+)
+
+review_check_results = Table(
+    "review_check_results",
+    metadata,
+    Column("review_request_id", Text, nullable=False),
+    Column("skill_id", Text, nullable=False),
+    Column("check_id", Text, nullable=False),
+    Column("passed", Boolean, nullable=False),
+    Column("details", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    timestamp_column(),
+    PrimaryKeyConstraint("review_request_id", "check_id"),
+    ForeignKeyConstraint(["review_request_id", "skill_id"], ["review_requests.id", "review_requests.skill_id"], name="review_check_results_review_skill_fkey"),
+)
+
+publish_records = Table(
+    "publish_records",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("skill_id", Text, nullable=False),
+    Column("skill_version_id", Text, nullable=False),
+    Column("review_request_id", Text, nullable=False),
+    Column("publish_target_id", Text, ForeignKey("publish_targets.id"), nullable=False),
+    Column("status", Text, nullable=False),
+    Column("check_snapshot", JSONB(), nullable=False, server_default=text("'[]'::jsonb")),
+    Column("metadata", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    Column("confirmed_at", DateTime(timezone=True)),
+    Column("confirmed_by", Text),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("status in ('pending_confirmation', 'released', 'cancelled', 'failed')", name="publish_records_status_check"),
+    UniqueConstraint("skill_version_id", "publish_target_id", name="publish_records_version_target_unique"),
+    UniqueConstraint("id", "skill_id", name="publish_records_id_skill_unique"),
+    ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="publish_records_skill_version_skill_fkey"),
+    ForeignKeyConstraint(["review_request_id", "skill_id"], ["review_requests.id", "review_requests.skill_id"], name="publish_records_review_skill_fkey"),
+)
+
+notifications = Table(
+    "notifications",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("recipient_actor_id", Text, nullable=False),
+    Column("type", Text, nullable=False),
+    Column("title", Text, nullable=False),
+    Column("body", Text, nullable=False, server_default=text("''")),
+    Column("resource_type", Text, nullable=False),
+    Column("resource_id", Text, nullable=False),
+    Column("read_at", DateTime(timezone=True)),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+)
+
 saved_views = Table(
     "saved_views",
     metadata,
@@ -353,7 +481,7 @@ role_assignments = Table(
     Column("created_by", Text, nullable=False),
     CheckConstraint("subject_type in ('user', 'group')", name="role_assignments_subject_type_check"),
     CheckConstraint("resource_type in ('skill', 'skill_tag')", name="role_assignments_resource_type_check"),
-    CheckConstraint("role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer')", name="role_assignments_role_check"),
+    CheckConstraint("role in ('admin', 'owner', 'maintainer', 'evaluator', 'reviewer', 'viewer')", name="role_assignments_role_check"),
     UniqueConstraint("subject_type", "subject_id", "resource_type", "resource_id", "role", name="role_assignments_scope_unique"),
 )
 

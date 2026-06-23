@@ -1,0 +1,62 @@
+.skill-tag-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.skill-tag-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.skill-tag-selected,
+.skill-tag-options,
+.skill-tag-add-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-tag-add-panel {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: white;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.skill-tag-option {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.skill-tag-option:hover {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.skill-tag-option.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: #1d4ed8;
+}
+
+.skill-tag-option input {
+  margin: 0;
+}
+
+@media (max-width: 920px) {
+  .skill-tag-toolbar {
+    grid-template-columns: 1fr;
+  }
+}

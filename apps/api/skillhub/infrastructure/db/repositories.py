@@ -3,6 +3,7 @@ from __future__ import annotations
 from .repository_domains.bundles import BundleRepositoryMixin
 from .repository_domains.evaluations import EvaluationRepositoryMixin
 from .repository_domains.history import HistoryRepositoryMixin
+from .repository_domains.reviews import ReviewRepositoryMixin
 from .repository_domains.saved_views import SavedViewRepositoryMixin
 from .repository_domains.shared import SharedRepositoryMixin
 from .repository_domains.skills import SkillRepositoryMixin
@@ -23,6 +24,7 @@ class SqlSkillRepository(
     SkillRepositoryMixin,
     EvaluationRepositoryMixin,
     HistoryRepositoryMixin,
+    ReviewRepositoryMixin,
     SavedViewRepositoryMixin,
     BundleRepositoryMixin,
     SharedRepositoryMixin,

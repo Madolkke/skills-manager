@@ -25,6 +25,14 @@ class SchemaContractTest(unittest.TestCase):
             "case_results",
             "eval_case_runs",
             "accepted_verifications",
+            "review_requests",
+            "review_request_reviewers",
+            "review_responses",
+            "publish_targets",
+            "review_request_publish_targets",
+            "review_check_results",
+            "publish_records",
+            "notifications",
             "saved_views",
             "skill_tags",
             "tag_groups",
@@ -176,6 +184,15 @@ class SchemaContractTest(unittest.TestCase):
             "create index groups_scope_idx",
             "create index group_memberships_subject_idx",
             "create index role_assignments_subject_idx",
+            "create index review_requests_skill_version_idx",
+            "create index review_request_reviewers_actor_idx",
+            "create index review_responses_reviewer_idx",
+            "create index review_request_publish_targets_target_idx",
+            "create index review_check_results_check_idx",
+            "create index publish_targets_enabled_idx",
+            "create index publish_records_skill_version_idx",
+            "create index publish_records_target_status_idx",
+            "create index notifications_recipient_idx",
         ]:
             self.assertIn(index, self.normalized)
 
@@ -195,7 +212,18 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("resource_type text not null", self._table_sql("role_assignments"))
         self.assertIn("check (resource_type in ('skill', 'skill_tag'))", self._table_sql("role_assignments"))
         self.assertIn("check (subject_type in ('user', 'group'))", self._table_sql("role_assignments"))
-        self.assertIn("check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'viewer'))", self._table_sql("role_assignments"))
+        self.assertIn("check (role in ('admin', 'owner', 'maintainer', 'evaluator', 'reviewer', 'viewer'))", self._table_sql("role_assignments"))
+
+    def test_review_and_publish_tables_exist(self):
+        self.assertIn("skill_version_id text not null", self._table_sql("review_requests"))
+        self.assertIn("foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id)", self._table_sql("review_requests"))
+        self.assertIn("score integer not null", self._table_sql("review_responses"))
+        self.assertIn("check (score in (-1, 0, 1))", self._table_sql("review_responses"))
+        self.assertIn("gate_expression jsonb not null default '{}'::jsonb", self._table_sql("publish_targets"))
+        self.assertIn("auto_submit_on_pass boolean not null default true", self._table_sql("review_request_publish_targets"))
+        self.assertIn("check_snapshot jsonb not null default '[]'::jsonb", self._table_sql("publish_records"))
+        self.assertIn("check (status in ('pending_confirmation', 'released', 'cancelled', 'failed'))", self._table_sql("publish_records"))
+        self.assertIn("recipient_actor_id text not null", self._table_sql("notifications"))
 
     def test_status_and_score_constraints_are_explicit(self):
         self.assertIn("constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))", self.normalized)

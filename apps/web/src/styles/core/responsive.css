@@ -5,6 +5,10 @@
     grid-template-columns: 1fr;
   }
 
+  .hub-filter-panel {
+    position: static;
+  }
+
   .version-upload-panel,
   .run-history {
     position: static;

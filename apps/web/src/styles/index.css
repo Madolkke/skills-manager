@@ -8,7 +8,11 @@
 @import "./features/skill/bundle.css";
 @import "./features/skill/workspaces.css";
 @import "./features/skill/access.css";
+@import "./features/skill/skill-tags.css";
+@import "./features/skill/role-help.css";
+@import "./features/skill/role-assignment.css";
 @import "./features/skill/admin.css";
+@import "./features/skill/review.css";
 @import "./features/versions/version-upload.css";
 @import "./features/versions/version-diff.css";
 @import "./features/evaluation/history.css";

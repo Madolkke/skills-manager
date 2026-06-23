@@ -17,9 +17,16 @@ import type {
   SessionInfo,
   SkillCapabilities,
   SkillDetail,
+  SkillPublishOverview,
   SkillTagPayload,
   SkillSummary,
   TagGroup,
+  NotificationItem,
+  PublishRecord,
+  PublishGateCheckDefinition,
+  PublishGateExpression,
+  PublishTarget,
+  ReviewRequest,
 } from "../types";
 import { getActorId } from "./identity";
 
@@ -104,6 +111,19 @@ function skillApi() {
       apiDelete<AdminGroup>(`/api/skills/${encodeURIComponent(skillId)}/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(subjectId)}`),
     assignSkillRole: (skillId: string, payload: { subject_type: "user" | "group"; subject_id: string; role: string }) =>
       apiSend<RoleAssignment>(`/api/skills/${encodeURIComponent(skillId)}/role-assignments`, "POST", payload),
+    listSkillReviews: (skillId: string) => apiGet<ReviewRequest[]>(`/api/skills/${encodeURIComponent(skillId)}/reviews`),
+    createReviewRequest: (skillId: string, payload: { skill_version_id: string; publish_targets: Array<{ publish_target_id: string; auto_submit_on_pass: boolean }> }) =>
+      apiSend<ReviewRequest>(`/api/skills/${encodeURIComponent(skillId)}/reviews`, "POST", payload),
+    closeReview: (reviewId: string) => apiSend<ReviewRequest>(`/api/reviews/${encodeURIComponent(reviewId)}/close`, "POST", {}),
+    submitReviewResponse: (reviewId: string, payload: { score: -1 | 0 | 1; comment: string }) =>
+      apiSend<ReviewRequest>(`/api/reviews/${encodeURIComponent(reviewId)}/responses`, "POST", payload),
+    listMyReviews: () => apiGet<ReviewRequest[]>("/api/me/reviews"),
+    listMyNotifications: () => apiGet<NotificationItem[]>("/api/me/notifications"),
+    updateNotification: (notificationId: string, payload: { read: boolean }) =>
+      apiSend<NotificationItem>(`/api/notifications/${encodeURIComponent(notificationId)}`, "PATCH", payload),
+    getSkillPublishOverview: (skillId: string) => apiGet<SkillPublishOverview>(`/api/skills/${encodeURIComponent(skillId)}/publish`),
+    createPublishRecord: (skillId: string, payload: { skill_version_id: string; review_request_id: string; publish_target_id: string }) =>
+      apiSend<PublishRecord>(`/api/skills/${encodeURIComponent(skillId)}/publish-records`, "POST", payload),
   };
 }
 
@@ -223,6 +243,15 @@ function adminApi() {
       apiSend<RoleAssignment>("/api/admin/role-assignments", "POST", payload, { admin: true }),
     adminDeleteRoleAssignment: (roleAssignmentId: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/role-assignments/${encodeURIComponent(roleAssignmentId)}`, { admin: true }),
+    adminListPublishTargets: () => apiGet<PublishTarget[]>("/api/admin/publish-targets", { admin: true }),
+    adminListPublishGateChecks: () => apiGet<PublishGateCheckDefinition[]>("/api/admin/publish-gate-checks", { admin: true }),
+    adminUpdatePublishTarget: (targetId: string, payload: { enabled: boolean; gate_expression: PublishGateExpression }) =>
+      apiSend<PublishTarget>(`/api/admin/publish-targets/${encodeURIComponent(targetId)}`, "PATCH", payload, { admin: true }),
+    adminListPublishRecords: () => apiGet<PublishRecord[]>("/api/admin/publish-records", { admin: true }),
+    adminConfirmPublishRecord: (recordId: string) =>
+      apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/confirm`, "POST", {}, { admin: true }),
+    adminCancelPublishRecord: (recordId: string) =>
+      apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/cancel`, "POST", {}, { admin: true }),
   };
 }
 

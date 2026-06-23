@@ -30,7 +30,7 @@
 .skill-grid.list-view .skill-card {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(420px, 0.9fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
 }
 
 .skill-grid.list-view .card-body {
@@ -46,6 +46,7 @@
   border-left: 1px solid var(--soft-line);
   min-height: 0;
   padding: 18px 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 28px;
 }
 
 .card-body {
