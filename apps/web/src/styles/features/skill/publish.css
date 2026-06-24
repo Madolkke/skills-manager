@@ -1,0 +1,355 @@
+.publish-page {
+  gap: 16px;
+}
+
+.publish-hero {
+  align-items: center;
+}
+
+.publish-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.publish-summary {
+  display: grid;
+  grid-template-columns: 140px 150px 160px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.publish-stat {
+  padding: 14px 16px;
+  display: grid;
+  gap: 5px;
+}
+
+.publish-stat span,
+.publish-record-meta span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.publish-stat strong {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 860;
+}
+
+.publish-stat.wide strong {
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.publish-record-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.32fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.publish-record-sidebar,
+.publish-record-detail-panel,
+.publish-version-strip {
+  overflow: hidden;
+}
+
+.publish-panel-head {
+  min-height: 70px;
+  border-bottom: 1px solid var(--soft-line);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.publish-panel-head h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.publish-panel-head p,
+.publish-record-main small,
+.publish-candidate-item small,
+.publish-empty-box,
+.publish-empty-state p,
+.publish-version-mini-card p,
+.publish-version-mini-meta small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.publish-record-list,
+.publish-candidate-list,
+.publish-record-detail,
+.publish-version-strip-list {
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.publish-record-item,
+.publish-record-group,
+.publish-candidate-item,
+.publish-version-mini-card,
+.publish-record-section,
+.publish-empty-box,
+.publish-empty-state {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+}
+
+.publish-record-group {
+  overflow: hidden;
+}
+
+.publish-record-group-head {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+}
+
+.publish-record-group-head:hover {
+  background: #f8fbff;
+}
+
+.publish-record-caret {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: white;
+  color: var(--blue);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 860;
+  line-height: 1;
+}
+
+.publish-record-group-body {
+  border-top: 1px solid var(--soft-line);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.publish-record-item {
+  width: 100%;
+  min-width: 0;
+  color: var(--ink);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+}
+
+.publish-record-item.nested {
+  background: white;
+}
+
+.publish-record-item:hover {
+  border-color: #bcd3ff;
+  background: #f8fbff;
+}
+
+.publish-record-item.active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.publish-record-index {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: white;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 860;
+}
+
+.publish-record-main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.publish-record-main strong,
+.publish-record-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publish-status-pill {
+  width: fit-content;
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.publish-status-pill.compact {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.publish-status-pill.positive {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.publish-status-pill.neutral {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.publish-status-pill.negative {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.publish-candidate-list {
+  border-top: 1px solid var(--soft-line);
+}
+
+.publish-candidate-title {
+  color: #53637b;
+  font-size: 12px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.publish-candidate-item {
+  min-width: 0;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  color: var(--ink);
+  text-align: left;
+}
+
+.publish-candidate-item span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.publish-candidate-item b {
+  color: var(--blue);
+}
+
+.publish-record-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.publish-record-meta.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.publish-record-meta > div {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.publish-record-meta strong {
+  overflow-wrap: anywhere;
+}
+
+.publish-record-section {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.publish-record-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.publish-record-section-head h3 {
+  font-size: 17px;
+}
+
+.publish-empty-box,
+.publish-empty-state {
+  padding: 14px;
+}
+
+.publish-empty-state {
+  display: grid;
+  gap: 6px;
+}
+
+.publish-version-strip-list {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.publish-version-mini-card {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.publish-version-mini-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 920px) {
+  .publish-hero,
+  .publish-record-section-head {
+    align-items: stretch;
+  }
+
+  .publish-summary,
+  .publish-record-layout,
+  .publish-record-group-head,
+  .publish-record-item,
+  .publish-candidate-item,
+  .publish-record-meta,
+  .publish-record-meta.two {
+    grid-template-columns: 1fr;
+  }
+
+  .publish-status-pill {
+    justify-self: start;
+  }
+}

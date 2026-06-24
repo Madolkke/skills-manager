@@ -13,6 +13,11 @@
 @import "./features/skill/role-assignment.css";
 @import "./features/skill/admin.css";
 @import "./features/skill/review.css";
+@import "./features/skill/review-manager.css";
+@import "./features/skill/publish.css";
+@import "./features/skill/admin-publish.css";
+@import "./features/skill/my-reviews.css";
+@import "./features/skill/my-review-score.css";
 @import "./features/versions/version-upload.css";
 @import "./features/versions/version-diff.css";
 @import "./features/evaluation/history.css";
