@@ -4,9 +4,9 @@ from pathlib import Path
 import time
 from typing import Any
 
-from skillhub.api.database import create_postgres_engine, resolve_database_url
-from skillhub.application.eval_assertion_templates import AssertionContext, assertion_template
-from skillhub.infrastructure.db.repositories import SqlSkillRepository
+from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
+from skillhub.models.rules.eval_assertion_templates import AssertionContext, assertion_template
+from skillhub.models.store import SkillHubStore
 from skillhub_worker.config import load_config
 from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
@@ -14,8 +14,8 @@ from skillhub_worker.opencode_trace import extract_opencode_trace
 from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, render_step_prompt, workspace_snapshot
 
 
-def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
-    detail = repository.claim_next_eval_case_run_job(worker_id=config.worker_id)
+def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
+    detail = store.claim_next_eval_case_run_job(worker_id=config.worker_id)
     if detail is None:
         return False
     run = detail["eval_case_run"]
@@ -30,7 +30,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
     try:
         paths = materialize_case_workspace(detail, host_root=config.workdir_host, container_root=config.workdir_container)
         metadata["workdir"] = paths["workdir"]
-        _persist_metadata(repository, eval_case_run_id, metadata)
+        _persist_metadata(store, eval_case_run_id, metadata)
         case_version = detail["case_version"]
         runner_config = dict(case_version.get("runner_config") or {})
         provider_id = runner_config.get("model_provider_id")
@@ -38,7 +38,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
         steps = list(case_version.get("steps") or [])
         metadata["current_stage"] = "creating_laminar_datapoint"
         metadata["current_stage_label"] = "创建 Laminar 测评记录"
-        _persist_metadata(repository, eval_case_run_id, metadata)
+        _persist_metadata(store, eval_case_run_id, metadata)
         refs = laminar.create_eval_datapoint(
             name=f"SkillHub Eval {eval_case_run_id}",
             data={"case_version_id": case_version["id"], "steps": steps},
@@ -52,11 +52,11 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
         client.health()
         metadata["current_stage"] = "creating_opencode_session"
         metadata["current_stage_label"] = "创建 Opencode 会话"
-        _persist_metadata(repository, eval_case_run_id, metadata)
+        _persist_metadata(store, eval_case_run_id, metadata)
         session_id = client.create_session(title=f"SkillHub Eval {eval_case_run_id}", directory=paths["container_dir"])
         metadata["opencode_session_id"] = session_id
         metadata["session_id"] = session_id
-        _persist_metadata(repository, eval_case_run_id, metadata)
+        _persist_metadata(store, eval_case_run_id, metadata)
 
         passed = True
         actual_output = ""
@@ -65,7 +65,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
             metadata["current_stage"] = "running_step"
             metadata["current_stage_label"] = f"第 {index + 1}/{len(steps)} 步运行中"
             metadata["current_step"] = _current_step_metadata(step, index, len(steps), "running")
-            _persist_metadata(repository, eval_case_run_id, metadata)
+            _persist_metadata(store, eval_case_run_id, metadata)
             before = workspace_snapshot(Path(paths["host_workdir"]))
             prompt = render_step_prompt(step=step, paths=paths, step_number=index + 1, total_steps=len(steps))
             message_response = client.send_message(
@@ -81,7 +81,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
             metadata["current_stage"] = "asserting_step"
             metadata["current_stage_label"] = f"第 {index + 1}/{len(steps)} 步判定中"
             metadata["current_step"] = _current_step_metadata(step, index, len(steps), "asserting")
-            _persist_metadata(repository, eval_case_run_id, metadata)
+            _persist_metadata(store, eval_case_run_id, metadata)
             context = AssertionContext(
                 agent_output=agent_output,
                 workdir=Path(paths["host_workdir"]),
@@ -110,7 +110,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
             }
             metadata["step_results"].append(step_result)
             actual_output = agent_output
-            _persist_metadata(repository, eval_case_run_id, metadata)
+            _persist_metadata(store, eval_case_run_id, metadata)
             if not step_passed:
                 passed = False
                 failure_reason = step_reason
@@ -132,7 +132,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
         metadata["current_stage"] = "updating_laminar"
         metadata["current_stage_label"] = "写入 Laminar 测评结果"
         metadata.pop("current_step", None)
-        _persist_metadata(repository, eval_case_run_id, metadata)
+        _persist_metadata(store, eval_case_run_id, metadata)
         scores = {"passed": 1 if passed else 0}
         for item in metadata["step_results"]:
             if item["status"] != "skipped":
@@ -145,7 +145,7 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
             raise RuntimeError(laminar_error)
         metadata["current_stage"] = "completed"
         metadata["current_stage_label"] = "测评完成"
-        repository.finalize_eval_case_run(
+        store.finalize_eval_case_run(
             eval_case_run_id=eval_case_run_id,
             passed=passed,
             actual_output=actual_output,
@@ -158,20 +158,20 @@ def run_once(repository: SqlSkillRepository, client: OpencodeClient, laminar: La
         metadata["current_stage_label"] = "测评器执行失败"
         if metadata:
             try:
-                repository.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
+                store.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
             except Exception:
                 pass
         if attempts < config.max_attempts:
-            repository.retry_eval_case_run_job(eval_case_run_id=eval_case_run_id, error=str(exc))
+            store.retry_eval_case_run_job(eval_case_run_id=eval_case_run_id, error=str(exc))
         else:
-            repository.fail_eval_case_run(eval_case_run_id=eval_case_run_id, error=str(exc))
+            store.fail_eval_case_run(eval_case_run_id=eval_case_run_id, error=str(exc))
     return True
 
 
 def main() -> None:
     config = load_config()
     config.workdir_host.mkdir(parents=True, exist_ok=True)
-    repository = SqlSkillRepository(create_postgres_engine(resolve_database_url()))
+    store = SkillHubStore(create_postgres_engine(resolve_database_url()))
     client = OpencodeClient(base_url=config.opencode_base_url, timeout_seconds=config.timeout_seconds)
     laminar = LaminarClient(
         base_url=config.laminar_base_url,
@@ -180,7 +180,7 @@ def main() -> None:
         timeout_seconds=config.timeout_seconds,
     )
     while True:
-        did_work = run_once(repository, client, laminar, config=config)
+        did_work = run_once(store, client, laminar, config=config)
         if not did_work:
             time.sleep(config.poll_interval_seconds)
 
@@ -264,9 +264,9 @@ def _current_step_metadata(step: dict[str, Any], index: int, total: int, stage: 
     }
 
 
-def _persist_metadata(repository: SqlSkillRepository, eval_case_run_id: str, metadata: dict[str, Any]) -> None:
+def _persist_metadata(store: SkillHubStore, eval_case_run_id: str, metadata: dict[str, Any]) -> None:
     try:
-        repository.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
+        store.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
     except Exception:
         pass
 

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from skillhub.api.database import resolve_database_url
-from skillhub.api.main import create_app, create_postgres_engine
+from skillhub.views.dependencies import resolve_database_url
+from skillhub.bootstrap.app import create_app, create_postgres_engine
 from tests.conftest import ensure_postgres_test_database
 
 

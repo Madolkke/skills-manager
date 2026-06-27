@@ -5,12 +5,12 @@ from os import environ
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
-from skillhub.api.database import create_postgres_engine, resolve_database_url
-from skillhub.api.routes import register_routes
+from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
 from skillhub.bootstrap.exceptions import register_exception_handlers
 from skillhub.bootstrap.middleware import register_middleware
-from skillhub.infrastructure.db.schema_sync import ensure_current_schema
-from skillhub.infrastructure.db.tables import metadata
+from skillhub.models.schema.sync import ensure_current_schema
+from skillhub.models.schema.tables import metadata
+from skillhub.views import register_views
 
 
 def create_app(engine: Engine | None = None) -> FastAPI:
@@ -20,5 +20,5 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     metadata.create_all(app.state.engine)
     ensure_current_schema(app.state.engine)
     register_exception_handlers(app)
-    register_routes(app)
+    register_views(app)
     return app

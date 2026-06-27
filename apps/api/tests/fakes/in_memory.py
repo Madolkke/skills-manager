@@ -4,8 +4,8 @@ import json
 from dataclasses import replace
 from typing import Any
 
-from skillhub.domain.errors import InvariantError, NotFoundError
-from skillhub.domain.models import (
+from skillhub.models.errors import InvariantError, NotFoundError
+from skillhub.models.entities import (
     ArtifactRef,
     CaseResult,
     ContentRef,
@@ -20,7 +20,7 @@ from skillhub.domain.models import (
     normalize_tags,
     utc_now,
 )
-from skillhub.domain.semver import next_patch_version
+from skillhub.models.rules.semver import next_patch_version
 from tests.fakes.in_memory_workspace import InMemoryWorkspace
 
 

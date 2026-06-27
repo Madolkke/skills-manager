@@ -124,33 +124,70 @@ GitAdapter 只做内容协作：
 
 ```text
 apps/api/skillhub/
-  domain/
-    models.py
+  bootstrap/
+    # app 创建、中间件、异常处理和启动期 schema 初始化
+  views/
+    auth.py
+    dependencies.py
+    responses.py
+    schemas.py
+    # HTTP view 层，注册 FastAPI endpoints
+  services/
+    skills.py
+    versions.py
+    evaluations.py
+    reviews.py
+    admin.py
+    external.py
+  models/
+    entities.py
     errors.py
-    policies.py
-  application/
-  infrastructure/
-    db/
+    store.py
+    rules/
+      permissions.py
+      review_checks.py
+      publish_policy.py
+      ...
+    schema/
       tables.py
       indexes.py
-      repositories.py
-      repository_parts/
-    artifact_store/
-  api/
+      sync.py
+      schema.sql
+    operations/
+      skills/
+      evaluations/
+      reviews/
+      history/
+      shared/
+    # 领域模型、纯规则、数据库结构和事务内数据访问
 ```
 
 模块职责：
 
 | 模块 | 职责 |
 | --- | --- |
-| `domain` | 领域对象、不变量、权限规则，不依赖 FastAPI/SQLAlchemy |
-| `application` | 写入命令和页面读模型的应用层入口 |
-| `infrastructure.db` | SQLAlchemy metadata、repositories、transactions |
-| `infrastructure.db.repository_parts` | repository 的写命令、读模型、权限、history 和 diff 具体实现 |
-| `infrastructure.artifact_store` | file/S3/MinIO artifact adapter |
-| `api` | HTTP 边界、request/response schema、actor dependency |
+| `bootstrap` | 装配 FastAPI app、注册中间件和异常处理、执行 schema 初始化 |
+| `views` | HTTP 边界，负责依赖注入、请求解析和响应返回；除 `views.dependencies` 外不直接创建 SQL store |
+| `services` | 应用服务层，承载业务流程、权限校验、状态流转和跨 store 编排 |
+| `models.rules` | 纯业务规则，不访问数据库，例如权限合成、评审门禁、版本号、断言模板规则 |
+| `models.schema` | SQLAlchemy Core 表、索引、schema sync 和 `schema.sql` |
+| `models.operations` | 按业务域组织的事务内 SQL 读写操作 |
+| `models.store.SkillHubStore` | 统一数据访问入口，组合各业务域 operations；service 直接依赖它 |
+| `views.schemas` | HTTP request/response schema，保持对外 API contract 稳定 |
 
-`skillhub.infrastructure.db.repositories.SqlSkillRepository` 是对外兼容入口。它只组合 mixin，不承载具体 SQL 逻辑；新代码应优先放入 `repository_parts/` 中对应职责文件。
+依赖方向固定为：
+
+```text
+bootstrap -> views
+views -> services
+services -> models.store
+services -> models.rules
+models.store -> models.operations
+models.operations -> models.schema
+bootstrap -> models.schema
+```
+
+`skillhub.api`、`skillhub.application`、`skillhub.domain`、`skillhub.repositories` 和 `skillhub.infrastructure` 已不再作为正式目录存在。`services/` 直接依赖 `SkillHubStore` 和 `models.rules` 中的纯规则，不直接导入 `models.schema` 或 `models.operations`；`models/` 不依赖 `views`、`services` 或 `bootstrap`。
 
 ## 6. API 形态
 

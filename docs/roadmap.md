@@ -15,7 +15,7 @@
 
 ## 下一阶段
 
-1. **Repository 拆分**
+1. **Store 拆分**
 
    `apps/api/skillhub/infrastructure/db/repositories.py` 仍然过大。下一轮应按写入命令、读模型、权限、diff/artifact 拆成多个协作模块，同时保持现有 API contract 不变。
 

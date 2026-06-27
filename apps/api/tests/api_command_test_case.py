@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 import os
 
-from skillhub.api.main import create_app
-from skillhub.infrastructure.db.repositories import SqlSkillRepository
+from skillhub.bootstrap.app import create_app
+from skillhub.models.store import SkillHubStore
 from tests.postgres_test_case import PostgresTestCase
 
 
@@ -11,7 +11,7 @@ class ApiCommandTestCase(PostgresTestCase):
         super().setUp()
         os.environ["SKILLHUB_ADMIN_CONSOLE_KEY"] = "test-admin-key"
         self.client = TestClient(create_app(self.engine))
-        self.repository = SqlSkillRepository(self.engine)
+        self.store = SkillHubStore(self.engine)
 
     def skill_payload(self, slug: str, digest: str | None = None):
         return {
@@ -126,7 +126,7 @@ class ApiCommandTestCase(PostgresTestCase):
             },
         )
         self.assertEqual(queued.status_code, 200)
-        self.repository.finalize_eval_case_run(
+        self.store.finalize_eval_case_run(
             eval_case_run_id=queued.json()["eval_case_run_id"],
             passed=passed,
             actual_output=actual_output,

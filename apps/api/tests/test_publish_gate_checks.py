@@ -1,7 +1,7 @@
 import pytest
 
-from skillhub.domain.errors import InvariantError
-from skillhub.infrastructure.db.repository_impl.reviews.checks import evaluate_gate_expression, normalize_gate_expression
+from skillhub.models.errors import InvariantError
+from skillhub.models.rules.review_checks import evaluate_gate_expression, normalize_gate_expression
 
 
 RESPONSES = [{"score": 1}, {"score": 0}, {"score": -1}]

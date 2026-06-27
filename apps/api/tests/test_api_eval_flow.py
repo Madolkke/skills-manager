@@ -14,7 +14,7 @@ class ApiEvalFlowTest(ApiCommandTestCase):
             run_context={"os": "windows", "shell": "git-bash", "model": "gpt-5"},
         )
         self.assertNotIn("strategy", queued)
-        self.repository.finalize_eval_case_run(
+        self.store.finalize_eval_case_run(
             eval_case_run_id=queued["eval_case_run_id"],
             passed=False,
             actual_output="The run missed the ownerId finding.",

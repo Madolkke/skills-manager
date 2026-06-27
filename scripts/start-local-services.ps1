@@ -11,7 +11,7 @@ $logDir = Join-Path $root ".logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 <#
-Loads simple KEY=VALUE entries from the repository .env file into the current
+Loads simple KEY=VALUE entries from the store .env file into the current
 process environment. Lines without "=" and comments are ignored.
 #>
 function Import-SkillHubEnv {

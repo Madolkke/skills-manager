@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from skillhub.domain.models import CaseResult, EvalCase, EvalCaseVersion, EvalRun, EvalSet, Skill, SkillVersion
+from skillhub.models.entities import CaseResult, EvalCase, EvalCaseVersion, EvalRun, EvalSet, Skill, SkillVersion
 
 
 @dataclass

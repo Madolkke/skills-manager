@@ -7,7 +7,7 @@
 | 层 | 选择 | 当前职责 |
 | --- | --- | --- |
 | API | FastAPI + Pydantic v2 | HTTP 契约、actor context、字段校验、错误映射。 |
-| 数据层 | SQLAlchemy 2 | PostgreSQL-only schema 和 repository。 |
+| 数据层 | SQLAlchemy 2 | PostgreSQL-only schema 和 store。 |
 | 本地数据库 | PostgreSQL | 通过 `SKILLHUB_DATABASE_URL` 注入连接串，启动时创建 schema。 |
 | Web | Vue + Vite + TypeScript | Web 正式工作台，入口为 `apps/web`。 |
 | UI 组件 | 本地组件 + CSS 分层 | Hub、版本、测评集、测评、历史和 diff 页面。 |

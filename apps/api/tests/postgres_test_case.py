@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 from os import environ
 
-from skillhub.api.database import create_postgres_engine, resolve_database_url
-from skillhub.infrastructure.db.tables import metadata
+from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
+from skillhub.models.schema.tables import metadata
 from tests.conftest import ensure_postgres_test_database
 
 

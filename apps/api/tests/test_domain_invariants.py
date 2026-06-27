@@ -1,7 +1,7 @@
 import unittest
 
-from skillhub.domain.errors import InvariantError
-from skillhub.domain.models import ContentRef
+from skillhub.models.errors import InvariantError
+from skillhub.models.entities import ContentRef
 from tests.fakes.in_memory import InMemoryWorkspace, SkillHubService
 
 

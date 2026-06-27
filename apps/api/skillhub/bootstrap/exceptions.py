@@ -4,8 +4,8 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from skillhub.api.responses import error_payload, request_validation_field_errors
-from skillhub.domain.errors import InvariantError, NotFoundError, PermissionDeniedError
+from skillhub.views.responses import error_payload, request_validation_field_errors
+from skillhub.models.errors import InvariantError, NotFoundError, PermissionDeniedError
 
 
 def register_exception_handlers(app: FastAPI) -> None:

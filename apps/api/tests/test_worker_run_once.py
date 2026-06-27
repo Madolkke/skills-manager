@@ -8,7 +8,7 @@ from skillhub_worker.laminar_client import LaminarEvalRefs
 from skillhub_worker.main import run_once
 
 
-class FakeRepository:
+class FakeStore:
     def __init__(self, detail: dict[str, Any]) -> None:
         self.detail = detail
         self.metadata_updates: list[dict[str, Any]] = []
@@ -68,12 +68,12 @@ class FakeLaminarClient:
 
 
 def test_run_once_evaluates_all_assertions_in_one_step(tmp_path: Path):
-    repository = FakeRepository(_case_detail())
+    store = FakeStore(_case_detail())
     client = FakeOpencodeClient()
     laminar = FakeLaminarClient()
 
     did_work = run_once(
-        repository,
+        store,
         client,
         laminar,
         config=WorkerConfig(
@@ -94,10 +94,10 @@ def test_run_once_evaluates_all_assertions_in_one_step(tmp_path: Path):
 
     assert did_work is True
     assert client.message_count == 1
-    assert repository.failed is None
-    assert repository.retried is None
-    assert repository.finalized is not None
-    assert repository.finalized["passed"] is False
+    assert store.failed is None
+    assert store.retried is None
+    assert store.finalized is not None
+    assert store.finalized["passed"] is False
     assert step_result["passed"] is False
     assert [item["status"] for item in step_result["assertions"]] == ["passed", "failed"]
     assert laminar.scores == {

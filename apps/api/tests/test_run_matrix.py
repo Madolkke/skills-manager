@@ -1,6 +1,6 @@
 import unittest
 
-from skillhub.application.run_matrix import build_eval_run_matrix
+from skillhub.models.rules.run_matrix import build_eval_run_matrix
 
 
 class RunMatrixBuilderTest(unittest.TestCase):

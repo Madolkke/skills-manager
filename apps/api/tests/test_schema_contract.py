@@ -3,7 +3,7 @@ import re
 import unittest
 
 
-SCHEMA = Path(__file__).parents[1] / "skillhub" / "infrastructure" / "db" / "schema.sql"
+SCHEMA = Path(__file__).parents[1] / "skillhub" / "models" / "schema" / "schema.sql"
 
 
 class SchemaContractTest(unittest.TestCase):

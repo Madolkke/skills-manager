@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from skillhub.api.main import create_app, create_postgres_engine, resolve_database_url
-from skillhub.infrastructure.db.tables import metadata
+from skillhub.bootstrap.app import create_app, create_postgres_engine, resolve_database_url
+from skillhub.models.schema.tables import metadata
 from tests.conftest import ensure_postgres_test_database
 
 
