@@ -24,7 +24,7 @@
 
 ```mermaid
 flowchart TB
-  Web["apps/web\nVue + Vite"] --> API["apps/api\nFastAPI"]
+  Web["apps/frontend\nVue + Vite"] --> API["apps/backend\nFastAPI"]
   API --> DB[("PostgreSQL\nmetadata + facts")]
   API --> Artifacts["ArtifactStore\nfile/S3/MinIO"]
   API --> Jobs[("Job table")]
@@ -123,7 +123,7 @@ GitAdapter 只做内容协作：
 后端结构：
 
 ```text
-apps/api/skillhub/
+apps/backend/skillhub/
   bootstrap/
     # app 创建、中间件、异常处理和启动期 schema 初始化
   views/

@@ -4,11 +4,11 @@
 
 当前实现位置：
 
-- 基类与通用数据结构：`apps/api/skillhub/application/assertion_base.py`
-- Agent 输出与工作目录文件模板：`apps/api/skillhub/application/eval_assertion_templates.py`
-- Opencode 过程模板：`apps/api/skillhub/application/opencode_assertion_templates.py`
-- Worker 调用入口：`apps/api/skillhub_worker/main.py`
-- 单元测试：`apps/api/tests/test_eval_assertion_templates.py`
+- 基类与通用数据结构：`apps/backend/skillhub/models/rules/assertion_base.py`
+- Agent 输出与工作目录文件模板：`apps/backend/skillhub/models/rules/eval_assertion_templates.py`
+- Opencode 过程模板：`apps/backend/skillhub/models/rules/opencode_assertion_templates.py`
+- Worker 调用入口：`apps/backend/skillhub_worker/main.py`
+- 单元测试：`apps/backend/tests/test_eval_assertion_templates.py`
 
 ## 核心模型
 
@@ -221,14 +221,14 @@ path = context.workdir / params["path"]
 7. 运行验证。
 
 ```bash
-cd apps/api
+cd apps/backend
 uv run pytest tests/test_eval_assertion_templates.py
 ```
 
 如果改动影响前端展示，再运行：
 
 ```bash
-cd apps/web
+cd apps/frontend
 npm run lint
 npm run build
 ```

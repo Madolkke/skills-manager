@@ -20,7 +20,7 @@
 ## 2. 目标目录结构
 
 ```text
-apps/api/
+apps/backend/
   pyproject.toml
   src/
     skillhub/
@@ -258,7 +258,7 @@ apps/api/
 - 将 FastAPI app factory 移入 `bootstrap/app.py`。
 - 将 CORS 配置移入 `bootstrap/middleware.py`。
 - 将异常处理注册移入 `bootstrap/exceptions.py`。
-- 保持 `skillhub/api/main.py` 的兼容导出，避免测试和启动命令立即失效。
+- 启动入口统一为 `skillhub.bootstrap.app:create_app`，不再保留旧 `skillhub/api/main.py`。
 - 跑完后端测试。
 
 ### 阶段二：API 路由重组
@@ -267,7 +267,7 @@ apps/api/
 
 任务：
 
-- 新增 `skillhub/api/routes/`。
+- 当前路由统一位于 `skillhub/views/`。
 - 拆分为 `system.py`、`session.py`、`skills.py`、`versions.py`、`evaluations.py`、`saved_views.py`、`artifacts.py`。
 - 保持 URL 与响应格式不变。
 - 删除旧的 routes 文件。

@@ -7,14 +7,14 @@
 API：
 
 ```bash
-cd apps/api
+cd apps/backend
 uv run pytest
 ```
 
 Web：
 
 ```bash
-cd apps/web
+cd apps/frontend
 npm run test
 npm run lint
 npm run build
@@ -22,11 +22,11 @@ npm run build
 
 ## 仓库边界
 
-- 运行时代码只放在 `apps/api` 和 `apps/web`。
+- 运行时代码只放在 `apps/backend` 和 `apps/frontend`。
 - 本地持久化数据只放在 `.data/`，该目录不提交。
 - 依赖、构建产物和测试结果不提交。
 - 当前开发阶段不使用 Alembic migration 流程，数据库由启动时 schema 初始化管理。
-- 测试 fake 放在 `apps/api/tests/fakes`，不放入 production application 层。
+- 测试 fake 放在 `apps/backend/tests/fakes`，不放入 production application 层。
 
 ## 清理规则
 

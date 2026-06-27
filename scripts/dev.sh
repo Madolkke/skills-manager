@@ -30,22 +30,22 @@ if [[ -z "${SKILLHUB_DATABASE_URL:-}" ]]; then
   exit 1
 fi
 (
-  cd "$ROOT_DIR/apps/api"
+  cd "$ROOT_DIR/apps/backend"
   SKILLHUB_DATABASE_URL="$SKILLHUB_DATABASE_URL" uv run uvicorn skillhub.bootstrap.app:create_app --factory --host "$HOST" --port "$API_PORT"
 ) &
 API_PID=$!
 
-if [[ ! -d "$ROOT_DIR/apps/web/node_modules" ]]; then
-  echo "Installing web dependencies in apps/web"
+if [[ ! -d "$ROOT_DIR/apps/frontend/node_modules" ]]; then
+  echo "Installing web dependencies in apps/frontend"
   (
-    cd "$ROOT_DIR/apps/web"
+    cd "$ROOT_DIR/apps/frontend"
     npm install
   )
 fi
 
 echo "Starting SkillHub web on http://${HOST}:${WEB_PORT}/skills"
 (
-  cd "$ROOT_DIR/apps/web"
+  cd "$ROOT_DIR/apps/frontend"
   if [[ -n "${VITE_SKILLHUB_API_URL:-}" ]]; then
     VITE_SKILLHUB_API_URL="$VITE_SKILLHUB_API_URL" npm run dev -- --host "$HOST" --port "$WEB_PORT"
   else

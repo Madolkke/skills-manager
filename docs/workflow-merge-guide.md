@@ -1,6 +1,6 @@
 # 工作流合并指南
 
-本文档用于后续将外置工作流页面逐步合并进 `apps/web` 时参考。当前阶段只保留工作流页面的展位，不直接迁移源码。
+本文档用于后续将外置工作流页面逐步合并进 `apps/frontend` 时参考。当前阶段只保留工作流页面的展位，不直接迁移源码。
 
 ## 当前约定
 
@@ -30,9 +30,9 @@
 
 推荐目标结构：
 
-- `apps/web/src/pages/WorkflowPage.vue`：工作流入口页。
-- `apps/web/src/features/workflow/`：工作流的业务组件、状态管理、发布面板。
-- `apps/web/src/lib/workflow.ts`：工作流发布协议、bundle 转换适配。
+- `apps/frontend/src/pages/WorkflowPage.vue`：工作流入口页。
+- `apps/frontend/src/features/workflow/`：工作流的业务组件、状态管理、发布面板。
+- `apps/frontend/src/lib/workflow.ts`：工作流发布协议、bundle 转换适配。
 
 ## 推荐合并顺序
 

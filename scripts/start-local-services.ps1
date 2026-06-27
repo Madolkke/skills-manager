@@ -140,8 +140,8 @@ $apiPort = if ($env:SKILLHUB_API_PORT) { [int] $env:SKILLHUB_API_PORT } else { 8
 $webPort = if ($env:SKILLHUB_WEB_PORT) { [int] $env:SKILLHUB_WEB_PORT } else { 3030 }
 $pollInterval = if ($env:VITE_OPENCODE_RUN_POLL_INTERVAL_MS) { $env:VITE_OPENCODE_RUN_POLL_INTERVAL_MS } else { "5000" }
 
-$apiDir = Join-Path $root "apps/api"
-$webDir = Join-Path $root "apps/web"
+$apiDir = Join-Path $root "apps/backend"
+$webDir = Join-Path $root "apps/frontend"
 $workerScript = Join-Path $root "scripts/worker.ps1"
 
 Write-Host "External dependencies are expected to be running already:"

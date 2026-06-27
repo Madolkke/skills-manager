@@ -45,7 +45,7 @@ models.operations -> models.schema
 涉及本目录代码变更时至少运行：
 
 ```powershell
-cd apps/api
+cd apps/backend
 uv run python -m compileall -q skillhub skillhub_worker
 uv run pytest -q tests/test_architecture_layers.py
 ```
@@ -53,6 +53,6 @@ uv run pytest -q tests/test_architecture_layers.py
 涉及 schema、store 或 operations 行为时，继续运行完整后端测试：
 
 ```powershell
-cd apps/api
+cd apps/backend
 uv run pytest -q
 ```

@@ -38,8 +38,8 @@ function Start-SkillHubProcess {
   Write-Host "$Name started: pid=$($process.Id)"
 }
 
-$apiDir = Join-Path $root "apps/api"
-$webDir = Join-Path $root "apps/web"
+$apiDir = Join-Path $root "apps/backend"
+$webDir = Join-Path $root "apps/frontend"
 $workerScript = Join-Path $root "scripts/worker.ps1"
 
 Start-SkillHubProcess -Name "api" -WorkingDirectory $apiDir -Command "uv run uvicorn skillhub.bootstrap.app:create_app --factory --host $hostName --port $apiPort"

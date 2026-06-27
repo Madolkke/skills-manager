@@ -15,9 +15,9 @@
 
 ## 下一阶段
 
-1. **Store 拆分**
+1. **Store 结构收口**
 
-   `apps/api/skillhub/infrastructure/db/repositories.py` 仍然过大。下一轮应按写入命令、读模型、权限、diff/artifact 拆成多个协作模块，同时保持现有 API contract 不变。
+   `apps/backend/skillhub/models/store.py` 已经收口到 `models/store.py`、`models/operations/` 和 `models/schema/`。后续只在具体业务域继续小步拆分，同时保持现有 API contract 不变。
 
 2. **外部 Eval Runner**
 

@@ -18,7 +18,7 @@
 
 ## 快速开始
 
-正式版工作区位于 `apps/api` 和 `apps/web`。主分支只保留当前正式版运行时代码、验证脚本和权威文档；旧前端工作台、早期 demo、prototype 和历史任务体系已经移除。
+正式版工作区位于 `apps/backend` 和 `apps/frontend`。主分支只保留当前正式版运行时代码、验证脚本和权威文档；旧前端工作台、早期 demo、prototype 和历史任务体系已经移除。
 
 ### 启动前准备
 
@@ -90,7 +90,7 @@ bash scripts/dev.sh
 - API: `http://127.0.0.1:8000`
 - Web: `http://127.0.0.1:3030/skills`
 
-脚本会读取 `.env`，使用 `uv` 运行 Python API，并在 `apps/web/node_modules` 缺失时安装前端依赖。脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。
+脚本会读取 `.env`，使用 `uv` 运行 Python API，并在 `apps/frontend/node_modules` 缺失时安装前端依赖。脚本默认设置 `UV_NO_CACHE=1`，不会污染全局 Python 环境或依赖全局 uv cache 权限。
 
 注意：`scripts/dev.sh` 只启动 API 和 Web，不启动 Worker。需要 Opencode Runner 时，另开终端启动：
 
@@ -133,7 +133,7 @@ curl http://127.0.0.1:3030/skills
 终端 1：
 
 ```bash
-cd apps/api
+cd apps/backend
 SKILLHUB_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/skillhub \
 UV_NO_CACHE=1 \
 uv run uvicorn skillhub.bootstrap.app:create_app --factory --host 127.0.0.1 --port 8000
@@ -142,7 +142,7 @@ uv run uvicorn skillhub.bootstrap.app:create_app --factory --host 127.0.0.1 --po
 终端 2：
 
 ```bash
-cd apps/web
+cd apps/frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 3030
 ```
@@ -150,7 +150,7 @@ npm run dev -- --host 127.0.0.1 --port 3030
 手动局域网运行时，把两个服务都绑定到 `0.0.0.0`，并设置 `VITE_SKILLHUB_API_PORT`：
 
 ```bash
-cd apps/web
+cd apps/frontend
 VITE_SKILLHUB_API_PORT=8000 npm run dev -- --host 0.0.0.0 --port 3030
 ```
 
@@ -243,13 +243,13 @@ description: Review pull requests for auth and data access regressions.
 推送前运行：
 
 ```bash
-cd apps/api
+cd apps/backend
 SKILLHUB_TEST_DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5432/skillhub_test \
 uv run pytest
 ```
 
 ```bash
-cd apps/web
+cd apps/frontend
 npm run test
 npm run lint
 npm run build

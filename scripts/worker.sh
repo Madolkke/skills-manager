@@ -22,5 +22,5 @@ if [[ "$EVAL_WORKDIR_HOST" != /* ]]; then
 fi
 mkdir -p "$EVAL_WORKDIR_HOST"
 
-cd "$ROOT_DIR/apps/api"
+cd "$ROOT_DIR/apps/backend"
 uv run python -m skillhub_worker.main

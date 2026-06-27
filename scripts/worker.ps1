@@ -30,7 +30,7 @@ if (-not $env:EVAL_WORKDIR_HOST) {
 
 New-Item -ItemType Directory -Force -Path $env:EVAL_WORKDIR_HOST | Out-Null
 
-Push-Location (Join-Path $root "apps/api")
+Push-Location (Join-Path $root "apps/backend")
 try {
   uv run python -m skillhub_worker.main
 } finally {

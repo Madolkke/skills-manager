@@ -1,6 +1,6 @@
 # 前端依赖接口清单
 
-本文档列出 `apps/web` 前端实际调用的所有后端 API 接口，来源为 `apps/web/src/lib/api.ts`。
+本文档列出 `apps/frontend` 前端实际调用的所有后端 API 接口，来源为 `apps/frontend/src/lib/api.ts`。
 
 ## 基地址解析
 

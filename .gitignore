@@ -1,18 +1,18 @@
-apps/api/.venv/
-apps/api/*.egg-info/
-apps/api/**/__pycache__/
-apps/api/**/*.pyc
-apps/api/.pytest_cache/
-apps/api/.mypy_cache/
-apps/api/.ruff_cache/
+apps/backend/.venv/
+apps/backend/*.egg-info/
+apps/backend/**/__pycache__/
+apps/backend/**/*.pyc
+apps/backend/.pytest_cache/
+apps/backend/.mypy_cache/
+apps/backend/.ruff_cache/
 
-apps/web/node_modules/
-apps/web/dist/
-apps/web/.vite/
-apps/web/*.tsbuildinfo
-apps/web/playwright-report/
-apps/web/test-results/
-apps/web/e2e/
+apps/frontend/node_modules/
+apps/frontend/dist/
+apps/frontend/.vite/
+apps/frontend/*.tsbuildinfo
+apps/frontend/playwright-report/
+apps/frontend/test-results/
+apps/frontend/e2e/
 
 .data/
 *.sqlite3
