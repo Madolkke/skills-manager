@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
+import EmptyState from "../components/EmptyState.vue";
 import type { DropdownSelectOption } from "../components/dropdown";
 import { api, ApiError } from "../lib/api";
+import { reviewManageReason } from "../lib/disabledReasons";
 import { humanDate } from "../lib/format";
 import type { PublishTarget, ReviewRequest, SkillDetail, ToastState } from "../types";
 
@@ -17,6 +19,7 @@ const selectedVersionId = ref(props.skill.skill.current_version_id ?? props.skil
 const selectedTargets = ref<string[]>([]);
 
 const canManage = computed(() => Boolean(props.skill.capabilities?.permissions["review.manage"]));
+const manageReason = computed(() => reviewManageReason(canManage.value));
 const versionOptions = computed<DropdownSelectOption[]>(() =>
   props.skill.versions.map((version) => ({
     value: version.id,
@@ -193,7 +196,7 @@ function showError(error: unknown): void {
             </div>
           </div>
 
-          <button class="primary-button full-width" type="button" :disabled="busy || !selectedVersionId" @click="createReview">发起评审</button>
+          <button class="primary-button full-width" type="button" :disabled="busy || !selectedVersionId" :title="manageReason || (!selectedVersionId ? '需要先选择一个 Skill 版本。' : '')" @click="createReview">发起评审</button>
         </div>
         <p v-else class="field-help permission-hint review-launch-permission">当前身份需要 maintainer、owner 或 admin 才能发起评审。</p>
       </aside>
@@ -249,14 +252,17 @@ function showError(error: unknown): void {
             </div>
 
             <div v-if="review.status === 'open' && canManage" class="button-row review-record-actions">
-              <button class="primary-button" type="button" :disabled="busy" @click="closeReview(review)">结束评审</button>
+              <button class="primary-button" type="button" :disabled="busy" :title="busy ? '正在处理上一项操作，请稍候。' : ''" @click="closeReview(review)">结束评审</button>
             </div>
           </article>
 
-          <div v-if="!orderedReviews.length" class="empty-panel review-record-empty-state">
-            <h3>还没有评审记录</h3>
-            <p>发起一次版本评审后，评审进度、反馈和门禁结果会出现在这里。</p>
-          </div>
+          <EmptyState
+            v-if="!orderedReviews.length"
+            title="还没有评审记录"
+            description="发起一次版本评审后，评审进度、反馈和门禁结果会出现在这里。"
+            :action-label="canManage ? '发起评审' : undefined"
+            @action="createReview"
+          />
         </div>
       </section>
     </section>

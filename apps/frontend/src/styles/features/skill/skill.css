@@ -201,4 +201,112 @@
   color: var(--amber);
 }
 
+.skill-guidance-panel,
+.version-flow-panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.skill-suggestion-list,
+.version-flow-list {
+  display: grid;
+  gap: 12px;
+}
+
+.skill-suggestion-card {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.skill-suggestion-card strong {
+  color: #172033;
+}
+
+.skill-suggestion-card p,
+.skill-suggestion-done {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.skill-suggestion-done {
+  border: 1px dashed var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 14px;
+}
+
+.version-flow-card {
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.version-flow-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.version-flow-stages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.version-flow-stage {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: inherit;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.version-flow-stage span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.version-flow-stage strong {
+  color: #172033;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.version-flow-stage.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.version-flow-stage.active {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.version-flow-stage.blocked {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.version-flow-stage.pending {
+  background: #f8fafc;
+}
+
 

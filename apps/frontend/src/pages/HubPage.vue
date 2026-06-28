@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import clsx from "clsx";
-import { Grid2X2, List, Plus } from "lucide-vue-next";
+import { Grid2X2, List } from "lucide-vue-next";
 import { computed, defineComponent, h, onMounted, ref } from "vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
+import EmptyState from "../components/EmptyState.vue";
 import type { DropdownSelectOption } from "../components/dropdown";
 import { api } from "../lib/api";
 import { tagKey } from "../lib/skillTags";
@@ -82,6 +83,12 @@ function toggleTag(tag: SkillTagPayload): void {
   }
   selectedTags.value = [...selectedTags.value, tag];
 }
+
+function clearFilters(): void {
+  query.value = "";
+  filter.value = "all";
+  selectedTags.value = [];
+}
 </script>
 
 <template>
@@ -132,15 +139,24 @@ function toggleTag(tag: SkillTagPayload): void {
       </div>
 
       <div v-if="loading" class="quiet-panel">正在加载 Skill...</div>
-      <div v-else-if="sorted.length === 0" class="empty-state-panel">
-        <strong>没有匹配的 Skill</strong>
-        <p>换一个关键词或筛选条件，或新建一个标准 skill bundle 开始验证。</p>
-        <button class="primary-button" type="button" @click="emit('create')">
-          <Plus :size="17" />
-          新建 Skill
-        </button>
-        <button class="secondary-button" type="button" @click="emit('open-workflows')">打开工作流编排</button>
-      </div>
+      <EmptyState
+        v-else-if="props.skills.length === 0"
+        title="还没有 Skill"
+        description="新建一个 Skill 后，可以上传版本、配置测评集、发起评审并提交发布。"
+        action-label="新建 Skill"
+        secondary-label="打开工作流编排"
+        @action="emit('create')"
+        @secondary="emit('open-workflows')"
+      />
+      <EmptyState
+        v-else-if="sorted.length === 0"
+        title="没有匹配的 Skill"
+        description="当前关键词、状态或 Tag 筛选没有命中结果，可以清除筛选后重新查看。"
+        action-label="清除筛选"
+        secondary-label="新建 Skill"
+        @action="clearFilters"
+        @secondary="emit('create')"
+      />
       <div v-else :class="clsx('skill-grid', viewMode === 'list' && 'list-view')">
         <HubSkillCard v-for="item in sorted" :key="item.skill.id" :item="item" @click="emit('open-skill', item.skill.id)" />
       </div>

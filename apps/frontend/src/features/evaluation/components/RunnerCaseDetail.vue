@@ -12,6 +12,7 @@ const props = defineProps<{
   pollIntervalSeconds: number;
   polling: boolean;
   run: EvalCaseRunDetail | null;
+  runDisabledReason?: string;
   runningCaseId: string | null;
   state: RunnerState;
 }>();
@@ -46,7 +47,7 @@ const runButtonDisabled = computed(() => {
           </p>
         </div>
         <div class="button-row">
-          <button class="secondary-button" type="button" :disabled="runButtonDisabled" @click="$emit('run')">
+          <button class="secondary-button" type="button" :disabled="runButtonDisabled || Boolean(runDisabledReason)" :title="runDisabledReason" @click="$emit('run')">
             <Play :size="16" />
             {{ runButtonLabel }}
           </button>

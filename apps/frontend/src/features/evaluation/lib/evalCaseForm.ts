@@ -1,5 +1,5 @@
 import type { EvalAssertionTemplate, EvalCaseStep, EvalRunnerConfig, EvalSetCase, EvalStepAssertion } from "../../../types";
-import type { WorkspaceFileDraft } from "./workspaceDraft";
+import { validateWorkspaceFiles, type WorkspaceFileDraft } from "./workspaceDraft";
 
 export type EvalCaseFormData = {
   title: string;
@@ -14,6 +14,13 @@ export type EvalCaseFormData = {
 export type StepValidation = {
   complete: boolean;
   message: string;
+};
+
+export type ValidationSummaryItem = {
+  id: string;
+  label: string;
+  message: string;
+  stepIndex?: number;
 };
 
 export function createEvalCaseForm(caseItem?: EvalSetCase | null): EvalCaseFormData {
@@ -67,6 +74,36 @@ export function validateStep(step: EvalCaseStep, templateFor: (id: string) => Ev
     }
   }
   return { complete: true, message: "完整" };
+}
+
+export function buildEvalCaseValidationSummary(
+  form: EvalCaseFormData,
+  stepValidations: StepValidation[],
+): ValidationSummaryItem[] {
+  const items: ValidationSummaryItem[] = [];
+  if (!form.title.trim()) items.push({ id: "title", label: "标题", message: "填写测试例标题。" });
+  for (const [index, validation] of stepValidations.entries()) {
+    if (!validation.complete) {
+      items.push({
+        id: `step-${index}`,
+        label: `步骤 ${index + 1}`,
+        message: validation.message,
+        stepIndex: index,
+      });
+    }
+  }
+  if (form.workspace_files) {
+    const workspaceValidation = validateWorkspaceFiles(form.workspace_files);
+    for (const [fileId, message] of Object.entries(workspaceValidation.errors)) {
+      const file = form.workspace_files.find((item) => item.id === fileId);
+      items.push({
+        id: `workspace-${fileId}`,
+        label: "工作区",
+        message: `${file?.path || "未命名文件"}：${message}`,
+      });
+    }
+  }
+  return items;
 }
 
 export function stepAssertions(step: EvalCaseStep): EvalStepAssertion[] {

@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { ArrowDown, ArrowUp, Copy, Download, Link2, Plus, Search, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
+import EmptyState from "../components/EmptyState.vue";
 import type { DropdownSelectOption } from "../components/dropdown";
 import CaseStepTimeline from "../features/evaluation/components/CaseStepTimeline.vue";
 import EvalCaseEditor from "../features/evaluation/components/EvalCaseEditor.vue";
@@ -11,6 +12,7 @@ import EvalSetSwitcher from "../features/evaluation/components/EvalSetSwitcher.v
 import { useEvalSetManagement } from "../features/evaluation/composables/useEvalSetManagement";
 import { workspaceFileName } from "../features/evaluation/lib/evalCaseManagement";
 import { api, ApiError } from "../lib/api";
+import { evalManageReason } from "../lib/disabledReasons";
 import { compactText, humanDate } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import type { SkillDetail, ToastState } from "../types";
@@ -32,6 +34,7 @@ const manager = useEvalSetManagement({
 });
 const sharedEvalSetNames = ref<string[]>([]);
 const canManageEval = computed(() => Boolean(props.skill.capabilities?.permissions["eval.manage"]));
+const manageDisabledReason = computed(() => evalManageReason(canManageEval.value));
 
 const caseSortOptions: DropdownSelectOption[] = [
   { value: "position", label: "按列表顺序" },
@@ -84,8 +87,8 @@ function errorMessage(caught: unknown): string {
           <DropdownSelect v-model="manager.caseSort.value" :options="caseSortOptions" aria-label="测试例排序" compact />
         </label>
         <div class="case-toolbar-actions">
-          <button class="primary-button" type="button" :disabled="!canManageEval" @click="manager.startCreate"><Plus :size="17" />新建测试例</button>
-          <button class="secondary-button" type="button" :disabled="!canManageEval" @click="manager.openLibrary"><Link2 :size="17" />添加已有</button>
+          <button class="primary-button" type="button" :disabled="!canManageEval" :title="manageDisabledReason" @click="manager.startCreate"><Plus :size="17" />新建测试例</button>
+          <button class="secondary-button" type="button" :disabled="!canManageEval" :title="manageDisabledReason" @click="manager.openLibrary"><Link2 :size="17" />添加已有</button>
         </div>
       </div>
       <p v-if="!canManageEval" class="field-help permission-hint">当前身份没有管理测评集和测试例的权限。</p>
@@ -218,10 +221,20 @@ function errorMessage(caught: unknown): string {
             <pre>{{ compactText(manager.selected.value.case_version.notes, "无内容") }}</pre>
           </section>
         </template>
-        <div v-else class="quiet-panel">
-          <strong>选择一个测试例查看详情</strong>
-          <p>也可以在左侧新建测试例，或把 Skill 中已有的测试例加入当前测评集。</p>
-        </div>
+        <EmptyState
+          v-else-if="(manager.detail.value?.cases.length ?? 0) === 0"
+          title="当前测评集还没有测试例"
+          description="创建一个新测试例，或把这个 Skill 下已有测试例加入当前测评集。"
+          :action-label="canManageEval ? '新建测试例' : undefined"
+          :secondary-label="canManageEval ? '添加已有' : undefined"
+          @action="manager.startCreate"
+          @secondary="manager.openLibrary"
+        />
+        <EmptyState
+          v-else
+          title="选择一个测试例查看详情"
+          description="从左侧列表选择测试例后，可以查看步骤、备注、工作区文件并执行编辑。"
+        />
       </section>
     </section>
   </div>

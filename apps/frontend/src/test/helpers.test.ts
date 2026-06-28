@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
-import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
+import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerInsightRows, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
+import { buildEvalCaseValidationSummary, validateStep } from "../features/evaluation/lib/evalCaseForm";
 import { buildCopiedEvalCasePayload, cleanCaseForm, copyEvalCaseTitle } from "../features/evaluation/lib/evalCaseManagement";
 import { GENERATED_WORKSPACE_NAME, validateWorkspaceFiles, workspaceFilesToBase64 } from "../features/evaluation/lib/workspaceDraft";
+import { pendingPublishRecords, selectedPendingRecords, summarizeBatchResults } from "../lib/batchPublish";
+import { evalRunReason, formalEvalReason, publishRequestReason } from "../lib/disabledReasons";
+import { runWaitHint } from "../lib/evalWaitHints";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
+import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
+import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
@@ -61,7 +67,7 @@ describe("skill evidence helpers", () => {
     expect(summary.runningRuns).toBe(1);
     expect(summary.queuedRuns).toBe(1);
     expect(actionBarStatusText(summary, 2, 5)).toBe("正在运行 1 个测试例，页面每 5 秒自动刷新。");
-    expect(emptyActualOutputText(runnerState({ eval_case_run: { status: "running" } } as never))).toBe("等待步骤执行结果...");
+    expect(emptyActualOutputText(runnerState({ eval_case_run: { status: "running" } } as never))).toBe("仍在等待后台进程或 Opencode 返回步骤结果。");
   });
 
   it("merges configured steps with current runner progress", () => {
@@ -95,6 +101,23 @@ describe("skill evidence helpers", () => {
 
     expect(stepTimelineRows(item, detail).map((step) => `${step.id}:${step.label}`)).toEqual(["s1:通过", "s2:判定中"]);
     expect(stepTimelineRows(item, detail)[1].reason).toBe("第 2/2 步判定中");
+  });
+
+  it("summarizes runner insights from metadata", () => {
+    const rows = runnerInsightRows({
+      eval_case_run: {
+        status: "running",
+        run_context: { opencode: { provider_id: "deepseek", model_id: "v4" } },
+        runner_metadata: {
+          current_stage_label: "第 1 步执行中",
+          current_step: { id: "s1", index: 1, stage: "running" },
+          skill_installation: { skill_slug: "writer", version: "0.0.2", mode: "project_isolated" },
+        },
+      },
+    } as never);
+
+    expect(rows.map((row) => `${row.label}:${row.value}`)).toContain("Skill 安装:writer · 0.0.2 · project_isolated");
+    expect(rows[0].help).toContain("第 1 步");
   });
 
   it("formats evidence chain summaries for history", () => {
@@ -196,6 +219,101 @@ describe("skill evidence helpers", () => {
 
     expect(cleanCaseForm(form)).not.toHaveProperty("preserve_workspace");
     expect(cleanCaseForm(form, { includePreserveWorkspace: true })).toHaveProperty("preserve_workspace", true);
+  });
+
+  it("builds validation summary for eval case editor", () => {
+    const form = {
+      title: "",
+      steps: [
+        {
+          id: "",
+          title: "步骤 1",
+          input: "",
+          assertions: [{ id: "assertion-1", assertion_template_id: "missing", assertion_params: {} }],
+        },
+      ],
+      workspace_files: [{ id: "file-1", path: "../x", content: "" }],
+      runner_config: {},
+      notes: "",
+    };
+    const stepValidations = form.steps.map((step) => validateStep(step, () => undefined));
+    const summary = buildEvalCaseValidationSummary(form, stepValidations);
+
+    expect(summary.map((item) => item.label)).toEqual(["标题", "步骤 1", "工作区"]);
+    expect(summary[1].stepIndex).toBe(0);
+    expect(summary[2].message).toContain("路径不能包含");
+  });
+
+  it("explains disabled actions with user-facing reasons", () => {
+    expect(evalRunReason({ canRun: false, caseCount: 1 })).toContain("没有运行测评权限");
+    expect(evalRunReason({ canRun: true, caseCount: 0 })).toContain("还没有测试例");
+    expect(formalEvalReason({ canRun: true, canRunFormal: false, caseCount: 2 })).toContain("所有测试例");
+    expect(publishRequestReason({ canRequest: false, reviewClosed: true })).toContain("发布确认单");
+  });
+
+  it("aggregates task center groups from existing frontend data", () => {
+    const groups = buildTaskCenterGroups({
+      reviews: [
+        { id: "review-1", status: "open", skill: { slug: "writer" }, skill_version: { version: "0.0.1" } },
+        { id: "review-2", status: "closed", skill: { slug: "closed" }, skill_version: { version: "0.0.1" } },
+      ] as never,
+      notifications: [
+        { id: "notification-1", title: "新通知", body: "请处理", read_at: null },
+        { id: "notification-2", title: "已读", body: "", read_at: "2026-01-01" },
+      ] as never,
+      skill: { skill: { id: "skill-1" }, latest_eval_runs: [{ status: "running", created_at: "2026-01-01" }] } as never,
+      publishOverview: { publish_records: [{ status: "pending_confirmation", created_at: "2026-01-02" }] } as never,
+    });
+
+    expect(groups.map((group) => group.id)).toEqual(["reviews", "notifications", "skill"]);
+    expect(taskCenterBadgeCount(groups)).toBe(4);
+  });
+
+  it("diagnoses long waiting eval runs without changing run state", () => {
+    const now = new Date("2026-06-28T10:10:00Z").getTime();
+    expect(runWaitHint({
+      eval_case_run: { status: "queued", created_at: "2026-06-28T10:07:30Z" },
+      job: { status: "queued" },
+      case_version: { runner_config: {} },
+    } as never, now)?.title).toBe("排队时间较长");
+    expect(runWaitHint({
+      eval_case_run: { status: "running", started_at: "2026-06-28T10:07:00Z" },
+      job: { status: "running" },
+      case_version: { runner_config: { timeout_seconds: 60 } },
+    } as never, now)?.title).toBe("运行时间超过预期");
+    expect(runWaitHint({ eval_case_run: { status: "running" }, job: { status: "running" }, case_version: { runner_config: {} } } as never, now)).toBeNull();
+  });
+
+  it("builds readonly version flow and skill suggestions", () => {
+    const skillFixture = {
+      skill: { id: "skill-1", current_version_id: "version-1" },
+      versions: [{ id: "version-1", version: "0.0.1", change_summary: "init" }],
+      eval_sets: [{ id: "evalset-1" }],
+      latest_eval_runs: [{ skill_version_id: "version-1", summary: { passed: 1, total: 1 }, created_at: "2026-01-01" }],
+    };
+    const skill = skillFixture as never;
+    const reviews = [{ id: "review-1", skill_version_id: "version-1", status: "closed", responses: [{ reviewer_actor: "u" }], reviewers: [{ reviewer_actor: "u" }] }] as never;
+    const publishRecords = [{ id: "publish-1", skill_version_id: "version-1", status: "pending_confirmation" }] as never;
+    const flow = buildVersionFlowItems({ skill, reviews, publishRecords });
+
+    expect(flow[0].stages.map((stage) => `${stage.id}:${stage.status}`)).toEqual(["version:done", "evaluation:done", "review:done", "publish:active"]);
+    expect(buildSkillSuggestions({ skill, reviews, publishRecords })).toEqual([]);
+    expect(buildSkillSuggestions({ skill: { ...skillFixture, eval_sets: [], latest_eval_runs: [] } as never })).toEqual([
+      expect.objectContaining({ id: "create-eval-set" }),
+      expect.objectContaining({ id: "run-evaluation" }),
+      expect.objectContaining({ id: "start-review" }),
+    ]);
+  });
+
+  it("selects pending publish records for batch actions", () => {
+    const records = [
+      { id: "p1", status: "pending_confirmation" },
+      { id: "p2", status: "released" },
+      { id: "p3", status: "pending_confirmation" },
+    ] as never;
+    expect(pendingPublishRecords(records).map((record) => record.id)).toEqual(["p1", "p3"]);
+    expect(selectedPendingRecords(records, new Set(["p1", "p2"])).map((record) => record.id)).toEqual(["p1"]);
+    expect(summarizeBatchResults([{ ok: true }, { ok: false }])).toEqual({ total: 2, succeeded: 1, failed: 1 });
   });
 
   it("builds copied eval case titles within the API limit", () => {

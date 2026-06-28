@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
+import { publishRequestReason } from "../lib/disabledReasons";
 import { humanDate } from "../lib/format";
 import type { PublishRecord, PublishTarget, ReviewRequest, SkillDetail, SkillPublishOverview, ToastState } from "../types";
 
@@ -195,14 +197,20 @@ function checkSummary(review: ReviewRequest | null): string {
 }
 
 function candidateHint(review: ReviewRequest): string {
-  if (!canRequestPublish.value) return "当前身份无发布提交权限";
-  if (review.status !== "closed") return "评审关闭后可提交";
-  return "可提交后台确认";
+  return publishRequestReason({ canRequest: canRequestPublish.value, reviewClosed: review.status === "closed" }) || "可提交后台确认";
 }
 
 function canSubmit(review: ReviewRequest | null, target: PublishTarget): boolean {
   if (!review || review.status !== "closed") return false;
   return !records.value.some((item) => item.skill_version_id === review.skill_version_id && item.publish_target_id === target.id);
+}
+
+function candidateDisabledReason(review: ReviewRequest, target: PublishTarget): string {
+  return publishRequestReason({
+    canRequest: canRequestPublish.value,
+    reviewClosed: review.status === "closed",
+    duplicate: records.value.some((item) => item.skill_version_id === review.skill_version_id && item.publish_target_id === target.id),
+  });
 }
 
 function showError(error: unknown): void {
@@ -278,7 +286,11 @@ function showError(error: unknown): void {
               </button>
             </div>
           </article>
-          <div v-if="!groupedRecords.length" class="publish-empty-box">还没有发布记录。</div>
+          <EmptyState
+            v-if="!groupedRecords.length"
+            title="还没有发布记录"
+            description="评审通过并关闭后，可以提交后台待确认发布单。"
+          />
         </div>
 
         <div v-if="publishCandidates.length" class="publish-candidate-list">
@@ -289,6 +301,7 @@ function showError(error: unknown): void {
             class="publish-candidate-item"
             type="button"
             :disabled="busy || !canRequestPublish"
+            :title="candidateDisabledReason(candidate.review, candidate.target)"
             @click="requestPublish(candidate.review, candidate.target)"
           >
             <span>
@@ -382,10 +395,11 @@ function showError(error: unknown): void {
           </div>
         </template>
 
-        <div v-else class="publish-empty-state">
-          <h3>还没有发布记录</h3>
-          <p>评审关闭后提交后台确认单，发布记录会出现在这里。</p>
-        </div>
+        <EmptyState
+          v-else
+          title="还没有发布记录"
+          description="评审关闭后提交后台确认单，发布记录会出现在这里。"
+        />
       </section>
     </section>
 

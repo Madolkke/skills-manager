@@ -20,6 +20,12 @@ export type RunnerStatusRow = {
   value: string;
 };
 
+export type RunnerInsight = {
+  label: string;
+  value: string;
+  help: string;
+};
+
 export type OpencodeToolCall = {
   tool: string;
   status: string;
@@ -166,7 +172,7 @@ export function runActivityHint(detail?: EvalCaseRunDetail | null): string {
 }
 
 export function emptyActualOutputText(state: RunnerState): string {
-  if (state.kind === "running") return "等待步骤执行结果...";
+  if (state.kind === "running") return "仍在等待后台进程或 Opencode 返回步骤结果。";
   if (state.kind === "queued") return "任务已入队，等待后台进程领取。";
   return state.helper;
 }
@@ -211,6 +217,26 @@ export function runnerStatusRows(detail: EvalCaseRunDetail | null | undefined): 
     { label: "工作目录", value: metadataText(detail, "workdir") || "-" },
     { label: "Laminar", value: metadataText(detail, "laminar_datapoint_id") || (detail?.eval_case_run.runner_metadata?.laminar_configured === false ? "未配置" : "-") },
     { label: "更新", value: runTimeLabel(detail) },
+  ];
+}
+
+export function runnerInsightRows(detail: EvalCaseRunDetail | null | undefined): RunnerInsight[] {
+  return [
+    {
+      label: "当前阶段",
+      value: currentStageLabel(detail) || runnerState(detail).label,
+      help: currentStepText(detail) || "还没有记录到具体步骤。",
+    },
+    {
+      label: "运行配置",
+      value: modelLabel(null, detail),
+      help: opencodeSelectionFromRun(detail) ? "本次运行显式指定了 Opencode provider/model。" : "本次运行使用 Opencode 侧默认配置。",
+    },
+    {
+      label: "Skill 安装",
+      value: skillInstallationText(detail),
+      help: "每次测评会把被测 Skill 安装到隔离工作区的项目级 Skill 目录。",
+    },
   ];
 }
 
@@ -302,6 +328,27 @@ function currentStep(detail: EvalCaseRunDetail | null | undefined): { id?: strin
     index: typeof row.index === "number" ? row.index : undefined,
     stage: typeof row.stage === "string" ? row.stage : undefined,
   };
+}
+
+function currentStepText(detail: EvalCaseRunDetail | null | undefined): string {
+  const current = currentStep(detail);
+  if (!current) return "";
+  const parts = [
+    typeof current.index === "number" ? `第 ${current.index} 步` : "",
+    current.id ? `ID ${current.id}` : "",
+    current.stage ? `阶段 ${current.stage}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function skillInstallationText(detail: EvalCaseRunDetail | null | undefined): string {
+  const value = detail?.eval_case_run.runner_metadata?.skill_installation;
+  if (!value || typeof value !== "object") return "未记录";
+  const row = value as Record<string, unknown>;
+  const slug = typeof row.skill_slug === "string" ? row.skill_slug : "Skill";
+  const version = typeof row.version === "string" ? row.version : "";
+  const mode = typeof row.mode === "string" ? row.mode : "";
+  return [slug, version, mode].filter(Boolean).join(" · ");
 }
 
 function normalizeStepStatus(status: string): StepTimelineRow["status"] {

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import clsx from "clsx";
 import { Copy } from "lucide-vue-next";
+import { computed } from "vue";
 import type { EvalCaseRunDetail } from "../../../types";
-import { emptyActualOutputText, metadataText, runError, runnerStatusRows, type RunnerState } from "../lib/evalRunner";
+import { runWaitHint } from "../../../lib/evalWaitHints";
+import { emptyActualOutputText, metadataText, runError, runnerInsightRows, runnerStatusRows, type RunnerState } from "../lib/evalRunner";
 import RunnerStatusChip from "./RunnerStatusChip.vue";
 
 const props = defineProps<{
@@ -14,6 +16,8 @@ const props = defineProps<{
 }>();
 
 defineEmits<{ copy: [label: string, text: string] }>();
+
+const waitHint = computed(() => runWaitHint(props.run));
 </script>
 
 <template>
@@ -49,6 +53,21 @@ defineEmits<{ copy: [label: string, text: string] }>();
           <dd>{{ row.value }}</dd>
         </div>
       </dl>
+      <div v-if="run" class="runner-insight-list">
+        <article v-for="row in runnerInsightRows(run)" :key="row.label" class="runner-insight-card">
+          <span>{{ row.label }}</span>
+          <strong>{{ row.value }}</strong>
+          <p>{{ row.help }}</p>
+        </article>
+      </div>
+      <div v-if="state.kind === 'running'" class="runner-message">
+        <strong>仍在等待</strong>
+        <p>如果长时间停留在运行中，通常是后台 worker 或 Opencode 会话还没有返回。页面会继续按轮询间隔刷新。</p>
+      </div>
+      <div v-if="waitHint" :class="['runner-message', 'wait-hint', waitHint.tone]">
+        <strong>{{ waitHint.title }}</strong>
+        <p>{{ waitHint.message }}</p>
+      </div>
       <div v-if="metadataText(run, 'reason')" class="runner-message">
         <strong>原因</strong>
         <p>{{ metadataText(run, "reason") }}</p>

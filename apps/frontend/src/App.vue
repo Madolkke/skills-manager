@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import IdentitySettingsModal from "./components/IdentitySettingsModal.vue";
+import TaskCenterPanel from "./components/TaskCenterPanel.vue";
 import Toast from "./components/Toast.vue";
 import TopBar from "./components/TopBar.vue";
 import { api, ApiError } from "./lib/api";
 import { getActorId } from "./lib/identity";
 import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/navigation";
+import { buildTaskCenterGroups, taskCenterBadgeCount, type TaskCenterGroup, type TaskCenterItem } from "./lib/taskCenter";
 import AdminPage from "./pages/AdminPage.vue";
 import HubPage from "./pages/HubPage.vue";
 import NewSkillModal from "./pages/NewSkillModal.vue";
@@ -22,14 +24,20 @@ const loading = ref(true);
 const toast = ref<ToastState>(null);
 const newSkillOpen = ref(false);
 const identityOpen = ref(false);
+const taskCenterOpen = ref(false);
+const taskCenterGroups = ref<TaskCenterGroup[]>([]);
+const taskCenterLoading = ref(false);
+const taskCenterError = ref("");
 
 const actor = computed(() => session.value?.actor ?? getActorId());
 const sectionShell = computed(() => (route.value.section === "workflows" ? "workflow-shell" : route.value.skillId ? "skill-shell" : "hub-shell"));
 const shellClass = computed(() => `app-shell ${sectionShell.value}`);
 const currentSkill = computed(() => (route.value.section === "skills" && route.value.skillId ? skill.value : null));
 const mainClass = computed(() => (route.value.section === "workflows" ? "workflow-shell-page" : "page-shell"));
+const taskCount = computed(() => taskCenterBadgeCount(taskCenterGroups.value));
 
 watch(() => [route.value.section, route.value.skillId] as const, () => void load(), { immediate: true });
+watch(() => [actor.value, currentSkill.value?.skill.id ?? ""] as const, () => void loadTaskCenter(), { immediate: true });
 
 onMounted(() => {
   window.addEventListener("popstate", syncRoute);
@@ -104,6 +112,39 @@ function goMyReviews(): void {
   navigate({ section: "my-reviews", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
+async function openTaskCenter(): Promise<void> {
+  taskCenterOpen.value = true;
+  await loadTaskCenter();
+}
+
+async function loadTaskCenter(): Promise<void> {
+  taskCenterLoading.value = true;
+  taskCenterError.value = "";
+  try {
+    const publishOverviewPromise = currentSkill.value ? api.getSkillPublishOverview(currentSkill.value.skill.id) : Promise.resolve(null);
+    const [reviews, notifications, publishOverview] = await Promise.all([
+      api.listMyReviews(),
+      api.listMyNotifications(),
+      publishOverviewPromise,
+    ]);
+    taskCenterGroups.value = buildTaskCenterGroups({ reviews, notifications, skill: currentSkill.value, publishOverview });
+  } catch (error) {
+    taskCenterError.value = errorMessage(error);
+  } finally {
+    taskCenterLoading.value = false;
+  }
+}
+
+function openTaskItem(item: TaskCenterItem): void {
+  taskCenterOpen.value = false;
+  if (item.target === "reviews" || item.target === "notifications") {
+    goMyReviews();
+    return;
+  }
+  if (!currentSkill.value) return;
+  navigate({ section: "skills", skillId: currentSkill.value.skill.id, tab: item.target, selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
+}
+
 function handleIdentityChanged(nextActor: string): void {
   session.value = { actor: nextActor, subject_type: "user" };
   identityOpen.value = false;
@@ -134,11 +175,13 @@ function isMissingSkillError(error: unknown): boolean {
       <TopBar
         :actor="actor"
         :current-skill="currentSkill"
+        :task-count="taskCount"
         @home="goHome"
         @create="newSkillOpen = true"
         @workflows="goWorkflows"
         @settings="identityOpen = true"
         @reviews="goMyReviews"
+        @tasks="openTaskCenter"
       />
       <main :class="mainClass">
         <AdminPage v-if="route.section === 'admin'" @toast="toast = $event" />
@@ -172,6 +215,16 @@ function isMissingSkillError(error: unknown): boolean {
     </div>
     <NewSkillModal v-if="newSkillOpen" :actor="actor" @close="newSkillOpen = false" @created="handleSkillCreated" />
     <IdentitySettingsModal v-if="identityOpen" :actor="actor" @close="identityOpen = false" @changed="handleIdentityChanged" />
+    <TaskCenterPanel
+      v-if="taskCenterOpen"
+      :badge-count="taskCount"
+      :error="taskCenterError"
+      :groups="taskCenterGroups"
+      :loading="taskCenterLoading"
+      @close="taskCenterOpen = false"
+      @open="openTaskItem"
+      @refresh="loadTaskCenter"
+    />
     <Toast :toast="toast" @close="toast = null" />
   </div>
 </template>

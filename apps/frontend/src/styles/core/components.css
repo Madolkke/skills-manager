@@ -181,6 +181,79 @@
   padding: 18px;
 }
 
+.inline-loading {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 34px;
+  border: 1px solid #dbe8ff;
+  border-radius: 999px;
+  background: #f5f8ff;
+  color: #1d4ed8;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.inline-loading span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 0 rgb(37 99 235 / 24%);
+  animation: runner-pulse 1.5s ease-in-out infinite;
+}
+
+.empty-state {
+  border: 1px dashed #bfd0e6;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  color: var(--muted);
+  padding: 24px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.empty-state-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #eef4ff;
+  color: var(--blue);
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.empty-state-copy {
+  min-width: 0;
+}
+
+.empty-state-copy strong {
+  display: block;
+  color: var(--ink);
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.empty-state-copy p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.empty-state-actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .primary-panel,
 .case-sidebar,
 .case-detail,
@@ -292,6 +365,7 @@
 
   .runner-state-dot.running,
   .runner-activity-bar span,
+  .inline-loading span,
   .runner-status-chip.running svg,
   .runner-board-card.running .runner-status-dot {
     animation: none;

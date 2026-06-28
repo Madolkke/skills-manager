@@ -392,6 +392,54 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.scenario-validation-summary {
+  margin: 0 24px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  background: #fff7f7;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.scenario-validation-summary > div {
+  display: grid;
+  gap: 4px;
+}
+
+.scenario-validation-summary strong {
+  color: #991b1b;
+}
+
+.scenario-validation-summary p {
+  margin: 0;
+  color: #7f1d1d;
+  font-size: 13px;
+}
+
+.scenario-validation-item {
+  width: 100%;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  background: white;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  text-align: left;
+}
+
+.scenario-validation-item span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.scenario-validation-item strong {
+  color: #7f1d1d;
+  overflow-wrap: anywhere;
+}
+
 .scenario-action-bar {
   position: sticky;
   bottom: 0;
@@ -579,6 +627,10 @@
   }
 
   .scenario-advanced {
+    margin-inline: 14px;
+  }
+
+  .scenario-validation-summary {
     margin-inline: 14px;
   }
 

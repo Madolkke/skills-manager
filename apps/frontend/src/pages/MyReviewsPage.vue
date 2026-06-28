@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
+import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
 import { humanDate } from "../lib/format";
 import type { ReviewRequest, ReviewResponse, ToastState } from "../types";
@@ -287,10 +288,13 @@ function showError(error: unknown): void {
       </article>
     </section>
 
-    <section v-else class="primary-panel empty-panel my-reviews-empty">
-      <h2>当前没有评审任务</h2>
-      <p>当有人将你加入 reviewer 角色并发起评审后，任务会出现在这里。</p>
-      <button class="secondary-button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中..." : "刷新" }}</button>
+    <section v-else class="primary-panel my-reviews-empty">
+      <EmptyState
+        title="当前没有评审任务"
+        description="当有人将你加入 reviewer 角色并发起评审后，任务会出现在这里。"
+        action-label="刷新"
+        @action="load"
+      />
     </section>
   </div>
 </template>

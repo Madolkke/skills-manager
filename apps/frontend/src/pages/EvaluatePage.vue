@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
+import EmptyState from "../components/EmptyState.vue";
 import RunnerActionBar from "../features/evaluation/components/RunnerActionBar.vue";
 import RunnerCaseDetail from "../features/evaluation/components/RunnerCaseDetail.vue";
 import RunnerCaseQueue from "../features/evaluation/components/RunnerCaseQueue.vue";
 import RunnerStatusBoard from "../features/evaluation/components/RunnerStatusBoard.vue";
 import { useOpencodeEvaluation } from "../features/evaluation/composables/useOpencodeEvaluation";
 import { api, ApiError } from "../lib/api";
+import { evalRunReason, formalEvalReason } from "../lib/disabledReasons";
 import { runnerState } from "../features/evaluation/lib/evalRunner";
 import { versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
@@ -63,6 +65,10 @@ const {
 const activeRun = computed(() => (active.value ? runForCase(active.value.case_version.id) : null));
 const activeRunState = computed(() => runnerState(activeRun.value));
 const activeActualOutput = computed(() => actualOutputForCase(active.value?.case_version.id));
+const runDisabledReason = computed(() => evalRunReason({ canRun: canRunEvaluation.value, busy: busy.value, caseCount: cases.value.length }));
+const formalDisabledReason = computed(() =>
+  formalEvalReason({ canRun: canRunEvaluation.value, canRunFormal: canRunFormalEvaluation.value, busy: busy.value, caseCount: cases.value.length }),
+);
 
 watch(evalSetId, async (id) => {
   if (!id) {
@@ -193,6 +199,8 @@ function cleanVersionSummary(value?: string | null): string {
         :can-run-formal="canRunFormalEvaluation && canRunEvaluation"
         :case-count="cases.length"
         :disabled="!canRunEvaluation"
+        :disabled-reason="runDisabledReason"
+        :formal-disabled-reason="formalDisabledReason"
         :model-catalog="modelCatalog"
         :model-error="modelError"
         :model-loading="modelLoading"
@@ -226,7 +234,15 @@ function cleanVersionSummary(value?: string | null): string {
       <RunnerStatusBoard :items="opencodeBoard" />
     </section>
 
-    <div class="evaluation-runner-grid">
+    <EmptyState
+      v-if="evalSetLoaded && cases.length === 0"
+      title="当前测评集还没有测试例"
+      description="先在“测评集”Tab 创建或添加测试例，然后回到这里运行 Opencode 测评。"
+      action-label="去创建测试例"
+      @action="emit('navigate', { tab: 'evalsets', selectedEvalSetId: evalSetId })"
+    />
+
+    <div v-else class="evaluation-runner-grid">
       <RunnerCaseQueue
         :active-case-id="active?.case_version.id ?? null"
         :cases="cases"
@@ -240,12 +256,13 @@ function cleanVersionSummary(value?: string | null): string {
         :poll-interval-seconds="pollIntervalSeconds"
         :polling="polling"
         :run="activeRun"
+        :run-disabled-reason="runDisabledReason"
         :running-case-id="runningCaseId"
         :state="activeRunState"
         @copy="copyText"
         @run="runActiveCase"
       />
-      <p v-if="!canRunEvaluation" class="field-help permission-hint">当前身份没有运行测评权限，需要 evaluator、maintainer、owner 或 admin 角色。</p>
+      <p v-if="runDisabledReason" class="field-help permission-hint">{{ runDisabledReason }}</p>
     </div>
   </div>
 </template>

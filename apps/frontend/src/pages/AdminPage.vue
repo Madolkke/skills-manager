@@ -146,6 +146,18 @@ async function cancelPublishRecord(record: PublishRecord): Promise<void> {
   await runAdminAction(() => api.adminCancelPublishRecord(record.id), "发布单已取消。");
 }
 
+async function batchConfirmPublishRecords(records: PublishRecord[]): Promise<void> {
+  if (!records.length) return;
+  if (!confirm(`将批量确认 ${records.length} 条待确认发布单。是否继续？`)) return;
+  await runBatchPublishAction(records, (record) => api.adminConfirmPublishRecord(record.id), "确认");
+}
+
+async function batchCancelPublishRecords(records: PublishRecord[]): Promise<void> {
+  if (!records.length) return;
+  if (!confirm(`将批量取消 ${records.length} 条待确认发布单。是否继续？`)) return;
+  await runBatchPublishAction(records, (record) => api.adminCancelPublishRecord(record.id), "取消");
+}
+
 async function saveSkillTags(skill: SkillSummary, tags?: SkillTagPayload[]): Promise<void> {
   const nextTags = tags ?? tagDrafts.value[skill.skill.id] ?? [];
   tagDrafts.value[skill.skill.id] = nextTags;
@@ -160,6 +172,24 @@ async function runAdminAction(action: () => Promise<unknown>, successMessage: st
   } catch (error) {
     showError(error);
   }
+}
+
+async function runBatchPublishAction(records: PublishRecord[], action: (record: PublishRecord) => Promise<unknown>, verb: string): Promise<void> {
+  let succeeded = 0;
+  let failed = 0;
+  for (const record of records) {
+    try {
+      await action(record);
+      succeeded += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  await load();
+  emit("toast", {
+    tone: failed ? "danger" : "success",
+    message: `批量${verb}完成：成功 ${succeeded} 条，失败 ${failed} 条。`,
+  });
 }
 
 function showError(error: unknown): void {
@@ -248,6 +278,8 @@ function showError(error: unknown): void {
         :records="publishRecords"
         @confirm-record="confirmPublishRecord"
         @cancel-record="cancelPublishRecord"
+        @batch-confirm="batchConfirmPublishRecords"
+        @batch-cancel="batchCancelPublishRecords"
       />
     </template>
   </div>

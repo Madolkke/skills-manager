@@ -150,6 +150,39 @@
   overflow-wrap: anywhere;
 }
 
+.runner-insight-list {
+  display: grid;
+  gap: 8px;
+}
+
+.runner-insight-card {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: white;
+  padding: 10px 12px;
+}
+
+.runner-insight-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.runner-insight-card strong {
+  display: block;
+  margin-top: 3px;
+  color: #172033;
+  overflow-wrap: anywhere;
+}
+
+.runner-insight-card p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .runner-message {
   min-width: 0;
   border: 1px solid #dbe8ff;
@@ -161,6 +194,16 @@
 .runner-message.error {
   border-color: #fecaca;
   background: #fff7f7;
+}
+
+.runner-message.wait-hint.warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.runner-message.wait-hint.warning strong,
+.runner-message.wait-hint.warning p {
+  color: #92400e;
 }
 
 .runner-message strong {

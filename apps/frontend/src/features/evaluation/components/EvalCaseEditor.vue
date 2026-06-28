@@ -4,6 +4,7 @@ import { api } from "../../../lib/api";
 import type { EvalAssertionTemplate, EvalSetCase } from "../../../types";
 import {
   artifactFileName,
+  buildEvalCaseValidationSummary,
   createEvalCaseForm,
   defaultAssertion,
   defaultStep,
@@ -50,6 +51,7 @@ const groupedTemplates = computed(() => {
 });
 const activeStep = computed(() => form.value.steps[selectedStepIndex.value] ?? form.value.steps[0]);
 const stepValidations = computed(() => form.value.steps.map((step) => validateStep(step, templateFor)));
+const validationSummary = computed(() => buildEvalCaseValidationSummary(form.value, stepValidations.value));
 const invalidStepCount = computed(() => stepValidations.value.filter((item) => !item.complete).length);
 const titleValid = computed(() => Boolean(form.value.title.trim()));
 const saveStatus = computed(() => {
@@ -178,7 +180,14 @@ function submit(): void {
     selectedStepIndex.value = firstInvalid;
     return;
   }
+  if (validationSummary.value.length) return;
   emit("submit", form.value);
+}
+
+/** 点击校验摘要项时，定位到对应步骤或工作区入口。 */
+function focusValidation(item: { stepIndex?: number; id: string }): void {
+  if (typeof item.stepIndex === "number") selectedStepIndex.value = item.stepIndex;
+  if (item.id.startsWith("workspace-")) workspaceEditorOpen.value = true;
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -238,6 +247,22 @@ function fileToBase64(file: File): Promise<string> {
       v-model:open="advancedOpen"
       v-model:notes="form.notes"
     />
+    <section v-if="attemptedSubmit && validationSummary.length" class="scenario-validation-summary" aria-label="保存前校验摘要">
+      <div>
+        <strong>保存前需要处理 {{ validationSummary.length }} 项</strong>
+        <p>点击问题可定位到对应步骤或工作区配置。</p>
+      </div>
+      <button
+        v-for="item in validationSummary"
+        :key="item.id"
+        type="button"
+        class="scenario-validation-item"
+        @click="focusValidation(item)"
+      >
+        <span>{{ item.label }}</span>
+        <strong>{{ item.message }}</strong>
+      </button>
+    </section>
     <WorkspaceFileEditorModal
       v-if="workspaceEditorOpen"
       :files="form.workspace_files ?? []"
