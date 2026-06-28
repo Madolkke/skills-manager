@@ -10,7 +10,7 @@ import { api, ApiError } from "../lib/api";
 import { runnerState } from "../features/evaluation/lib/evalRunner";
 import { versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
-import type { EvalSetDetail, SkillDetail, ToastState } from "../types";
+import type { EvalSetDetail, OpencodeModelSelection, OpencodeProviderCatalog, SkillDetail, ToastState } from "../types";
 
 const props = defineProps<{ skill: SkillDetail; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ refresh: []; navigate: [next: Partial<RouteState>]; toast: [toast: ToastState] }>();
@@ -25,6 +25,10 @@ const evalSetId = computed(() => {
 const skillVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
 const detail = ref<EvalSetDetail | null>(null);
 const activeCaseId = ref<string | null>(null);
+const modelCatalog = ref<OpencodeProviderCatalog | null>(null);
+const modelError = ref("");
+const modelLoading = ref(false);
+const modelSelection = ref<OpencodeModelSelection | null>(null);
 const cases = computed(() => detail.value?.cases ?? []);
 const active = computed(() => cases.value.find((item) => item.case_version.id === activeCaseId.value) ?? null);
 const selectedVersion = computed(() => versions.value.find((version) => version.id === skillVersionId.value));
@@ -52,6 +56,7 @@ const {
   cases,
   skillVersionId,
   evalSetId,
+  modelSelection,
   ready: evalSetLoaded,
   emitToast: (toast) => emit("toast", toast),
 });
@@ -83,6 +88,24 @@ onMounted(() => window.addEventListener("keydown", onKeyDown));
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeyDown);
 });
+
+async function loadOpencodeProviders(): Promise<void> {
+  if (modelLoading.value) return;
+  modelLoading.value = true;
+  modelError.value = "";
+  try {
+    modelCatalog.value = await api.listOpencodeProviders();
+  } catch (caught) {
+    modelError.value = errorMessage(caught);
+    modelCatalog.value = null;
+  } finally {
+    modelLoading.value = false;
+  }
+}
+
+function selectOpencodeModel(selection: OpencodeModelSelection | null): void {
+  modelSelection.value = selection;
+}
 
 async function copyText(label: string, text?: string | null): Promise<void> {
   const content = text ?? "";
@@ -170,11 +193,17 @@ function cleanVersionSummary(value?: string | null): string {
         :can-run-formal="canRunFormalEvaluation && canRunEvaluation"
         :case-count="cases.length"
         :disabled="!canRunEvaluation"
+        :model-catalog="modelCatalog"
+        :model-error="modelError"
+        :model-loading="modelLoading"
+        :model-selection="modelSelection"
         :poll-interval-seconds="pollIntervalSeconds"
         :summary="opencodeSummary"
+        @refresh-models="loadOpencodeProviders"
         @retry-failed="retryFailed"
         @run-all="runAll"
         @run-formal="runFormalOpencodeEvaluation"
+        @select-model="selectOpencodeModel"
       />
     </section>
 

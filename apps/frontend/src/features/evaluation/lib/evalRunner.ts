@@ -142,10 +142,11 @@ export function summarizeRunnerBoard(items: EvalSetCase[], runs: Record<string, 
   ];
 }
 
-export function modelLabel(item: EvalSetCase): string {
-  const provider = item.case_version.runner_config?.model_provider_id;
-  const model = item.case_version.runner_config?.model_id;
-  return provider && model ? `${provider}/${model}` : "默认模型";
+export function modelLabel(item?: EvalSetCase | null, detail?: EvalCaseRunDetail | null): string {
+  void item;
+  const selection = opencodeSelectionFromRun(detail);
+  if (selection) return `${selection.provider_id}/${selection.model_id}`;
+  return "Opencode 外部配置";
 }
 
 export function promptSourceLabel(item: EvalSetCase): string {
@@ -189,12 +190,23 @@ export function runError(detail: EvalCaseRunDetail | null | undefined): string {
   return detail?.eval_case_run.error || detail?.job?.error || "";
 }
 
+export function opencodeSelectionFromRun(detail?: EvalCaseRunDetail | null): { provider_id: string; model_id: string } | null {
+  const runContext = detail?.eval_case_run.run_context;
+  const raw = runContext && typeof runContext === "object" ? runContext.opencode : null;
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const providerId = typeof row.provider_id === "string" ? row.provider_id : "";
+  const modelId = typeof row.model_id === "string" ? row.model_id : "";
+  return providerId && modelId ? { provider_id: providerId, model_id: modelId } : null;
+}
+
 export function runnerStatusRows(detail: EvalCaseRunDetail | null | undefined): RunnerStatusRow[] {
   return [
     { label: "运行", value: detail?.eval_case_run.status ?? "未运行" },
     { label: "任务", value: detail?.job?.status ?? "无任务" },
     { label: "次数", value: String(detail?.job?.attempts ?? 0) },
     { label: "阶段", value: currentStageLabel(detail) || "-" },
+    { label: "模型", value: modelLabel(null, detail) },
     { label: "会话", value: metadataText(detail, "session_id") || "-" },
     { label: "工作目录", value: metadataText(detail, "workdir") || "-" },
     { label: "Laminar", value: metadataText(detail, "laminar_datapoint_id") || (detail?.eval_case_run.runner_metadata?.laminar_configured === false ? "未配置" : "-") },

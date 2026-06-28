@@ -40,7 +40,7 @@
   align-items: center;
   gap: 10px;
   color: var(--ink);
-  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+  transition: border-color var(--motion-fast), background-color var(--motion-fast), transform var(--motion-fast);
 }
 
 .brand-button:hover {
@@ -50,8 +50,8 @@
 }
 
 .brand-button:focus-visible {
-  outline: 3px solid rgb(37 99 235 / 18%);
-  outline-offset: 2px;
+  outline: 0;
+  box-shadow: var(--focus-ring);
 }
 
 .brand-mark {
@@ -145,6 +145,7 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
   padding: 6px 0;
   z-index: 20;
+  animation: popover-in var(--motion-base);
 }
 
 .actor-dropdown-header {

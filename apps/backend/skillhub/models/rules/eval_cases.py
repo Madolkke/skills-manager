@@ -27,13 +27,7 @@ def normalize_eval_case_steps(steps: list[dict[str, Any]]) -> list[dict[str, Any
 
 def normalize_eval_case_runner_config(value: dict[str, Any] | None) -> dict[str, Any]:
     raw = dict(value or {})
-    provider = str(raw.get("model_provider_id") or "").strip() or None
-    model = str(raw.get("model_id") or "").strip() or None
-    if bool(provider) != bool(model):
-        raise InvariantError("Eval case runner model requires both provider and model.")
     return {
-        "model_provider_id": provider,
-        "model_id": model,
         "timeout_seconds": raw.get("timeout_seconds"),
     }
 

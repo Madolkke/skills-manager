@@ -18,8 +18,7 @@ examples/opencode-eval/skill-bundle
 
 - 标题：`发现缺少 ownerId 过滤`
 - Prompt 模板：`工作目录文件任务`
-- Provider：`DeepSeek`
-- Model：`deepseek-v4-flash`
+- Opencode Provider / Model：在 Opencode 服务侧配置默认值，SkillHub 不指定模型。
 - Input：
 
 ```text

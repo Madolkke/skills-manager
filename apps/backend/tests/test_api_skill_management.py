@@ -1,11 +1,57 @@
 from tests.api_command_test_case import ApiCommandTestCase
 import base64
+import httpx
 from io import BytesIO
 import json
 from zipfile import ZipFile
+from skillhub.services import opencode as opencode_service
 
 
 class ApiSkillManagementTest(ApiCommandTestCase):
+    def test_opencode_provider_proxy_returns_sanitized_catalog(self):
+        def fake_get(*_args, **_kwargs):
+            return httpx.Response(
+                200,
+                json={
+                    "default": {"deepseek": "deepseek-v4-pro"},
+                    "providers": [
+                        {
+                            "id": "deepseek",
+                            "name": "DeepSeek",
+                            "source": "env",
+                            "env": ["DEEPSEEK_API_KEY"],
+                            "key": "secret",
+                            "models": {
+                                "deepseek-v4-pro": {
+                                    "id": "deepseek-v4-pro",
+                                    "name": "DeepSeek V4 Pro",
+                                    "api": {"url": "https://api.deepseek.com"},
+                                    "headers": {"authorization": "secret"},
+                                    "status": "active",
+                                }
+                            },
+                        }
+                    ],
+                },
+                request=httpx.Request("GET", "http://opencode.test/config/providers"),
+            )
+
+        original_get = opencode_service.httpx.get
+        opencode_service.httpx.get = fake_get
+        try:
+            response = self.client.get("/api/opencode/providers")
+        finally:
+            opencode_service.httpx.get = original_get
+
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["providers"][0]["default_model_id"], "deepseek-v4-pro")
+        self.assertEqual(payload["providers"][0]["models"][0]["id"], "deepseek-v4-pro")
+        self.assertNotIn("secret", str(payload))
+        self.assertNotIn("DEEPSEEK_API_KEY", str(payload))
+        self.assertNotIn("api.deepseek.com", str(payload))
+
     def test_read_flow_returns_hub_skill_eval_set_and_version_details(self):
         skill = self.create_skill("read-flow")
         case = self.create_eval_case(skill["skill_id"])
@@ -152,7 +198,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(secondary_detail["cases"][0]["case_version"]["id"], updated.json()["eval_case_version_id"])
         self.assertEqual(primary_detail["cases"][0]["case"]["title"], "Updated shared case")
 
-    def test_eval_case_title_update_rolls_back_when_version_creation_fails(self):
+    def test_eval_case_update_ignores_legacy_model_runner_config(self):
         skill = self.create_skill("case-title-rollback")
         case = self.create_eval_case(skill["skill_id"])
 
@@ -164,7 +210,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
                 "title": "Half saved title",
                 "steps": [
                     {
-                        "title": "无效模型配置",
+                        "title": "忽略旧模型配置",
                         "input": "输出 helloworld",
                         "assertions": [
                             {
@@ -180,9 +226,10 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         )
         detail = self.client.get(f"/api/eval-sets/{case['eval_set_id']}").json()
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(detail["cases"][0]["case"]["title"], "PR: missing owner check")
-        self.assertEqual(detail["cases"][0]["case_version"]["id"], case["eval_case_version_id"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(detail["cases"][0]["case"]["title"], "Half saved title")
+        self.assertEqual(detail["cases"][0]["case_version"]["id"], response.json()["eval_case_version_id"])
+        self.assertNotIn("model_provider_id", detail["cases"][0]["case_version"]["runner_config"])
 
     def test_eval_set_membership_rejects_cross_skill_case_and_reorders(self):
         first = self.create_skill("membership-first")
@@ -242,7 +289,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(downloaded.status_code, 200)
         self.assertEqual(downloaded.content, zip_bytes)
 
-    def test_eval_case_runner_config_can_be_saved(self):
+    def test_eval_case_runner_config_ignores_legacy_model_fields(self):
         skill = self.create_skill("case-runner-config")
 
         response = self.client.post(
@@ -271,8 +318,8 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(case_version["steps"][0]["assertions"][0]["assertion_template_id"], "agent_output_contains")
-        self.assertEqual(case_version["runner_config"]["model_provider_id"], "deepseek")
-        self.assertEqual(case_version["runner_config"]["model_id"], "deepseek-v4-pro")
+        self.assertNotIn("model_provider_id", case_version["runner_config"])
+        self.assertNotIn("model_id", case_version["runner_config"])
 
     def test_eval_case_step_supports_multiple_assertions(self):
         skill = self.create_skill("case-multi-assertions")

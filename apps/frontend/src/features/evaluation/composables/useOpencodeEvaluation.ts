@@ -1,6 +1,6 @@
 import { computed, onBeforeUnmount, ref, watch, type ComputedRef } from "vue";
 import { api, ApiError } from "../../../lib/api";
-import type { EvalCaseRunDetail, EvalSetCase, ToastState } from "../../../types";
+import type { EvalCaseRunDetail, EvalSetCase, OpencodeModelSelection, ToastState } from "../../../types";
 import {
   isActiveRun,
   queuedRecordToDetail,
@@ -14,12 +14,12 @@ type UseOpencodeEvaluationInput = {
   cases: ComputedRef<EvalSetCase[]>;
   skillVersionId: { value: string };
   evalSetId: ComputedRef<string>;
+  modelSelection: { value: OpencodeModelSelection | null };
   ready: ComputedRef<boolean>;
   emitToast: (toast: ToastState) => void;
 };
 
 const ENVIRONMENT_TAGS: string[] = [];
-const RUN_CONTEXT: Record<string, unknown> = {};
 
 export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
   const opencodeRunsByCase = ref<Record<string, EvalCaseRunDetail>>({});
@@ -37,7 +37,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     () => !busy.value && !hasActiveJobs.value && input.cases.value.length > 0 && Boolean(input.skillVersionId.value) && Boolean(input.evalSetId.value),
   );
 
-  watch([() => input.skillVersionId.value, input.evalSetId, input.ready], async () => {
+  watch([() => input.skillVersionId.value, input.evalSetId, input.ready, () => runContextHash(input.modelSelection.value)], async () => {
     if (!input.ready.value || !input.skillVersionId.value || !input.evalSetId.value) return;
     await loadLatestRuns();
     syncPolling();
@@ -68,6 +68,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
       const runs = await api.listEvalCaseRuns({
         skill_version_id: input.skillVersionId.value,
         eval_set_id: input.evalSetId.value,
+        run_context: currentRunContext(input.modelSelection.value),
       });
       opencodeRunsByCase.value = Object.fromEntries(runs.map((run) => [run.eval_case_run.case_version_id, run]));
     } catch (caught) {
@@ -84,7 +85,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
       eval_set_id: input.evalSetId.value,
       case_version_id: caseVersionId,
       environment_tags: ENVIRONMENT_TAGS,
-      run_context: RUN_CONTEXT,
+      run_context: currentRunContext(input.modelSelection.value),
     });
     const detail = queuedRecordToDetail(queued, item);
     applyRunDetail(detail);
@@ -141,7 +142,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
         skill_version_id: input.skillVersionId.value,
         eval_set_id: input.evalSetId.value,
         environment_tags: ENVIRONMENT_TAGS,
-        run_context: RUN_CONTEXT,
+        run_context: currentRunContext(input.modelSelection.value),
       });
       input.emitToast({ tone: "success", message: "正式测评已完成并聚合。" });
       return recorded.eval_run_id;
@@ -225,6 +226,15 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     runForCase,
     retryFailed,
   };
+}
+
+function currentRunContext(selection: OpencodeModelSelection | null): Record<string, unknown> {
+  if (!selection) return {};
+  return { opencode: { provider_id: selection.provider_id, model_id: selection.model_id } };
+}
+
+function runContextHash(selection: OpencodeModelSelection | null): string {
+  return selection ? `${selection.provider_id}/${selection.model_id}` : "default";
 }
 
 function delay(milliseconds: number): Promise<void> {

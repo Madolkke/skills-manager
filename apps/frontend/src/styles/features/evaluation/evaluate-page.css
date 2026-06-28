@@ -7,11 +7,59 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: white;
-  padding: 14px;
+  padding: 12px;
   display: grid;
-  grid-template-columns: minmax(min(230px, 100%), 0.9fr) minmax(min(230px, 100%), 0.9fr) minmax(min(360px, 100%), 1.35fr);
-  gap: 14px;
+  grid-template-columns: minmax(min(220px, 100%), 0.75fr) minmax(min(220px, 100%), 0.75fr) minmax(min(420px, 100%), 1.55fr);
+  gap: 12px;
   align-items: stretch;
+  box-shadow: var(--shadow-soft);
+}
+
+.opencode-model-selector {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+}
+
+.opencode-model-selector-head,
+.opencode-model-fields {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.opencode-model-selector-head {
+  justify-content: space-between;
+}
+
+.opencode-model-selector-head strong {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 860;
+}
+
+.opencode-model-fields {
+  align-items: end;
+}
+
+.opencode-model-fields .field-label {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.opencode-model-helper {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.opencode-model-helper.danger {
+  color: #b91c1c;
 }
 
 .evaluation-selector-card {
@@ -19,8 +67,8 @@
   display: grid;
   gap: 8px;
   align-content: start;
-  min-height: 88px;
-  padding: 12px 14px;
+  min-height: 82px;
+  padding: 11px 12px;
   border: 1px solid var(--soft-line);
   border-radius: var(--radius);
   background: #fbfdff;
@@ -47,13 +95,13 @@
 }
 
 .eval-progress-panel {
-  min-height: 112px;
-  padding: 16px 22px;
+  min-height: 104px;
+  padding: 14px 18px;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   align-items: center;
-  gap: 22px;
-  margin: 18px 0;
+  gap: 18px;
+  margin: 14px 0;
 }
 
 .eval-progress-panel > *,
@@ -72,6 +120,7 @@
   background: conic-gradient(#5b80f0 var(--coverage), #e3e9f4 0);
   color: #172554;
   font-weight: 880;
+  transition: background var(--motion-collapse);
 }
 
 .progress-ring::before {
@@ -122,7 +171,7 @@
 }
 
 .progress-metrics {
-  min-height: 74px;
+  min-height: 68px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   display: grid;
@@ -138,7 +187,7 @@
     "dot label";
   gap: 2px 10px;
   align-content: center;
-  padding: 12px 18px;
+  padding: 10px 14px;
   border-right: 1px solid var(--soft-line);
 }
 
@@ -157,6 +206,7 @@
 .progress-metric strong {
   grid-area: value;
   font-size: 22px;
+  transition: color var(--motion-fast);
 }
 
 .progress-metric small {
@@ -224,6 +274,6 @@
 .evaluation-runner-grid {
   display: grid;
   grid-template-columns: minmax(min(320px, 100%), 360px) minmax(0, 1fr);
-  gap: 22px;
+  gap: 18px;
   align-items: start;
 }

@@ -13,6 +13,7 @@ import type {
   EvalRunHistory,
   EvalSetDetail,
   EvalSetSummary,
+  OpencodeProviderCatalog,
   RoleAssignment,
   SessionInfo,
   SkillCapabilities,
@@ -157,11 +158,13 @@ function evaluationApi() {
     reorderEvalSetCases: (evalSetId: string, caseIds: string[]) =>
       apiSend<EvalSetDetail>(`/api/eval-sets/${encodeURIComponent(evalSetId)}/cases/order`, "PATCH", { case_ids: caseIds }),
     listEvalAssertionTemplates: () => apiGet<EvalAssertionTemplate[]>("/api/eval-assertion-templates"),
+    listOpencodeProviders: () => apiGet<OpencodeProviderCatalog>("/api/opencode/providers"),
     getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
-    listEvalCaseRuns: (query: { skill_version_id: string; eval_set_id: string }) =>
-      apiGet<EvalCaseRunDetail[]>(
-        `/api/eval-case-runs?skill_version_id=${encodeURIComponent(query.skill_version_id)}&eval_set_id=${encodeURIComponent(query.eval_set_id)}`,
-      ),
+    listEvalCaseRuns: (query: { skill_version_id: string; eval_set_id: string; run_context?: Record<string, unknown> }) => {
+      const params = new URLSearchParams({ skill_version_id: query.skill_version_id, eval_set_id: query.eval_set_id });
+      if (query.run_context && Object.keys(query.run_context).length > 0) params.set("run_context", JSON.stringify(query.run_context));
+      return apiGet<EvalCaseRunDetail[]>(`/api/eval-case-runs?${params.toString()}`);
+    },
     getEvalCaseRun: (evalCaseRunId: string) => apiGet<EvalCaseRunDetail>(`/api/eval-case-runs/${encodeURIComponent(evalCaseRunId)}`),
     getEvalRunHistory: (skillId: string, evalSetId?: string | null) => {
       const params = new URLSearchParams();

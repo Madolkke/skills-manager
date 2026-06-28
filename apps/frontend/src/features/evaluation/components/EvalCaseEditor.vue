@@ -29,7 +29,7 @@ const editing = Boolean(props.caseItem);
 const templates = ref<EvalAssertionTemplate[]>([]);
 const selectedStepIndex = ref(0);
 const attemptedSubmit = ref(false);
-const advancedOpen = ref(Boolean(props.caseItem?.case_version.notes || props.caseItem?.case_version.runner_config.model_provider_id));
+const advancedOpen = ref(Boolean(props.caseItem?.case_version.notes));
 const workspaceLabel = ref(props.caseItem?.case_version.workspace_artifact ? artifactFileName(props.caseItem.case_version.workspace_artifact.locator) : "未选择压缩包");
 const form = ref<EvalCaseFormData>(createEvalCaseForm(props.caseItem));
 
@@ -39,11 +39,6 @@ const groupedTemplates = computed(() => {
   return [...groups.entries()].map(([category, items]) => ({ category, items }));
 });
 const activeStep = computed(() => form.value.steps[selectedStepIndex.value] ?? form.value.steps[0]);
-const modelLabel = computed(() => {
-  const provider = form.value.runner_config.model_provider_id;
-  const model = form.value.runner_config.model_id;
-  return provider && model ? `${provider}/${model}` : "Opencode 默认模型";
-});
 const stepValidations = computed(() => form.value.steps.map((step) => validateStep(step, templateFor)));
 const invalidStepCount = computed(() => stepValidations.value.filter((item) => !item.complete).length);
 const titleValid = computed(() => Boolean(form.value.title.trim()));
@@ -112,18 +107,6 @@ function changeTemplate(payload: { assertionId: string; templateId: string }): v
   for (const param of templateFor(payload.templateId)?.params_schema ?? []) {
     assertion.assertion_params[param.name] = param.default ?? "";
   }
-}
-
-/** 更新模型服务商，清空服务商时同步清空模型。 */
-function updateProvider(value: string): void {
-  form.value.runner_config.model_provider_id = value || null;
-  if (!value) form.value.runner_config.model_id = null;
-  if (value && !form.value.runner_config.model_id) form.value.runner_config.model_id = "deepseek-v4-flash";
-}
-
-/** 更新模型配置。 */
-function updateModel(value: string | null): void {
-  form.value.runner_config.model_id = value;
 }
 
 /** 更新当前步骤标题。 */
@@ -218,14 +201,11 @@ function fileToBase64(file: File): Promise<string> {
     <EvalCaseAdvancedSettings
       v-model:open="advancedOpen"
       v-model:notes="form.notes"
-      :runner-config="form.runner_config"
-      @provider="updateProvider"
-      @model="updateModel"
     />
     <footer class="scenario-action-bar">
       <div>
         <strong>{{ form.steps.length }} 个步骤</strong>
-        <span>{{ modelLabel }} · {{ saveStatus }}</span>
+        <span>Opencode 外部配置 · {{ saveStatus }}</span>
       </div>
       <div class="modal-actions">
         <button class="secondary-button" type="button" @click="emit('cancel')">取消</button>

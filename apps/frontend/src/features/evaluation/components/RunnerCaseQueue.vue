@@ -77,7 +77,7 @@ function rowPreview(item: EvalSetCase, run: EvalCaseRunDetail | undefined, state
         <span class="runner-case-preview">{{ row.preview }}</span>
         <span class="runner-case-meta" aria-label="测试例运行信息">
           <span>{{ promptSourceLabel(row.item) }}</span>
-          <span>{{ modelLabel(row.item) }}</span>
+          <span>{{ modelLabel(row.item, row.run) }}</span>
           <span>尝试 {{ row.run?.job?.attempts ?? 0 }} 次</span>
           <span>{{ runTimeLabel(row.run) }}</span>
           <span v-if="row.hint" class="runner-live-hint">{{ row.hint }}</span>

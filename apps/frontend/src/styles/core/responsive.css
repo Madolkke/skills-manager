@@ -1,12 +1,7 @@
 @media (max-width: 1280px) {
-  .hub-page,
   .overview-grid,
   .history-layout {
     grid-template-columns: 1fr;
-  }
-
-  .hub-filter-panel {
-    position: static;
   }
 
   .version-upload-panel,
@@ -37,6 +32,14 @@
 }
 
 @media (max-width: 900px) {
+  .hub-page {
+    grid-template-columns: 1fr;
+  }
+
+  .hub-filter-panel {
+    position: static;
+  }
+
   .top-bar {
     min-width: 0;
     padding: 0 20px;

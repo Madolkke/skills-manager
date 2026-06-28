@@ -41,7 +41,8 @@ describe("skill evidence helpers", () => {
     expect(runnerState(null).label).toBe("未运行");
     expect(runnerState({ eval_case_run: { status: "running" }, job: { status: "running" } } as never).label).toBe("运行中");
     expect(runnerState({ eval_case_run: { status: "failed", error: "worker failed" } } as never).helper).toBe("worker failed");
-    expect(modelLabel({ case_version: { runner_config: { model_provider_id: "deepseek", model_id: "deepseek-v4-pro" } } } as never)).toBe("deepseek/deepseek-v4-pro");
+    expect(modelLabel({ case_version: { runner_config: {} } } as never)).toBe("Opencode 外部配置");
+    expect(modelLabel(null, { eval_case_run: { run_context: { opencode: { provider_id: "deepseek", model_id: "v4" } } } } as never)).toBe("deepseek/v4");
     expect(promptSourceLabel({ case_version: { steps: [{ id: "s1" }, { id: "s2" }] } } as never)).toBe("2 个步骤");
   });
 

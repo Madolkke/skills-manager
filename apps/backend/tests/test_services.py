@@ -8,6 +8,7 @@ from skillhub.models.errors import FieldInvariantError, InvariantError, Permissi
 from skillhub.models.entities import ContentRef
 from skillhub.models.operations.shared.results import CreateSkillResult, CreateSkillVersionResult
 from skillhub.services import AdminService, EvaluationService, ExternalSkillService, ReviewService, SavedViewService, SkillService, VersionService
+from skillhub.services.opencode import sanitize_opencode_providers
 
 
 class FakeStore:
@@ -396,6 +397,53 @@ def test_external_skill_service_parses_zip_archive_before_upsert() -> None:
     assert upsert_args["version"] == "0.0.1"
 
 
+def test_opencode_provider_sanitizer_removes_sensitive_fields() -> None:
+    result = sanitize_opencode_providers(
+        {
+            "default": {"deepseek": "deepseek-v4-pro"},
+            "providers": [
+                {
+                    "id": "deepseek",
+                    "name": "DeepSeek",
+                    "source": "env",
+                    "env": ["DEEPSEEK_API_KEY"],
+                    "key": "secret",
+                    "options": {"apiKey": "secret"},
+                    "models": {
+                        "deepseek-v4-pro": {
+                            "id": "deepseek-v4-pro",
+                            "name": "DeepSeek V4 Pro",
+                            "family": "deepseek-thinking",
+                            "status": "active",
+                            "api": {"url": "https://api.deepseek.com"},
+                            "headers": {"authorization": "secret"},
+                            "capabilities": {"toolcall": True},
+                            "limit": {"context": 1000},
+                        }
+                    },
+                }
+            ],
+        }
+    )
+
+    provider = result["providers"][0]
+    model = provider["models"][0]
+
+    assert provider["default_model_id"] == "deepseek-v4-pro"
+    assert provider["models"] == [model]
+    assert model == {
+        "id": "deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro",
+        "family": "deepseek-thinking",
+        "status": "active",
+        "capabilities": {"toolcall": True},
+        "limit": {"context": 1000},
+    }
+    assert "secret" not in str(result)
+    assert "DEEPSEEK_API_KEY" not in str(result)
+    assert "api.deepseek.com" not in str(result)
+
+
 def test_version_service_requires_content_ref_or_source() -> None:
     service = VersionService(FakeStore())
 
@@ -659,30 +707,29 @@ def test_evaluation_service_normalizes_eval_case_payload() -> None:
     assert [name for name, _ in store.calls] == ["eval_case_create_snapshot", "insert_eval_case"]
     args = store.calls[1][1]
     assert args["title"] == "Case title"
-    assert args["runner_config"]["model_provider_id"] == "deepseek"
-    assert args["runner_config"]["model_id"] == "v3"
+    assert args["runner_config"] == {"timeout_seconds": None}
     assert args["steps"][0]["id"] == "step-1"
     assert args["steps"][0]["assertions"][0]["id"] == "assertion-1"
 
 
-def test_evaluation_service_rejects_invalid_eval_case_runner_config_before_write() -> None:
+def test_evaluation_service_ignores_partial_legacy_model_config() -> None:
     store = FakeStore()
     service = EvaluationService(store)
 
-    with pytest.raises(InvariantError):
-        service.create_eval_case(
-            skill_id="skill_1",
-            eval_set_id="eval_set_1",
-            title="Case title",
-            steps=[{"input": "hello", "assertions": [{"assertion_template_id": "agent_output_contains", "assertion_params": {"text": "hello"}}]}],
-            workspace_name=None,
-            workspace_base64=None,
-            runner_config={"model_provider_id": "deepseek"},
-            actor="owner",
-            notes=None,
-        )
+    service.create_eval_case(
+        skill_id="skill_1",
+        eval_set_id="eval_set_1",
+        title="Case title",
+        steps=[{"input": "hello", "assertions": [{"assertion_template_id": "agent_output_contains", "assertion_params": {"text": "hello"}}]}],
+        workspace_name=None,
+        workspace_base64=None,
+        runner_config={"model_provider_id": "deepseek"},
+        actor="owner",
+        notes=None,
+    )
 
-    assert store.calls == []
+    assert [name for name, _ in store.calls] == ["eval_case_create_snapshot", "insert_eval_case"]
+    assert store.calls[1][1]["runner_config"] == {"timeout_seconds": None}
 
 
 def test_evaluation_service_normalizes_batch_eval_cases_before_insert() -> None:

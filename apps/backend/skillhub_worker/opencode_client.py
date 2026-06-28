@@ -28,7 +28,7 @@ class OpencodeClient:
             raise RuntimeError("Opencode session response did not include an id.")
         return session_id
 
-    def send_message(self, *, session_id: str, prompt: str, provider_id: str | None, model_id: str | None, directory: str) -> dict[str, Any]:
+    def send_message(self, *, session_id: str, prompt: str, directory: str, provider_id: str | None = None, model_id: str | None = None) -> dict[str, Any]:
         body: dict[str, Any] = {
             "parts": [{"type": "text", "text": prompt}],
             "tools": {

@@ -28,9 +28,11 @@ function clearTimer(): void {
 </script>
 
 <template>
-  <div v-if="toast" :class="['toast', toast.tone]" role="status">
-    <component :is="icon" :size="20" />
-    <span>{{ toast.message }}</span>
-    <button type="button" aria-label="关闭通知" @click="emit('close')">关闭</button>
-  </div>
+  <Transition name="toast">
+    <div v-if="toast" :class="['toast', toast.tone]" role="status">
+      <component :is="icon" :size="20" />
+      <span>{{ toast.message }}</span>
+      <button type="button" aria-label="关闭通知" @click="emit('close')">关闭</button>
+    </div>
+  </Transition>
 </template>

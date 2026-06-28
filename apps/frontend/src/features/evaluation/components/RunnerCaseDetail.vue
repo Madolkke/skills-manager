@@ -42,7 +42,7 @@ const runButtonDisabled = computed(() => {
           <span>测试例 #{{ active.position + 1 }}</span>
           <h2>{{ active.case.title }}</h2>
           <p class="runner-case-subtitle">
-            {{ promptSourceLabel(active) }} · {{ modelLabel(active) }}
+            {{ promptSourceLabel(active) }} · {{ modelLabel(active, run) }}
           </p>
         </div>
         <div class="button-row">

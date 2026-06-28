@@ -28,13 +28,12 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
         "step_results": [],
     }
     try:
+        opencode_selection = _opencode_selection(run.get("run_context"))
+        metadata["opencode_model_selection"] = opencode_selection
         paths = materialize_case_workspace(detail, host_root=config.workdir_host, container_root=config.workdir_container)
         metadata["workdir"] = paths["workdir"]
         _persist_metadata(store, eval_case_run_id, metadata)
         case_version = detail["case_version"]
-        runner_config = dict(case_version.get("runner_config") or {})
-        provider_id = runner_config.get("model_provider_id")
-        model_id = runner_config.get("model_id")
         steps = list(case_version.get("steps") or [])
         metadata["current_stage"] = "creating_laminar_datapoint"
         metadata["current_stage_label"] = "创建 Laminar 测评记录"
@@ -71,9 +70,9 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
             message_response = client.send_message(
                 session_id=session_id,
                 prompt=prompt,
-                provider_id=provider_id,
-                model_id=model_id,
                 directory=paths["container_dir"],
+                provider_id=opencode_selection.get("provider_id") or None,
+                model_id=opencode_selection.get("model_id") or None,
             )
             opencode_trace = extract_opencode_trace(message_response)
             agent_output = compact_message_output(message_response)
@@ -139,7 +138,12 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
                 scores[f"step.{item['step_id']}"] = 1 if item["passed"] else 0
                 for assertion in item.get("assertions") or []:
                     scores[f"step.{item['step_id']}.assertion.{assertion['assertion_id']}"] = 1 if assertion["passed"] else 0
-        laminar_error = laminar.update_datapoint(refs=refs, executor_output={"step_results": metadata["step_results"]}, scores=scores, metadata=metadata)
+        laminar_error = laminar.update_datapoint(
+            refs=refs,
+            executor_output={"step_results": metadata["step_results"], "opencode_model_selection": opencode_selection},
+            scores=scores,
+            metadata=metadata,
+        )
         if laminar_error:
             metadata["laminar_error"] = laminar_error
             raise RuntimeError(laminar_error)
@@ -214,6 +218,19 @@ def _public_opencode_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "model_id": str(trace.get("model_id") or ""),
         "provider_id": str(trace.get("provider_id") or ""),
     }
+
+
+def _opencode_selection(run_context: Any) -> dict[str, str]:
+    if not isinstance(run_context, dict):
+        return {"provider_id": "", "model_id": ""}
+    opencode = run_context.get("opencode")
+    if not isinstance(opencode, dict):
+        return {"provider_id": "", "model_id": ""}
+    provider_id = str(opencode.get("provider_id") or "").strip()
+    model_id = str(opencode.get("model_id") or "").strip()
+    if provider_id and model_id:
+        return {"provider_id": provider_id, "model_id": model_id}
+    return {"provider_id": "", "model_id": ""}
 
 
 def _evaluate_assertion(context: AssertionContext, assertion: dict[str, Any]) -> dict[str, Any]:

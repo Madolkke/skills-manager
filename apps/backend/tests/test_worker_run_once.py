@@ -35,6 +35,7 @@ class FakeStore:
 class FakeOpencodeClient:
     def __init__(self) -> None:
         self.message_count = 0
+        self.message_kwargs: list[dict[str, Any]] = []
 
     def health(self) -> None:
         return None
@@ -44,6 +45,7 @@ class FakeOpencodeClient:
 
     def send_message(self, **kwargs: Any) -> dict[str, Any]:
         self.message_count += 1
+        self.message_kwargs.append(kwargs)
         return {
             "id": "message_1",
             "finish": "stop",
@@ -94,6 +96,9 @@ def test_run_once_evaluates_all_assertions_in_one_step(tmp_path: Path):
 
     assert did_work is True
     assert client.message_count == 1
+    assert client.message_kwargs[0]["provider_id"] is None
+    assert client.message_kwargs[0]["model_id"] is None
+    assert step_result is not None
     assert store.failed is None
     assert store.retried is None
     assert store.finalized is not None
@@ -106,6 +111,38 @@ def test_run_once_evaluates_all_assertions_in_one_step(tmp_path: Path):
         "step.step-1.assertion.assertion-1": 1,
         "step.step-1.assertion.assertion-2": 0,
     }
+
+
+def test_run_once_uses_opencode_model_from_run_context(tmp_path: Path):
+    detail = _case_detail()
+    detail["eval_case_run"]["run_context"] = {"opencode": {"provider_id": "deepseek", "model_id": "deepseek-v4-pro"}}
+    store = FakeStore(detail)
+    client = FakeOpencodeClient()
+    laminar = FakeLaminarClient()
+
+    run_once(
+        store,
+        client,
+        laminar,
+        config=WorkerConfig(
+            opencode_base_url="http://opencode.test",
+            laminar_base_url="http://laminar.test",
+            laminar_http_port=8000,
+            laminar_project_api_key="key",
+            workdir_host=tmp_path,
+            workdir_container="/workspace/eval-runs",
+            poll_interval_seconds=0.1,
+            timeout_seconds=30,
+            max_attempts=1,
+            worker_id="test-worker",
+        ),
+    )
+
+    assert client.message_kwargs[0]["provider_id"] == "deepseek"
+    assert client.message_kwargs[0]["model_id"] == "deepseek-v4-pro"
+    assert store.finalized is not None
+    assert store.finalized["runner_metadata"]["opencode_model_selection"] == {"provider_id": "deepseek", "model_id": "deepseek-v4-pro"}
+    assert laminar.executor_output["opencode_model_selection"] == {"provider_id": "deepseek", "model_id": "deepseek-v4-pro"}
 
 
 def _case_detail() -> dict[str, Any]:
@@ -122,7 +159,7 @@ def _case_detail() -> dict[str, Any]:
         },
         "case_version": {
             "id": "casever_1",
-            "runner_config": {},
+            "runner_config": {"model_provider_id": "deepseek", "model_id": "deepseek-v4-flash"},
             "workspace_artifact": None,
             "steps": [
                 {

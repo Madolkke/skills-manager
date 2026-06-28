@@ -15,6 +15,7 @@
   display: flex;
   gap: 32px;
   align-self: stretch;
+  min-width: 0;
 }
 
 .skill-tab {
@@ -25,6 +26,16 @@
   font-size: 16px;
   position: relative;
   min-width: 72px;
+  transition: color var(--motion-fast), background-color var(--motion-fast);
+}
+
+.skill-tab:hover {
+  color: #1d4ed8;
+}
+
+.skill-tab:focus-visible {
+  box-shadow: none;
+  color: var(--blue);
 }
 
 .skill-tab.active {
@@ -40,6 +51,14 @@
   height: 3px;
   background: var(--blue);
   border-radius: 999px 999px 0 0;
+}
+
+.overview-grid,
+.settings-page,
+.review-manager-page,
+.publish-page,
+.evaluate-page {
+  animation: page-section-in var(--motion-base);
 }
 
 .overview-grid {

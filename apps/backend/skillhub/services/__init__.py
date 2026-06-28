@@ -4,6 +4,7 @@ from .admin import AdminService
 from .artifacts import ArtifactDownload, ArtifactService
 from .evaluations import EvaluationService
 from .external import ExternalSkillService
+from .opencode import OpencodeService
 from .reviews import ReviewService
 from .saved_views import SavedViewService
 from .skills import SkillService
@@ -15,6 +16,7 @@ __all__ = [
     "ArtifactService",
     "EvaluationService",
     "ExternalSkillService",
+    "OpencodeService",
     "ReviewService",
     "SavedViewService",
     "SkillService",

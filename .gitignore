@@ -15,6 +15,7 @@ apps/frontend/test-results/
 apps/frontend/e2e/
 
 .data/
+ops/opencode/config/
 *.sqlite3
 .uv-cache/
 .tools/

@@ -15,10 +15,12 @@
   overflow: hidden;
   text-align: left;
   box-shadow: 0 14px 34px rgb(15 23 42 / 4%);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast), background-color var(--motion-fast);
 }
 
 .skill-card:hover {
   border-color: #bcd3ff;
+  box-shadow: 0 18px 38px rgb(15 23 42 / 7%);
   transform: translateY(-1px);
 }
 
@@ -30,7 +32,7 @@
 .skill-grid.list-view .skill-card {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.75fr);
 }
 
 .skill-grid.list-view .card-body {
@@ -46,7 +48,7 @@
   border-left: 1px solid var(--soft-line);
   min-height: 0;
   padding: 18px 20px;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) 28px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 24px;
 }
 
 .card-body {

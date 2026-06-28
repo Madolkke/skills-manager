@@ -7,6 +7,7 @@
 - `__init__.py`：集中注册所有 FastAPI routes。
 - `auth.py`：解析普通 actor、后台密钥等 HTTP 身份输入。
 - `dependencies.py`：创建数据库 engine、store 和 service 依赖。
+- `opencode.py`：提供 Opencode provider/model 配置的脱敏代理接口。
 - `schemas.py`：HTTP request/response schema，保持 API contract 稳定。
 - `responses.py`：把领域对象和 service 返回值转换成 HTTP 响应结构。
 - 其他业务文件：按资源组织 endpoint，例如 `skills.py`、`evaluations.py`、`reviews.py`。

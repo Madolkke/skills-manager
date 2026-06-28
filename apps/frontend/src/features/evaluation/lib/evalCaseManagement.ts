@@ -1,5 +1,5 @@
 import type { EvalSetCase } from "../../../types";
-import type { EvalCaseFormData } from "./evalCaseForm";
+import { cleanRunnerConfig, type EvalCaseFormData } from "./evalCaseForm";
 
 export type CaseSortKey = "position" | "title" | "version";
 export type CleanEvalCaseFormOptions = {
@@ -37,7 +37,7 @@ export function cleanCaseForm(form: EvalCaseFormData, options: CleanEvalCaseForm
     })),
     workspace_name: form.workspace_name,
     workspace_base64: form.workspace_base64,
-    runner_config: form.runner_config,
+    runner_config: cleanRunnerConfig(form.runner_config),
     notes: form.notes.trim() || undefined,
   };
   return options.includePreserveWorkspace ? { ...payload, preserve_workspace: true } : payload;

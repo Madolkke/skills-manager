@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import { Play, RotateCcw } from "lucide-vue-next";
+import OpencodeModelSelector from "./OpencodeModelSelector.vue";
 import { actionBarStatusText, type RunnerSummary } from "../lib/evalRunner";
+import type { OpencodeModelSelection, OpencodeProviderCatalog } from "../../../types";
 
 defineProps<{
   busy: boolean;
   canRunFormal: boolean;
   caseCount: number;
   disabled?: boolean;
+  modelCatalog: OpencodeProviderCatalog | null;
+  modelError: string;
+  modelLoading: boolean;
+  modelSelection: OpencodeModelSelection | null;
   pollIntervalSeconds: number;
   summary: RunnerSummary;
 }>();
 
 defineEmits<{
+  refreshModels: [];
   retryFailed: [];
   runAll: [];
   runFormal: [];
+  selectModel: [selection: OpencodeModelSelection | null];
 }>();
 </script>
 
@@ -24,6 +32,14 @@ defineEmits<{
       <strong>执行测评</strong>
       <span>{{ actionBarStatusText(summary, caseCount, pollIntervalSeconds) }}</span>
     </div>
+    <OpencodeModelSelector
+      :catalog="modelCatalog"
+      :error="modelError"
+      :loading="modelLoading"
+      :selection="modelSelection"
+      @refresh="$emit('refreshModels')"
+      @select="$emit('selectModel', $event)"
+    />
     <div class="runner-action-buttons">
       <button class="secondary-button" type="button" :disabled="disabled || busy || caseCount === 0" @click="$emit('runAll')">
         <Play :size="17" />

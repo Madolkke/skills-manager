@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import Depends, FastAPI
 
 from skillhub.views.auth import ActorContext, actor_dependency
@@ -20,6 +22,7 @@ from skillhub.views.schemas import (
     UpdateEvalSetPayload,
 )
 from skillhub.services import EvaluationService
+from skillhub.models.errors import InvariantError
 
 
 def register_evaluation_routes(app: FastAPI) -> None:
@@ -198,15 +201,17 @@ def register_evaluation_routes(app: FastAPI) -> None:
     def list_eval_case_runs(
         skill_version_id: str,
         eval_set_id: str,
+        run_context: str | None = None,
         service: EvaluationService = Depends(evaluation_service_dependency),
     ):
         query = ListEvalCaseRunsQuery(skill_version_id=skill_version_id, eval_set_id=eval_set_id)
+        run_context_value = _query_json_object(run_context)
         return result_payload(
             service.latest_eval_case_run_details(
                 skill_version_id=query.skill_version_id,
                 eval_set_id=query.eval_set_id,
                 environment_tags=query.environment_tags,
-                run_context=query.run_context,
+                run_context=run_context_value if run_context is not None else query.run_context,
             )
         )
 
@@ -238,3 +243,13 @@ def register_evaluation_routes(app: FastAPI) -> None:
     ):
         accepted = service.accept_eval_run_verification(eval_run_id=payload.eval_run_id, note=payload.note, actor=actor.id)
         return {"ok": True, "accepted_verification": accepted}
+
+
+def _query_json_object(value: str | None) -> dict:
+    if value is None or not value.strip():
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise InvariantError("run_context 查询参数必须是 JSON 对象。") from exc
+    return parsed if isinstance(parsed, dict) else {}

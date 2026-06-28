@@ -16,7 +16,7 @@
   font-weight: 760;
   padding: 0 18px;
   white-space: normal;
-  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition: border-color var(--motion-fast), background-color var(--motion-fast), box-shadow var(--motion-fast), transform var(--motion-fast);
 }
 
 .primary-button {
@@ -51,8 +51,8 @@
 .secondary-button:focus-visible,
 .select-button:focus-visible,
 .icon-button:focus-visible {
-  outline: 3px solid rgb(37 99 235 / 20%);
-  outline-offset: 2px;
+  outline: 0;
+  box-shadow: var(--focus-ring), 0 8px 18px rgb(15 23 42 / 7%);
 }
 
 .icon-button {
@@ -191,7 +191,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: white;
-  box-shadow: 0 10px 28px rgb(15 23 42 / 4%);
+  box-shadow: var(--shadow-soft);
 }
 
 .section-heading {
@@ -216,6 +216,63 @@
   margin-top: 12px;
   max-width: 760px;
   line-height: 1.6;
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-card-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 10px)) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes page-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity var(--motion-base), transform var(--motion-base);
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -246,6 +303,22 @@
   .runner-output-panel.running::after {
     animation: none;
     display: none;
+  }
+
+  .overview-grid,
+  .settings-page,
+  .review-manager-page,
+  .publish-page,
+  .evaluate-page,
+  .actor-dropdown,
+  .modal-backdrop,
+  .modal-card {
+    animation: none;
+  }
+
+  .toast-enter-active,
+  .toast-leave-active {
+    transition: none;
   }
 
 }

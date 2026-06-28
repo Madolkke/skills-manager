@@ -205,10 +205,8 @@ class EvalCaseStepPayload(BaseModel):
 
 
 class EvalCaseRunnerConfigPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
-    model_provider_id: str | None = None
-    model_id: str | None = None
     timeout_seconds: int | None = None
 
 

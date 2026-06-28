@@ -104,25 +104,27 @@ function selectedCountForGroup(groupId: string): number {
               <span>{{ group.display_name }}</span>
               <small v-if="selectedCountForGroup(group.id)">{{ selectedCountForGroup(group.id) }}</small>
             </button>
-            <div v-if="openGroup?.id === group.id" class="hub-tag-popover">
-              <div class="hub-tag-popover-head">
-                <strong>{{ group.display_name }}</strong>
-                <button type="button" aria-label="关闭 Tag 列表" @click="closeGroup">
-                  <X :size="14" />
+            <Transition name="hub-tag-popover">
+              <div v-if="openGroup?.id === group.id" class="hub-tag-popover">
+                <div class="hub-tag-popover-head">
+                  <strong>{{ group.display_name }}</strong>
+                  <button type="button" aria-label="关闭 Tag 列表" @click="closeGroup">
+                    <X :size="14" />
+                  </button>
+                </div>
+                <button
+                  v-for="value in sortTagValues(group.values)"
+                  :key="value.value"
+                  class="hub-tag-option"
+                  :class="{ active: selectedKeys.has(tagKey({ group_id: group.id, value: value.value })) }"
+                  type="button"
+                  @click="toggleTag({ group_id: group.id, value: value.value })"
+                >
+                  <span>{{ tagValueLabel(value) }}</span>
+                  <small>{{ countFor(group.id, value) }}</small>
                 </button>
               </div>
-              <button
-                v-for="value in sortTagValues(group.values)"
-                :key="value.value"
-                class="hub-tag-option"
-                :class="{ active: selectedKeys.has(tagKey({ group_id: group.id, value: value.value })) }"
-                type="button"
-                @click="toggleTag({ group_id: group.id, value: value.value })"
-              >
-                <span>{{ tagValueLabel(value) }}</span>
-                <small>{{ countFor(group.id, value) }}</small>
-              </button>
-            </div>
+            </Transition>
           </div>
         </div>
       </div>

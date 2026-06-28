@@ -20,7 +20,7 @@ export function createEvalCaseForm(caseItem?: EvalSetCase | null): EvalCaseFormD
     steps: caseItem?.case_version.steps.length ? caseItem.case_version.steps.map(cloneStep) : [defaultStep()],
     workspace_name: undefined,
     workspace_base64: undefined,
-    runner_config: { ...(caseItem?.case_version.runner_config ?? {}) },
+    runner_config: cleanRunnerConfig(caseItem?.case_version.runner_config),
     notes: caseItem?.case_version.notes ?? "",
   };
 }
@@ -88,4 +88,10 @@ export function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export function cleanRunnerConfig(value?: EvalRunnerConfig | null): EvalRunnerConfig {
+  return {
+    timeout_seconds: value?.timeout_seconds ?? null,
+  };
 }

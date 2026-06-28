@@ -42,7 +42,7 @@ def test_send_message_omits_model_when_not_configured(monkeypatch):
     monkeypatch.setattr(opencode_client.httpx, "Client", FakeHttpClient)
     client = opencode_client.OpencodeClient(base_url="http://127.0.0.1:4096", timeout_seconds=30)
 
-    client.send_message(session_id="session_1", prompt="hello", provider_id=None, model_id=None, directory="/workspace/run")
+    client.send_message(session_id="session_1", prompt="hello", directory="/workspace/run")
 
     request = client._client.requests[-1]
     assert request["json"]["parts"] == [{"type": "text", "text": "hello"}]
@@ -53,13 +53,7 @@ def test_send_message_includes_model_when_configured(monkeypatch):
     monkeypatch.setattr(opencode_client.httpx, "Client", FakeHttpClient)
     client = opencode_client.OpencodeClient(base_url="http://127.0.0.1:4096", timeout_seconds=30)
 
-    client.send_message(
-        session_id="session_1",
-        prompt="hello",
-        provider_id="deepseek",
-        model_id="deepseek-v4-flash",
-        directory="/workspace/run",
-    )
+    client.send_message(session_id="session_1", prompt="hello", directory="/workspace/run", provider_id="deepseek", model_id="deepseek-v4-flash")
 
     request = client._client.requests[-1]
     assert request["json"]["model"] == {"providerID": "deepseek", "modelID": "deepseek-v4-flash"}

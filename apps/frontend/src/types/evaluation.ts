@@ -40,9 +40,33 @@ export type EvalCaseVersionDetail = {
 };
 
 export type EvalRunnerConfig = {
-  model_provider_id?: string | null;
-  model_id?: string | null;
   timeout_seconds?: number | null;
+};
+
+export type OpencodeModelSelection = {
+  provider_id: string;
+  model_id: string;
+};
+
+export type OpencodeModelOption = {
+  id: string;
+  name: string;
+  family: string;
+  status: string;
+  capabilities: Record<string, unknown>;
+  limit: Record<string, unknown>;
+};
+
+export type OpencodeProviderOption = {
+  id: string;
+  name: string;
+  source: string;
+  default_model_id?: string | null;
+  models: OpencodeModelOption[];
+};
+
+export type OpencodeProviderCatalog = {
+  providers: OpencodeProviderOption[];
 };
 
 export type EvalCaseStep = {
@@ -125,6 +149,7 @@ export type EvalCaseRunDetail = {
     score?: number | null;
     error?: string | null;
     runner_metadata?: Record<string, unknown>;
+    run_context?: Record<string, unknown>;
     created_at?: string;
     started_at?: string | null;
     finished_at?: string | null;

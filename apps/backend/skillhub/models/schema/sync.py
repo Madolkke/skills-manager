@@ -74,6 +74,7 @@ SCHEMA_PATCHES = (
     "alter table eval_case_versions add column if not exists workspace_artifact_id text references artifacts(id)",
     "alter table eval_case_versions add column if not exists steps jsonb not null default '[]'::jsonb",
     "alter table eval_case_versions add column if not exists runner_config jsonb not null default '{}'::jsonb",
+    "update eval_case_versions set runner_config = runner_config - 'model_provider_id' - 'model_id' where runner_config ?| array['model_provider_id', 'model_id']",
     """
     update eval_case_versions ecv
     set steps = migrated.steps
