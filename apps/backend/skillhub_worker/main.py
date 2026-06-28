@@ -6,12 +6,13 @@ from typing import Any
 
 from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
 from skillhub.models.rules.eval_assertion_templates import AssertionContext, assertion_template
+from skillhub.models.rules.opencode_skill_usage import skill_usage_evidence
 from skillhub.models.store import SkillHubStore
 from skillhub_worker.config import load_config
 from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
-from skillhub_worker.opencode_trace import extract_opencode_trace
-from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, render_step_prompt, workspace_snapshot
+from skillhub_worker.opencode_trace import compact_message_output, extract_opencode_trace, new_opencode_messages, opencode_message_ids
+from skillhub_worker.workspace import materialize_case_workspace, render_step_prompt, workspace_snapshot
 
 
 def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
@@ -32,6 +33,8 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
         metadata["opencode_model_selection"] = opencode_selection
         paths = materialize_case_workspace(detail, host_root=config.workdir_host, container_root=config.workdir_container)
         metadata["workdir"] = paths["workdir"]
+        metadata["skill_installation"] = paths["skill_installation"]
+        metadata["skill_usage"] = _initial_skill_usage(paths["skill_installation"])
         _persist_metadata(store, eval_case_run_id, metadata)
         case_version = detail["case_version"]
         steps = list(case_version.get("steps") or [])
@@ -52,7 +55,7 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
         metadata["current_stage"] = "creating_opencode_session"
         metadata["current_stage_label"] = "创建 Opencode 会话"
         _persist_metadata(store, eval_case_run_id, metadata)
-        session_id = client.create_session(title=f"SkillHub Eval {eval_case_run_id}", directory=paths["container_dir"])
+        session_id = client.create_session(title=f"SkillHub Eval {eval_case_run_id}", directory=paths["workdir"])
         metadata["opencode_session_id"] = session_id
         metadata["session_id"] = session_id
         _persist_metadata(store, eval_case_run_id, metadata)
@@ -67,15 +70,25 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
             _persist_metadata(store, eval_case_run_id, metadata)
             before = workspace_snapshot(Path(paths["host_workdir"]))
             prompt = render_step_prompt(step=step, paths=paths, step_number=index + 1, total_steps=len(steps))
+            messages_before_step = client.list_messages(session_id=session_id, directory=paths["workdir"])
+            seen_message_ids = opencode_message_ids(messages_before_step)
             message_response = client.send_message(
                 session_id=session_id,
                 prompt=prompt,
-                directory=paths["container_dir"],
+                directory=paths["workdir"],
                 provider_id=opencode_selection.get("provider_id") or None,
                 model_id=opencode_selection.get("model_id") or None,
             )
-            opencode_trace = extract_opencode_trace(message_response)
-            agent_output = compact_message_output(message_response)
+            message_history = client.list_messages(session_id=session_id, directory=paths["workdir"])
+            step_messages = new_opencode_messages(message_history, seen_message_ids, seen_count=len(messages_before_step))
+            trace_source: object = step_messages or message_response
+            opencode_trace = extract_opencode_trace(trace_source)
+            step_skill_usage = skill_usage_evidence(
+                list(opencode_trace.get("tool_calls") or []),
+                str(metadata["skill_installation"].get("skill_slug") or ""),
+            )
+            _merge_skill_usage(metadata["skill_usage"], step_skill_usage)
+            agent_output = compact_message_output(trace_source)
             after = workspace_snapshot(Path(paths["host_workdir"]))
             metadata["current_stage"] = "asserting_step"
             metadata["current_stage_label"] = f"第 {index + 1}/{len(steps)} 步判定中"
@@ -106,6 +119,7 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
                 "assertions": assertion_results,
                 "message_response": _compact_message_response(message_response),
                 "opencode_trace": _public_opencode_trace(opencode_trace),
+                "skill_usage": step_skill_usage,
             }
             metadata["step_results"].append(step_result)
             actual_output = agent_output
@@ -140,7 +154,12 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
                     scores[f"step.{item['step_id']}.assertion.{assertion['assertion_id']}"] = 1 if assertion["passed"] else 0
         laminar_error = laminar.update_datapoint(
             refs=refs,
-            executor_output={"step_results": metadata["step_results"], "opencode_model_selection": opencode_selection},
+            executor_output={
+                "step_results": metadata["step_results"],
+                "opencode_model_selection": opencode_selection,
+                "skill_installation": metadata["skill_installation"],
+                "skill_usage": metadata["skill_usage"],
+            },
             scores=scores,
             metadata=metadata,
         )
@@ -231,6 +250,24 @@ def _opencode_selection(run_context: Any) -> dict[str, str]:
     if provider_id and model_id:
         return {"provider_id": provider_id, "model_id": model_id}
     return {"provider_id": "", "model_id": ""}
+
+
+def _initial_skill_usage(skill_installation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "skill_slug": str(skill_installation.get("skill_slug") or ""),
+        "used": False,
+        "count": 0,
+        "calls": [],
+    }
+
+
+def _merge_skill_usage(total: dict[str, Any], step_usage: dict[str, Any]) -> None:
+    calls = step_usage.get("calls")
+    if not isinstance(calls, list):
+        calls = []
+    total["used"] = bool(total.get("used")) or bool(step_usage.get("used"))
+    total["count"] = int(total.get("count") or 0) + len(calls)
+    total.setdefault("calls", []).extend(calls)
 
 
 def _evaluate_assertion(context: AssertionContext, assertion: dict[str, Any]) -> dict[str, Any]:

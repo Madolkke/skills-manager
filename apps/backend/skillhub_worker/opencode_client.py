@@ -50,3 +50,16 @@ class OpencodeClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def list_messages(self, *, session_id: str, directory: str) -> list[dict[str, Any]]:
+        response = self._client.get(
+            f"/session/{session_id}/message",
+            params={"directory": directory},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+            return [item for item in payload["data"] if isinstance(item, dict)]
+        return []

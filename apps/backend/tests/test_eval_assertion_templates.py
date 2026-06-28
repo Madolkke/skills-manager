@@ -30,6 +30,13 @@ def opencode_context(tmp_path: Path) -> AssertionContext:
         reasoning_text="I should read README.md before answering.",
         tool_calls=[
             {
+                "tool": "skill",
+                "status": "completed",
+                "input": {"skill": "test-skill"},
+                "output_preview": "Loaded test-skill",
+                "call_id": "call_0",
+            },
+            {
                 "tool": "read",
                 "status": "completed",
                 "input": {"filePath": "README.md"},
@@ -47,6 +54,21 @@ def opencode_context(tmp_path: Path) -> AssertionContext:
     )
 
 
+def other_skill_context(tmp_path: Path) -> AssertionContext:
+    base = opencode_context(tmp_path)
+    base.tool_calls.append(
+        {
+            "tool": "skill",
+            "status": "completed",
+            "input": {"skill": "other-skill"},
+            "output_preview": "Loaded other-skill",
+            "call_id": "call_other",
+        }
+    )
+    base.run_metadata["skill_installation"] = {"skill_slug": "test-skill"}
+    return base
+
+
 def test_registry_returns_template_definitions():
     ids = {item["id"] for item in list_assertion_templates()}
 
@@ -54,6 +76,8 @@ def test_registry_returns_template_definitions():
     assert "file_created" in ids
     assert "tool_called" in ids
     assert "reasoning_contains" in ids
+    assert "tested_skill_used" in ids
+    assert "no_other_skill_used" in ids
 
 
 def test_agent_output_contains_passes_and_fails(tmp_path: Path):
@@ -159,3 +183,42 @@ def test_reasoning_templates_check_reasoning_text(tmp_path: Path):
     assert contains.evaluate(opencode_context(tmp_path), {"text": "database"}).passed is False
     assert not_contains.evaluate(opencode_context(tmp_path), {"text": "database"}).passed is True
     assert not_contains.evaluate(opencode_context(tmp_path), {"text": "README.md"}).passed is False
+
+
+def test_tested_skill_used_template_uses_runner_metadata(tmp_path: Path):
+    template = assertion_template("tested_skill_used")
+    context = opencode_context(tmp_path)
+    context.run_metadata["skill_installation"] = {"skill_slug": "test-skill"}
+
+    result = template.evaluate(context, {})
+
+    assert result.passed is True
+    assert result.details["skill_slug"] == "test-skill"
+    assert result.details["count"] == 1
+
+
+def test_tested_skill_used_template_fails_without_evidence(tmp_path: Path):
+    template = assertion_template("tested_skill_used")
+    context = opencode_context(tmp_path)
+    context.run_metadata["skill_installation"] = {"skill_slug": "missing-skill"}
+
+    result = template.evaluate(context, {})
+
+    assert result.passed is False
+    assert result.details["count"] == 0
+
+
+def test_skill_not_used_template_fails_when_skill_appears(tmp_path: Path):
+    template = assertion_template("skill_not_used")
+
+    assert template.evaluate(opencode_context(tmp_path), {"skill_slug": "other-skill"}).passed is True
+    assert template.evaluate(opencode_context(tmp_path), {"skill_slug": "test-skill"}).passed is False
+
+
+def test_no_other_skill_used_template_fails_on_non_tested_skill(tmp_path: Path):
+    template = assertion_template("no_other_skill_used")
+    clean = opencode_context(tmp_path)
+    clean.run_metadata["skill_installation"] = {"skill_slug": "test-skill"}
+
+    assert template.evaluate(clean, {}).passed is True
+    assert template.evaluate(other_skill_context(tmp_path), {}).passed is False

@@ -5,6 +5,7 @@ from typing import Any
 
 from skillhub.models.rules.assertion_base import AssertionContext, AssertionParam, AssertionResult, AssertionTemplate
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.opencode_skill_usage import other_skill_usage_evidence, skill_usage_evidence
 
 
 OPENCODE_CATEGORY = "Opencode 过程"
@@ -109,6 +110,51 @@ class ReasoningNotContainsTemplate(ReasoningContainsTemplate):
         return AssertionResult(passed, context.reasoning_text, "reasoning 未包含指定文本。" if passed else "reasoning 包含了不应出现的文本。", {"text": needle})
 
 
+class TestedSkillUsedTemplate(AssertionTemplate):
+    id = "tested_skill_used"
+    name = "使用了被测 Skill"
+    description = "检查 Opencode 工具调用证据中是否出现本次安装的被测 Skill。"
+    category = OPENCODE_CATEGORY
+    params = ()
+
+    def evaluate(self, context: AssertionContext, params: dict[str, Any]) -> AssertionResult:
+        skill_slug = _tested_skill_slug(context)
+        evidence = skill_usage_evidence(context.tool_calls, skill_slug)
+        passed = bool(evidence["used"])
+        actual = _skill_usage_summary(evidence)
+        return AssertionResult(passed, actual, "已捕获被测 Skill 使用证据。" if passed else "未捕获被测 Skill 使用证据。", evidence)
+
+
+class SkillNotUsedTemplate(AssertionTemplate):
+    id = "skill_not_used"
+    name = "未使用指定 Skill"
+    description = "检查 Opencode 工具调用证据中没有出现指定 Skill。"
+    category = OPENCODE_CATEGORY
+    params = (AssertionParam("skill_slug", "Skill 名称", "text", placeholder="例如：code-reviewer"),)
+
+    def evaluate(self, context: AssertionContext, params: dict[str, Any]) -> AssertionResult:
+        skill_slug = _skill_slug_param(params)
+        evidence = skill_usage_evidence(context.tool_calls, skill_slug)
+        passed = not evidence["used"]
+        actual = _skill_usage_summary(evidence)
+        return AssertionResult(passed, actual, "未捕获指定 Skill 使用证据。" if passed else "捕获到不应使用的 Skill。", evidence)
+
+
+class NoOtherSkillUsedTemplate(AssertionTemplate):
+    id = "no_other_skill_used"
+    name = "未使用其他 Skill"
+    description = "检查 Opencode skill 工具调用中没有出现被测 Skill 以外的 Skill。"
+    category = OPENCODE_CATEGORY
+    params = ()
+
+    def evaluate(self, context: AssertionContext, params: dict[str, Any]) -> AssertionResult:
+        skill_slug = _tested_skill_slug(context)
+        evidence = other_skill_usage_evidence(context.tool_calls, skill_slug)
+        passed = not evidence["used_other_skill"]
+        actual = _skill_usage_summary(evidence)
+        return AssertionResult(passed, actual, "未捕获其他 Skill 使用证据。" if passed else "捕获到其他或未知 Skill 使用证据。", evidence)
+
+
 def opencode_process_templates() -> tuple[AssertionTemplate, ...]:
     return (
         ToolCalledTemplate(),
@@ -117,6 +163,9 @@ def opencode_process_templates() -> tuple[AssertionTemplate, ...]:
         ToolCallInputContainsTemplate(),
         ReasoningContainsTemplate(),
         ReasoningNotContainsTemplate(),
+        TestedSkillUsedTemplate(),
+        SkillNotUsedTemplate(),
+        NoOtherSkillUsedTemplate(),
     )
 
 
@@ -161,3 +210,30 @@ def _non_negative_int(value: Any, name: str) -> int:
     if parsed < 0:
         raise InvariantError(f"{name} must be a non-negative integer.")
     return parsed
+
+
+def _tested_skill_slug(context: AssertionContext) -> str:
+    installation = context.run_metadata.get("skill_installation")
+    if isinstance(installation, dict):
+        skill_slug = str(installation.get("skill_slug") or "").strip()
+        if skill_slug:
+            return skill_slug
+    raise InvariantError("Tested skill slug is unavailable in runner metadata.")
+
+
+def _skill_slug_param(params: dict[str, Any]) -> str:
+    skill_slug = str(params.get("skill_slug") or "").strip()
+    if not skill_slug:
+        raise InvariantError("Skill slug is required.")
+    return skill_slug
+
+
+def _skill_usage_summary(evidence: dict[str, Any]) -> str:
+    calls = evidence.get("calls")
+    if not isinstance(calls, list) or not calls:
+        return "未捕获到 Skill 使用证据。"
+    return "\n".join(
+        f"{call.get('tool') or '-'} [{call.get('status') or '-'}] {call.get('input_preview') or call.get('output_preview') or ''}".strip()
+        for call in calls
+        if isinstance(call, dict)
+    )

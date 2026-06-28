@@ -7,6 +7,23 @@ from typing import Any
 MAX_TOOL_OUTPUT_PREVIEW = 2_000
 
 
+def opencode_message_ids(messages: list[dict[str, Any]]) -> set[str]:
+    return {message_id for message in messages if (message_id := _message_id(message))}
+
+
+def new_opencode_messages(messages: list[dict[str, Any]], seen_ids: set[str], *, seen_count: int = 0) -> list[dict[str, Any]]:
+    if not seen_ids:
+        if seen_count > 0 and len(messages) >= seen_count:
+            return list(messages[seen_count:])
+        return list(messages)
+    filtered = [message for message in messages if _message_id(message) not in seen_ids]
+    if filtered:
+        return filtered
+    if seen_count > 0 and len(messages) >= seen_count:
+        return list(messages[seen_count:])
+    return []
+
+
 def compact_message_output(response: object) -> str:
     trace = extract_opencode_trace(response)
     if trace["text_output"].strip():
@@ -134,12 +151,16 @@ def _tool_call(part: dict[str, Any]) -> dict[str, Any]:
     status = state.get("status") if isinstance(state, dict) else None
     tool = part.get("tool") or part.get("name") or ""
     call_id = part.get("callID") or part.get("call_id") or part.get("id") or ""
+    metadata = state.get("metadata") if isinstance(state, dict) and isinstance(state.get("metadata"), dict) else {}
+    title = state.get("title") if isinstance(state, dict) else ""
     return {
         "tool": str(tool),
         "status": str(status or ""),
         "input": input_value if input_value is not None else {},
         "output_preview": _preview(output_value),
         "call_id": str(call_id),
+        "title": str(title or ""),
+        "metadata": dict(metadata),
     }
 
 
@@ -169,4 +190,23 @@ def _find_text(value: object) -> str:
             return part
     if "parts" in value:
         return _find_text(value["parts"])
+    return ""
+
+
+def _message_id(message: dict[str, Any]) -> str:
+    candidates = (
+        message.get("id"),
+        message.get("messageID"),
+        message.get("message_id"),
+    )
+    info = message.get("info")
+    if isinstance(info, dict):
+        candidates += (
+            info.get("id"),
+            info.get("messageID"),
+            info.get("message_id"),
+        )
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate:
+            return candidate
     return ""

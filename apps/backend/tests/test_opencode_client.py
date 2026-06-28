@@ -14,9 +14,12 @@ class FakeHttpClient:
         self.requests: list[dict[str, Any]] = []
         FakeHttpClient.init_args = kwargs
 
-    def get(self, url: str) -> httpx.Response:
-        self.requests.append({"method": "GET", "url": url})
-        return httpx.Response(200, json={"healthy": True}, request=httpx.Request("GET", f"http://opencode.test{url}"))
+    def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        self.requests.append({"method": "GET", "url": url, **kwargs})
+        request = httpx.Request("GET", f"http://opencode.test{url}")
+        if url.endswith("/message"):
+            return httpx.Response(200, json=[{"id": "msg_1", "parts": [{"type": "text", "text": "ok"}]}], request=request)
+        return httpx.Response(200, json={"healthy": True}, request=request)
 
     def post(self, url: str, **kwargs: Any) -> httpx.Response:
         self.requests.append({"method": "POST", "url": url, **kwargs})
@@ -57,3 +60,16 @@ def test_send_message_includes_model_when_configured(monkeypatch):
 
     request = client._client.requests[-1]
     assert request["json"]["model"] == {"providerID": "deepseek", "modelID": "deepseek-v4-flash"}
+
+
+def test_list_messages_calls_session_history_endpoint(monkeypatch):
+    monkeypatch.setattr(opencode_client.httpx, "Client", FakeHttpClient)
+    client = opencode_client.OpencodeClient(base_url="http://127.0.0.1:4096", timeout_seconds=30)
+
+    messages = client.list_messages(session_id="session_1", directory="/workspace/run")
+
+    request = client._client.requests[-1]
+    assert request["method"] == "GET"
+    assert request["url"] == "/session/session_1/message"
+    assert request["params"] == {"directory": "/workspace/run"}
+    assert messages == [{"id": "msg_1", "parts": [{"type": "text", "text": "ok"}]}]

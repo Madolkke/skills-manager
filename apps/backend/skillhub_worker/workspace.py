@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import zipfile
 
@@ -10,40 +11,49 @@ from skillhub_worker.opencode_trace import compact_message_output
 
 def materialize_case_workspace(case_detail: dict, *, host_root: Path, container_root: str) -> dict[str, str]:
     run = case_detail["eval_case_run"]
+    skill_version = case_detail["skill_version"]
     host_dir = host_root / run["id"]
     if host_dir.exists():
         shutil.rmtree(host_dir)
-    skill_dir = host_dir / "skill"
     workdir = host_dir / "workdir"
-    skill_dir.mkdir(parents=True)
     workdir.mkdir(parents=True)
 
-    _write_skill_bundle(case_detail["skill_version"], skill_dir)
     workspace_artifact = case_detail["case_version"].get("workspace_artifact")
     if workspace_artifact and workspace_artifact.get("content_text"):
         _extract_zip_to_workdir(workspace_artifact["content_text"], workdir)
 
+    skill_slug = _skill_slug(case_detail)
+    skill_dir = workdir / ".opencode" / "skills" / skill_slug
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    _write_skill_bundle(skill_version, skill_dir, skill_slug=skill_slug)
+
     container_dir = _container_path(container_root, run["id"])
+    container_workdir = f"{container_dir}/workdir"
+    container_skill_dir = f"{container_workdir}/.opencode/skills/{skill_slug}"
     return {
         "host_dir": str(host_dir),
         "host_workdir": str(workdir),
         "container_dir": container_dir,
-        "skill_dir": f"{container_dir}/skill",
-        "skill_file": f"{container_dir}/skill/SKILL.md",
-        "workdir": f"{container_dir}/workdir",
+        "skill_dir": container_skill_dir,
+        "skill_file": f"{container_skill_dir}/SKILL.md",
+        "opencode_skill_dir": container_skill_dir,
+        "workdir": container_workdir,
+        "skill_installation": {
+            "skill_id": case_detail.get("skill", {}).get("id") or skill_version.get("skill_id") or run.get("skill_id") or "",
+            "skill_version_id": skill_version.get("id") or run.get("skill_version_id") or "",
+            "skill_slug": skill_slug,
+            "version": skill_version.get("version") or "",
+            "bundle_digest": skill_version.get("content_digest") or (skill_version.get("content_ref") or {}).get("digest") or "",
+            "host_skill_dir": str(skill_dir),
+            "opencode_skill_dir": container_skill_dir,
+            "mode": "project_isolated",
+        },
     }
 
 
 def render_step_prompt(*, step: dict, paths: dict[str, str], step_number: int, total_steps: int) -> str:
-    return (
-        "你正在执行 SkillHub 的 Opencode 测试场景。\n"
-        f"Skill 文件位于：{paths['skill_file']}\n"
-        f"工作目录位于：{paths['workdir']}\n"
-        f"当前是第 {step_number}/{total_steps} 步。\n\n"
-        "请阅读 Skill 指令，并基于下面的用户输入完成本步骤任务。"
-        "本轮只需要完成任务并停止，不要判断自己是否通过，也不要写 result.json。\n\n"
-        f"用户输入：\n{step.get('input', '')}"
-    )
+    _ = (paths, step_number, total_steps)
+    return str(step.get("input") or "")
 
 
 def workspace_snapshot(workdir: Path) -> set[str]:
@@ -56,17 +66,17 @@ def workspace_snapshot(workdir: Path) -> set[str]:
     }
 
 
-def _write_skill_bundle(skill_version: dict, skill_dir: Path) -> None:
+def _write_skill_bundle(skill_version: dict, skill_dir: Path, *, skill_slug: str) -> None:
     files = skill_version.get("bundle_files") or []
     if not files:
         content_ref = skill_version.get("content_ref") or {}
         raise RuntimeError(f"SkillVersion has no readable skill bundle artifact: {content_ref.get('locator', skill_version.get('id'))}")
-    for file in files:
-        relative = PurePosixPath(str(file["path"]))
-        _reject_unsafe_path(relative)
+    for relative, file in _normalized_bundle_files(files):
         target = skill_dir / Path(*relative.parts)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(str(file.get("content_text") or ""), encoding="utf-8")
+        target.write_bytes(_file_content(file))
+    if not (skill_dir / "SKILL.md").is_file():
+        raise RuntimeError(f"SkillVersion bundle does not install a root SKILL.md for skill {skill_slug}.")
 
 
 def _extract_zip_to_workdir(content_base64: str, workdir: Path) -> None:
@@ -100,3 +110,52 @@ def _container_path(container_root: str, run_id: str) -> str:
 
 def _is_windows_drive(part: str) -> bool:
     return len(part) == 2 and part[1] == ":"
+
+
+def _skill_slug(case_detail: dict) -> str:
+    skill_slug = str(case_detail.get("skill", {}).get("slug") or "").strip()
+    if not skill_slug:
+        skill_slug = _bundle_skill_name(case_detail["skill_version"])
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", skill_slug):
+        raise RuntimeError(f"Unsafe skill slug: {skill_slug}")
+    return skill_slug
+
+
+def _bundle_skill_name(skill_version: dict) -> str:
+    for relative, file in _normalized_bundle_files(skill_version.get("bundle_files") or []):
+        if relative.as_posix() != "SKILL.md":
+            continue
+        text = _file_content(file).decode("utf-8")
+        lines = text.splitlines()
+        for line in lines[1:]:
+            if line.strip() == "---":
+                break
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            if key.strip() == "name":
+                return value.strip().strip("\"'")
+    raise RuntimeError(f"SkillVersion has no readable skill name: {skill_version.get('id')}")
+
+
+def _normalized_bundle_files(files: list[dict]) -> list[tuple[PurePosixPath, dict]]:
+    normalized = []
+    for file in files:
+        relative = PurePosixPath(str(file["path"]))
+        _reject_unsafe_path(relative)
+        normalized.append((relative, file))
+    if any(path.as_posix() == "SKILL.md" for path, _file in normalized):
+        return normalized
+    roots = {path.parts[0] for path, _file in normalized if len(path.parts) > 1}
+    has_root_files = any(len(path.parts) == 1 for path, _file in normalized)
+    if len(roots) == 1 and not has_root_files:
+        stripped = [(PurePosixPath(*path.parts[1:]), file) for path, file in normalized]
+        if any(path.as_posix() == "SKILL.md" for path, _file in stripped):
+            return stripped
+    return normalized
+
+
+def _file_content(file: dict) -> bytes:
+    if isinstance(file.get("content_base64"), str):
+        return base64.b64decode(file["content_base64"], validate=True)
+    return str(file.get("content_text") or "").encode("utf-8")
