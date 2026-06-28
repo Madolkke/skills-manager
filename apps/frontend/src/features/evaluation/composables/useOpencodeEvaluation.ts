@@ -1,6 +1,6 @@
 import { computed, onBeforeUnmount, ref, watch, type ComputedRef } from "vue";
 import { api, ApiError } from "../../../lib/api";
-import type { EvalCaseRunDetail, EvalSetCase, OpencodeModelSelection, ToastState } from "../../../types";
+import type { EvalCaseRunDetail, EvalSetCase, OpencodeRunSelection, ToastState } from "../../../types";
 import {
   isActiveRun,
   queuedRecordToDetail,
@@ -14,7 +14,7 @@ type UseOpencodeEvaluationInput = {
   cases: ComputedRef<EvalSetCase[]>;
   skillVersionId: { value: string };
   evalSetId: ComputedRef<string>;
-  modelSelection: { value: OpencodeModelSelection | null };
+  runSelection: { value: OpencodeRunSelection | null };
   ready: ComputedRef<boolean>;
   emitToast: (toast: ToastState) => void;
 };
@@ -37,7 +37,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
     () => !busy.value && !hasActiveJobs.value && input.cases.value.length > 0 && Boolean(input.skillVersionId.value) && Boolean(input.evalSetId.value),
   );
 
-  watch([() => input.skillVersionId.value, input.evalSetId, input.ready, () => runContextHash(input.modelSelection.value)], async () => {
+  watch([() => input.skillVersionId.value, input.evalSetId, input.ready, () => runContextHash(input.runSelection.value)], async () => {
     if (!input.ready.value || !input.skillVersionId.value || !input.evalSetId.value) return;
     await loadLatestRuns();
     syncPolling();
@@ -68,7 +68,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
       const runs = await api.listEvalCaseRuns({
         skill_version_id: input.skillVersionId.value,
         eval_set_id: input.evalSetId.value,
-        run_context: currentRunContext(input.modelSelection.value),
+        run_context: currentRunContext(input.runSelection.value),
       });
       opencodeRunsByCase.value = Object.fromEntries(runs.map((run) => [run.eval_case_run.case_version_id, run]));
     } catch (caught) {
@@ -85,7 +85,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
       eval_set_id: input.evalSetId.value,
       case_version_id: caseVersionId,
       environment_tags: ENVIRONMENT_TAGS,
-      run_context: currentRunContext(input.modelSelection.value),
+      run_context: currentRunContext(input.runSelection.value),
     });
     const detail = queuedRecordToDetail(queued, item);
     applyRunDetail(detail);
@@ -142,7 +142,7 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
         skill_version_id: input.skillVersionId.value,
         eval_set_id: input.evalSetId.value,
         environment_tags: ENVIRONMENT_TAGS,
-        run_context: currentRunContext(input.modelSelection.value),
+        run_context: currentRunContext(input.runSelection.value),
       });
       input.emitToast({ tone: "success", message: "正式测评已完成并聚合。" });
       return recorded.eval_run_id;
@@ -228,13 +228,23 @@ export function useOpencodeEvaluation(input: UseOpencodeEvaluationInput) {
   };
 }
 
-function currentRunContext(selection: OpencodeModelSelection | null): Record<string, unknown> {
+export function currentRunContext(selection: OpencodeRunSelection | null): Record<string, unknown> {
   if (!selection) return {};
-  return { opencode: { provider_id: selection.provider_id, model_id: selection.model_id } };
+  const opencode: Record<string, string> = {};
+  if (selection.agent_id) opencode.agent_id = selection.agent_id;
+  if (selection.provider_id && selection.model_id) {
+    opencode.provider_id = selection.provider_id;
+    opencode.model_id = selection.model_id;
+  }
+  return Object.keys(opencode).length ? { opencode } : {};
 }
 
-function runContextHash(selection: OpencodeModelSelection | null): string {
-  return selection ? `${selection.provider_id}/${selection.model_id}` : "default";
+export function runContextHash(selection: OpencodeRunSelection | null): string {
+  if (!selection) return "default";
+  return [
+    selection.agent_id ? `agent:${selection.agent_id}` : "agent:default",
+    selection.provider_id && selection.model_id ? `model:${selection.provider_id}/${selection.model_id}` : "model:default",
+  ].join("|");
 }
 
 function delay(milliseconds: number): Promise<void> {

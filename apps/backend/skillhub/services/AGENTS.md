@@ -6,11 +6,11 @@
 
 - `__init__.py`：统一导出对 View 层开放的 service 类。
 - `base.py`：提供 service 基类和共享 store 持有逻辑。
-- `admin.py`：封装后台管理能力，包括用户组、Tag、授权、发布源和发布确认。
+- `admin.py`：封装后台管理能力，包括用户组、Tag、授权、Opencode Agent、发布源和发布确认。
 - `artifacts.py`：封装 artifact 下载和差异查询。
 - `evaluations.py`：封装测评集、测试例、运行测评和聚合结果相关流程。
 - `external.py`：封装外部 Skill zip upsert API 的创建和更新流程。
-- `opencode.py`：封装读取和脱敏 Opencode provider/model 配置的流程。
+- `opencode.py`：封装读取和脱敏 Opencode provider/model 配置，以及测评页可用 Opencode Agent 列表。
 - `publish_release.py`：封装后台确认发布时调用的发布 hook。
 - `reviews.py`：封装评审、评审回复、关闭评审、通知和发布单创建流程。
 - `saved_views.py`：封装保存视图的创建和删除流程。

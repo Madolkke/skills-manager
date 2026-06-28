@@ -51,6 +51,24 @@ def materialize_case_workspace(case_detail: dict, *, host_root: Path, container_
     }
 
 
+def materialize_opencode_agent(workdir: Path, container_workdir: str, agent: dict) -> dict[str, object]:
+    agent_id = _safe_agent_id(str(agent.get("id") or ""))
+    agent_dir = workdir / ".opencode" / "agents"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    agent_file = agent_dir / f"{agent_id}.md"
+    agent_file.write_text(_agent_markdown(agent), encoding="utf-8")
+    return {
+        "agent_id": agent_id,
+        "name": str(agent.get("name") or agent_id),
+        "provider_id": str(agent.get("provider_id") or ""),
+        "model_id": str(agent.get("model_id") or ""),
+        "permission": dict(agent.get("permission") or {}),
+        "host_agent_file": str(agent_file),
+        "opencode_agent_file": f"{container_workdir}/.opencode/agents/{agent_id}.md",
+        "mode": "project_isolated",
+    }
+
+
 def render_step_prompt(*, step: dict, paths: dict[str, str], step_number: int, total_steps: int) -> str:
     _ = (paths, step_number, total_steps)
     return str(step.get("input") or "")
@@ -119,6 +137,69 @@ def _skill_slug(case_detail: dict) -> str:
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", skill_slug):
         raise RuntimeError(f"Unsafe skill slug: {skill_slug}")
     return skill_slug
+
+
+def _safe_agent_id(value: str) -> str:
+    clean = value.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", clean):
+        raise RuntimeError(f"Unsafe Opencode agent id: {value}")
+    return clean
+
+
+def _agent_markdown(agent: dict) -> str:
+    frontmatter = {
+        "description": str(agent.get("description") or ""),
+        "mode": "primary",
+        "model": _agent_model(agent),
+        "temperature": _agent_temperature(agent.get("temperature")),
+        "permission": dict(agent.get("permission") or {}),
+        "steps": list(agent.get("steps") or []),
+    }
+    lines = ["---"]
+    for key, value in frontmatter.items():
+        if value in (None, "", [], {}):
+            continue
+        lines.extend(_yaml_line(key, value))
+    lines.extend(["---", "", str(agent.get("prompt") or "").strip(), ""])
+    return "\n".join(lines)
+
+
+def _agent_model(agent: dict) -> str:
+    provider_id = str(agent.get("provider_id") or "").strip()
+    model_id = str(agent.get("model_id") or "").strip()
+    return f"{provider_id}/{model_id}" if provider_id and model_id else ""
+
+
+def _agent_temperature(value) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _yaml_line(key: str, value) -> list[str]:
+    if isinstance(value, bool):
+        return [f"{key}: {'true' if value else 'false'}"]
+    if isinstance(value, (int, float)):
+        return [f"{key}: {value}"]
+    if isinstance(value, str):
+        return [f"{key}: {value!r}"]
+    if isinstance(value, list):
+        lines = [f"{key}:"]
+        lines.extend(f"  - {str(item)!r}" for item in value)
+        return lines
+    if isinstance(value, dict):
+        lines = [f"{key}:"]
+        for item_key, item_value in value.items():
+            if isinstance(item_value, bool):
+                rendered = "true" if item_value else "false"
+            else:
+                rendered = repr(item_value)
+            lines.append(f"  {item_key}: {rendered}")
+        return lines
+    return [f"{key}: {str(value)!r}"]
 
 
 def _bundle_skill_name(skill_version: dict) -> str:

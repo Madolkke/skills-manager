@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
-import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerInsightRows, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
+import { actionBarStatusText, agentLabel, emptyActualOutputText, modelLabel, promptSourceLabel, runnerInsightRows, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
+import { currentRunContext, runContextHash } from "../features/evaluation/composables/useOpencodeEvaluation";
 import { buildEvalCaseValidationSummary, validateStep } from "../features/evaluation/lib/evalCaseForm";
 import { buildCopiedEvalCasePayload, cleanCaseForm, copyEvalCaseTitle } from "../features/evaluation/lib/evalCaseManagement";
 import { GENERATED_WORKSPACE_NAME, validateWorkspaceFiles, workspaceFilesToBase64 } from "../features/evaluation/lib/workspaceDraft";
@@ -51,7 +52,17 @@ describe("skill evidence helpers", () => {
     expect(runnerState({ eval_case_run: { status: "failed", error: "worker failed" } } as never).helper).toBe("worker failed");
     expect(modelLabel({ case_version: { runner_config: {} } } as never)).toBe("Opencode 外部配置");
     expect(modelLabel(null, { eval_case_run: { run_context: { opencode: { provider_id: "deepseek", model_id: "v4" } } } } as never)).toBe("deepseek/v4");
+    expect(agentLabel({ eval_case_run: { run_context: { opencode: { agent_id: "strict-reviewer" } } } } as never)).toBe("strict-reviewer");
     expect(promptSourceLabel({ case_version: { steps: [{ id: "s1" }, { id: "s2" }] } } as never)).toBe("2 个步骤");
+  });
+
+  it("builds opencode run context with optional agent and model", () => {
+    expect(currentRunContext(null)).toEqual({});
+    expect(currentRunContext({ agent_id: "strict-reviewer" })).toEqual({ opencode: { agent_id: "strict-reviewer" } });
+    expect(currentRunContext({ agent_id: "strict-reviewer", provider_id: "deepseek", model_id: "v4" })).toEqual({
+      opencode: { agent_id: "strict-reviewer", provider_id: "deepseek", model_id: "v4" },
+    });
+    expect(runContextHash({ agent_id: "a", provider_id: "p", model_id: "m" })).toBe("agent:a|model:p/m");
   });
 
   it("describes active runner feedback without inventing progress", () => {
@@ -111,12 +122,14 @@ describe("skill evidence helpers", () => {
         runner_metadata: {
           current_stage_label: "第 1 步执行中",
           current_step: { id: "s1", index: 1, stage: "running" },
+          opencode_agent: { agent_id: "strict-reviewer", name: "严格评审" },
           skill_installation: { skill_slug: "writer", version: "0.0.2", mode: "project_isolated" },
         },
       },
     } as never);
 
     expect(rows.map((row) => `${row.label}:${row.value}`)).toContain("Skill 安装:writer · 0.0.2 · project_isolated");
+    expect(rows.map((row) => `${row.label}:${row.value}`)).toContain("运行配置:严格评审 · deepseek/v4");
     expect(rows[0].help).toContain("第 1 步");
   });
 

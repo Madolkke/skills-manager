@@ -3,6 +3,7 @@ from __future__ import annotations
 from skillhub.models.operations.bundles import BundleStoreMixin
 from skillhub.models.operations.evaluations import EvaluationStoreMixin
 from skillhub.models.operations.history import HistoryStoreMixin
+from skillhub.models.operations.opencode import OpencodeStoreMixin
 from skillhub.models.operations.reviews import ReviewStoreMixin
 from skillhub.models.operations.saved_views import SavedViewStoreMixin
 from skillhub.models.operations.shared import SharedStoreMixin
@@ -24,6 +25,7 @@ class SkillHubStore(
     SkillStoreMixin,
     EvaluationStoreMixin,
     HistoryStoreMixin,
+    OpencodeStoreMixin,
     ReviewStoreMixin,
     SavedViewStoreMixin,
     BundleStoreMixin,

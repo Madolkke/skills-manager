@@ -363,6 +363,31 @@ notifications = Table(
     Column("created_by", Text, nullable=False),
 )
 
+opencode_agents = Table(
+    "opencode_agents",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("name", Text, nullable=False),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    Column("prompt", Text, nullable=False),
+    Column("enabled", Boolean, nullable=False, server_default=text("true")),
+    Column("deleted_at", DateTime(timezone=True)),
+    Column("permission", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    Column("provider_id", Text),
+    Column("model_id", Text),
+    Column("temperature", Text),
+    Column("steps", JSONB(), nullable=False, server_default=text("'[]'::jsonb")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+    Column("updated_by", Text, nullable=False),
+    CheckConstraint("id ~ '^[A-Za-z0-9_-]+$'", name="opencode_agents_id_format_check"),
+    CheckConstraint("length(btrim(name)) > 0", name="opencode_agents_name_non_empty"),
+    CheckConstraint("length(btrim(prompt)) > 0", name="opencode_agents_prompt_non_empty"),
+    CheckConstraint("jsonb_typeof(permission) = 'object'", name="opencode_agents_permission_object"),
+    CheckConstraint("jsonb_typeof(steps) = 'array'", name="opencode_agents_steps_array"),
+)
+
 saved_views = Table(
     "saved_views",
     metadata,

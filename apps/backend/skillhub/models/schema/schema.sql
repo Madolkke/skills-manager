@@ -310,6 +310,29 @@ create table notifications (
   created_by text not null
 );
 
+create table opencode_agents (
+  id text primary key,
+  name text not null,
+  description text not null default '',
+  prompt text not null,
+  enabled boolean not null default true,
+  deleted_at timestamptz,
+  permission jsonb not null default '{}'::jsonb,
+  provider_id text,
+  model_id text,
+  temperature text,
+  steps jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null,
+  updated_by text not null,
+  constraint opencode_agents_id_format_check check (id ~ '^[A-Za-z0-9_-]+$'),
+  constraint opencode_agents_name_non_empty check (length(btrim(name)) > 0),
+  constraint opencode_agents_prompt_non_empty check (length(btrim(prompt)) > 0),
+  constraint opencode_agents_permission_object check (jsonb_typeof(permission) = 'object'),
+  constraint opencode_agents_steps_array check (jsonb_typeof(steps) = 'array')
+);
+
 create table saved_views (
   id text primary key,
   skill_id text not null references skills(id),
@@ -436,6 +459,7 @@ create index publish_targets_enabled_idx on publish_targets (enabled, target_key
 create index publish_records_skill_version_idx on publish_records (skill_version_id);
 create index publish_records_target_status_idx on publish_records (publish_target_id, status);
 create index notifications_recipient_idx on notifications (recipient_actor_id, created_at desc);
+create index opencode_agents_enabled_idx on opencode_agents (enabled, deleted_at, name);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
 create index tag_groups_sort_idx on tag_groups (sort_order, id);

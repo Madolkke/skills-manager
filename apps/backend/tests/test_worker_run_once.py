@@ -11,6 +11,7 @@ from skillhub_worker.main import run_once
 class FakeStore:
     def __init__(self, detail: dict[str, Any]) -> None:
         self.detail = detail
+        self.agents: dict[str, dict[str, Any]] = {}
         self.metadata_updates: list[dict[str, Any]] = []
         self.finalized: dict[str, Any] | None = None
         self.failed: str | None = None
@@ -30,6 +31,12 @@ class FakeStore:
 
     def retry_eval_case_run_job(self, *, eval_case_run_id: str, error: str) -> None:
         self.retried = error
+
+    def enabled_opencode_agent_for_run(self, *, agent_id: str) -> dict[str, Any]:
+        agent = self.agents.get(agent_id)
+        if not agent:
+            raise RuntimeError(f"Opencode Agent not found: {agent_id}")
+        return agent
 
 
 class FakeOpencodeClient:
@@ -176,6 +183,39 @@ def test_run_once_uses_opencode_model_from_run_context(tmp_path: Path):
     assert store.finalized is not None
     assert store.finalized["runner_metadata"]["opencode_model_selection"] == {"provider_id": "deepseek", "model_id": "deepseek-v4-pro"}
     assert laminar.executor_output["opencode_model_selection"] == {"provider_id": "deepseek", "model_id": "deepseek-v4-pro"}
+
+
+def test_run_once_materializes_selected_opencode_agent_and_overrides_model(tmp_path: Path):
+    detail = _case_detail()
+    detail["eval_case_run"]["run_context"] = {
+        "opencode": {"agent_id": "strict-reviewer", "provider_id": "deepseek", "model_id": "deepseek-v4-pro"}
+    }
+    store = FakeStore(detail)
+    store.agents["strict-reviewer"] = {
+        "id": "strict-reviewer",
+        "name": "严格评审",
+        "description": "严格检查。",
+        "prompt": "你是严格的评审 Agent。",
+        "provider_id": "deepseek",
+        "model_id": "deepseek-v4-agent-default",
+        "temperature": "0.2",
+        "permission": {"read": True},
+        "steps": ["检查输入"],
+    }
+    client = FakeOpencodeClient()
+    laminar = FakeLaminarClient()
+
+    _run_worker(tmp_path, store=store, client=client, laminar=laminar)
+
+    agent_file = tmp_path / "evalcase_1" / "workdir" / ".opencode" / "agents" / "strict-reviewer.md"
+    assert agent_file.is_file()
+    assert "你是严格的评审 Agent。" in agent_file.read_text(encoding="utf-8")
+    assert client.message_kwargs[0]["agent_id"] == "strict-reviewer"
+    assert client.message_kwargs[0]["provider_id"] == "deepseek"
+    assert client.message_kwargs[0]["model_id"] == "deepseek-v4-pro"
+    assert store.finalized is not None
+    assert store.finalized["runner_metadata"]["opencode_agent"]["agent_id"] == "strict-reviewer"
+    assert laminar.executor_output["opencode_agent"]["agent_id"] == "strict-reviewer"
 
 
 def test_run_once_can_assert_tested_skill_was_used(tmp_path: Path):

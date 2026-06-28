@@ -48,6 +48,57 @@ export type OpencodeModelSelection = {
   model_id: string;
 };
 
+export type OpencodeRunSelection = {
+  agent_id?: string;
+  provider_id?: string;
+  model_id?: string;
+};
+
+export type OpencodeAgentPermission = {
+  bash: boolean;
+  edit: boolean;
+  glob: boolean;
+  grep: boolean;
+  list: boolean;
+  read: boolean;
+  write: boolean;
+};
+
+export type OpencodeAgent = {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  enabled: boolean;
+  deleted_at?: string | null;
+  permission: OpencodeAgentPermission;
+  provider_id?: string | null;
+  model_id?: string | null;
+  temperature?: string | number | null;
+  steps: string[];
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
+};
+
+export type OpencodeAgentPayload = {
+  id?: string;
+  name: string;
+  description?: string;
+  prompt: string;
+  enabled: boolean;
+  permission: OpencodeAgentPermission;
+  provider_id?: string | null;
+  model_id?: string | null;
+  temperature?: number | null;
+  steps?: string[];
+};
+
+export type OpencodeAgentCatalog = {
+  agents: OpencodeAgent[];
+};
+
 export type OpencodeModelOption = {
   id: string;
   name: string;

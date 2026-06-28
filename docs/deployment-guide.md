@@ -79,6 +79,8 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `LMNR_PROJECT_API_KEY` | 空 | 配置后启用 Laminar trace。 |
 | `LMNR_BASE_URL` | `https://api.lmnr.ai` | Laminar API 地址。 |
 | `LMNR_HTTP_PORT` | 空 | Laminar 本地 HTTP 端口，可选。 |
+| `OPENCODE_LMNR_BASE_URL` | 同 `LMNR_BASE_URL` | 传给 Opencode Laminar 插件的 Laminar 地址；容器访问本机 Laminar 时通常设为 `http://host.docker.internal`。 |
+| `OPENCODE_LMNR_GRPC_PORT` | 空 | 传给 Opencode Laminar 插件的 gRPC 端口；本地 Laminar 通常为 `8001`。 |
 
 ### 前端构建配置
 
@@ -169,6 +171,36 @@ SkillHub 依赖 Opencode 的能力包括：
 - 在测试工作目录中发现项目级 Skill：`workdir/.opencode/skills/<skill_slug>/SKILL.md`
 
 测评运行时，Worker 会把被测 SkillVersion 安装到本次隔离工作区的 `.opencode/skills` 目录中，并只向 Opencode 发送测试例步骤的 `input`。
+
+如果希望在 Laminar 中看到每次 Opencode 会话的 trace，需要在 Opencode 侧启用 Laminar 插件。仅配置 SkillHub Worker 的 `LMNR_PROJECT_API_KEY` 只能写入 Laminar Evaluate 结果，不能自动捕获 Opencode 内部 LLM/tool trace。
+
+Opencode 配置目录中需要安装并启用插件：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "@lmnr-ai/opencode-plugin"
+  ]
+}
+```
+
+启动 Opencode 的进程还需要具备以下环境变量：
+
+```bash
+export LMNR_PROJECT_API_KEY='replace-with-laminar-project-key'
+export LMNR_BASE_URL='https://api.lmnr.ai'
+# 自托管 Laminar 通常需要显式设置 gRPC 端口，例如 8001。
+export LMNR_GRPC_PORT='8443'
+```
+
+本地 Docker 运行 Opencode 时，可以使用仓库脚本：
+
+```powershell
+.\scripts\start-local-opencode.ps1
+```
+
+该脚本会使用 `.data/opencode/config` 作为 Opencode 配置目录，自动注册 `@lmnr-ai/opencode-plugin`，并把 `.env` 中的 `LMNR_PROJECT_API_KEY`、`OPENCODE_LMNR_BASE_URL`、`OPENCODE_LMNR_GRPC_PORT` 传给容器。
 
 ## 9. 前端部署
 
@@ -409,8 +441,12 @@ journalctl -u skillhub-worker -f
 Laminar 是可选能力。检查：
 
 - 是否设置 `LMNR_PROJECT_API_KEY`。
-- `LMNR_BASE_URL` 是否可达。
-- Worker 日志中是否有 Laminar 配置或上传错误。
+- 如果只看到 Laminar Evaluate 结果、看不到每次 Opencode 运行的 trace，说明 SkillHub Worker 已写入测评结果，但 Opencode 侧 trace 插件没有生效。
+- Opencode 配置中是否安装并启用了 `@lmnr-ai/opencode-plugin`。
+- 启动 Opencode 的进程是否带有 `LMNR_PROJECT_API_KEY`、`LMNR_BASE_URL` 和自托管所需的 `LMNR_GRPC_PORT`。
+- 容器化 Opencode 访问本机 Laminar 时，`LMNR_BASE_URL` 通常不能写 `localhost`，应使用 `host.docker.internal` 或可路由地址。
+- Worker 日志中是否有 Laminar Evaluate 创建/更新错误。
+- Opencode 日志中是否出现 `Laminar tracing initialized`。
 
 ### API 启动时报数据库错误
 
@@ -428,6 +464,7 @@ Windows PowerShell：
 
 ```powershell
 .\scripts\start-local-services.ps1
+.\scripts\start-local-opencode.ps1
 ```
 
 Linux 或 macOS：

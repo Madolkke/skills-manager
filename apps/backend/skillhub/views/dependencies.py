@@ -69,8 +69,8 @@ def external_skill_service_dependency(request: Request) -> ExternalSkillService:
     return ExternalSkillService(_store(request))
 
 
-def opencode_service_dependency() -> OpencodeService:
-    return OpencodeService(environ)
+def opencode_service_dependency(request: Request) -> OpencodeService:
+    return OpencodeService(_store(request), environ)
 
 
 def saved_view_service_dependency(request: Request) -> SavedViewService:

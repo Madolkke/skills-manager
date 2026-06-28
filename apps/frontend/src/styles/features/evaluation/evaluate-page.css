@@ -9,7 +9,7 @@
   background: white;
   padding: 12px;
   display: grid;
-  grid-template-columns: minmax(min(220px, 100%), 0.75fr) minmax(min(220px, 100%), 0.75fr) minmax(min(420px, 100%), 1.55fr);
+  grid-template-columns: minmax(min(220px, 100%), 0.7fr) minmax(min(220px, 100%), 0.7fr) minmax(min(520px, 100%), 1.7fr);
   gap: 12px;
   align-items: stretch;
   box-shadow: var(--shadow-soft);
@@ -45,10 +45,11 @@
 
 .opencode-model-fields {
   align-items: end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .opencode-model-fields .field-label {
-  flex: 1 1 0;
   min-width: 0;
 }
 

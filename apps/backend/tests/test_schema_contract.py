@@ -33,6 +33,7 @@ class SchemaContractTest(unittest.TestCase):
             "review_check_results",
             "publish_records",
             "notifications",
+            "opencode_agents",
             "saved_views",
             "skill_tags",
             "tag_groups",
@@ -193,6 +194,7 @@ class SchemaContractTest(unittest.TestCase):
             "create index publish_records_skill_version_idx",
             "create index publish_records_target_status_idx",
             "create index notifications_recipient_idx",
+            "create index opencode_agents_enabled_idx",
         ]:
             self.assertIn(index, self.normalized)
 
@@ -224,6 +226,22 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("check_snapshot jsonb not null default '[]'::jsonb", self._table_sql("publish_records"))
         self.assertIn("check (status in ('pending_confirmation', 'released', 'cancelled', 'failed'))", self._table_sql("publish_records"))
         self.assertIn("recipient_actor_id text not null", self._table_sql("notifications"))
+
+    def test_opencode_agent_table_exists(self):
+        table_sql = self._table_sql("opencode_agents")
+        for snippet in [
+            "id text primary key",
+            "prompt text not null",
+            "enabled boolean not null default true",
+            "deleted_at timestamptz",
+            "permission jsonb not null default '{}'::jsonb",
+            "steps jsonb not null default '[]'::jsonb",
+            "updated_by text not null",
+            "check (id ~ '^[a-za-z0-9_-]+$')",
+            "check (jsonb_typeof(permission) = 'object')",
+            "check (jsonb_typeof(steps) = 'array')",
+        ]:
+            self.assertIn(snippet, table_sql)
 
     def test_status_and_score_constraints_are_explicit(self):
         self.assertIn("constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))", self.normalized)

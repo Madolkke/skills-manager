@@ -12,8 +12,10 @@ SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 TAG_GROUP_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
 ENV_TAG_PATTERN = r"^[A-Za-z0-9._-]+$"
 IDENTITY_REF_PATTERN = r"^[A-Za-z0-9._@-]{1,120}$"
+OPENCODE_AGENT_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
 SkillSlug = Annotated[str, Field(min_length=1, max_length=64, pattern=SLUG_PATTERN)]
 TagGroupId = Annotated[str, Field(min_length=1, max_length=80, pattern=TAG_GROUP_ID_PATTERN)]
+OpencodeAgentId = Annotated[str, Field(min_length=1, max_length=80, pattern=OPENCODE_AGENT_ID_PATTERN)]
 TagValue = Annotated[str, Field(min_length=1)]
 EnvironmentTagValue = Annotated[str, Field(min_length=1, max_length=64, pattern=ENV_TAG_PATTERN)]
 IdentityRef = Annotated[str, Field(min_length=1, max_length=120, pattern=IDENTITY_REF_PATTERN)]
@@ -131,6 +133,35 @@ class CreatePublishRecordPayload(BaseModel):
 class AdminPublishTargetUpdatePayload(BaseModel):
     enabled: bool = True
     gate_expression: dict[str, Any] = Field(default_factory=dict)
+
+
+class OpencodeAgentPermissionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bash: bool = False
+    edit: bool = False
+    glob: bool = False
+    grep: bool = False
+    list: bool = False
+    read: bool = False
+    write: bool = False
+
+
+class AdminOpencodeAgentPayload(BaseModel):
+    id: OpencodeAgentId | None = None
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Annotated[str, Field(max_length=1000)] = ""
+    prompt: Annotated[str, Field(min_length=1, max_length=20000)]
+    enabled: bool = True
+    permission: OpencodeAgentPermissionPayload = Field(default_factory=OpencodeAgentPermissionPayload)
+    provider_id: Annotated[str, Field(max_length=120)] | None = None
+    model_id: Annotated[str, Field(max_length=120)] | None = None
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    steps: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(default_factory=list, max_length=20)
+
+
+class AdminOpencodeAgentCreatePayload(AdminOpencodeAgentPayload):
+    id: OpencodeAgentId
 
 
 class SkillGroupPayload(BaseModel):

@@ -2,26 +2,42 @@
 import { computed, onMounted, watch } from "vue";
 import DropdownSelect from "../../../components/DropdownSelect.vue";
 import type { DropdownSelectOption } from "../../../components/dropdown";
-import type { OpencodeModelSelection, OpencodeProviderCatalog, OpencodeProviderOption } from "../../../types";
+import type { OpencodeAgentCatalog, OpencodeProviderCatalog, OpencodeProviderOption, OpencodeRunSelection } from "../../../types";
 
 const props = defineProps<{
+  agentCatalog: OpencodeAgentCatalog | null;
+  agentError: string;
+  agentLoading: boolean;
   catalog: OpencodeProviderCatalog | null;
   error: string;
   loading: boolean;
-  selection: OpencodeModelSelection | null;
+  selection: OpencodeRunSelection | null;
 }>();
 
 const emit = defineEmits<{
   refresh: [];
-  select: [selection: OpencodeModelSelection | null];
+  select: [selection: OpencodeRunSelection | null];
 }>();
 
 const defaultOption: DropdownSelectOption = {
   value: "",
-  label: "使用 Opencode 默认配置",
+  label: "使用 Opencode 默认模型",
   description: "不指定 provider/model",
 };
+const defaultAgentOption: DropdownSelectOption = {
+  value: "",
+  label: "使用 Opencode 默认 Agent",
+  description: "不指定 SkillHub Agent",
+};
 
+const agentOptions = computed<DropdownSelectOption[]>(() => [
+  defaultAgentOption,
+  ...(props.agentCatalog?.agents ?? []).map((agent) => ({
+    value: agent.id,
+    label: agent.name,
+    description: agent.description || agent.id,
+  })),
+]);
 const providerOptions = computed<DropdownSelectOption[]>(() => [
   defaultOption,
   ...providersWithActiveModels.value.map((provider) => ({
@@ -42,10 +58,10 @@ const modelOptions = computed<DropdownSelectOption[]>(() =>
 const providersWithActiveModels = computed(() => (props.catalog?.providers ?? []).filter((provider) => activeModels(provider).length > 0));
 const modelDisabled = computed(() => !props.selection || modelOptions.value.length === 0);
 const helperText = computed(() => {
-  if (props.loading) return "正在读取 Opencode provider 配置...";
-  if (props.error) return props.error;
+  if (props.agentLoading || props.loading) return "正在读取 Opencode Agent 和 provider 配置...";
+  if (props.agentError || props.error) return props.agentError || props.error;
   if (!providersWithActiveModels.value.length) return "未读取到可用 provider，可继续使用 Opencode 默认配置。";
-  return "provider/model 来自 Opencode 配置；SkillHub 不保存密钥。";
+  return "Agent 由 SkillHub 保存；provider/model 来自 Opencode 配置且优先覆盖 Agent 默认模型。";
 });
 
 onMounted(() => emit("refresh"));
@@ -54,26 +70,45 @@ watch([() => props.selection?.provider_id, () => props.catalog], ([providerId]) 
   if (!providerId || !props.catalog) return;
   const provider = providersWithActiveModels.value.find((item) => item.id === providerId);
   if (!provider) {
-    emit("select", null);
+    emitSelection({ provider_id: undefined, model_id: undefined });
     return;
   }
   const selectedModel = activeModels(provider).find((model) => model.id === props.selection?.model_id);
-  if (!selectedModel) emit("select", { provider_id: provider.id, model_id: defaultModelId(provider) });
+  if (!selectedModel) emitSelection({ provider_id: provider.id, model_id: defaultModelId(provider) });
 });
+
+function selectAgent(agentId: string): void {
+  emitSelection({ agent_id: agentId || undefined });
+}
 
 function selectProvider(providerId: string): void {
   if (!providerId) {
-    emit("select", null);
+    emitSelection({ provider_id: undefined, model_id: undefined });
     return;
   }
   const provider = providersWithActiveModels.value.find((item) => item.id === providerId);
   if (!provider) return;
-  emit("select", { provider_id: provider.id, model_id: defaultModelId(provider) });
+  emitSelection({ provider_id: provider.id, model_id: defaultModelId(provider) });
 }
 
 function selectModel(modelId: string): void {
   if (!props.selection || !modelId) return;
-  emit("select", { provider_id: props.selection.provider_id, model_id: modelId });
+  emitSelection({ provider_id: props.selection.provider_id, model_id: modelId });
+}
+
+function emitSelection(patch: OpencodeRunSelection): void {
+  const next = normalizeSelection({ ...(props.selection ?? {}), ...patch });
+  emit("select", next);
+}
+
+function normalizeSelection(selection: OpencodeRunSelection): OpencodeRunSelection | null {
+  const next: OpencodeRunSelection = {};
+  if (selection.agent_id) next.agent_id = selection.agent_id;
+  if (selection.provider_id && selection.model_id) {
+    next.provider_id = selection.provider_id;
+    next.model_id = selection.model_id;
+  }
+  return next.agent_id || next.provider_id ? next : null;
 }
 
 function defaultModelId(provider: OpencodeProviderOption): string {
@@ -90,10 +125,21 @@ function activeModels(provider?: OpencodeProviderOption | null) {
 <template>
   <section class="opencode-model-selector">
     <div class="opencode-model-selector-head">
-      <strong>运行模型</strong>
-      <button class="hub-text-button" type="button" :disabled="loading" @click="emit('refresh')">刷新</button>
+      <strong>运行配置</strong>
+      <button class="hub-text-button" type="button" :disabled="loading || agentLoading" @click="emit('refresh')">刷新</button>
     </div>
     <div class="opencode-model-fields">
+      <label class="field-label compact">
+        <span>Agent</span>
+        <DropdownSelect
+          :model-value="selection?.agent_id ?? ''"
+          :options="agentOptions"
+          :disabled="agentLoading || Boolean(agentError)"
+          aria-label="选择 Opencode Agent"
+          compact
+          @update:model-value="selectAgent"
+        />
+      </label>
       <label class="field-label compact">
         <span>Provider</span>
         <DropdownSelect
@@ -118,6 +164,6 @@ function activeModels(provider?: OpencodeProviderOption | null) {
         />
       </label>
     </div>
-    <p :class="['opencode-model-helper', error && 'danger']">{{ helperText }}</p>
+    <p :class="['opencode-model-helper', (error || agentError) && 'danger']">{{ helperText }}</p>
   </section>
 </template>

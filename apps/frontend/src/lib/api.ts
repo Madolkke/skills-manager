@@ -13,6 +13,9 @@ import type {
   EvalRunHistory,
   EvalSetDetail,
   EvalSetSummary,
+  OpencodeAgent,
+  OpencodeAgentCatalog,
+  OpencodeAgentPayload,
   OpencodeProviderCatalog,
   RoleAssignment,
   SessionInfo,
@@ -167,6 +170,7 @@ function evaluationApi() {
       apiSend<EvalSetDetail>(`/api/eval-sets/${encodeURIComponent(evalSetId)}/cases/order`, "PATCH", { case_ids: caseIds }),
     listEvalAssertionTemplates: () => apiGet<EvalAssertionTemplate[]>("/api/eval-assertion-templates"),
     listOpencodeProviders: () => apiGet<OpencodeProviderCatalog>("/api/opencode/providers"),
+    listOpencodeAgents: () => apiGet<OpencodeAgentCatalog>("/api/opencode/agents"),
     getEvalCaseHistory: (caseId: string) => apiGet<EvalCaseHistory>(`/api/eval-cases/${caseId}/versions`),
     listEvalCaseRuns: (query: { skill_version_id: string; eval_set_id: string; run_context?: Record<string, unknown> }) => {
       const params = new URLSearchParams({ skill_version_id: query.skill_version_id, eval_set_id: query.eval_set_id });
@@ -263,6 +267,13 @@ function adminApi() {
       apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/confirm`, "POST", {}, { admin: true }),
     adminCancelPublishRecord: (recordId: string) =>
       apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/cancel`, "POST", {}, { admin: true }),
+    adminListOpencodeAgents: () => apiGet<OpencodeAgent[]>("/api/admin/opencode-agents", { admin: true }),
+    adminCreateOpencodeAgent: (payload: OpencodeAgentPayload) =>
+      apiSend<OpencodeAgent>("/api/admin/opencode-agents", "POST", payload, { admin: true }),
+    adminUpdateOpencodeAgent: (agentId: string, payload: OpencodeAgentPayload) =>
+      apiSend<OpencodeAgent>(`/api/admin/opencode-agents/${encodeURIComponent(agentId)}`, "PATCH", payload, { admin: true }),
+    adminDeleteOpencodeAgent: (agentId: string) =>
+      apiDelete<{ ok: boolean }>(`/api/admin/opencode-agents/${encodeURIComponent(agentId)}`, { admin: true }),
   };
 }
 

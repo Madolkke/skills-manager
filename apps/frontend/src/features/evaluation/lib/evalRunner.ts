@@ -151,8 +151,16 @@ export function summarizeRunnerBoard(items: EvalSetCase[], runs: Record<string, 
 export function modelLabel(item?: EvalSetCase | null, detail?: EvalCaseRunDetail | null): string {
   void item;
   const selection = opencodeSelectionFromRun(detail);
-  if (selection) return `${selection.provider_id}/${selection.model_id}`;
+  if (selection?.provider_id && selection.model_id) return `${selection.provider_id}/${selection.model_id}`;
   return "Opencode 外部配置";
+}
+
+export function agentLabel(detail?: EvalCaseRunDetail | null): string {
+  const snapshot = opencodeAgentSnapshot(detail);
+  if (snapshot) return snapshot.name || snapshot.agent_id;
+  const selection = opencodeSelectionFromRun(detail);
+  if (selection?.agent_id) return selection.agent_id;
+  return "Opencode 默认 Agent";
 }
 
 export function promptSourceLabel(item: EvalSetCase): string {
@@ -196,14 +204,21 @@ export function runError(detail: EvalCaseRunDetail | null | undefined): string {
   return detail?.eval_case_run.error || detail?.job?.error || "";
 }
 
-export function opencodeSelectionFromRun(detail?: EvalCaseRunDetail | null): { provider_id: string; model_id: string } | null {
+export function opencodeSelectionFromRun(detail?: EvalCaseRunDetail | null): { agent_id?: string; provider_id?: string; model_id?: string } | null {
   const runContext = detail?.eval_case_run.run_context;
   const raw = runContext && typeof runContext === "object" ? runContext.opencode : null;
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
+  const agentId = typeof row.agent_id === "string" ? row.agent_id : "";
   const providerId = typeof row.provider_id === "string" ? row.provider_id : "";
   const modelId = typeof row.model_id === "string" ? row.model_id : "";
-  return providerId && modelId ? { provider_id: providerId, model_id: modelId } : null;
+  const selection: { agent_id?: string; provider_id?: string; model_id?: string } = {};
+  if (agentId) selection.agent_id = agentId;
+  if (providerId && modelId) {
+    selection.provider_id = providerId;
+    selection.model_id = modelId;
+  }
+  return Object.keys(selection).length ? selection : null;
 }
 
 export function runnerStatusRows(detail: EvalCaseRunDetail | null | undefined): RunnerStatusRow[] {
@@ -212,6 +227,7 @@ export function runnerStatusRows(detail: EvalCaseRunDetail | null | undefined): 
     { label: "任务", value: detail?.job?.status ?? "无任务" },
     { label: "次数", value: String(detail?.job?.attempts ?? 0) },
     { label: "阶段", value: currentStageLabel(detail) || "-" },
+    { label: "Agent", value: agentLabel(detail) },
     { label: "模型", value: modelLabel(null, detail) },
     { label: "会话", value: metadataText(detail, "session_id") || "-" },
     { label: "工作目录", value: metadataText(detail, "workdir") || "-" },
@@ -229,8 +245,8 @@ export function runnerInsightRows(detail: EvalCaseRunDetail | null | undefined):
     },
     {
       label: "运行配置",
-      value: modelLabel(null, detail),
-      help: opencodeSelectionFromRun(detail) ? "本次运行显式指定了 Opencode provider/model。" : "本次运行使用 Opencode 侧默认配置。",
+      value: `${agentLabel(detail)} · ${modelLabel(null, detail)}`,
+      help: runConfigHelp(detail),
     },
     {
       label: "Skill 安装",
@@ -238,6 +254,23 @@ export function runnerInsightRows(detail: EvalCaseRunDetail | null | undefined):
       help: "每次测评会把被测 Skill 安装到隔离工作区的项目级 Skill 目录。",
     },
   ];
+}
+
+function opencodeAgentSnapshot(detail: EvalCaseRunDetail | null | undefined): { agent_id: string; name: string } | null {
+  const value = detail?.eval_case_run.runner_metadata?.opencode_agent;
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const agentId = typeof row.agent_id === "string" ? row.agent_id : "";
+  const name = typeof row.name === "string" ? row.name : "";
+  return agentId || name ? { agent_id: agentId, name } : null;
+}
+
+function runConfigHelp(detail: EvalCaseRunDetail | null | undefined): string {
+  const selection = opencodeSelectionFromRun(detail);
+  const parts = [];
+  parts.push(selection?.agent_id ? "本次运行显式指定了 SkillHub Agent。" : "本次运行使用 Opencode 默认 Agent。");
+  parts.push(selection?.provider_id && selection.model_id ? "provider/model 显式覆盖 Agent 默认模型。" : "模型使用 Opencode 或 Agent 默认配置。");
+  return parts.join("");
 }
 
 export function stepRunResults(detail: EvalCaseRunDetail | null | undefined): StepRunResult[] {

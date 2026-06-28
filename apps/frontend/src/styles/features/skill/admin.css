@@ -106,6 +106,13 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
 .admin-list {
   display: grid;
   gap: 8px;
@@ -396,11 +403,91 @@
   margin-top: 4px;
 }
 
+.opencode-agent-form {
+  padding: 24px;
+}
+
+.opencode-agent-form-section {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.opencode-agent-form-section strong {
+  display: block;
+  color: var(--ink);
+}
+
+.opencode-agent-form-section span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.opencode-agent-permissions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-line,
+.opencode-agent-enabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: white;
+  padding: 0 12px;
+  color: #334155;
+  font-weight: 760;
+}
+
+.checkbox-line input,
+.opencode-agent-enabled input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+}
+
+.opencode-agent-enabled {
+  align-self: end;
+  justify-content: flex-start;
+}
+
+.opencode-agent-prompt {
+  margin: 4px 0 0;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #1f2937;
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.opencode-agent-steps {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  color: #34445d;
+  line-height: 1.5;
+}
+
+.opencode-agent-steps li + li {
+  margin-top: 6px;
+}
+
 @media (max-width: 920px) {
   .admin-split-layout,
   .admin-taggroup-layout,
   .admin-directory-layout,
   .admin-two-column,
+  .admin-form-grid,
   .admin-metric-grid,
   .admin-skill-row,
   .admin-role-form,

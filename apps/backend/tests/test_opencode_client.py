@@ -62,6 +62,24 @@ def test_send_message_includes_model_when_configured(monkeypatch):
     assert request["json"]["model"] == {"providerID": "deepseek", "modelID": "deepseek-v4-flash"}
 
 
+def test_send_message_includes_agent_and_model_when_configured(monkeypatch):
+    monkeypatch.setattr(opencode_client.httpx, "Client", FakeHttpClient)
+    client = opencode_client.OpencodeClient(base_url="http://127.0.0.1:4096", timeout_seconds=30)
+
+    client.send_message(
+        session_id="session_1",
+        prompt="hello",
+        directory="/workspace/run",
+        provider_id="deepseek",
+        model_id="deepseek-v4-flash",
+        agent_id="strict-reviewer",
+    )
+
+    request = client._client.requests[-1]
+    assert request["json"]["agent"] == "strict-reviewer"
+    assert request["json"]["model"] == {"providerID": "deepseek", "modelID": "deepseek-v4-flash"}
+
+
 def test_list_messages_calls_session_history_endpoint(monkeypatch):
     monkeypatch.setattr(opencode_client.httpx, "Client", FakeHttpClient)
     client = opencode_client.OpencodeClient(base_url="http://127.0.0.1:4096", timeout_seconds=30)

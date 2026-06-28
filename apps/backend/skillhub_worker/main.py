@@ -12,7 +12,7 @@ from skillhub_worker.config import load_config
 from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
 from skillhub_worker.opencode_trace import compact_message_output, extract_opencode_trace, new_opencode_messages, opencode_message_ids
-from skillhub_worker.workspace import materialize_case_workspace, render_step_prompt, workspace_snapshot
+from skillhub_worker.workspace import materialize_case_workspace, materialize_opencode_agent, render_step_prompt, workspace_snapshot
 
 
 def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
@@ -30,11 +30,17 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
     }
     try:
         opencode_selection = _opencode_selection(run.get("run_context"))
+        opencode_agent_id = _opencode_agent_id(run.get("run_context"))
         metadata["opencode_model_selection"] = opencode_selection
         paths = materialize_case_workspace(detail, host_root=config.workdir_host, container_root=config.workdir_container)
         metadata["workdir"] = paths["workdir"]
         metadata["skill_installation"] = paths["skill_installation"]
         metadata["skill_usage"] = _initial_skill_usage(paths["skill_installation"])
+        agent_snapshot = None
+        if opencode_agent_id:
+            agent = store.enabled_opencode_agent_for_run(agent_id=opencode_agent_id)
+            agent_snapshot = materialize_opencode_agent(Path(paths["host_workdir"]), paths["workdir"], agent)
+            metadata["opencode_agent"] = agent_snapshot
         _persist_metadata(store, eval_case_run_id, metadata)
         case_version = detail["case_version"]
         steps = list(case_version.get("steps") or [])
@@ -78,6 +84,7 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
                 directory=paths["workdir"],
                 provider_id=opencode_selection.get("provider_id") or None,
                 model_id=opencode_selection.get("model_id") or None,
+                agent_id=opencode_agent_id or None,
             )
             message_history = client.list_messages(session_id=session_id, directory=paths["workdir"])
             step_messages = new_opencode_messages(message_history, seen_message_ids, seen_count=len(messages_before_step))
@@ -157,6 +164,7 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
             executor_output={
                 "step_results": metadata["step_results"],
                 "opencode_model_selection": opencode_selection,
+                "opencode_agent": agent_snapshot,
                 "skill_installation": metadata["skill_installation"],
                 "skill_usage": metadata["skill_usage"],
             },
@@ -250,6 +258,15 @@ def _opencode_selection(run_context: Any) -> dict[str, str]:
     if provider_id and model_id:
         return {"provider_id": provider_id, "model_id": model_id}
     return {"provider_id": "", "model_id": ""}
+
+
+def _opencode_agent_id(run_context: Any) -> str:
+    if not isinstance(run_context, dict):
+        return ""
+    opencode = run_context.get("opencode")
+    if not isinstance(opencode, dict):
+        return ""
+    return str(opencode.get("agent_id") or "").strip()
 
 
 def _initial_skill_usage(skill_installation: dict[str, Any]) -> dict[str, Any]:

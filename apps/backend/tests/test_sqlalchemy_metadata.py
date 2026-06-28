@@ -37,6 +37,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "review_request_publish_targets",
                 "review_check_results",
                 "publish_records",
+                "opencode_agents",
                 "notifications",
                 "audit_events",
             },

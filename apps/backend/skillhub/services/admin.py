@@ -125,3 +125,15 @@ class AdminService(ServiceBase[SkillHubStore]):
         if snapshot["record"]["status"] not in {"pending_confirmation", "failed"}:
             raise InvariantError("Only pending or failed publish records can be cancelled.")
         return self.store.apply_publish_cancellation(publish_record_id=publish_record_id, actor="admin-console")
+
+    def list_opencode_agents(self) -> Any:
+        return self.store.list_opencode_agents_admin()
+
+    def create_opencode_agent(self, *, payload: dict[str, Any]) -> Any:
+        return self.store.create_opencode_agent(payload=payload, actor="admin-console")
+
+    def update_opencode_agent(self, *, agent_id: str, payload: dict[str, Any]) -> Any:
+        return self.store.update_opencode_agent(agent_id=agent_id, payload=payload, actor="admin-console")
+
+    def delete_opencode_agent(self, *, agent_id: str) -> Any:
+        return self.store.delete_opencode_agent(agent_id=agent_id, actor="admin-console")

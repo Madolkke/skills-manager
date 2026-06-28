@@ -6,10 +6,13 @@ from typing import Any, Mapping
 import httpx
 
 from skillhub.models.errors import InvariantError
+from skillhub.models.store import SkillHubStore
+from skillhub.services.base import ServiceBase
 
 
-class OpencodeService:
-    def __init__(self, environment: Mapping[str, str] = environ, *, timeout_seconds: float = 10) -> None:
+class OpencodeService(ServiceBase[SkillHubStore]):
+    def __init__(self, store: SkillHubStore, environment: Mapping[str, str] = environ, *, timeout_seconds: float = 10) -> None:
+        super().__init__(store)
         self.base_url = environment.get("OPENCODE_BASE_URL", "http://127.0.0.1:4096").rstrip("/")
         self.timeout_seconds = timeout_seconds
 
@@ -21,6 +24,9 @@ class OpencodeService:
             raise InvariantError("无法读取 Opencode provider 配置，请确认 Opencode 服务可用。") from exc
         payload = response.json()
         return sanitize_opencode_providers(payload)
+
+    def agent_options(self) -> dict[str, Any]:
+        return {"agents": self.store.list_enabled_opencode_agents()}
 
 
 def sanitize_opencode_providers(payload: Any) -> dict[str, Any]:

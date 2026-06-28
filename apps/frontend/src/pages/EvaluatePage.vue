@@ -12,7 +12,7 @@ import { evalRunReason, formalEvalReason } from "../lib/disabledReasons";
 import { runnerState } from "../features/evaluation/lib/evalRunner";
 import { versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
-import type { EvalSetDetail, OpencodeModelSelection, OpencodeProviderCatalog, SkillDetail, ToastState } from "../types";
+import type { EvalSetDetail, OpencodeAgentCatalog, OpencodeProviderCatalog, OpencodeRunSelection, SkillDetail, ToastState } from "../types";
 
 const props = defineProps<{ skill: SkillDetail; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ refresh: []; navigate: [next: Partial<RouteState>]; toast: [toast: ToastState] }>();
@@ -30,7 +30,9 @@ const activeCaseId = ref<string | null>(null);
 const modelCatalog = ref<OpencodeProviderCatalog | null>(null);
 const modelError = ref("");
 const modelLoading = ref(false);
-const modelSelection = ref<OpencodeModelSelection | null>(null);
+const agentCatalog = ref<OpencodeAgentCatalog | null>(null);
+const agentError = ref("");
+const runSelection = ref<OpencodeRunSelection | null>(null);
 const cases = computed(() => detail.value?.cases ?? []);
 const active = computed(() => cases.value.find((item) => item.case_version.id === activeCaseId.value) ?? null);
 const selectedVersion = computed(() => versions.value.find((version) => version.id === skillVersionId.value));
@@ -58,7 +60,7 @@ const {
   cases,
   skillVersionId,
   evalSetId,
-  modelSelection,
+  runSelection,
   ready: evalSetLoaded,
   emitToast: (toast) => emit("toast", toast),
 });
@@ -95,22 +97,30 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeyDown);
 });
 
-async function loadOpencodeProviders(): Promise<void> {
+async function loadOpencodeRunOptions(): Promise<void> {
   if (modelLoading.value) return;
   modelLoading.value = true;
   modelError.value = "";
-  try {
-    modelCatalog.value = await api.listOpencodeProviders();
-  } catch (caught) {
-    modelError.value = errorMessage(caught);
-    modelCatalog.value = null;
-  } finally {
-    modelLoading.value = false;
+  agentError.value = "";
+  const [agentsResult, providersResult] = await Promise.allSettled([
+    api.listOpencodeAgents(),
+    api.listOpencodeProviders(),
+  ]);
+  if (agentsResult.status === "fulfilled") agentCatalog.value = agentsResult.value;
+  else {
+    agentError.value = errorMessage(agentsResult.reason);
+    agentCatalog.value = null;
   }
+  if (providersResult.status === "fulfilled") modelCatalog.value = providersResult.value;
+  else {
+    modelError.value = errorMessage(providersResult.reason);
+    modelCatalog.value = null;
+  }
+  modelLoading.value = false;
 }
 
-function selectOpencodeModel(selection: OpencodeModelSelection | null): void {
-  modelSelection.value = selection;
+function selectOpencodeRunConfig(selection: OpencodeRunSelection | null): void {
+  runSelection.value = selection;
 }
 
 async function copyText(label: string, text?: string | null): Promise<void> {
@@ -201,17 +211,20 @@ function cleanVersionSummary(value?: string | null): string {
         :disabled="!canRunEvaluation"
         :disabled-reason="runDisabledReason"
         :formal-disabled-reason="formalDisabledReason"
+        :agent-catalog="agentCatalog"
+        :agent-error="agentError"
+        :agent-loading="modelLoading"
         :model-catalog="modelCatalog"
         :model-error="modelError"
         :model-loading="modelLoading"
-        :model-selection="modelSelection"
+        :run-selection="runSelection"
         :poll-interval-seconds="pollIntervalSeconds"
         :summary="opencodeSummary"
-        @refresh-models="loadOpencodeProviders"
+        @refresh-models="loadOpencodeRunOptions"
         @retry-failed="retryFailed"
         @run-all="runAll"
         @run-formal="runFormalOpencodeEvaluation"
-        @select-model="selectOpencodeModel"
+        @select-run-config="selectOpencodeRunConfig"
       />
     </section>
 

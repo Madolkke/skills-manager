@@ -664,6 +664,57 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(duplicate.status_code, 400)
         self.assertIn("Group already exists", duplicate.json()["detail"])
 
+    def test_admin_opencode_agent_crud_soft_delete_and_enabled_catalog(self):
+        payload = {
+            "id": "strict-reviewer",
+            "name": "严格评审",
+            "description": "严格检查输出。",
+            "prompt": "你是严格的评审 Agent。",
+            "enabled": True,
+            "permission": {"read": True, "grep": True},
+            "provider_id": "deepseek",
+            "model_id": "deepseek-v4",
+            "temperature": 0.2,
+            "steps": ["检查输入", "给出结论"],
+        }
+        created = self.client.post("/api/admin/opencode-agents", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json=payload)
+        duplicate = self.client.post("/api/admin/opencode-agents", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json=payload)
+        public_catalog = self.client.get("/api/opencode/agents")
+        disabled = self.client.patch(
+            "/api/admin/opencode-agents/strict-reviewer",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={**payload, "name": "严格评审 v2", "enabled": False},
+        )
+        public_after_disable = self.client.get("/api/opencode/agents")
+        deleted = self.client.delete("/api/admin/opencode-agents/strict-reviewer", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+        admin_after_delete = self.client.get("/api/admin/opencode-agents", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(created.json()["id"], "strict-reviewer")
+        self.assertEqual(created.json()["permission"]["read"], True)
+        self.assertEqual(created.json()["permission"]["bash"], False)
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn("already exists", duplicate.json()["detail"])
+        self.assertEqual([agent["id"] for agent in public_catalog.json()["agents"]], ["strict-reviewer"])
+        self.assertEqual(disabled.status_code, 200)
+        self.assertEqual(public_after_disable.json()["agents"], [])
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(admin_after_delete.json(), [])
+
+    def test_admin_opencode_agent_rejects_unknown_permission_key(self):
+        response = self.client.post(
+            "/api/admin/opencode-agents",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={
+                "id": "bad-agent",
+                "name": "Bad Agent",
+                "prompt": "Do work.",
+                "permission": {"read": True, "network": True},
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+
     def test_saved_run_view_endpoints_create_list_and_delete_view(self):
         skill = self.create_skill("saved-view-api")
 

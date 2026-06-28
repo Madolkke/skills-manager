@@ -3,8 +3,9 @@ import { ref } from "vue";
 import { ADMIN_TABS, type AdminTab } from "../lib/admin";
 import { api, ApiError, type AdminGroup } from "../lib/api";
 import { toTagPayloads } from "../lib/skillTags";
-import type { PublishGateCheckDefinition, PublishGateExpression, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, TagValueOption } from "../types";
+import type { OpencodeAgent, OpencodeAgentPayload, OpencodeProviderCatalog, PublishGateCheckDefinition, PublishGateExpression, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, TagValueOption } from "../types";
 import AdminGroupsTab from "./admin/AdminGroupsTab.vue";
+import AdminOpencodeAgentsTab from "./admin/AdminOpencodeAgentsTab.vue";
 import AdminOverviewTab from "./admin/AdminOverviewTab.vue";
 import AdminPublishTab from "./admin/AdminPublishTab.vue";
 import AdminPublishTargetsTab from "./admin/AdminPublishTargetsTab.vue";
@@ -25,8 +26,11 @@ const roles = ref<RoleAssignment[]>([]);
 const publishTargets = ref<PublishTarget[]>([]);
 const publishGateChecks = ref<PublishGateCheckDefinition[]>([]);
 const publishRecords = ref<PublishRecord[]>([]);
+const opencodeAgents = ref<OpencodeAgent[]>([]);
+const opencodeProviderCatalog = ref<OpencodeProviderCatalog | null>(null);
 const selectedGroupId = ref("");
 const selectedTagGroupId = ref("");
+const selectedOpencodeAgentId = ref("");
 const tagDrafts = ref<Record<string, SkillTagPayload[]>>({});
 
 async function unlock(): Promise<void> {
@@ -38,7 +42,7 @@ async function unlock(): Promise<void> {
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    const [nextSkills, nextGroups, nextTagGroups, nextRoles, nextPublishTargets, nextPublishGateChecks, nextPublishRecords] = await Promise.all([
+    const [nextSkills, nextGroups, nextTagGroups, nextRoles, nextPublishTargets, nextPublishGateChecks, nextPublishRecords, nextOpencodeAgents, nextProviderCatalog] = await Promise.all([
       api.adminListSkills(),
       api.adminListGroups(),
       api.adminListTagGroups(),
@@ -46,6 +50,8 @@ async function load(): Promise<void> {
       api.adminListPublishTargets(),
       api.adminListPublishGateChecks(),
       api.adminListPublishRecords(),
+      api.adminListOpencodeAgents(),
+      api.listOpencodeProviders().catch(() => null),
     ]);
     skills.value = nextSkills;
     groups.value = nextGroups;
@@ -54,13 +60,25 @@ async function load(): Promise<void> {
     publishTargets.value = nextPublishTargets;
     publishGateChecks.value = nextPublishGateChecks;
     publishRecords.value = nextPublishRecords;
+    opencodeAgents.value = nextOpencodeAgents;
+    opencodeProviderCatalog.value = nextProviderCatalog;
     tagDrafts.value = Object.fromEntries(nextSkills.map((item) => [item.skill.id, toTagPayloads(item.skill.tags ?? [])]));
     if (!selectedGroupId.value && nextGroups.length) selectedGroupId.value = nextGroups[0].id;
     if (!selectedTagGroupId.value && nextTagGroups.length) selectedTagGroupId.value = nextTagGroups[0].id;
+    if (!selectedOpencodeAgentId.value && nextOpencodeAgents.length) selectedOpencodeAgentId.value = nextOpencodeAgents[0].id;
   } catch (error) {
     showError(error);
   } finally {
     loading.value = false;
+  }
+}
+
+async function refreshOpencodeProviders(): Promise<void> {
+  try {
+    opencodeProviderCatalog.value = await api.listOpencodeProviders();
+    emit("toast", { tone: "success", message: "Provider/Model 列表已刷新。" });
+  } catch (error) {
+    showError(error);
   }
 }
 
@@ -134,6 +152,25 @@ async function revokeRole(role: RoleAssignment): Promise<void> {
 
 async function updatePublishTarget(targetId: string, payload: { enabled: boolean; gate_expression: PublishGateExpression }): Promise<void> {
   await runAdminAction(() => api.adminUpdatePublishTarget(targetId, payload), "发布源已更新。");
+}
+
+async function createOpencodeAgent(payload: OpencodeAgentPayload): Promise<void> {
+  await runAdminAction(async () => {
+    const agent = await api.adminCreateOpencodeAgent(payload);
+    selectedOpencodeAgentId.value = agent.id;
+  }, "Opencode Agent 已创建。");
+}
+
+async function updateOpencodeAgent(agentId: string, payload: OpencodeAgentPayload): Promise<void> {
+  await runAdminAction(() => api.adminUpdateOpencodeAgent(agentId, payload), "Opencode Agent 已更新。");
+}
+
+async function deleteOpencodeAgent(agent: OpencodeAgent): Promise<void> {
+  if (!confirm(`将软删除 Opencode Agent“${agent.name}”，测评页将不再显示。历史运行记录不会被清理。是否继续？`)) return;
+  await runAdminAction(async () => {
+    await api.adminDeleteOpencodeAgent(agent.id);
+    selectedOpencodeAgentId.value = "";
+  }, "Opencode Agent 已删除。");
 }
 
 async function confirmPublishRecord(record: PublishRecord): Promise<void> {
@@ -271,6 +308,18 @@ function showError(error: unknown): void {
           :tag-drafts="tagDrafts"
           @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
           @save="saveSkillTags"
+        />
+        <AdminOpencodeAgentsTab
+          v-else-if="activeTab === 'opencode-agents'"
+          key="opencode-agents"
+          :agents="opencodeAgents"
+          :providers="opencodeProviderCatalog"
+          :selected-agent-id="selectedOpencodeAgentId"
+          @select="selectedOpencodeAgentId = $event"
+          @refresh-providers="refreshOpencodeProviders"
+          @create="createOpencodeAgent"
+          @update="updateOpencodeAgent"
+          @delete="deleteOpencodeAgent"
         />
         <AdminPublishTargetsTab
           v-else-if="activeTab === 'publish-targets'"

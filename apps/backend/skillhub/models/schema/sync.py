@@ -598,6 +598,49 @@ SCHEMA_PATCHES = (
       created_by text not null
     )
     """,
+    """
+    create table if not exists opencode_agents (
+      id text primary key,
+      name text not null,
+      description text not null default '',
+      prompt text not null,
+      enabled boolean not null default true,
+      deleted_at timestamptz,
+      permission jsonb not null default '{}'::jsonb,
+      provider_id text,
+      model_id text,
+      temperature text,
+      steps jsonb not null default '[]'::jsonb,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      created_by text not null,
+      updated_by text not null,
+      constraint opencode_agents_id_format_check check (id ~ '^[A-Za-z0-9_-]+$'),
+      constraint opencode_agents_name_non_empty check (length(btrim(name)) > 0),
+      constraint opencode_agents_prompt_non_empty check (length(btrim(prompt)) > 0),
+      constraint opencode_agents_permission_object check (jsonb_typeof(permission) = 'object'),
+      constraint opencode_agents_steps_array check (jsonb_typeof(steps) = 'array')
+    )
+    """,
+    "alter table opencode_agents add column if not exists enabled boolean not null default true",
+    "alter table opencode_agents add column if not exists deleted_at timestamptz",
+    "alter table opencode_agents add column if not exists permission jsonb not null default '{}'::jsonb",
+    "alter table opencode_agents add column if not exists provider_id text",
+    "alter table opencode_agents add column if not exists model_id text",
+    "alter table opencode_agents add column if not exists temperature text",
+    "alter table opencode_agents add column if not exists steps jsonb not null default '[]'::jsonb",
+    "alter table opencode_agents add column if not exists updated_at timestamptz not null default now()",
+    "alter table opencode_agents add column if not exists updated_by text not null default 'system'",
+    "alter table opencode_agents drop constraint if exists opencode_agents_id_format_check",
+    "alter table opencode_agents drop constraint if exists opencode_agents_name_non_empty",
+    "alter table opencode_agents drop constraint if exists opencode_agents_prompt_non_empty",
+    "alter table opencode_agents drop constraint if exists opencode_agents_permission_object",
+    "alter table opencode_agents drop constraint if exists opencode_agents_steps_array",
+    "alter table opencode_agents add constraint opencode_agents_id_format_check check (id ~ '^[A-Za-z0-9_-]+$')",
+    "alter table opencode_agents add constraint opencode_agents_name_non_empty check (length(btrim(name)) > 0)",
+    "alter table opencode_agents add constraint opencode_agents_prompt_non_empty check (length(btrim(prompt)) > 0)",
+    "alter table opencode_agents add constraint opencode_agents_permission_object check (jsonb_typeof(permission) = 'object')",
+    "alter table opencode_agents add constraint opencode_agents_steps_array check (jsonb_typeof(steps) = 'array')",
     "drop index if exists skill_tags_tag_idx",
     "create index if not exists skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value)",
     "create index if not exists tag_groups_sort_idx on tag_groups (sort_order, id)",
@@ -614,6 +657,7 @@ SCHEMA_PATCHES = (
     "create index if not exists publish_records_skill_version_idx on publish_records (skill_version_id)",
     "create index if not exists publish_records_target_status_idx on publish_records (publish_target_id, status)",
     "create index if not exists notifications_recipient_idx on notifications (recipient_actor_id, created_at desc)",
+    "create index if not exists opencode_agents_enabled_idx on opencode_agents (enabled, deleted_at, name)",
 )
 
 

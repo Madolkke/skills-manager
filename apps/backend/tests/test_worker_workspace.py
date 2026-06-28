@@ -9,7 +9,7 @@ import zipfile
 import pytest
 
 from skillhub_worker.opencode_trace import extract_opencode_trace, new_opencode_messages, opencode_message_ids
-from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, render_step_prompt, _extract_zip_to_workdir
+from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, materialize_opencode_agent, render_step_prompt, _extract_zip_to_workdir
 
 
 def zip_payload(files: dict[str, str]) -> str:
@@ -63,6 +63,34 @@ def test_materialize_case_workspace_strips_legacy_single_bundle_root(tmp_path: P
     skill_dir = Path(paths["host_workdir"]) / ".opencode" / "skills" / "test-skill"
     assert (skill_dir / "SKILL.md").is_file()
     assert (skill_dir / "guides" / "example.md").is_file()
+
+
+def test_materialize_opencode_agent_writes_primary_agent_markdown(tmp_path: Path):
+    snapshot = materialize_opencode_agent(
+        tmp_path,
+        "/workspace/eval-runs/run_1/workdir",
+        {
+            "id": "strict-reviewer",
+            "name": "严格评审",
+            "description": "严格检查输出。",
+            "prompt": "你是严格的评审 Agent。",
+            "provider_id": "deepseek",
+            "model_id": "deepseek-v4",
+            "temperature": "0.2",
+            "permission": {"read": True, "write": False},
+            "steps": ["检查输入", "给出结果"],
+        },
+    )
+
+    content = (tmp_path / ".opencode" / "agents" / "strict-reviewer.md").read_text(encoding="utf-8")
+    assert "mode: 'primary'" in content
+    assert "model: 'deepseek/deepseek-v4'" in content
+    assert "temperature: 0.2" in content
+    assert "read: true" in content
+    assert "write: false" in content
+    assert "你是严格的评审 Agent。" in content
+    assert snapshot["agent_id"] == "strict-reviewer"
+    assert snapshot["opencode_agent_file"] == "/workspace/eval-runs/run_1/workdir/.opencode/agents/strict-reviewer.md"
 
 
 def test_compact_message_output_prefers_text_parts():
