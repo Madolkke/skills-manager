@@ -12,10 +12,19 @@ import {
   validateStep,
   type EvalCaseFormData,
 } from "../lib/evalCaseForm";
+import {
+  GENERATED_WORKSPACE_NAME,
+  defaultWorkspaceFile,
+  formatWorkspaceSize,
+  workspaceDraftSize,
+  workspaceFilesToBase64,
+  type WorkspaceFileDraft,
+} from "../lib/workspaceDraft";
 import EvalCaseAdvancedSettings from "./EvalCaseAdvancedSettings.vue";
 import EvalCaseScenarioBasics from "./EvalCaseScenarioBasics.vue";
 import EvalCaseStepEditor from "./EvalCaseStepEditor.vue";
 import EvalCaseStepList from "./EvalCaseStepList.vue";
+import WorkspaceFileEditorModal from "./WorkspaceFileEditorModal.vue";
 
 const props = defineProps<{
   caseItem?: EvalSetCase | null;
@@ -30,6 +39,7 @@ const templates = ref<EvalAssertionTemplate[]>([]);
 const selectedStepIndex = ref(0);
 const attemptedSubmit = ref(false);
 const advancedOpen = ref(Boolean(props.caseItem?.case_version.notes));
+const workspaceEditorOpen = ref(false);
 const workspaceLabel = ref(props.caseItem?.case_version.workspace_artifact ? artifactFileName(props.caseItem.case_version.workspace_artifact.locator) : "未选择压缩包");
 const form = ref<EvalCaseFormData>(createEvalCaseForm(props.caseItem));
 
@@ -131,12 +141,32 @@ async function acceptZip(files: FileList | null): Promise<void> {
   if (!file) {
     form.value.workspace_name = undefined;
     form.value.workspace_base64 = undefined;
+    form.value.workspace_files = undefined;
     workspaceLabel.value = props.caseItem?.case_version.workspace_artifact ? artifactFileName(props.caseItem.case_version.workspace_artifact.locator) : "未选择压缩包";
     return;
   }
   form.value.workspace_name = file.name;
   form.value.workspace_base64 = await fileToBase64(file);
+  form.value.workspace_files = undefined;
   workspaceLabel.value = `${file.name} · ${formatBytes(file.size)}`;
+}
+
+/** 打开工作区文件布置弹窗，首个空白工作区默认包含 README.md。 */
+function openWorkspaceEditor(): void {
+  if (!form.value.workspace_files) {
+    form.value.workspace_files = form.value.workspace_base64 ? [] : [defaultWorkspaceFile()];
+  }
+  workspaceEditorOpen.value = true;
+}
+
+/** 将弹窗里的文本文件打包成 workspace zip，并覆盖当前工作区字段。 */
+async function saveWorkspaceFiles(files: WorkspaceFileDraft[]): Promise<void> {
+  const cleanFiles = files.map((file) => ({ ...file, path: file.path.trim() }));
+  form.value.workspace_files = cleanFiles;
+  form.value.workspace_name = GENERATED_WORKSPACE_NAME;
+  form.value.workspace_base64 = await workspaceFilesToBase64(cleanFiles);
+  workspaceLabel.value = `已布置 ${cleanFiles.length} 个文件 · ${formatWorkspaceSize(workspaceDraftSize(cleanFiles))}`;
+  workspaceEditorOpen.value = false;
 }
 
 /** 提交前校验标题和步骤参数，定位到第一个不完整步骤。 */
@@ -170,7 +200,13 @@ function fileToBase64(file: File): Promise<string> {
       </div>
       <strong>{{ statusLabel ?? (editing ? "编辑中" : "未保存") }}</strong>
     </header>
-    <EvalCaseScenarioBasics v-model:title="form.title" :workspace-label="workspaceLabel" :show-validation="attemptedSubmit" @zip="acceptZip" />
+    <EvalCaseScenarioBasics
+      v-model:title="form.title"
+      :workspace-label="workspaceLabel"
+      :show-validation="attemptedSubmit"
+      @configure-workspace="openWorkspaceEditor"
+      @zip="acceptZip"
+    />
     <section class="scenario-workspace">
       <EvalCaseStepList
         :steps="form.steps"
@@ -201,6 +237,13 @@ function fileToBase64(file: File): Promise<string> {
     <EvalCaseAdvancedSettings
       v-model:open="advancedOpen"
       v-model:notes="form.notes"
+    />
+    <WorkspaceFileEditorModal
+      v-if="workspaceEditorOpen"
+      :files="form.workspace_files ?? []"
+      :existing-workspace-label="workspaceLabel"
+      @close="workspaceEditorOpen = false"
+      @save="saveWorkspaceFiles"
     />
     <footer class="scenario-action-bar">
       <div>

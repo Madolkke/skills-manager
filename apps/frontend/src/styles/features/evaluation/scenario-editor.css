@@ -62,40 +62,50 @@
   font-size: 17px;
 }
 
-.scenario-upload-card {
+.scenario-workspace-card {
   min-width: 0;
   min-height: 94px;
   border: 1px dashed #b8c7db;
   border-radius: var(--radius);
   background: white;
   display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.scenario-workspace-config {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: 0;
   color: #34506f;
   cursor: pointer;
+  text-align: left;
 }
 
-.scenario-upload-card input {
+.scenario-zip-button input {
   display: none;
 }
 
-.scenario-upload-card strong,
-.scenario-upload-card small,
-.scenario-upload-card em {
+.scenario-workspace-config strong,
+.scenario-workspace-config small,
+.scenario-workspace-config em {
   display: block;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.scenario-upload-card strong {
+.scenario-workspace-config strong {
   color: #1f2d44;
   font-weight: 820;
 }
 
-.scenario-upload-card small,
-.scenario-upload-card em {
+.scenario-workspace-config small,
+.scenario-workspace-config em {
   color: var(--muted);
   font-size: 13px;
   font-style: normal;
@@ -103,8 +113,14 @@
   line-height: 1.35;
 }
 
-.scenario-upload-card em {
+.scenario-workspace-config em {
   grid-column: 2;
+}
+
+.scenario-zip-button {
+  justify-content: center;
+  min-height: 36px;
+  width: 100%;
 }
 
 .scenario-upload-icon {
@@ -391,13 +407,140 @@
   flex: 0 0 auto;
 }
 
+.workspace-editor-modal {
+  min-height: 520px;
+  display: grid;
+  grid-template-columns: minmax(220px, 28%) minmax(0, 1fr);
+  gap: 16px;
+  padding: 0 24px 18px;
+}
+
+.workspace-editor-sidebar,
+.workspace-editor-main {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+}
+
+.workspace-editor-sidebar {
+  align-self: start;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.workspace-editor-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-editor-summary strong,
+.workspace-editor-placeholder strong {
+  color: #172033;
+  font-weight: 820;
+}
+
+.workspace-editor-summary span,
+.workspace-editor-placeholder span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.workspace-file-list {
+  display: grid;
+  gap: 8px;
+  max-height: 390px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.workspace-file-row {
+  min-width: 0;
+  border: 1px solid var(--soft-line);
+  border-left: 4px solid #cbd5e1;
+  border-radius: var(--radius);
+  background: white;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  color: inherit;
+  text-align: left;
+}
+
+.workspace-file-row.active {
+  border-color: #bcd3ff;
+  border-left-color: var(--blue);
+  background: #f7fbff;
+}
+
+.workspace-file-row.invalid {
+  border-left-color: var(--red);
+}
+
+.workspace-file-row strong,
+.workspace-file-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-file-row strong {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.workspace-file-row span,
+.workspace-empty-state {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.workspace-file-row.invalid span {
+  color: var(--red);
+}
+
+.workspace-editor-main {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+}
+
+.workspace-content-field textarea {
+  min-height: 300px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.workspace-editor-placeholder {
+  min-height: 420px;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.workspace-editor-actions {
+  border-top: 1px solid var(--line);
+  padding: 14px 24px 18px;
+}
+
 @media (max-width: 900px) {
   .modal-card.wide {
     width: min(720px, calc(100vw - 32px));
   }
 
   .scenario-basics,
-  .scenario-workspace {
+  .scenario-workspace,
+  .workspace-editor-modal {
     grid-template-columns: 1fr;
   }
 
@@ -416,6 +559,7 @@
   }
 
   .scenario-action-bar .modal-actions,
+  .workspace-editor-actions,
   .scenario-action-bar .primary-button,
   .scenario-action-bar .secondary-button {
     width: 100%;
@@ -429,7 +573,8 @@
   }
 
   .scenario-basics,
-  .scenario-workspace {
+  .scenario-workspace,
+  .workspace-editor-modal {
     padding-inline: 14px;
   }
 

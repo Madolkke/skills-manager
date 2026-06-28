@@ -135,6 +135,14 @@ function artifactApi() {
         `/api/artifacts/diff?left_skill_version_id=${encodeURIComponent(leftSkillVersionId)}&right_skill_version_id=${encodeURIComponent(rightSkillVersionId)}`,
       ),
     artifactDownloadUrl: (artifactId: string) => `${API_BASE_URL}/api/artifacts/${encodeURIComponent(artifactId)}/download`,
+    downloadArtifactBase64: async (artifactId: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/artifacts/${encodeURIComponent(artifactId)}/download`, {
+        credentials: "include",
+        headers: requestHeaders(),
+      });
+      if (!response.ok) throw await parseApiError(response);
+      return blobToBase64(await response.blob());
+    },
   };
 }
 
@@ -310,6 +318,15 @@ function requestHeaders(options: RequestOptions & { json?: boolean } = {}): Head
     if (key) headers["X-SkillHub-Admin-Key"] = key;
   }
   return headers;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? "").split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("读取 artifact 失败。"));
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function parseApiError(response: Response): Promise<ApiError> {

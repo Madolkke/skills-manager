@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
 import { actionBarStatusText, emptyActualOutputText, modelLabel, promptSourceLabel, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
-import { cleanCaseForm } from "../features/evaluation/lib/evalCaseManagement";
+import { buildCopiedEvalCasePayload, cleanCaseForm, copyEvalCaseTitle } from "../features/evaluation/lib/evalCaseManagement";
+import { GENERATED_WORKSPACE_NAME, validateWorkspaceFiles, workspaceFilesToBase64 } from "../features/evaluation/lib/workspaceDraft";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
+import type { EvalSetCase } from "../types";
 
 describe("skill evidence helpers", () => {
   it("distinguishes untested cards from verified cards", () => {
@@ -194,6 +196,76 @@ describe("skill evidence helpers", () => {
 
     expect(cleanCaseForm(form)).not.toHaveProperty("preserve_workspace");
     expect(cleanCaseForm(form, { includePreserveWorkspace: true })).toHaveProperty("preserve_workspace", true);
+  });
+
+  it("builds copied eval case titles within the API limit", () => {
+    expect(copyEvalCaseTitle("A")).toBe("A（副本）");
+    const title = copyEvalCaseTitle("测".repeat(200));
+    expect(title.endsWith("（副本）")).toBe(true);
+    expect(title.length).toBeLessThanOrEqual(160);
+  });
+
+  it("builds copied eval case payload without sharing nested step objects", () => {
+    const source: EvalSetCase = {
+      position: 0,
+      case: { id: "case_1", skill_id: "skill_1", title: "生成 README", current_version_id: "casever_1" },
+      case_version: {
+        id: "casever_1",
+        skill_id: "skill_1",
+        case_id: "case_1",
+        version_number: 1,
+        steps: [
+          {
+            id: "step-1",
+            title: "步骤 1",
+            input: "创建 README.md",
+            assertions: [
+              {
+                id: "assertion-1",
+                assertion_template_id: "file_exists",
+                assertion_params: { directory: ".", filename: "README.md" },
+              },
+            ],
+          },
+        ],
+        runner_config: { timeout_seconds: 60 },
+        notes: "需要工作区文件",
+        created_by: "tester",
+        workspace_artifact: null,
+      },
+    };
+
+    const payload = buildCopiedEvalCasePayload(source, { evalSetId: "evalset_1" });
+
+    expect(payload.title).toBe("生成 README（副本）");
+    expect(payload).not.toHaveProperty("workspace_base64");
+    expect(payload.steps).not.toBe(source.case_version.steps);
+    expect(payload.steps[0].assertions).not.toBe(source.case_version.steps[0].assertions);
+    expect(payload.steps[0].assertions[0].assertion_params).not.toBe(source.case_version.steps[0].assertions[0].assertion_params);
+    expect(payload.runner_config).toEqual({ timeout_seconds: 60 });
+  });
+
+  it("validates workspace file paths before generating a zip", () => {
+    for (const path of ["../x", "/x", "C:\\x", "a\\ b", "", "safe/../x"]) {
+      const result = validateWorkspaceFiles([{ id: "file-1", path, content: "" }]);
+      expect(result.valid).toBe(false);
+    }
+    const duplicate = validateWorkspaceFiles([
+      { id: "file-1", path: "README.md", content: "" },
+      { id: "file-2", path: "README.md", content: "" },
+    ]);
+    expect(duplicate.valid).toBe(false);
+  });
+
+  it("generates workspace zip base64 with the fixed workspace filename", async () => {
+    const base64 = await workspaceFilesToBase64([
+      { id: "file-1", path: "README.md", content: "hello" },
+      { id: "file-2", path: "src/app.ts", content: "export const ok = true;" },
+    ]);
+
+    expect(GENERATED_WORKSPACE_NAME).toBe("workspace.generated.zip");
+    expect(base64.length).toBeGreaterThan(20);
+    expect(() => atob(base64)).not.toThrow();
   });
 
   it("calculates semantic version bumps", () => {

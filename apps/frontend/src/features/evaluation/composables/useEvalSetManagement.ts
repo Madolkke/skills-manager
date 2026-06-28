@@ -1,7 +1,7 @@
 import { computed, ref, watch, type ComputedRef } from "vue";
 import { api, ApiError } from "../../../lib/api";
 import type { RouteState } from "../../../lib/navigation";
-import { cleanCaseForm, filterCases, sortCases, type CaseSortKey } from "../lib/evalCaseManagement";
+import { buildCopiedEvalCasePayload, cleanCaseForm, filterCases, sortCases, workspaceFileName, type CaseSortKey } from "../lib/evalCaseManagement";
 import type { EvalCaseFormData } from "../lib/evalCaseForm";
 import type { EvalCaseLibraryItem, EvalSetCase, EvalSetDetail, EvalSetSummary, SkillDetail, ToastState } from "../../../types";
 
@@ -165,6 +165,29 @@ export function useEvalSetManagement(input: UseEvalSetManagementInput) {
     }
   }
 
+  /** 创建当前测试例的独立副本，并加入当前测评集。 */
+  async function copyCase(item: EvalSetCase): Promise<void> {
+    if (!selectedEvalSetId.value || !canLeaveEditor()) return;
+    busy.value = true;
+    try {
+      const workspace = item.case_version.workspace_artifact
+        ? {
+            workspaceBase64: await api.downloadArtifactBase64(item.case_version.workspace_artifact.id),
+            workspaceName: workspaceFileName(item.case_version.workspace_artifact.locator),
+          }
+        : {};
+      const payload = buildCopiedEvalCasePayload(item, { evalSetId: selectedEvalSetId.value, ...workspace });
+      const saved = await api.createEvalCase({ skill_id: input.skill.value.skill.id, ...payload });
+      await reloadAfterMutation();
+      input.navigate({ selectedCaseId: saved.eval_case_id, selectedEvalSetId: saved.eval_set_id });
+      input.toast({ tone: "success", message: "测试例副本已创建。" });
+    } catch (caught) {
+      input.toast({ tone: "danger", message: errorMessage(caught) });
+    } finally {
+      busy.value = false;
+    }
+  }
+
   /** 调整当前测评集内测试例顺序。 */
   async function moveCase(item: EvalSetCase, direction: -1 | 1): Promise<void> {
     if (!selectedEvalSetId.value || caseSort.value !== "position") return;
@@ -270,6 +293,7 @@ export function useEvalSetManagement(input: UseEvalSetManagementInput) {
     selectedEvalSetId,
     addExistingCase,
     cancelEditor,
+    copyCase,
     createEvalSet,
     moveCase,
     openLibrary,

@@ -1,6 +1,9 @@
 import type { EvalSetCase } from "../../../types";
 import { cleanRunnerConfig, type EvalCaseFormData } from "./evalCaseForm";
 
+const EVAL_CASE_TITLE_MAX_LENGTH = 160;
+const COPY_SUFFIX = "（副本）";
+
 export type CaseSortKey = "position" | "title" | "version";
 export type CleanEvalCaseFormOptions = {
   includePreserveWorkspace?: boolean;
@@ -45,4 +48,37 @@ export function cleanCaseForm(form: EvalCaseFormData, options: CleanEvalCaseForm
 
 export function workspaceFileName(locator: string): string {
   return locator.split(":").at(-1) || "workspace.zip";
+}
+
+export function copyEvalCaseTitle(title: string): string {
+  const clean = title.trim() || "未命名测试例";
+  const maxBaseLength = EVAL_CASE_TITLE_MAX_LENGTH - COPY_SUFFIX.length;
+  return `${clean.slice(0, Math.max(0, maxBaseLength))}${COPY_SUFFIX}`;
+}
+
+export function buildCopiedEvalCasePayload(
+  item: EvalSetCase,
+  options: { evalSetId: string; workspaceBase64?: string; workspaceName?: string },
+) {
+  const payload = {
+    eval_set_id: options.evalSetId,
+    title: copyEvalCaseTitle(item.case.title),
+    steps: item.case_version.steps.map((step) => ({
+      id: step.id,
+      title: step.title,
+      input: step.input,
+      assertions: step.assertions.map((assertion) => ({
+        id: assertion.id,
+        assertion_template_id: assertion.assertion_template_id,
+        assertion_params: { ...assertion.assertion_params },
+      })),
+    })),
+    runner_config: cleanRunnerConfig(item.case_version.runner_config),
+    notes: item.case_version.notes ?? undefined,
+    workspace_name: options.workspaceName,
+    workspace_base64: options.workspaceBase64,
+  };
+  if (!payload.workspace_name) delete payload.workspace_name;
+  if (!payload.workspace_base64) delete payload.workspace_base64;
+  return payload;
 }

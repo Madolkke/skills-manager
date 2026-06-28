@@ -1,10 +1,12 @@
 import type { EvalAssertionTemplate, EvalCaseStep, EvalRunnerConfig, EvalSetCase, EvalStepAssertion } from "../../../types";
+import type { WorkspaceFileDraft } from "./workspaceDraft";
 
 export type EvalCaseFormData = {
   title: string;
   steps: EvalCaseStep[];
   workspace_name?: string;
   workspace_base64?: string;
+  workspace_files?: WorkspaceFileDraft[];
   runner_config: EvalRunnerConfig;
   notes: string;
 };

@@ -202,6 +202,10 @@ function errorMessage(caught: unknown): string {
                 <Trash2 :size="16" />
                 移除引用
               </button>
+              <button class="secondary-button" type="button" :disabled="!canManageEval || manager.busy.value" @click="manager.copyCase(manager.selected.value)">
+                <Copy :size="16" />
+                复制测试例
+              </button>
               <button class="primary-button" type="button" :disabled="!canManageEval" @click="manager.startEdit(manager.selected.value)">编辑测试例</button>
             </div>
           </header>
