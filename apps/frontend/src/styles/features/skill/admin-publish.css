@@ -12,6 +12,7 @@
 
 .admin-publish-filter-stack,
 .admin-publish-table,
+.admin-publish-table-body,
 .admin-publish-group-list {
   display: grid;
   gap: 12px;

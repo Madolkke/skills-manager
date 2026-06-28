@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDown } from "lucide-vue-next";
 import clsx from "clsx";
 import { computed, ref, watch } from "vue";
 import DropdownSelect from "../../../components/DropdownSelect.vue";
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 }>();
 
 const categoryFilter = ref("all");
+const collapsedAssertionIds = ref<Set<string>>(new Set());
 const templateQuery = ref("");
 const sortedGroups = computed(() => [...props.groupedTemplates].sort((left, right) => categoryRank(left.category) - categoryRank(right.category) || left.category.localeCompare(right.category)));
 const categoryOptions = computed<DropdownSelectOption[]>(() => [
@@ -49,10 +51,38 @@ watch(() => props.groupedTemplates.map((group) => `${group.category}:${group.ite
   }
 }, { immediate: true });
 
+watch(() => props.step, () => {
+  collapsedAssertionIds.value = new Set();
+});
+
+watch(() => props.step.assertions.map((assertion) => assertion.id).join("|"), () => {
+  const activeIds = new Set(props.step.assertions.map((assertion, index) => assertionKey(assertion, index)));
+  collapsedAssertionIds.value = new Set([...collapsedAssertionIds.value].filter((id) => activeIds.has(id)));
+});
+
 /** 读取指定判断条件参数值，保证输入控件始终收到可显示的字符串或数字。 */
 function paramValue(assertion: EvalStepAssertion, name: string): string | number {
   const value = assertion.assertion_params[name];
   return typeof value === "number" || typeof value === "string" ? value : "";
+}
+
+/** 为本地新建但尚未保存的判断条件生成稳定折叠 key。 */
+function assertionKey(assertion: EvalStepAssertion, index: number): string {
+  return assertion.id || `assertion-${index + 1}`;
+}
+
+/** 判断当前判断条件是否处于折叠态。 */
+function assertionCollapsed(assertion: EvalStepAssertion, index: number): boolean {
+  return collapsedAssertionIds.value.has(assertionKey(assertion, index));
+}
+
+/** 切换单个判断条件的折叠状态。 */
+function toggleAssertion(assertion: EvalStepAssertion, index: number): void {
+  const key = assertionKey(assertion, index);
+  const next = new Set(collapsedAssertionIds.value);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  collapsedAssertionIds.value = next;
 }
 
 /** 按产品指定顺序排列已知分类，未知分类稳定追加在末尾。 */
@@ -156,63 +186,79 @@ function templateCount(groups: Array<{ items?: unknown[]; options?: unknown[] }>
       </div>
 
       <div class="scenario-assertion-list">
-        <article v-for="(assertion, assertionIndex) in step.assertions" :key="assertion.id" class="scenario-assertion-card">
+        <article
+          v-for="(assertion, assertionIndex) in step.assertions"
+          :key="assertionKey(assertion, assertionIndex)"
+          :class="clsx('scenario-assertion-card', assertionCollapsed(assertion, assertionIndex) && 'collapsed')"
+        >
           <header>
-            <div>
-              <strong>判断条件 {{ assertionIndex + 1 }}</strong>
-              <span>{{ templateFor(assertion.assertion_template_id)?.category ?? "未加载" }}</span>
-            </div>
+            <button
+              class="scenario-assertion-summary"
+              type="button"
+              :aria-expanded="!assertionCollapsed(assertion, assertionIndex)"
+              @click="toggleAssertion(assertion, assertionIndex)"
+            >
+              <div>
+                <strong>判断条件 {{ assertionIndex + 1 }}</strong>
+                <span>{{ templateFor(assertion.assertion_template_id)?.category ?? "未加载" }}</span>
+              </div>
+              <ChevronDown :class="clsx(!assertionCollapsed(assertion, assertionIndex) && 'open')" :size="16" />
+            </button>
             <button class="secondary-button compact" type="button" :disabled="step.assertions.length === 1" @click="emit('removeAssertion', assertion.id)">删除</button>
           </header>
 
-          <label class="field-label compact">
-            判断模板
-            <DropdownSelect
-              :model-value="assertion.assertion_template_id"
-              :groups="templateGroupsFor(assertion)"
-              :placeholder="filteredTemplateCount ? '选择判断模板' : '没有匹配的模板'"
-              aria-label="判断模板"
-              @update:model-value="emit('template', { assertionId: assertion.id, templateId: $event })"
-            />
-            <span class="field-help">当前筛选出 {{ filteredTemplateCount }} 个模板。切换模板后，本条件的参数会自动刷新。</span>
-          </label>
+          <Transition name="history-collapse">
+            <div v-if="!assertionCollapsed(assertion, assertionIndex)" class="scenario-assertion-body">
+              <label class="field-label compact">
+                判断模板
+                <DropdownSelect
+                  :model-value="assertion.assertion_template_id"
+                  :groups="templateGroupsFor(assertion)"
+                  :placeholder="filteredTemplateCount ? '选择判断模板' : '没有匹配的模板'"
+                  aria-label="判断模板"
+                  @update:model-value="emit('template', { assertionId: assertion.id, templateId: $event })"
+                />
+                <span class="field-help">当前筛选出 {{ filteredTemplateCount }} 个模板。切换模板后，本条件的参数会自动刷新。</span>
+              </label>
 
-          <div class="assertion-template-summary">
-            <span>当前判断条件</span>
-            <strong>{{ templateFor(assertion.assertion_template_id)?.name ?? "模板加载中" }}</strong>
-            <p>{{ templateFor(assertion.assertion_template_id)?.description ?? "正在加载可用判断模板..." }}</p>
-          </div>
+              <div class="assertion-template-summary">
+                <span>当前判断条件</span>
+                <strong>{{ templateFor(assertion.assertion_template_id)?.name ?? "模板加载中" }}</strong>
+                <p>{{ templateFor(assertion.assertion_template_id)?.description ?? "正在加载可用判断模板..." }}</p>
+              </div>
 
-          <section class="scenario-param-grid">
-            <label v-for="param in templateFor(assertion.assertion_template_id)?.params_schema ?? []" :key="param.name" class="field-label">
-              {{ param.label }}
-              <textarea
-                v-if="param.type === 'textarea'"
-                :value="paramValue(assertion, param.name)"
-                :placeholder="param.placeholder"
-                :required="param.required"
-                @input="emit('param', { assertionId: assertion.id, name: param.name, value: ($event.target as HTMLTextAreaElement).value })"
-              />
-              <input
-                v-else-if="param.type === 'number'"
-                :value="paramValue(assertion, param.name)"
-                type="number"
-                step="0.01"
-                :min="param.min ?? undefined"
-                :max="param.max ?? undefined"
-                :required="param.required"
-                @input="emit('param', { assertionId: assertion.id, name: param.name, value: Number(($event.target as HTMLInputElement).value) })"
-              >
-              <input
-                v-else
-                :value="paramValue(assertion, param.name)"
-                :placeholder="param.placeholder"
-                :required="param.required"
-                @input="emit('param', { assertionId: assertion.id, name: param.name, value: ($event.target as HTMLInputElement).value })"
-              >
-              <span v-if="param.help" class="field-help">{{ param.help }}</span>
-            </label>
-          </section>
+              <section class="scenario-param-grid">
+                <label v-for="param in templateFor(assertion.assertion_template_id)?.params_schema ?? []" :key="param.name" class="field-label">
+                  {{ param.label }}
+                  <textarea
+                    v-if="param.type === 'textarea'"
+                    :value="paramValue(assertion, param.name)"
+                    :placeholder="param.placeholder"
+                    :required="param.required"
+                    @input="emit('param', { assertionId: assertion.id, name: param.name, value: ($event.target as HTMLTextAreaElement).value })"
+                  />
+                  <input
+                    v-else-if="param.type === 'number'"
+                    :value="paramValue(assertion, param.name)"
+                    type="number"
+                    step="0.01"
+                    :min="param.min ?? undefined"
+                    :max="param.max ?? undefined"
+                    :required="param.required"
+                    @input="emit('param', { assertionId: assertion.id, name: param.name, value: Number(($event.target as HTMLInputElement).value) })"
+                  >
+                  <input
+                    v-else
+                    :value="paramValue(assertion, param.name)"
+                    :placeholder="param.placeholder"
+                    :required="param.required"
+                    @input="emit('param', { assertionId: assertion.id, name: param.name, value: ($event.target as HTMLInputElement).value })"
+                  >
+                  <span v-if="param.help" class="field-help">{{ param.help }}</span>
+                </label>
+              </section>
+            </div>
+          </Transition>
         </article>
       </div>
     </section>

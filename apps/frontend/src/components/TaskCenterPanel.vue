@@ -39,25 +39,27 @@ function dateText(value?: string): string {
       title="当前没有需要处理的任务"
       description="新的评审、通知、运行中测评和待确认发布会出现在这里。"
     />
-    <div v-else class="task-center-groups">
+    <TransitionGroup v-else name="list-motion" tag="div" class="task-center-groups">
       <section v-for="group in groups" :key="group.id" class="task-center-group">
         <h3>{{ group.label }}</h3>
-        <button
-          v-for="item in group.items"
-          :key="item.id"
-          :class="['task-center-item', item.tone]"
-          type="button"
-          @click="emit('open', item)"
-        >
-          <span class="task-center-item-icon" aria-hidden="true"><Bell :size="15" /></span>
-          <span class="task-center-item-copy">
-            <strong>{{ item.title }}</strong>
-            <small>{{ item.description }}</small>
-            <time v-if="dateText(item.createdAt)">{{ dateText(item.createdAt) }}</time>
-          </span>
-          <span class="task-center-item-action">{{ item.actionLabel }}</span>
-        </button>
+        <TransitionGroup name="list-motion" tag="div" class="task-center-item-list">
+          <button
+            v-for="item in group.items"
+            :key="item.id"
+            :class="['task-center-item', item.tone]"
+            type="button"
+            @click="emit('open', item)"
+          >
+            <span class="task-center-item-icon" aria-hidden="true"><Bell :size="15" /></span>
+            <span class="task-center-item-copy">
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.description }}</small>
+              <time v-if="dateText(item.createdAt)">{{ dateText(item.createdAt) }}</time>
+            </span>
+            <span class="task-center-item-action">{{ item.actionLabel }}</span>
+          </button>
+        </TransitionGroup>
       </section>
-    </div>
+    </TransitionGroup>
   </div>
 </template>

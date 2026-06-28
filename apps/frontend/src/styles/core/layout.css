@@ -262,6 +262,11 @@
   gap: 8px;
 }
 
+.task-center-item-list {
+  display: grid;
+  gap: 8px;
+}
+
 .task-center-group h3 {
   margin: 0;
   color: #475569;

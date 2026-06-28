@@ -48,6 +48,10 @@
   box-shadow: 0 8px 18px rgb(15 23 42 / 4%);
 }
 
+.scenario-assertion-card.collapsed {
+  gap: 0;
+}
+
 .scenario-assertion-card > header {
   min-width: 0;
   border-bottom: 1px solid #edf2f8;
@@ -58,7 +62,25 @@
   padding-bottom: 10px;
 }
 
-.scenario-assertion-card > header div {
+.scenario-assertion-card.collapsed > header {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.scenario-assertion-summary {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  text-align: left;
+}
+
+.scenario-assertion-summary div {
   min-width: 0;
   display: grid;
   gap: 3px;
@@ -73,6 +95,20 @@
   color: var(--muted);
   font-size: 13px;
   font-weight: 760;
+}
+
+.scenario-assertion-summary svg {
+  color: var(--muted);
+  transition: transform var(--motion-fast);
+}
+
+.scenario-assertion-summary svg.open {
+  transform: rotate(180deg);
+}
+
+.scenario-assertion-body {
+  display: grid;
+  gap: 12px;
 }
 
 @media (max-width: 900px) {

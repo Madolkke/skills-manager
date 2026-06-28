@@ -157,9 +157,9 @@ function clearFilters(): void {
         @action="clearFilters"
         @secondary="emit('create')"
       />
-      <div v-else :class="clsx('skill-grid', viewMode === 'list' && 'list-view')">
+      <TransitionGroup v-else name="list-motion" tag="div" :class="clsx('skill-grid', viewMode === 'list' && 'list-view')">
         <HubSkillCard v-for="item in sorted" :key="item.skill.id" :item="item" @click="emit('open-skill', item.skill.id)" />
-      </div>
+      </TransitionGroup>
     </section>
   </div>
 </template>

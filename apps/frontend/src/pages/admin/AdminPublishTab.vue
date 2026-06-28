@@ -284,7 +284,7 @@ function emitBatchCancel(): void {
         <span class="tag-chip muted">{{ filteredRecords.length }} 条发布记录</span>
       </div>
 
-      <div class="admin-publish-group-list">
+      <TransitionGroup name="list-motion" tag="div" class="admin-publish-group-list">
         <article v-for="group in pagedGroups" :key="group.key" class="admin-publish-group">
           <div class="admin-publish-group-head">
             <label class="admin-publish-check" @click.stop>
@@ -309,26 +309,28 @@ function emitBatchCancel(): void {
               <span>确认信息</span>
               <span></span>
             </div>
-            <div v-for="record in group.records" :key="record.id" class="admin-publish-table-row">
-              <label class="admin-publish-check">
-                <input type="checkbox" :checked="isSelected(record)" :disabled="record.status !== 'pending_confirmation'" @change="toggleRecord(record)" />
-              </label>
-              <div class="admin-publish-record-main">
-                <strong>{{ targetText(record) }}</strong>
-                <span>{{ versionText(record) }}</span>
-                <small>提交 {{ humanDate(record.created_at) }} · {{ record.created_by }}</small>
+            <TransitionGroup name="list-motion" tag="div" class="admin-publish-table-body">
+              <div v-for="record in group.records" :key="record.id" class="admin-publish-table-row">
+                <label class="admin-publish-check">
+                  <input type="checkbox" :checked="isSelected(record)" :disabled="record.status !== 'pending_confirmation'" @change="toggleRecord(record)" />
+                </label>
+                <div class="admin-publish-record-main">
+                  <strong>{{ targetText(record) }}</strong>
+                  <span>{{ versionText(record) }}</span>
+                  <small>提交 {{ humanDate(record.created_at) }} · {{ record.created_by }}</small>
+                </div>
+                <span :class="['admin-publish-status', statusTone(record)]">{{ statusText(record) }}</span>
+                <span class="admin-publish-confirm">{{ confirmText(record) }}</span>
+                <div class="button-row admin-publish-actions">
+                  <button v-if="record.status === 'pending_confirmation'" class="secondary-button" type="button" @click="emit('cancelRecord', record)">取消</button>
+                  <button v-if="record.status === 'pending_confirmation'" class="primary-button" type="button" @click="emit('confirmRecord', record)">确认发布</button>
+                </div>
               </div>
-              <span :class="['admin-publish-status', statusTone(record)]">{{ statusText(record) }}</span>
-              <span class="admin-publish-confirm">{{ confirmText(record) }}</span>
-              <div class="button-row admin-publish-actions">
-                <button v-if="record.status === 'pending_confirmation'" class="secondary-button" type="button" @click="emit('cancelRecord', record)">取消</button>
-                <button v-if="record.status === 'pending_confirmation'" class="primary-button" type="button" @click="emit('confirmRecord', record)">确认发布</button>
-              </div>
-            </div>
+            </TransitionGroup>
           </div>
         </article>
         <p v-if="!pagedGroups.length" class="field-help admin-publish-empty">没有匹配的发布记录。</p>
-      </div>
+      </TransitionGroup>
 
       <div class="admin-publish-pagination">
         <button class="secondary-button" type="button" :disabled="page <= 1" @click="setPage(page - 1)">上一页</button>

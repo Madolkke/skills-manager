@@ -99,9 +99,10 @@ function errorMessage(caught: unknown): string {
         @add="manager.addExistingCase"
         @close="manager.libraryOpen.value = false"
       />
-      <div class="case-list">
+      <TransitionGroup name="list-motion" tag="div" class="case-list">
         <button
           v-if="manager.editingMode.value === 'create'"
+          key="draft-create"
           type="button"
           :class="clsx('case-row', 'draft', manager.draftSelected.value && 'active')"
           @click="manager.draftSelected.value = true"
@@ -132,7 +133,7 @@ function errorMessage(caught: unknown): string {
             </span>
           </span>
         </button>
-      </div>
+      </TransitionGroup>
       <p class="case-count">共 {{ manager.detail.value?.cases.length ?? 0 }} 个测试例</p>
     </aside>
 

@@ -35,6 +35,10 @@
   font-weight: 820;
 }
 
+.runner-case-motion-list {
+  display: grid;
+}
+
 .runner-case-row {
   position: relative;
   width: 100%;

@@ -46,60 +46,69 @@ function finishUpload(): void {
       </button>
     </div>
 
-    <OverviewPage v-if="tab === 'overview'" :skill="skill" @navigate="emit('navigate', $event)" />
-    <VersionsPage
-      v-else-if="tab === 'versions'"
-      :skill="skill"
-      :selected-version-id="route.selectedVersionId"
-      :upload-open="uploadOpen"
-      @navigate="emit('navigate', $event)"
-      @upload-close="uploadOpen = false"
-      @uploaded="finishUpload"
-      @refresh="emit('refresh')"
-      @toast="emit('toast', $event)"
-    />
-    <EvalSetsPage
-      v-else-if="tab === 'evalsets'"
-      :skill="skill"
-      :selected-case-id="route.selectedCaseId"
-      :selected-eval-set-id="route.selectedEvalSetId"
-      @navigate="emit('navigate', $event)"
-      @refresh="emit('refresh')"
-      @toast="emit('toast', $event)"
-    />
-    <EvaluatePage
-      v-else-if="tab === 'evaluate'"
-      :skill="skill"
-      :selected-eval-set-id="route.selectedEvalSetId"
-      @refresh="emit('refresh')"
-      @navigate="emit('navigate', $event)"
-      @toast="emit('toast', $event)"
-    />
-    <HistoryPage
-      v-else-if="tab === 'history'"
-      :skill="skill"
-      :selected-run-id="route.selectedRunId"
-      :selected-eval-set-id="route.selectedEvalSetId"
-      @navigate="emit('navigate', $event)"
-      @toast="emit('toast', $event)"
-    />
-    <ReviewPage
-      v-else-if="tab === 'reviews'"
-      :skill="skill"
-      @refresh="emit('refresh')"
-      @toast="emit('toast', $event)"
-    />
-    <PublishPage
-      v-else-if="tab === 'publish'"
-      :skill="skill"
-      @toast="emit('toast', $event)"
-    />
-    <SettingsPage
-      v-else-if="tab === 'settings'"
-      :skill="skill"
-      @refresh="emit('refresh')"
-      @toast="emit('toast', $event)"
-    />
+    <Transition name="fade-slide" mode="out-in">
+      <OverviewPage v-if="tab === 'overview'" key="overview" :skill="skill" @navigate="emit('navigate', $event)" />
+      <VersionsPage
+        v-else-if="tab === 'versions'"
+        key="versions"
+        :skill="skill"
+        :selected-version-id="route.selectedVersionId"
+        :upload-open="uploadOpen"
+        @navigate="emit('navigate', $event)"
+        @upload-close="uploadOpen = false"
+        @uploaded="finishUpload"
+        @refresh="emit('refresh')"
+        @toast="emit('toast', $event)"
+      />
+      <EvalSetsPage
+        v-else-if="tab === 'evalsets'"
+        key="evalsets"
+        :skill="skill"
+        :selected-case-id="route.selectedCaseId"
+        :selected-eval-set-id="route.selectedEvalSetId"
+        @navigate="emit('navigate', $event)"
+        @refresh="emit('refresh')"
+        @toast="emit('toast', $event)"
+      />
+      <EvaluatePage
+        v-else-if="tab === 'evaluate'"
+        key="evaluate"
+        :skill="skill"
+        :selected-eval-set-id="route.selectedEvalSetId"
+        @refresh="emit('refresh')"
+        @navigate="emit('navigate', $event)"
+        @toast="emit('toast', $event)"
+      />
+      <HistoryPage
+        v-else-if="tab === 'history'"
+        key="history"
+        :skill="skill"
+        :selected-run-id="route.selectedRunId"
+        :selected-eval-set-id="route.selectedEvalSetId"
+        @navigate="emit('navigate', $event)"
+        @toast="emit('toast', $event)"
+      />
+      <ReviewPage
+        v-else-if="tab === 'reviews'"
+        key="reviews"
+        :skill="skill"
+        @refresh="emit('refresh')"
+        @toast="emit('toast', $event)"
+      />
+      <PublishPage
+        v-else-if="tab === 'publish'"
+        key="publish"
+        :skill="skill"
+        @toast="emit('toast', $event)"
+      />
+      <SettingsPage
+        v-else-if="tab === 'settings'"
+        key="settings"
+        :skill="skill"
+        @refresh="emit('refresh')"
+        @toast="emit('toast', $event)"
+      />
+    </Transition>
 
     <UploadVersionModal v-if="uploadOpen && tab === 'overview'" :skill="skill" @close="uploadOpen = false" @uploaded="finishUpload" />
   </div>

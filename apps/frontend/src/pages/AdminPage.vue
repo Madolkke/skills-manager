@@ -226,61 +226,69 @@ function showError(error: unknown): void {
         <button class="secondary-button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中..." : "刷新" }}</button>
       </div>
 
-      <AdminOverviewTab v-if="activeTab === 'overview'" :skills="skills" :groups="groups" :tag-groups="tagGroups" :roles="roles" />
-      <AdminGroupsTab
-        v-else-if="activeTab === 'groups'"
-        :groups="groups"
-        :selected-group-id="selectedGroupId"
-        @select="selectedGroupId = $event"
-        @create="createGroup"
-        @update="updateGroup"
-        @delete="deleteGroup"
-        @add-member="addGroupMember"
-        @remove-member="removeGroupMember"
-      />
-      <AdminTagGroupsTab
-        v-else-if="activeTab === 'tag-groups'"
-        :tag-groups="tagGroups"
-        :selected-tag-group-id="selectedTagGroupId"
-        @select="selectedTagGroupId = $event"
-        @create-group="createTagGroup"
-        @update-group="updateTagGroup"
-        @delete-group="deleteTagGroup"
-        @create-value="createTagValue"
-        @update-value="updateTagValue"
-        @delete-value="deleteTagValue"
-      />
-      <AdminRoleAssignmentsTab
-        v-else-if="activeTab === 'roles'"
-        :roles="roles"
-        :tag-groups="tagGroups"
-        :skills="skills"
-        @assign="assignRole"
-        @revoke="revokeRole"
-        @toast="emit('toast', { tone: 'danger', message: $event })"
-      />
-      <AdminSkillTagsTab
-        v-else-if="activeTab === 'skill-tags'"
-        :skills="skills"
-        :tag-groups="tagGroups"
-        :tag-drafts="tagDrafts"
-        @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
-        @save="saveSkillTags"
-      />
-      <AdminPublishTargetsTab
-        v-else-if="activeTab === 'publish-targets'"
-        :targets="publishTargets"
-        :checks="publishGateChecks"
-        @update="updatePublishTarget"
-      />
-      <AdminPublishTab
-        v-else
-        :records="publishRecords"
-        @confirm-record="confirmPublishRecord"
-        @cancel-record="cancelPublishRecord"
-        @batch-confirm="batchConfirmPublishRecords"
-        @batch-cancel="batchCancelPublishRecords"
-      />
+      <Transition name="fade-slide" mode="out-in">
+        <AdminOverviewTab v-if="activeTab === 'overview'" key="overview" :skills="skills" :groups="groups" :tag-groups="tagGroups" :roles="roles" />
+        <AdminGroupsTab
+          v-else-if="activeTab === 'groups'"
+          key="groups"
+          :groups="groups"
+          :selected-group-id="selectedGroupId"
+          @select="selectedGroupId = $event"
+          @create="createGroup"
+          @update="updateGroup"
+          @delete="deleteGroup"
+          @add-member="addGroupMember"
+          @remove-member="removeGroupMember"
+        />
+        <AdminTagGroupsTab
+          v-else-if="activeTab === 'tag-groups'"
+          key="tag-groups"
+          :tag-groups="tagGroups"
+          :selected-tag-group-id="selectedTagGroupId"
+          @select="selectedTagGroupId = $event"
+          @create-group="createTagGroup"
+          @update-group="updateTagGroup"
+          @delete-group="deleteTagGroup"
+          @create-value="createTagValue"
+          @update-value="updateTagValue"
+          @delete-value="deleteTagValue"
+        />
+        <AdminRoleAssignmentsTab
+          v-else-if="activeTab === 'roles'"
+          key="roles"
+          :roles="roles"
+          :tag-groups="tagGroups"
+          :skills="skills"
+          @assign="assignRole"
+          @revoke="revokeRole"
+          @toast="emit('toast', { tone: 'danger', message: $event })"
+        />
+        <AdminSkillTagsTab
+          v-else-if="activeTab === 'skill-tags'"
+          key="skill-tags"
+          :skills="skills"
+          :tag-groups="tagGroups"
+          :tag-drafts="tagDrafts"
+          @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
+          @save="saveSkillTags"
+        />
+        <AdminPublishTargetsTab
+          v-else-if="activeTab === 'publish-targets'"
+          key="publish-targets"
+          :targets="publishTargets"
+          :checks="publishGateChecks"
+          @update="updatePublishTarget"
+        />
+        <AdminPublishTab
+          v-else
+          key="publish"
+          :records="publishRecords"
+          @confirm-record="confirmPublishRecord"
+          @cancel-record="cancelPublishRecord"
+          @batch-confirm="batchConfirmPublishRecords"
+          @batch-cancel="batchCancelPublishRecords"
+        />
+      </Transition>
     </template>
   </div>
 </template>

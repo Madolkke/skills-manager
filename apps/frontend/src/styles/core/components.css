@@ -348,6 +348,68 @@
   transform: translateY(10px) scale(0.98);
 }
 
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity var(--motion-base), transform var(--motion-base);
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.fade-slide-leave-active {
+  position: absolute;
+}
+
+.list-motion-enter-active,
+.list-motion-leave-active {
+  transition: opacity var(--motion-base), transform var(--motion-base), max-height var(--motion-base), margin var(--motion-base), padding var(--motion-base);
+}
+
+.list-motion-move {
+  transition: transform var(--motion-base);
+}
+
+.list-motion-enter-from,
+.list-motion-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.99);
+  max-height: 0;
+  margin-block: 0;
+  padding-block: 0;
+}
+
+.status-pop {
+  animation: status-pop-in 420ms ease;
+}
+
+.status-bump-enter-active,
+.status-bump-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.status-bump-enter-from,
+.status-bump-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
+}
+
+@keyframes status-pop-in {
+  0% {
+    box-shadow: 0 0 0 0 rgb(37 99 235 / 0%);
+  }
+
+  45% {
+    box-shadow: 0 0 0 4px rgb(37 99 235 / 12%);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgb(37 99 235 / 0%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .primary-button,
   .secondary-button,
@@ -391,8 +453,19 @@
   }
 
   .toast-enter-active,
-  .toast-leave-active {
+  .toast-leave-active,
+  .fade-slide-enter-active,
+  .fade-slide-leave-active,
+  .status-bump-enter-active,
+  .status-bump-leave-active,
+  .list-motion-enter-active,
+  .list-motion-leave-active,
+  .list-motion-move {
     transition: none;
+  }
+
+  .status-pop {
+    animation: none;
   }
 
 }

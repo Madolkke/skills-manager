@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Copy, FileText, ListChecks } from "lucide-vue-next";
-import { computed } from "vue";
+import { ChevronDown, Copy, FileText, ListChecks } from "lucide-vue-next";
+import clsx from "clsx";
+import { computed, ref } from "vue";
 import { compactText } from "../../../lib/format";
 import type { EvalCaseStep, EvalStepAssertion } from "../../../types";
 
@@ -9,6 +10,7 @@ const emit = defineEmits<{ copy: [value: string] }>();
 
 type AssertionParamRow = { name: string; value: string; multiline: boolean };
 
+const openAssertionPanels = ref<Set<string>>(new Set());
 const stepCountLabel = computed(() => `${props.steps.length} 个步骤`);
 
 function copyAllSteps(): void {
@@ -48,6 +50,22 @@ function stepAssertions(step: EvalCaseStep): EvalStepAssertion[] {
 function assertionCountLabel(step: EvalCaseStep): string {
   const count = stepAssertions(step).length;
   return `${count} 个判断条件`;
+}
+
+function assertionPanelKey(step: EvalCaseStep, index: number): string {
+  return step.id || `step-${index + 1}`;
+}
+
+function assertionPanelOpen(step: EvalCaseStep, index: number): boolean {
+  return openAssertionPanels.value.has(assertionPanelKey(step, index));
+}
+
+function toggleAssertionPanel(step: EvalCaseStep, index: number): void {
+  const key = assertionPanelKey(step, index);
+  const next = new Set(openAssertionPanels.value);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  openAssertionPanels.value = next;
 }
 
 function paramSummary(params: Record<string, unknown> = {}): string {
@@ -112,24 +130,35 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
               <pre>{{ compactText(step.input, "无内容") }}</pre>
             </section>
             <section class="case-step-panel case-step-param-panel">
-              <header><ListChecks :size="15" /><span>判断条件</span></header>
-              <div class="case-step-assertion-list">
-                <article v-for="(assertion, assertionIndex) in stepAssertions(step)" :key="assertion.id" class="case-step-assertion-card">
-                  <div class="case-step-assertion-head">
-                    <strong>条件 {{ assertionIndex + 1 }}</strong>
-                    <span class="case-template-chip">{{ assertion.assertion_template_id }}</span>
-                    <small>{{ paramSummary(assertion.assertion_params) }}</small>
-                  </div>
-                  <p v-if="assertionParamRows(assertion.assertion_params).length === 0" class="case-step-empty">无需额外参数</p>
-                  <div v-else class="case-step-param-grid">
-                    <div v-for="row in assertionParamRows(assertion.assertion_params)" :key="row.name" class="case-param-row">
-                      <b>{{ row.name }}</b>
-                      <pre v-if="row.multiline" class="case-param-value">{{ row.value }}</pre>
-                      <span v-else class="case-param-value">{{ row.value }}</span>
+              <button
+                class="case-step-panel-toggle"
+                type="button"
+                :aria-expanded="assertionPanelOpen(step, index)"
+                @click="toggleAssertionPanel(step, index)"
+              >
+                <span><ListChecks :size="15" />判断条件</span>
+                <small>{{ assertionCountLabel(step) }}</small>
+                <ChevronDown :class="clsx(assertionPanelOpen(step, index) && 'open')" :size="16" />
+              </button>
+              <Transition name="history-collapse">
+                <div v-if="assertionPanelOpen(step, index)" class="case-step-assertion-list">
+                  <article v-for="(assertion, assertionIndex) in stepAssertions(step)" :key="assertion.id" class="case-step-assertion-card">
+                    <div class="case-step-assertion-head">
+                      <strong>条件 {{ assertionIndex + 1 }}</strong>
+                      <span class="case-template-chip">{{ assertion.assertion_template_id }}</span>
+                      <small>{{ paramSummary(assertion.assertion_params) }}</small>
                     </div>
-                  </div>
-                </article>
-              </div>
+                    <p v-if="assertionParamRows(assertion.assertion_params).length === 0" class="case-step-empty">无需额外参数</p>
+                    <div v-else class="case-step-param-grid">
+                      <div v-for="row in assertionParamRows(assertion.assertion_params)" :key="row.name" class="case-param-row">
+                        <b>{{ row.name }}</b>
+                        <pre v-if="row.multiline" class="case-param-value">{{ row.value }}</pre>
+                        <span v-else class="case-param-value">{{ row.value }}</span>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              </Transition>
             </section>
           </div>
         </div>

@@ -100,6 +100,38 @@
   margin-top: 6px;
 }
 
+.runner-assertion-toggle {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  border: 1px solid var(--soft-line);
+  border-radius: 999px;
+  background: white;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.runner-assertion-toggle:hover {
+  border-color: #b9c8db;
+  background: #f8fbff;
+  color: #334155;
+}
+
+.runner-assertion-toggle svg {
+  flex: 0 0 auto;
+  transition: transform var(--motion-fast);
+}
+
+.runner-assertion-toggle svg.open {
+  transform: rotate(180deg);
+}
+
 .runner-step-card p {
   color: var(--muted);
   line-height: 1.5;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Play } from "lucide-vue-next";
-import { computed } from "vue";
+import { ChevronDown, Play } from "lucide-vue-next";
+import clsx from "clsx";
+import { computed, ref, watch } from "vue";
 import OpencodeTraceDetails from "./OpencodeTraceDetails.vue";
 import RunnerDetailPanel from "./RunnerDetailPanel.vue";
 import { modelLabel, promptSourceLabel, stepTimelineRows, type RunnerState } from "../lib/evalRunner";
@@ -33,6 +34,23 @@ const runButtonDisabled = computed(() => {
   if (!props.active) return true;
   return props.runningCaseId === props.active.case_version.id || props.state.kind === "queued" || props.state.kind === "running";
 });
+const collapsedAssertionSteps = ref<Set<string>>(new Set());
+const timelineRows = computed(() => (props.active ? stepTimelineRows(props.active, props.run) : []));
+
+watch(() => props.active?.case_version.id, () => {
+  collapsedAssertionSteps.value = new Set(timelineRows.value.filter((step) => step.status === "pending").map((step) => step.id));
+}, { immediate: true });
+
+function assertionsCollapsed(stepId: string): boolean {
+  return collapsedAssertionSteps.value.has(stepId);
+}
+
+function toggleAssertions(stepId: string): void {
+  const next = new Set(collapsedAssertionSteps.value);
+  if (next.has(stepId)) next.delete(stepId);
+  else next.add(stepId);
+  collapsedAssertionSteps.value = next;
+}
 </script>
 
 <template>
@@ -55,24 +73,34 @@ const runButtonDisabled = computed(() => {
         </div>
       </header>
       <section class="runner-step-list" aria-label="测试步骤时间线">
-        <article v-for="step in stepTimelineRows(active, run)" :key="step.id" :class="['runner-step-card', step.status]">
+        <article v-for="step in timelineRows" :key="step.id" :class="['runner-step-card', step.status]">
           <header>
             <strong>{{ step.title }}</strong>
             <span>{{ step.label }}</span>
           </header>
-          <small>{{ step.assertions.length }} 个判断条件</small>
+          <button
+            class="runner-assertion-toggle"
+            type="button"
+            :aria-expanded="!assertionsCollapsed(step.id)"
+            @click="toggleAssertions(step.id)"
+          >
+            <span>{{ step.assertions.length }} 个判断条件</span>
+            <ChevronDown :class="clsx(!assertionsCollapsed(step.id) && 'open')" :size="16" />
+          </button>
           <pre>{{ step.input }}</pre>
           <p v-if="step.reason">{{ step.reason }}</p>
-          <div class="runner-step-assertions">
-            <article v-for="assertion in step.assertions" :key="assertion.id" :class="['runner-assertion-card', assertion.status]">
-              <header>
-                <strong>{{ assertion.assertionTemplateId }}</strong>
-                <span>{{ assertion.label }}</span>
-              </header>
-              <p v-if="assertion.reason">{{ assertion.reason }}</p>
-              <pre v-if="assertion.actual">{{ assertion.actual }}</pre>
-            </article>
-          </div>
+          <Transition name="history-collapse">
+            <div v-if="!assertionsCollapsed(step.id)" class="runner-step-assertions">
+              <article v-for="assertion in step.assertions" :key="assertion.id" :class="['runner-assertion-card', assertion.status]">
+                <header>
+                  <strong>{{ assertion.assertionTemplateId }}</strong>
+                  <span>{{ assertion.label }}</span>
+                </header>
+                <p v-if="assertion.reason">{{ assertion.reason }}</p>
+                <pre v-if="assertion.actual">{{ assertion.actual }}</pre>
+              </article>
+            </div>
+          </Transition>
           <pre v-if="step.actual">{{ step.actual }}</pre>
           <OpencodeTraceDetails :trace="step.opencodeTrace" />
         </article>
