@@ -207,6 +207,7 @@ def register_admin_routes(app: FastAPI) -> None:
             service.update_publish_target(
                 publish_target_id=publish_target_id,
                 enabled=payload.enabled,
+                auto_publish_enabled=payload.auto_publish_enabled,
                 gate_expression=payload.gate_expression,
             )
         )

@@ -24,6 +24,7 @@ class ReviewAdminMixin:
         *,
         publish_target_id: str,
         enabled: bool,
+        auto_publish_enabled: bool,
         gate_expression: dict[str, Any],
     ) -> dict[str, Any]:
         updated_at = utc_now()
@@ -37,6 +38,7 @@ class ReviewAdminMixin:
                 .where(tables.publish_targets.c.id == publish_target_id)
                 .values(
                     enabled=enabled,
+                    auto_publish_enabled=auto_publish_enabled,
                     gate_expression=normalized_expression,
                     config={},
                     updated_at=updated_at,
@@ -88,6 +90,8 @@ class ReviewAdminMixin:
             if record["status"] != "pending_confirmation":
                 raise InvariantError("Only pending publish records can be confirmed.")
             metadata = {"release_result": release_result}
+            if actor == "system:auto_publish":
+                metadata["auto_publish"] = True
             connection.execute(
                 update(tables.publish_records)
                 .where(tables.publish_records.c.id == publish_record_id)
@@ -102,6 +106,35 @@ class ReviewAdminMixin:
                     resource_id=publish_record_id,
                     payload={"publish_target_id": record["publish_target_id"], "skill_version_id": record["skill_version_id"]},
                     created_at=confirmed_at,
+                )
+            )
+            return self._publish_record_detail(connection, self._publish_record_row(connection, publish_record_id))
+
+    def apply_publish_failure(self, *, publish_record_id: str, actor: str, error_message: str, release_result: dict[str, Any] | None = None) -> dict[str, Any]:
+        failed_at = utc_now()
+        with self.engine.begin() as connection:
+            record = self._publish_record_row(connection, publish_record_id)
+            metadata = {
+                **(record["metadata"] or {}),
+                "auto_publish": actor == "system:auto_publish",
+                "release_error": error_message,
+            }
+            if release_result is not None:
+                metadata["release_result"] = release_result
+            connection.execute(
+                update(tables.publish_records)
+                .where(tables.publish_records.c.id == publish_record_id)
+                .values(status="failed", metadata=metadata, confirmed_at=failed_at, confirmed_by=actor)
+            )
+            connection.execute(
+                insert(tables.audit_events).values(
+                    id=new_id("audit"),
+                    actor_ref=actor,
+                    action="publish.failed",
+                    resource_type="publish_record",
+                    resource_id=publish_record_id,
+                    payload={"publish_target_id": record["publish_target_id"], "skill_version_id": record["skill_version_id"], "error": error_message},
+                    created_at=failed_at,
                 )
             )
             return self._publish_record_detail(connection, self._publish_record_row(connection, publish_record_id))

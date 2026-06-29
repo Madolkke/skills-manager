@@ -4,28 +4,33 @@ import BundleEditor from "../components/BundleEditor.vue";
 import VersionSelector from "../components/VersionSelector.vue";
 import { api, ApiError } from "../lib/api";
 import { nextPatchVersion, validSemver } from "../lib/semver";
-import type { BundleFile, BundleSource, SkillDetail, SkillVersion } from "../types";
-
-const ENTRY_PATH = "SKILL.md";
+import {
+  buildBundleSourceFromDraftFiles,
+  bundleFilesToDraftFiles,
+  defaultSkillBundleDraftFile,
+  SKILL_ENTRY_PATH,
+  validateBundleDraftFiles,
+} from "../lib/skillBundleDraft";
+import type { SkillDetail, SkillVersion } from "../types";
 
 const props = withDefaults(defineProps<{ skill: SkillDetail; version: SkillVersion; actionsClassName?: string }>(), { actionsClassName: "modal-actions" });
 const emit = defineEmits<{ cancel: []; saved: [] }>();
 
 const files = computed(() => props.version.bundle_files ?? []);
-const entryFile = computed(() => files.value.find((file) => file.path === ENTRY_PATH) ?? null);
-const drafts = ref(textDrafts(files.value));
+const draftFiles = ref(bundleFilesToDraftFiles(files.value));
+const validation = computed(() => validateBundleDraftFiles(draftFiles.value));
+const entryFile = computed(() => draftFiles.value.find((file) => file.path.trim() === SKILL_ENTRY_PATH) ?? null);
 const version = ref(nextPatchVersion(props.skill.versions));
 const displayName = ref("");
 const changeSummary = ref(`基于 ${versionLabel(props.version)} 编辑 Skill 内容。`);
 const busy = ref(false);
 const error = ref<string | null>(null);
-const missingBinaryContent = computed(() => files.value.some((file) => file.binary && !file.content_base64));
 const canSubmit = computed(
   () =>
     !busy.value &&
-    files.value.length > 0 &&
     validSemver(version.value) &&
-    Boolean(entryFile.value && !entryFile.value.binary && drafts.value[ENTRY_PATH]?.trim() && changeSummary.value.trim() && !missingBinaryContent.value),
+    validation.value.valid &&
+    Boolean(entryFile.value && !entryFile.value.binary && entryFile.value.content_text?.trim() && changeSummary.value.trim()),
 );
 
 async function submit(): Promise<void> {
@@ -34,7 +39,7 @@ async function submit(): Promise<void> {
   try {
     await api.createSkillVersion({
       skill_id: props.skill.skill.id,
-      source: sourceFromBundle(files.value, drafts.value, props.skill.skill.slug),
+      source: buildBundleSourceFromDraftFiles(draftFiles.value, props.skill.skill.slug),
       make_current: true,
       version: version.value.trim(),
       display_name: cleanOptional(displayName.value),
@@ -48,24 +53,6 @@ async function submit(): Promise<void> {
   }
 }
 
-function sourceFromBundle(bundleFiles: BundleFile[], values: Record<string, string>, slug: string): BundleSource {
-  return {
-    kind: "files",
-    name: slug,
-    files: bundleFiles.map((file) => filePayload(file, values)),
-  };
-}
-
-function filePayload(file: BundleFile, values: Record<string, string>): { path: string; content_text?: string; content_base64?: string } {
-  if (!file.binary) return { path: file.path, content_text: values[file.path] ?? file.content_text ?? "" };
-  if (file.content_base64) return { path: file.path, content_base64: file.content_base64 };
-  throw new Error(`当前 bundle 的二进制文件 ${file.path} 缺少内容，无法从页面编辑保存。`);
-}
-
-function textDrafts(bundleFiles: BundleFile[]): Record<string, string> {
-  return Object.fromEntries(bundleFiles.filter((file) => !file.binary).map((file) => [file.path, file.content_text ?? ""]));
-}
-
 function cleanOptional(value: string): string | undefined {
   const clean = value.trim();
   return clean || undefined;
@@ -73,6 +60,26 @@ function cleanOptional(value: string): string | undefined {
 
 function versionLabel(version: SkillVersion): string {
   return version.display_name?.trim() || version.version || `v${version.version_number}`;
+}
+
+/** 添加一个新的文本文件，并交给 BundleEditor 自动选中。 */
+function addFile(): void {
+  draftFiles.value = [...draftFiles.value, defaultSkillBundleDraftFile(draftFiles.value)];
+}
+
+/** 删除非入口文件。 */
+function removeFile(id: string): void {
+  draftFiles.value = draftFiles.value.filter((file) => file.id !== id || file.path.trim() === SKILL_ENTRY_PATH);
+}
+
+/** 更新文件路径，保存前会统一校验。 */
+function updatePath(id: string, path: string): void {
+  draftFiles.value = draftFiles.value.map((file) => (file.id === id ? { ...file, path } : file));
+}
+
+/** 更新文本文件内容。 */
+function updateContent(id: string, content: string): void {
+  draftFiles.value = draftFiles.value.map((file) => (file.id === id && !file.binary ? { ...file, content_text: content } : file));
 }
 </script>
 
@@ -82,7 +89,7 @@ function versionLabel(version: SkillVersion): string {
     <div class="hint-strip">保存后会追加新的 Skill 版本，并设置为当前版本。</div>
     <div v-if="!entryFile" class="form-error">当前 bundle 找不到根目录 SKILL.md，无法使用页面编辑。</div>
     <div v-if="entryFile?.binary" class="form-error">SKILL.md 不是可编辑文本文件。</div>
-    <div v-if="missingBinaryContent" class="form-error">当前 bundle 有缺少内容的二进制文件，无法从页面编辑保存。</div>
+    <div v-for="globalError in validation.globalErrors" :key="globalError" class="form-error">{{ globalError }}</div>
     <VersionSelector v-model="version" :versions="skill.versions" />
     <label class="field-label">
       <span>版本名称</span>
@@ -93,14 +100,13 @@ function versionLabel(version: SkillVersion): string {
       <input v-model="changeSummary" maxlength="500" />
     </label>
     <BundleEditor
-      :files="files"
-      :drafts="drafts"
+      :files="draftFiles"
+      :validation="validation"
       :root-label="skill.skill.slug"
-      @draft-change="
-        (path, content) => {
-          drafts = { ...drafts, [path]: content };
-        }
-      "
+      @add="addFile"
+      @remove="removeFile"
+      @path-change="updatePath"
+      @content-change="updateContent"
     />
     <div :class="actionsClassName">
       <button class="secondary-button" type="button" @click="emit('cancel')">取消</button>

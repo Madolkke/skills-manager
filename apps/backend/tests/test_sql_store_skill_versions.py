@@ -93,6 +93,18 @@ class SqlStoreSkillVersionTest(SqlStoreTestCase):
         self.assertEqual(result.version, "0.1.0")
         self.assertEqual(version["version"], "0.1.0")
 
+    def test_duplicate_skill_slug_is_rejected_globally(self):
+        self.create_skill(slug="global-duplicate", digest="digest-global-duplicate-1")
+
+        with self.assertRaisesRegex(Exception, "Skill ID 已存在"):
+            self.store.create_skill(
+                slug="global-duplicate",
+                owner_ref="other-owner",
+                content_ref=ContentRef(kind="skill_bundle", locator="memory:global-duplicate", digest="digest-global-duplicate-2"),
+                change_summary="Initial version.",
+                actor="tester",
+            )
+
     def test_duplicate_semver_is_rejected_per_skill(self):
         skill = self.create_skill()
 

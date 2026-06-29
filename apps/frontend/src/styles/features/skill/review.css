@@ -199,6 +199,13 @@
   padding: 18px;
 }
 
+.publish-target-switches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .switch-line {
   display: inline-flex;
   align-items: center;

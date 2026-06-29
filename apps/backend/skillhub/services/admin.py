@@ -103,8 +103,13 @@ class AdminService(ServiceBase[SkillHubStore]):
     def list_publish_gate_checks(self) -> Any:
         return self.store.list_publish_gate_checks()
 
-    def update_publish_target(self, *, publish_target_id: str, enabled: bool, gate_expression: dict[str, Any]) -> Any:
-        return self.store.update_publish_target(publish_target_id=publish_target_id, enabled=enabled, gate_expression=gate_expression)
+    def update_publish_target(self, *, publish_target_id: str, enabled: bool, auto_publish_enabled: bool, gate_expression: dict[str, Any]) -> Any:
+        return self.store.update_publish_target(
+            publish_target_id=publish_target_id,
+            enabled=enabled,
+            auto_publish_enabled=auto_publish_enabled,
+            gate_expression=gate_expression,
+        )
 
     def list_publish_records(self) -> Any:
         return self.store.list_publish_records()

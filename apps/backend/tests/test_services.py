@@ -117,7 +117,18 @@ class FakeStore:
 
     def apply_review_closure(self, **kwargs):
         self.calls.append(("apply_review_closure", kwargs))
-        return {"id": kwargs["review_id"], "status": "closed", "auto_publish_target_ids": kwargs["auto_publish_target_ids"]}
+        return {
+            "id": kwargs["review_id"],
+            "status": "closed",
+            "auto_publish_target_ids": kwargs["auto_publish_target_ids"],
+            "publish_records": [
+                {
+                    "id": "publish_auto",
+                    "status": "pending_confirmation",
+                    "publish_target": {"auto_publish_enabled": True},
+                }
+            ],
+        }
 
     def create_publish_record(self, **kwargs):
         self.calls.append(("create_publish_record", kwargs))
@@ -178,6 +189,10 @@ class FakeStore:
     def apply_publish_confirmation(self, **kwargs):
         self.calls.append(("apply_publish_confirmation", kwargs))
         return {"id": kwargs["publish_record_id"], "status": "released", "metadata": {"release_result": kwargs["release_result"]}}
+
+    def apply_publish_failure(self, **kwargs):
+        self.calls.append(("apply_publish_failure", kwargs))
+        return {"id": kwargs["publish_record_id"], "status": "failed", "metadata": {"release_error": kwargs["error_message"]}}
 
     def publish_cancellation_snapshot(self, **kwargs):
         self.calls.append(("publish_cancellation_snapshot", kwargs))
@@ -297,7 +312,6 @@ def test_skill_service_import_skill_stores_bundle_then_creates_skill() -> None:
     result = service.import_skill(
         bundle=FakeBundle(),
         owner_ref="owner",
-        display_name="Reviewer",
         version="1.0.0",
         tags=[{"group_id": "domain", "value": "api"}],
         actor="actor",
@@ -327,7 +341,6 @@ def test_skill_service_import_skill_parses_source_before_creating_skill() -> Non
             ],
         },
         owner_ref="owner",
-        display_name=None,
         version=None,
         tags=[],
         actor="actor",
@@ -347,7 +360,6 @@ def test_skill_service_creates_initial_skill_version_with_defaults() -> None:
         owner_ref="owner",
         content_ref=content_ref,
         change_summary=None,
-        display_name=None,
         version=None,
         tags=[],
         actor="actor",
@@ -527,10 +539,27 @@ def test_review_service_closes_review_with_domain_policy_decision() -> None:
 
     closed = service.close_review(review_id="review_1", actor="maintainer")
 
-    assert closed == {"id": "review_1", "status": "closed", "auto_publish_target_ids": ["target_auto"]}
-    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure"]
+    assert closed == {"id": "review_1"}
+    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure", "publish_confirmation_snapshot", "apply_publish_confirmation", "review_detail"]
     assert store.calls[1][1]["summary"]["checks_passed"] is True
     assert store.calls[1][1]["auto_publish_target_ids"] == ["target_auto"]
+    assert store.calls[3][1]["actor"] == "system:auto_publish"
+
+
+def test_review_service_records_auto_publish_failure_without_reopening_review(monkeypatch) -> None:
+    def fail_publish_release(_payload):
+        raise RuntimeError("publish hook failed")
+
+    monkeypatch.setattr("skillhub.services.reviews.perform_publish_release", fail_publish_release)
+    store = FakeStore()
+    service = ReviewService(store)
+
+    closed = service.close_review(review_id="review_1", actor="maintainer")
+
+    assert closed == {"id": "review_1"}
+    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure", "publish_confirmation_snapshot", "apply_publish_failure", "review_detail"]
+    assert store.calls[3][1]["actor"] == "system:auto_publish"
+    assert store.calls[3][1]["error_message"] == "publish hook failed"
 
 
 def test_review_service_submits_response_after_snapshot_validation() -> None:

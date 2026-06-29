@@ -21,7 +21,7 @@ create table skills (
   lifecycle_status text not null default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint skills_owner_slug_unique unique (owner_ref, slug),
+  constraint skills_slug_unique unique (slug),
   constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))
 );
 
@@ -245,6 +245,7 @@ create table publish_targets (
   name text not null,
   description text not null default '',
   enabled boolean not null default true,
+  auto_publish_enabled boolean not null default false,
   gate_expression jsonb not null default '{}'::jsonb,
   config jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),

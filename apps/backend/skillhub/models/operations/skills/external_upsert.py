@@ -59,7 +59,6 @@ class ExternalSkillUpsertCommandMixin:
             skill = (
                 connection.execute(
                     select(tables.skills)
-                    .where(tables.skills.c.owner_ref == owner_ref)
                     .where(tables.skills.c.slug == slug)
                     .where(tables.skills.c.lifecycle_status == "active")
                 )
@@ -76,6 +75,8 @@ class ExternalSkillUpsertCommandMixin:
                     "next_version_number": 1,
                     "next_version": "0.0.1",
                 }
+            if skill["owner_ref"] != owner_ref:
+                raise skill_slug_conflict(slug, owner_ref)
             skill_id = skill["id"]
             return {
                 "operation": "updated",
@@ -123,7 +124,7 @@ class ExternalSkillUpsertCommandMixin:
                     if skill["owner_ref"] != owner_ref or skill["slug"] != slug or skill["lifecycle_status"] != "active":
                         raise FieldInvariantError(
                             "External skill upsert target changed.",
-                            [FieldError(field="slug", message="该用户下 Skill ID 状态已变化，请重试。", code="skill.upsert_target_changed")],
+                            [FieldError(field="slug", message="Skill ID 状态已变化，请重试。", code="skill.upsert_target_changed")],
                         )
                 bundle_artifact_id = self._insert_text_artifact(
                     connection,

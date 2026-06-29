@@ -107,7 +107,7 @@ class SchemaContractTest(unittest.TestCase):
 
     def test_append_only_version_uniqueness_constraints_exist(self):
         for constraint in [
-            "unique (owner_ref, slug)",
+            "unique (slug)",
             "unique (skill_id, version_number)",
             "unique (skill_id, version)",
             "unique (case_id, version_number)",
@@ -221,6 +221,7 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("foreign key (skill_version_id, skill_id) references skill_versions(id, skill_id)", self._table_sql("review_requests"))
         self.assertIn("score integer not null", self._table_sql("review_responses"))
         self.assertIn("check (score in (-1, 0, 1))", self._table_sql("review_responses"))
+        self.assertIn("auto_publish_enabled boolean not null default false", self._table_sql("publish_targets"))
         self.assertIn("gate_expression jsonb not null default '{}'::jsonb", self._table_sql("publish_targets"))
         self.assertIn("auto_submit_on_pass boolean not null default true", self._table_sql("review_request_publish_targets"))
         self.assertIn("check_snapshot jsonb not null default '[]'::jsonb", self._table_sql("publish_records"))

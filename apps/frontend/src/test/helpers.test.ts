@@ -11,6 +11,14 @@ import { runWaitHint } from "../lib/evalWaitHints";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
+import {
+  buildBundleSourceFromDraftFiles,
+  bundleFilesToDraftFiles,
+  createBlankSkillSource,
+  validateBlankSkillDraft,
+  validateBundleDraftFiles,
+  validateBundlePath,
+} from "../lib/skillBundleDraft";
 import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
@@ -189,6 +197,59 @@ describe("skill evidence helpers", () => {
       "removed:code-reviewer/tests/legacy.md",
       "unchanged:code-reviewer/prompts/review.md",
     ]);
+  });
+
+  it("builds a minimal blank Skill bundle source", () => {
+    const source = createBlankSkillSource({ slug: "code-reviewer", description: "Review code changes." });
+
+    expect(source).toEqual({
+      kind: "files",
+      name: "code-reviewer",
+      files: [
+        {
+          path: "SKILL.md",
+          content_text: "---\nname: code-reviewer\ndescription: Review code changes.\n---\n\n# code-reviewer\n",
+        },
+      ],
+    });
+    expect(validateBlankSkillDraft({ slug: "Code Reviewer", description: "Review code changes." }).valid).toBe(false);
+    expect(validateBlankSkillDraft({ slug: "code-reviewer", description: "" }).errors.description).toBe("填写 Skill 描述。");
+  });
+
+  it("validates Skill bundle file paths", () => {
+    for (const path of ["../x", "/x", "C:\\x", "a\\ b", "", "safe/../x"]) {
+      expect(validateBundlePath(path)).not.toBe("");
+    }
+    expect(validateBundlePath("prompts/review.md")).toBe("");
+    const duplicate = validateBundleDraftFiles([
+      { id: "file-1", path: "SKILL.md", binary: false, content_text: "---\nname: a\ndescription: a\n---\n" },
+      { id: "file-2", path: "SKILL.md", binary: false, content_text: "" },
+    ]);
+    expect(duplicate.valid).toBe(false);
+    expect(duplicate.errors["file-2"]).toBe("文件路径重复。");
+  });
+
+  it("builds editable Skill bundle source from draft files", () => {
+    const drafts = bundleFilesToDraftFiles([
+      { path: "SKILL.md", content_text: "---\nname: writer\ndescription: Writes docs.\n---\n", binary: false },
+      { path: "assets/logo.png", content_base64: "aGVsbG8=", binary: true },
+    ]);
+    const renamedBinary = drafts.map((file) => (file.path === "assets/logo.png" ? { ...file, path: "assets/icon.png" } : file));
+    const source = buildBundleSourceFromDraftFiles([
+      ...renamedBinary,
+      { id: "new-file", path: "prompts/guide.md", binary: false, content_text: "Write clearly." },
+    ], "writer");
+
+    expect(source).toEqual({
+      kind: "files",
+      name: "writer",
+      files: [
+        { path: "SKILL.md", content_text: "---\nname: writer\ndescription: Writes docs.\n---\n" },
+        { path: "assets/icon.png", content_base64: "aGVsbG8=" },
+        { path: "prompts/guide.md", content_text: "Write clearly." },
+      ],
+    });
+    expect(() => buildBundleSourceFromDraftFiles([{ id: "file-1", path: "notes.md", binary: false, content_text: "" }], "writer")).toThrow("必须保留根目录 SKILL.md。");
   });
 
   it("derives the API URL from the current browser host for LAN users", () => {

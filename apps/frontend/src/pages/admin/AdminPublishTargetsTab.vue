@@ -4,10 +4,11 @@ import type { PublishGateCheckDefinition, PublishGateCheckId, PublishGateExpress
 import AdminGateNodeEditor from "./AdminGateNodeEditor.vue";
 
 const props = defineProps<{ targets: PublishTarget[]; checks: PublishGateCheckDefinition[] }>();
-const emit = defineEmits<{ update: [targetId: string, payload: { enabled: boolean; gate_expression: PublishGateExpression }] }>();
+const emit = defineEmits<{ update: [targetId: string, payload: { enabled: boolean; auto_publish_enabled: boolean; gate_expression: PublishGateExpression }] }>();
 
 const selectedTargetId = ref("");
 const enabledDraft = ref(true);
+const autoPublishDraft = ref(false);
 const expressionDraft = ref<PublishGateExpression>(defaultExpression());
 
 const selectedTarget = computed(() => props.targets.find((target) => target.id === selectedTargetId.value) ?? props.targets[0] ?? null);
@@ -32,13 +33,14 @@ function syncDraft(): void {
   const target = selectedTarget.value;
   if (!target) return;
   enabledDraft.value = target.enabled;
+  autoPublishDraft.value = target.auto_publish_enabled;
   expressionDraft.value = cloneExpression(target.gate_expression || defaultExpression());
 }
 
 function save(): void {
   const target = selectedTarget.value;
   if (!target) return;
-  emit("update", target.id, { enabled: enabledDraft.value, gate_expression: expressionDraft.value });
+  emit("update", target.id, { enabled: enabledDraft.value, auto_publish_enabled: autoPublishDraft.value, gate_expression: expressionDraft.value });
 }
 
 function addCheck(group: PublishGateExpression): void {
@@ -120,7 +122,7 @@ function expressionSummary(expression: PublishGateExpression): string {
           @click="selectedTargetId = target.id"
         >
           <strong>{{ target.name }}</strong>
-          <span>{{ target.enabled ? "启用" : "禁用" }} · {{ expressionSummary(target.gate_expression) }}</span>
+          <span>{{ target.enabled ? "启用" : "禁用" }} · {{ target.auto_publish_enabled ? "自动发布" : "人工确认" }} · {{ expressionSummary(target.gate_expression) }}</span>
         </button>
       </div>
     </aside>
@@ -131,11 +133,18 @@ function expressionSummary(expression: PublishGateExpression): string {
           <h2>{{ selectedTarget.name }}</h2>
           <p>{{ selectedTarget.description }}</p>
         </div>
-        <label class="switch-line">
-          <input v-model="enabledDraft" type="checkbox" />
-          <span>{{ enabledDraft ? "启用" : "禁用" }}</span>
-        </label>
+        <div class="publish-target-switches">
+          <label class="switch-line">
+            <input v-model="enabledDraft" type="checkbox" />
+            <span>{{ enabledDraft ? "启用" : "禁用" }}</span>
+          </label>
+          <label class="switch-line">
+            <input v-model="autoPublishDraft" type="checkbox" :disabled="!enabledDraft" />
+            <span>{{ autoPublishDraft ? "自动发布" : "人工确认" }}</span>
+          </label>
+        </div>
       </div>
+      <p class="field-help">启用自动发布后，评审关闭且门禁通过时会自动发布到该目标源，不再进入人工确认。</p>
 
       <div class="publish-gate-editor">
         <AdminGateNodeEditor

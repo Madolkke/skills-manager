@@ -29,6 +29,7 @@ export type PublishTarget = {
   name: string;
   description: string;
   enabled: boolean;
+  auto_publish_enabled: boolean;
   gate_expression: PublishGateExpression;
   config: Record<string, unknown>;
   created_at?: string;
@@ -75,6 +76,7 @@ export type ReviewPublishTarget = {
   name: string;
   description: string;
   enabled: boolean;
+  auto_publish_enabled: boolean;
   gate_expression: PublishGateExpression;
   config: Record<string, unknown>;
   created_at?: string;
@@ -97,6 +99,7 @@ export type PublishRecord = {
   target_name?: string;
   target_description?: string;
   target_enabled?: boolean;
+  target_auto_publish_enabled?: boolean;
   target_gate_expression?: PublishGateExpression;
   target_config?: Record<string, unknown>;
   skill?: SkillRecord;

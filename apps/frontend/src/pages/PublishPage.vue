@@ -36,6 +36,7 @@ const publishCandidates = computed(() =>
   versions.value.flatMap((item) => {
     if (!item.review || item.review.status !== "closed") return [];
     return targets.value
+      .filter((target) => !target.auto_publish_enabled)
       .filter((target) => canSubmit(item.review, target))
       .map((target) => ({
         id: `${item.version.id}:${target.id}`,
@@ -146,6 +147,15 @@ function recordCreatedText(record: PublishRecord): string {
 function recordConfirmText(record: PublishRecord): string {
   if (record.confirmed_at) return `${humanDate(record.confirmed_at)} · ${record.confirmed_by || "-"}`;
   return "尚未确认";
+}
+
+function recordPublishModeText(record: PublishRecord): string {
+  return record.confirmed_by === "system:auto_publish" || record.metadata?.auto_publish === true ? "自动发布" : "人工确认";
+}
+
+function recordFailureText(record: PublishRecord): string {
+  const error = record.metadata?.release_error;
+  return typeof error === "string" && error ? error : "发布执行失败，请联系后台管理员。";
 }
 
 function recordTargetText(record: PublishRecord): string {
@@ -341,6 +351,10 @@ function showError(error: unknown): void {
                 <span>后台确认</span>
                 <strong>{{ recordConfirmText(selectedRecord) }}</strong>
               </div>
+              <div>
+                <span>发布方式</span>
+                <strong>{{ recordPublishModeText(selectedRecord) }}</strong>
+              </div>
             </div>
 
             <section class="publish-record-section">
@@ -389,6 +403,10 @@ function showError(error: unknown): void {
                 <div>
                   <span>发布结果</span>
                   <strong>{{ selectedRecord.status === "released" ? "后台已确认发布" : selectedRecord.status === "pending_confirmation" ? "等待后台确认" : recordStatusText(selectedRecord) }}</strong>
+                </div>
+                <div v-if="selectedRecord.status === 'failed'">
+                  <span>失败原因</span>
+                  <strong>{{ recordFailureText(selectedRecord) }}</strong>
                 </div>
               </div>
             </section>

@@ -25,15 +25,16 @@ CLEANUP_PATCHES = (
 
 SCHEMA_PATCHES = (
     "alter table skills drop constraint if exists skills_slug_key",
+    "alter table skills drop constraint if exists skills_owner_slug_unique",
     """
     do $$
     begin
       if not exists (
         select 1 from pg_constraint
         where conrelid = 'skills'::regclass
-          and conname = 'skills_owner_slug_unique'
+          and conname = 'skills_slug_unique'
       ) then
-        alter table skills add constraint skills_owner_slug_unique unique (owner_ref, slug);
+        alter table skills add constraint skills_slug_unique unique (slug);
       end if;
     end $$;
     """,
@@ -348,6 +349,7 @@ SCHEMA_PATCHES = (
       name text not null,
       description text not null default '',
       enabled boolean not null default true,
+      auto_publish_enabled boolean not null default false,
       gate_expression jsonb not null default '{}'::jsonb,
       config jsonb not null default '{}'::jsonb,
       created_at timestamptz not null default now(),
@@ -359,6 +361,7 @@ SCHEMA_PATCHES = (
       constraint publish_targets_config_object check (jsonb_typeof(config) = 'object')
     )
     """,
+    "alter table publish_targets add column if not exists auto_publish_enabled boolean not null default false",
     "alter table publish_targets add column if not exists gate_expression jsonb not null default '{}'::jsonb",
     "alter table publish_targets add column if not exists config jsonb not null default '{}'::jsonb",
     "alter table publish_targets drop constraint if exists publish_targets_required_checks_array",
@@ -401,6 +404,7 @@ SCHEMA_PATCHES = (
       name,
       description,
       enabled,
+      auto_publish_enabled,
       gate_expression,
       config,
       created_at,
@@ -414,6 +418,7 @@ SCHEMA_PATCHES = (
         '云析',
         '云析发布源',
         true,
+        false,
         jsonb_build_object(
           'type', 'group',
           'op', 'and',
@@ -433,6 +438,7 @@ SCHEMA_PATCHES = (
         'AgentCenter',
         'AgentCenter 发布源',
         true,
+        false,
         jsonb_build_object(
           'type', 'group',
           'op', 'and',
@@ -452,6 +458,7 @@ SCHEMA_PATCHES = (
         '自定义1',
         '预留自定义发布源 1',
         true,
+        false,
         jsonb_build_object(
           'type', 'group',
           'op', 'and',
@@ -471,6 +478,7 @@ SCHEMA_PATCHES = (
         '自定义2',
         '预留自定义发布源 2',
         true,
+        false,
         jsonb_build_object(
           'type', 'group',
           'op', 'and',

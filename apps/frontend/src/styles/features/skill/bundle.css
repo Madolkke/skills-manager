@@ -25,6 +25,11 @@
   overflow: auto;
 }
 
+.bundle-editor-toolbar {
+  display: grid;
+  margin-bottom: 12px;
+}
+
 .bundle-tree-list {
   display: grid;
   gap: 4px;
@@ -69,6 +74,11 @@
 .bundle-tree-node.leaf.active {
   background: #eaf2ff;
   color: var(--blue);
+}
+
+.bundle-tree-node.leaf.invalid {
+  color: #b91c1c;
+  background: #fff1f2;
 }
 
 .bundle-tree-node small {
@@ -144,6 +154,20 @@
 
 .bundle-editor-content {
   min-height: 560px;
+}
+
+.bundle-editor-file-meta {
+  border-bottom: 1px solid var(--soft-line);
+  padding: 16px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.bundle-editor-file-meta .field-hint {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .editor-file-state {

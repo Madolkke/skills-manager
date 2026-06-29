@@ -74,6 +74,7 @@ class ReviewHelperMixin:
                     tables.publish_targets.c.name,
                     tables.publish_targets.c.description,
                     tables.publish_targets.c.enabled,
+                    tables.publish_targets.c.auto_publish_enabled,
                     tables.publish_targets.c.gate_expression,
                     tables.publish_targets.c.config,
                 )
@@ -106,6 +107,7 @@ class ReviewHelperMixin:
                 tables.publish_targets.c.name.label("target_name"),
                 tables.publish_targets.c.description.label("target_description"),
                 tables.publish_targets.c.enabled.label("target_enabled"),
+                tables.publish_targets.c.auto_publish_enabled.label("target_auto_publish_enabled"),
                 tables.publish_targets.c.gate_expression.label("target_gate_expression"),
                 tables.publish_targets.c.config.label("target_config"),
             )

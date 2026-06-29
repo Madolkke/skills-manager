@@ -125,6 +125,30 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(skill_version.status_code, 200)
         self.assertEqual(detail["summary"]["current_version"]["display_name"], "stable baseline")
 
+    def test_skill_create_ignores_initial_version_display_name(self):
+        payload = self.skill_payload("initial-name-ignored")
+        payload["display_name"] = "should not be stored"
+
+        response = self.client.post("/api/skills", json=payload)
+        detail = self.client.get(f"/api/skills/{response.json()['skill_id']}").json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(detail["summary"]["current_version"]["display_name"])
+
+    def test_skill_import_ignores_initial_version_display_name(self):
+        response = self.client.post(
+            "/api/skill-imports",
+            json={
+                "owner_ref": "skillhub-lab",
+                "source": self.bundle_source("import-name-ignored"),
+                "display_name": "should not be stored",
+            },
+        )
+        detail = self.client.get(f"/api/skills/{response.json()['skill_id']}").json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(detail["summary"]["current_version"]["display_name"])
+
     def test_eval_cases_update_current_eval_set(self):
         skill = self.create_skill("evalset-working-version")
 
@@ -715,6 +739,43 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_admin_publish_target_auto_publish_closes_review_to_released_record(self):
+        skill = self.create_skill("auto-publish-api")
+        targets = self.client.get("/api/admin/publish-targets", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+        target = next(item for item in targets if item["target_key"] == "yunxi")
+        updated_target = self.client.patch(
+            f"/api/admin/publish-targets/{target['id']}",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"enabled": True, "auto_publish_enabled": True, "gate_expression": target["gate_expression"]},
+        )
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={"subject_id": "reviewer-one", "role": "reviewer"},
+        )
+        review = self.client.post(
+            f"/api/skills/{skill['skill_id']}/reviews",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={"skill_version_id": skill["skill_version_id"], "publish_targets": [{"publish_target_id": target["id"], "auto_submit_on_pass": True}]},
+        ).json()
+        self.client.post(
+            f"/api/reviews/{review['id']}/responses",
+            headers={"X-SkillHub-Actor": "reviewer-one"},
+            json={"score": 1, "comment": "可以发布"},
+        )
+
+        closed = self.client.post(f"/api/reviews/{review['id']}/close", headers={"X-SkillHub-Actor": "skillhub-lab"})
+        records = self.client.get("/api/admin/publish-records", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
+
+        self.assertEqual(updated_target.status_code, 200)
+        self.assertTrue(updated_target.json()["auto_publish_enabled"])
+        self.assertEqual(closed.status_code, 200)
+        self.assertEqual(closed.json()["publish_records"][0]["status"], "released")
+        self.assertEqual(closed.json()["publish_records"][0]["confirmed_by"], "system:auto_publish")
+        self.assertEqual(records[0]["status"], "released")
+        self.assertEqual(records[0]["metadata"]["auto_publish"], True)
+        self.assertEqual(records[0]["metadata"]["release_result"]["metadata"]["auto_publish"], True)
+
     def test_saved_run_view_endpoints_create_list_and_delete_view(self):
         skill = self.create_skill("saved-view-api")
 
@@ -760,9 +821,10 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["field_errors"][0]["field"], "slug")
-        self.assertEqual(other_owner.status_code, 200)
+        self.assertEqual(other_owner.status_code, 400)
+        self.assertEqual(other_owner.json()["field_errors"][0]["field"], "slug")
 
-    def test_external_skill_zip_upsert_creates_and_updates_owner_scoped_skill(self):
+    def test_external_skill_zip_upsert_creates_updates_and_rejects_cross_owner_slug(self):
         first_tag = self.create_tag_value("domain", "api")
         second_tag = self.create_tag_value("domain", "worker")
 
@@ -791,8 +853,8 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(updated.json()["skill_id"], created.json()["skill_id"])
         self.assertEqual(updated.json()["version"], "0.0.2")
         self.assertEqual(updated_detail["skill"]["tags"][0]["value"], "worker")
-        self.assertEqual(other_owner.status_code, 200)
-        self.assertNotEqual(other_owner.json()["skill_id"], created.json()["skill_id"])
+        self.assertEqual(other_owner.status_code, 400)
+        self.assertEqual(other_owner.json()["field_errors"][0]["field"], "slug")
 
     def test_external_skill_zip_upsert_rejects_existing_version_and_unknown_tag(self):
         tag = self.create_tag_value("domain", "external")
@@ -821,7 +883,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(unknown_tag.json()["field_errors"][0]["field"], "tags")
         self.assertEqual(len(detail["versions"]), 1)
 
-    def test_external_skill_zip_upsert_uses_actor_owner_scope_not_role_assignments(self):
+    def test_external_skill_zip_upsert_uses_actor_owner_for_existing_global_skill_update(self):
         tag = self.create_tag_value("domain", "external-owner")
         created = self.client.post(
             "/api/external/skills/upsert-zip",

@@ -150,7 +150,7 @@ async function revokeRole(role: RoleAssignment): Promise<void> {
   await runAdminAction(() => api.adminDeleteRoleAssignment(role.id), "授权已撤销。");
 }
 
-async function updatePublishTarget(targetId: string, payload: { enabled: boolean; gate_expression: PublishGateExpression }): Promise<void> {
+async function updatePublishTarget(targetId: string, payload: { enabled: boolean; auto_publish_enabled: boolean; gate_expression: PublishGateExpression }): Promise<void> {
   await runAdminAction(() => api.adminUpdatePublishTarget(targetId, payload), "发布源已更新。");
 }
 

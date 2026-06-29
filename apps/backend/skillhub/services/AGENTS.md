@@ -12,7 +12,7 @@
 - `external.py`：封装外部 Skill zip upsert API 的创建和更新流程。
 - `opencode.py`：封装读取和脱敏 Opencode provider/model 配置，以及测评页可用 Opencode Agent 列表。
 - `publish_release.py`：封装后台确认发布时调用的发布 hook。
-- `reviews.py`：封装评审、评审回复、关闭评审、通知和发布单创建流程。
+- `reviews.py`：封装评审、评审回复、关闭评审、通知、发布单创建和评审通过后的自动发布流程。
 - `saved_views.py`：封装保存视图的创建和删除流程。
 - `skills.py`：封装 Skill 创建、导入、更新、权限和列表详情查询流程。
 - `versions.py`：封装 Skill 版本创建流程。

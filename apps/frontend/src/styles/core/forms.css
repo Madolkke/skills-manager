@@ -55,6 +55,31 @@
   padding: 24px;
 }
 
+.new-skill-mode-switch {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fbff;
+  padding: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.new-skill-mode-button {
+  min-height: 40px;
+  border: 0;
+  border-radius: calc(var(--radius) - 4px);
+  background: transparent;
+  color: #51637c;
+  font-weight: 800;
+}
+
+.new-skill-mode-button.active {
+  background: white;
+  color: var(--blue);
+  box-shadow: 0 8px 18px rgb(15 23 42 / 7%);
+}
+
 .runner-config-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

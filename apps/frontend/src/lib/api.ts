@@ -93,7 +93,7 @@ function skillApi() {
     listSkills: () => apiGet<SkillSummary[]>("/api/skills"),
     listTagGroups: () => apiGet<TagGroup[]>("/api/tag-groups"),
     getSkill: (skillId: string) => apiGet<SkillDetail>(`/api/skills/${skillId}`),
-    importSkill: (payload: { owner_ref: string; source: BundleSource; display_name?: string; version?: string; tags?: SkillTagPayload[] }) =>
+    importSkill: (payload: { owner_ref: string; source: BundleSource; version?: string; tags?: SkillTagPayload[] }) =>
       apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
     createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string; version?: string }) =>
       apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
@@ -260,7 +260,7 @@ function adminApi() {
       apiDelete<{ ok: boolean }>(`/api/admin/role-assignments/${encodeURIComponent(roleAssignmentId)}`, { admin: true }),
     adminListPublishTargets: () => apiGet<PublishTarget[]>("/api/admin/publish-targets", { admin: true }),
     adminListPublishGateChecks: () => apiGet<PublishGateCheckDefinition[]>("/api/admin/publish-gate-checks", { admin: true }),
-    adminUpdatePublishTarget: (targetId: string, payload: { enabled: boolean; gate_expression: PublishGateExpression }) =>
+    adminUpdatePublishTarget: (targetId: string, payload: { enabled: boolean; auto_publish_enabled: boolean; gate_expression: PublishGateExpression }) =>
       apiSend<PublishTarget>(`/api/admin/publish-targets/${encodeURIComponent(targetId)}`, "PATCH", payload, { admin: true }),
     adminListPublishRecords: () => apiGet<PublishRecord[]>("/api/admin/publish-records", { admin: true }),
     adminConfirmPublishRecord: (recordId: string) =>

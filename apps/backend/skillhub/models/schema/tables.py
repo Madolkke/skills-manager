@@ -57,7 +57,7 @@ skills = Table(
     Column("lifecycle_status", Text, nullable=False, server_default=text("'active'")),
     timestamp_column(),
     timestamp_column("updated_at"),
-    UniqueConstraint("owner_ref", "slug", name="skills_owner_slug_unique"),
+    UniqueConstraint("slug", name="skills_slug_unique"),
     CheckConstraint("lifecycle_status in ('active', 'archived')", name="skills_lifecycle_status_check"),
 )
 
@@ -290,6 +290,7 @@ publish_targets = Table(
     Column("name", Text, nullable=False),
     Column("description", Text, nullable=False, server_default=text("''")),
     Column("enabled", Boolean, nullable=False, server_default=text("true")),
+    Column("auto_publish_enabled", Boolean, nullable=False, server_default=text("false")),
     Column("gate_expression", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
     Column("config", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
     timestamp_column(),

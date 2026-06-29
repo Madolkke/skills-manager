@@ -1,5 +1,7 @@
 import type { BundleFile, BundleSource } from "../types";
 
+export type BundleTreeFile = BundleFile & { id?: string };
+
 export type BundleFolderNode = {
   type: "folder";
   name: string;
@@ -13,7 +15,7 @@ export type BundleTreeNode =
     type: "file";
     name: string;
     path: string;
-    file: BundleFile;
+    file: BundleTreeFile;
   };
 
 export async function sourceFromFiles(folderFiles: File[], zipFile?: File | null): Promise<BundleSource> {
@@ -23,8 +25,8 @@ export async function sourceFromFiles(folderFiles: File[], zipFile?: File | null
   return { kind: "files", name: rootName(folderFiles[0]), files: await Promise.all(folderFiles.map(filePayload)) };
 }
 
-export function groupBundleFiles(files: BundleFile[]): Array<{ folder: string; files: BundleFile[] }> {
-  const groups = new Map<string, BundleFile[]>();
+export function groupBundleFiles(files: BundleTreeFile[]): Array<{ folder: string; files: BundleTreeFile[] }> {
+  const groups = new Map<string, BundleTreeFile[]>();
   for (const file of files) {
     const parts = file.path.split("/");
     const folder = parts.length > 1 ? parts.slice(0, -1).join("/") : ".";
@@ -33,7 +35,7 @@ export function groupBundleFiles(files: BundleFile[]): Array<{ folder: string; f
   return Array.from(groups, ([folder, folderFiles]) => ({ folder, files: folderFiles }));
 }
 
-export function buildBundleTree(files: BundleFile[], rootLabel = "bundle"): BundleFolderNode {
+export function buildBundleTree(files: BundleTreeFile[], rootLabel = "bundle"): BundleFolderNode {
   const rootName = cleanRootLabel(rootLabel);
   const root: BundleFolderNode = { type: "folder", name: rootName, path: rootName, children: [] };
 
@@ -47,11 +49,11 @@ export function buildBundleTree(files: BundleFile[], rootLabel = "bundle"): Bund
   return root;
 }
 
-export function preferredBundleFile(files: BundleFile[]): BundleFile | null {
+export function preferredBundleFile<T extends BundleTreeFile>(files: T[]): T | null {
   return files.find((file) => file.path.endsWith("SKILL.md")) ?? files.find((file) => !file.binary) ?? null;
 }
 
-function insertTreeFile(root: BundleFolderNode, parts: string[], file: BundleFile): void {
+function insertTreeFile(root: BundleFolderNode, parts: string[], file: BundleTreeFile): void {
   let current = root;
   let currentPath = root.path;
 
@@ -89,7 +91,7 @@ function cleanRootLabel(value: string): string {
   return value.replace(/\/+$/g, "") || "bundle";
 }
 
-export function bundleFileText(file?: BundleFile | null): string {
+export function bundleFileText(file?: BundleTreeFile | null): string {
   if (!file) return "选择左侧文件查看内容。";
   if (file.binary) return "这是二进制文件，暂不在页面内预览。";
   return file.content_text ?? "";

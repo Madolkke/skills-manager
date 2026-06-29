@@ -91,7 +91,7 @@ function responseCount(review: ReviewRequest): string {
 }
 
 function autoTargetText(review: ReviewRequest): string {
-  const names = review.publish_targets.filter((item) => item.auto_submit_on_pass).map((item) => item.name);
+  const names = review.publish_targets.filter((item) => item.auto_submit_on_pass).map((item) => `${item.name}${item.auto_publish_enabled ? "（自动发布）" : "（后台确认）"}`);
   return names.length ? names.join("、") : "未设置";
 }
 
@@ -190,7 +190,7 @@ function showError(error: unknown): void {
                   <strong>{{ target.name }}</strong>
                   <small>{{ target.description || target.target_key }}</small>
                 </span>
-                <span class="review-target-state">{{ selectedTargets.includes(target.id) ? "已选" : "可选" }}</span>
+                <span class="review-target-state">{{ selectedTargets.includes(target.id) ? "已选" : target.auto_publish_enabled ? "自动发布" : "后台确认" }}</span>
               </button>
               <span v-if="!targets.length" class="field-help">后台还没有启用的发布源。</span>
             </div>

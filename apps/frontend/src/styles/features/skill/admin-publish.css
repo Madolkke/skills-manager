@@ -166,6 +166,10 @@
   overflow-wrap: anywhere;
 }
 
+.admin-publish-record-main .admin-publish-error {
+  color: #b42318;
+}
+
 .admin-publish-status {
   width: fit-content;
   border: 1px solid var(--soft-line);

@@ -66,7 +66,6 @@ class CreateSkillPayload(BaseModel):
     owner_ref: IdentityRef
     content_ref: ContentRefPayload
     change_summary: VersionChangeSummary
-    display_name: VersionDisplayName | None = None
     version: SkillVersionSemVer | None = None
     tags: list[SkillTagPayload] = Field(default_factory=list)
 
@@ -74,7 +73,6 @@ class CreateSkillPayload(BaseModel):
 class ImportSkillPayload(BaseModel):
     owner_ref: IdentityRef
     source: dict[str, Any]
-    display_name: VersionDisplayName | None = None
     version: SkillVersionSemVer | None = None
     tags: list[SkillTagPayload] = Field(default_factory=list)
 
@@ -132,6 +130,7 @@ class CreatePublishRecordPayload(BaseModel):
 
 class AdminPublishTargetUpdatePayload(BaseModel):
     enabled: bool = True
+    auto_publish_enabled: bool = False
     gate_expression: dict[str, Any] = Field(default_factory=dict)
 
 

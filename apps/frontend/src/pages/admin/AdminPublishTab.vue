@@ -141,6 +141,19 @@ function confirmText(record: PublishRecord): string {
   return "尚未确认";
 }
 
+function publishModeText(record: PublishRecord): string {
+  return isAutoPublishRecord(record) ? "自动发布" : "人工确认";
+}
+
+function isAutoPublishRecord(record: PublishRecord): boolean {
+  return record.confirmed_by === "system:auto_publish" || record.metadata?.auto_publish === true;
+}
+
+function failureText(record: PublishRecord): string {
+  const error = record.metadata?.release_error;
+  return typeof error === "string" && error ? error : "发布执行失败，请查看发布 hook 日志。";
+}
+
 function groupStatusText(group: PublishRecordGroup): string {
   const pending = group.records.filter((record) => record.status === "pending_confirmation").length;
   const released = group.records.filter((record) => record.status === "released").length;
@@ -317,7 +330,8 @@ function emitBatchCancel(): void {
                 <div class="admin-publish-record-main">
                   <strong>{{ targetText(record) }}</strong>
                   <span>{{ versionText(record) }}</span>
-                  <small>提交 {{ humanDate(record.created_at) }} · {{ record.created_by }}</small>
+                  <small>提交 {{ humanDate(record.created_at) }} · {{ record.created_by }} · {{ publishModeText(record) }}</small>
+                  <small v-if="record.status === 'failed'" class="admin-publish-error">{{ failureText(record) }}</small>
                 </div>
                 <span :class="['admin-publish-status', statusTone(record)]">{{ statusText(record) }}</span>
                 <span class="admin-publish-confirm">{{ confirmText(record) }}</span>
