@@ -15,6 +15,21 @@ export function tagKey(tag: SkillTag | SkillTagPayload): string {
   return `${tag.group_id}\u0000${tag.value}`;
 }
 
+export function sortTagGroupsForPicker(groups: TagGroup[]): TagGroup[] {
+  return [...groups].sort((a, b) => Number(b.required) - Number(a.required) || a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name));
+}
+
+export function missingRequiredTagGroups(tags: SkillTagPayload[], groups: TagGroup[]): TagGroup[] {
+  const selectedGroupIds = new Set(tags.map((tag) => tag.group_id));
+  return sortTagGroupsForPicker(groups).filter((group) => group.required && !selectedGroupIds.has(group.id));
+}
+
+export function requiredTagMissingMessage(tags: SkillTagPayload[], groups: TagGroup[]): string {
+  const missing = missingRequiredTagGroups(tags, groups);
+  if (!missing.length) return "";
+  return `请为必选 Tag Group 选择 Tag：${missing.map((group) => group.display_name).join("、")}`;
+}
+
 export function encodeSkillTagResourceId(groupId: string, value: string): string {
   const bytes = new TextEncoder().encode(value.trim());
   let binary = "";

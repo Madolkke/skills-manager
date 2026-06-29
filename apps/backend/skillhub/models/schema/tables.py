@@ -445,6 +445,7 @@ tag_groups = Table(
     Column("display_name", Text, nullable=False),
     Column("description", Text, nullable=False, server_default=text("''")),
     Column("sort_order", Integer, nullable=False, server_default=text("0")),
+    Column("required", Boolean, nullable=False, server_default=text("false")),
     timestamp_column(),
     timestamp_column("updated_at"),
     Column("created_by", Text, nullable=False),

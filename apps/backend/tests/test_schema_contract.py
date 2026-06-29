@@ -210,6 +210,7 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("tag_group_id text not null", self._table_sql("skill_tags"))
         self.assertIn("tag_value text not null", self._table_sql("skill_tags"))
         self.assertIn("foreign key (tag_group_id, tag_value) references tag_values(tag_group_id, value)", self.normalized)
+        self.assertIn("required boolean not null default false", self._table_sql("tag_groups"))
         self.assertIn("check (id ~ '^[a-za-z0-9_-]+$')", self._table_sql("tag_groups"))
         self.assertIn("resource_type text not null", self._table_sql("role_assignments"))
         self.assertIn("check (resource_type in ('skill', 'skill_tag'))", self._table_sql("role_assignments"))

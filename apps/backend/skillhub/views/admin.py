@@ -45,6 +45,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 display_name=payload.display_name,
                 description=payload.description,
                 sort_order=payload.sort_order,
+                required=payload.required,
             )
         )
 
@@ -61,6 +62,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 display_name=payload.display_name,
                 description=payload.description,
                 sort_order=payload.sort_order,
+                required=payload.required,
             )
         )
 

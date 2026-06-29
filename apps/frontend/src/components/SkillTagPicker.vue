@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { tagKey, tagLabel } from "../lib/skillTags";
+import { missingRequiredTagGroups, requiredTagMissingMessage, sortTagGroupsForPicker, tagKey, tagLabel } from "../lib/skillTags";
 import type { SkillTagPayload, TagGroup, TagValueOption } from "../types";
 
 const props = withDefaults(
@@ -19,15 +19,17 @@ const emit = defineEmits<{
 const editing = ref(false);
 const activeGroupId = ref("");
 const draft = ref<SkillTagPayload[]>([]);
+const validationError = ref("");
 
 const sourceTags = computed(() => (editing.value ? draft.value : props.value));
 const selected = computed(() => new Set(sourceTags.value.map(tagKey)));
-const sortedGroups = computed(() => [...props.groups].sort((a, b) => a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name)));
+const sortedGroups = computed(() => sortTagGroupsForPicker(props.groups));
 const groupsWithValues = computed(() => sortedGroups.value.filter((group) => group.values.length > 0));
 const hasValues = computed(() => groupsWithValues.value.length > 0);
 const activeGroup = computed(() => groupsWithValues.value.find((group) => group.id === activeGroupId.value) ?? groupsWithValues.value[0] ?? null);
 const activeValues = computed(() => sortValues(activeGroup.value?.values ?? []));
 const selectedTags = computed(() => decorateTags(sourceTags.value));
+const missingRequiredGroups = computed(() => missingRequiredTagGroups(sourceTags.value, props.groups));
 
 watch(groupsWithValues, (groups) => {
   if (!groups.length) {
@@ -35,7 +37,7 @@ watch(groupsWithValues, (groups) => {
     editing.value = false;
     return;
   }
-  if (!groups.some((group) => group.id === activeGroupId.value)) activeGroupId.value = groups[0].id;
+  if (!groups.some((group) => group.id === activeGroupId.value)) activeGroupId.value = preferredActiveGroupId(sourceTags.value);
 }, { immediate: true });
 
 watch(() => props.disabled, (disabled) => {
@@ -67,12 +69,21 @@ function optionLabel(option: TagValueOption): string {
 function startEdit(): void {
   if (props.disabled) return;
   draft.value = props.value.map((tag) => ({ ...tag }));
+  activeGroupId.value = preferredActiveGroupId(draft.value);
+  validationError.value = "";
   editing.value = true;
 }
 
 function finishEdit(): void {
-  editing.value = false;
   const next = draft.value.map((tag) => ({ ...tag }));
+  const message = requiredTagMissingMessage(next, props.groups);
+  if (message) {
+    validationError.value = message;
+    activeGroupId.value = missingRequiredTagGroups(next, props.groups)[0]?.id ?? activeGroupId.value;
+    return;
+  }
+  editing.value = false;
+  validationError.value = "";
   emit("change", next);
   emit("done", next);
 }
@@ -80,10 +91,12 @@ function finishEdit(): void {
 function cancelEdit(): void {
   editing.value = false;
   draft.value = props.value.map((tag) => ({ ...tag }));
+  validationError.value = "";
 }
 
 function toggle(groupId: string, value: string): void {
   if (props.disabled || !editing.value) return;
+  validationError.value = "";
   const key = tagKey({ group_id: groupId, value });
   const next = draft.value.filter((tag) => tagKey(tag) !== key);
   if (!selected.value.has(key)) next.push({ group_id: groupId, value });
@@ -92,7 +105,15 @@ function toggle(groupId: string, value: string): void {
 
 function removeTag(tag: SkillTagPayload): void {
   if (props.disabled || !editing.value) return;
+  validationError.value = "";
   draft.value = draft.value.filter((item) => tagKey(item) !== tagKey(tag));
+}
+
+function preferredActiveGroupId(tags: SkillTagPayload[]): string {
+  const missing = missingRequiredTagGroups(tags, props.groups)[0];
+  if (missing) return missing.id;
+  const required = groupsWithValues.value.find((group) => group.required);
+  return required?.id ?? groupsWithValues.value[0]?.id ?? "";
 }
 </script>
 
@@ -104,6 +125,7 @@ function removeTag(tag: SkillTagPayload): void {
           {{ tag.label }}
           <button v-if="editing && !disabled" type="button" :aria-label="`移除 ${tag.label}`" @click="removeTag(tag)">×</button>
         </span>
+        <span v-for="group in missingRequiredGroups" :key="`missing-${group.id}`" class="tag-chip warning">缺少：{{ group.display_name }}</span>
         <span v-if="!selectedTags.length" class="tag-chip muted">尚未添加 Tag</span>
       </div>
 
@@ -117,12 +139,15 @@ function removeTag(tag: SkillTagPayload): void {
     </div>
 
     <p v-if="!groups.length" class="field-help">还没有 Tag Group。请先在后台管理页维护可选 Tag。</p>
+    <p v-if="validationError" class="field-hint danger">{{ validationError }}</p>
 
     <section v-if="editing && activeGroup" class="skill-tag-add-panel">
       <label class="field-label compact">
         <span>选择 Tag Group</span>
         <select v-model="activeGroupId">
-          <option v-for="group in groupsWithValues" :key="group.id" :value="group.id">{{ group.display_name }}</option>
+          <option v-for="group in groupsWithValues" :key="group.id" :value="group.id">
+            {{ group.display_name }}{{ group.required ? "（必选）" : "" }}
+          </option>
         </select>
       </label>
 

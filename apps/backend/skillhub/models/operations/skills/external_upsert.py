@@ -56,6 +56,7 @@ class ExternalSkillUpsertCommandMixin:
         clean_tags = self._clean_skill_tags(tags)
         with self.engine.connect() as connection:
             self._require_tag_values_exist(connection, clean_tags)
+            self._require_required_tag_groups_present(connection, clean_tags)
             skill = (
                 connection.execute(
                     select(tables.skills)

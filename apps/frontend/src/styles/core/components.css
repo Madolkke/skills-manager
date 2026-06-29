@@ -172,6 +172,11 @@
   font-weight: 750;
 }
 
+.tag-chip.warning {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .quiet-panel,
 .hint-strip {
   border: 1px solid var(--line);

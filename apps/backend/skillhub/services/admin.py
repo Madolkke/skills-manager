@@ -36,21 +36,23 @@ class AdminService(ServiceBase[SkillHubStore]):
     def list_tag_groups(self) -> Any:
         return self.store.list_tag_groups()
 
-    def create_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int) -> Any:
+    def create_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int, required: bool = False) -> Any:
         return self.store.create_tag_group(
             group_id=group_id,
             display_name=display_name,
             description=description,
             sort_order=sort_order,
+            required=required,
             actor="admin-console",
         )
 
-    def update_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int) -> Any:
+    def update_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int, required: bool = False) -> Any:
         return self.store.update_tag_group(
             group_id=group_id,
             display_name=display_name,
             description=description,
             sort_order=sort_order,
+            required=required,
             actor="admin-console",
         )
 

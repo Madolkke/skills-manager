@@ -56,6 +56,7 @@ export type TagGroup = {
   display_name: string;
   description: string;
   sort_order: number;
+  required: boolean;
   values: TagValueOption[];
   created_at?: string;
   updated_at?: string;

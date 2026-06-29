@@ -6,10 +6,10 @@ import type { TagGroup } from "../../types";
 const props = defineProps<{ group?: TagGroup | null }>();
 const emit = defineEmits<{
   close: [];
-  submit: [payload: { id?: string; display_name: string; description?: string; sort_order?: number }];
+  submit: [payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean }];
 }>();
 
-const form = ref({ id: "", display_name: "", description: "", sort_order: 0 });
+const form = ref({ id: "", display_name: "", description: "", sort_order: 0, required: false });
 const editing = ref(false);
 
 watch(() => props.group, (group) => {
@@ -19,6 +19,7 @@ watch(() => props.group, (group) => {
     display_name: group?.display_name ?? "",
     description: group?.description ?? "",
     sort_order: group?.sort_order ?? 0,
+    required: group?.required ?? false,
   };
 }, { immediate: true });
 
@@ -29,6 +30,7 @@ function submit(): void {
     display_name: form.value.display_name.trim(),
     description: form.value.description.trim(),
     sort_order: Number(form.value.sort_order) || 0,
+    required: form.value.required,
   });
   emit("close");
 }
@@ -58,6 +60,11 @@ function submit(): void {
         <input v-model.number="form.sort_order" type="number" />
         <small class="field-help">数字越小越靠前，默认 0。</small>
       </label>
+      <label class="switch-line">
+        <input v-model="form.required" type="checkbox" />
+        <span>必选 Tag Group</span>
+      </label>
+      <p class="field-help">必选组在 Skill 保存 Tags 时至少要选择一个 Tag。空组不能被设置为必选。</p>
       <div class="modal-actions">
         <button class="secondary-button" type="button" @click="emit('close')">取消</button>
         <button class="primary-button" type="button" :disabled="!form.display_name.trim() || (!editing && !form.id.trim())" @click="submit">

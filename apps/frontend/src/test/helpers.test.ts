@@ -19,6 +19,7 @@ import {
   validateBundleDraftFiles,
   validateBundlePath,
 } from "../lib/skillBundleDraft";
+import { missingRequiredTagGroups, requiredTagMissingMessage, sortTagGroupsForPicker } from "../lib/skillTags";
 import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
@@ -214,6 +215,19 @@ describe("skill evidence helpers", () => {
     });
     expect(validateBlankSkillDraft({ slug: "Code Reviewer", description: "Review code changes." }).valid).toBe(false);
     expect(validateBlankSkillDraft({ slug: "code-reviewer", description: "" }).errors.description).toBe("填写 Skill 描述。");
+  });
+
+  it("validates required Skill Tag groups without forcing a default value", () => {
+    const groups = [
+      { id: "team", display_name: "团队", description: "", sort_order: 1, required: false, values: [{ tag_group_id: "team", value: "backend", description: "", sort_order: 0 }] },
+      { id: "domain", display_name: "业务领域", description: "", sort_order: 10, required: true, values: [{ tag_group_id: "domain", value: "api", description: "", sort_order: 0 }] },
+      { id: "risk", display_name: "风险等级", description: "", sort_order: 2, required: true, values: [{ tag_group_id: "risk", value: "high", description: "", sort_order: 0 }] },
+    ] as never;
+
+    expect(sortTagGroupsForPicker(groups).map((group) => group.id)).toEqual(["risk", "domain", "team"]);
+    expect(missingRequiredTagGroups([{ group_id: "domain", value: "api" }], groups).map((group) => group.id)).toEqual(["risk"]);
+    expect(requiredTagMissingMessage([], groups)).toBe("请为必选 Tag Group 选择 Tag：风险等级、业务领域");
+    expect(requiredTagMissingMessage([{ group_id: "domain", value: "api" }, { group_id: "risk", value: "high" }], groups)).toBe("");
   });
 
   it("validates Skill bundle file paths", () => {

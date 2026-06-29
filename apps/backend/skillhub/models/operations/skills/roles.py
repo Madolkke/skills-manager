@@ -28,10 +28,12 @@ class RoleMixin:
             rows = connection.execute(select(tables.tag_groups).order_by(tables.tag_groups.c.sort_order, tables.tag_groups.c.id)).mappings().all()
             return [{**self._row_dict(row), "values": self._tag_values(connection, row["id"])} for row in rows]
 
-    def create_tag_group(self, *, group_id: str, display_name: str, description: str, sort_order: int, actor: str) -> dict[str, Any]:
+    def create_tag_group(self, *, group_id: str, display_name: str, description: str, sort_order: int, required: bool = False, actor: str) -> dict[str, Any]:
         created_at = utc_now()
         clean_id = self._clean_tag_group_id(group_id)
         with self.engine.begin() as connection:
+            if required:
+                raise InvariantError("必选 Tag Group 至少需要先添加一个 Tag 值。")
             if connection.execute(select(tables.tag_groups.c.id).where(tables.tag_groups.c.id == clean_id)).scalar_one_or_none() is not None:
                 raise InvariantError(f"Tag Group already exists: {clean_id}")
             connection.execute(
@@ -40,6 +42,7 @@ class RoleMixin:
                     display_name=self._clean_display_text(display_name, "Tag Group display_name"),
                     description=description.strip(),
                     sort_order=sort_order,
+                    required=required,
                     created_at=created_at,
                     updated_at=created_at,
                     created_by=actor,
@@ -47,10 +50,14 @@ class RoleMixin:
             )
         return self.tag_group_detail(clean_id)
 
-    def update_tag_group(self, *, group_id: str, display_name: str, description: str, sort_order: int, actor: str) -> dict[str, Any]:
+    def update_tag_group(self, *, group_id: str, display_name: str, description: str, sort_order: int, required: bool = False, actor: str) -> dict[str, Any]:
         updated_at = utc_now()
         with self.engine.begin() as connection:
             self._tag_group_row(connection, group_id)
+            if required:
+                has_values = connection.execute(select(tables.tag_values.c.value).where(tables.tag_values.c.tag_group_id == group_id).limit(1)).scalar_one_or_none()
+                if has_values is None:
+                    raise InvariantError("必选 Tag Group 至少需要先添加一个 Tag 值。")
             connection.execute(
                 update(tables.tag_groups)
                 .where(tables.tag_groups.c.id == group_id)
@@ -58,6 +65,7 @@ class RoleMixin:
                     display_name=self._clean_display_text(display_name, "Tag Group display_name"),
                     description=description.strip(),
                     sort_order=sort_order,
+                    required=required,
                     updated_at=updated_at,
                 )
             )
@@ -147,6 +155,11 @@ class RoleMixin:
         clean_value = self._clean_tag_value(value)
         with self.engine.begin() as connection:
             row = self._tag_value_row(connection, group_id, clean_value)
+            group = self._tag_group_row(connection, group_id)
+            if group["required"]:
+                value_count = connection.execute(select(tables.tag_values.c.value).where(tables.tag_values.c.tag_group_id == group_id)).scalars().all()
+                if len(value_count) <= 1:
+                    raise InvariantError("必选 Tag Group 至少需要保留一个 Tag 值。")
             resource_id = encode_skill_tag_resource_id(group_id, clean_value)
             connection.execute(
                 delete(tables.skill_tags)

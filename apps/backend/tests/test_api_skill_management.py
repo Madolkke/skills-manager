@@ -515,6 +515,72 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(response.json()["tags"][0]["group_id"], "free_form")
         self.assertEqual(response.json()["tags"][0]["value"], long_tag)
 
+    def test_required_tag_group_is_enforced_on_skill_create_and_tag_update(self):
+        required_tag = self.create_tag_value("domain", "api", display_name="API")
+        group = self.client.get("/api/admin/tag-groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()[0]
+        updated_group = self.client.patch(
+            "/api/admin/tag-groups/domain",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"display_name": group["display_name"], "description": group["description"], "sort_order": group["sort_order"], "required": True},
+        )
+
+        missing_create = self.client.post("/api/skills", json=self.skill_payload("missing-required-tag"))
+        created = self.client.post("/api/skills", json={**self.skill_payload("has-required-tag"), "tags": [required_tag]})
+        missing_update = self.client.patch(
+            f"/api/skills/{created.json()['skill_id']}",
+            json={"slug": "has-required-tag", "owner_ref": "skillhub-lab", "tags": []},
+        )
+        identity_only = self.client.patch(
+            f"/api/skills/{created.json()['skill_id']}",
+            json={"slug": "has-required-tag", "owner_ref": "new-owner"},
+        )
+
+        self.assertEqual(updated_group.status_code, 200)
+        self.assertTrue(updated_group.json()["required"])
+        self.assertEqual(missing_create.status_code, 400)
+        self.assertEqual(missing_create.json()["field_errors"][0]["field"], "tags")
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(missing_update.status_code, 400)
+        self.assertEqual(missing_update.json()["field_errors"][0]["field"], "tags")
+        self.assertEqual(identity_only.status_code, 200)
+        self.assertEqual(identity_only.json()["owner_ref"], "new-owner")
+
+    def test_empty_tag_group_cannot_be_marked_required(self):
+        created = self.client.post(
+            "/api/admin/tag-groups",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"id": "empty_required", "display_name": "空组", "description": "", "required": True},
+        )
+        self.client.post(
+            "/api/admin/tag-groups",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"id": "empty_optional", "display_name": "空可选组", "description": ""},
+        )
+        updated = self.client.patch(
+            "/api/admin/tag-groups/empty_optional",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"display_name": "空可选组", "description": "", "sort_order": 0, "required": True},
+        )
+
+        self.assertEqual(created.status_code, 400)
+        self.assertIn("必选 Tag Group", created.json()["detail"])
+        self.assertEqual(updated.status_code, 400)
+        self.assertIn("必选 Tag Group", updated.json()["detail"])
+
+    def test_required_tag_group_keeps_at_least_one_value(self):
+        self.create_tag_value("domain", "api")
+        group = self.client.get("/api/admin/tag-groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()[0]
+        self.client.patch(
+            "/api/admin/tag-groups/domain",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"display_name": group["display_name"], "description": group["description"], "sort_order": group["sort_order"], "required": True},
+        )
+
+        deleted = self.client.delete("/api/admin/tag-groups/domain/values/api", headers={"X-SkillHub-Admin-Key": "test-admin-key"})
+
+        self.assertEqual(deleted.status_code, 400)
+        self.assertIn("必选 Tag Group", deleted.json()["detail"])
+
     def test_protected_tag_changes_require_admin_role(self):
         tag = self.create_tag_value("risk", "protected tag")
         skill = self.client.post(
@@ -882,6 +948,31 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(unknown_tag.status_code, 400)
         self.assertEqual(unknown_tag.json()["field_errors"][0]["field"], "tags")
         self.assertEqual(len(detail["versions"]), 1)
+
+    def test_external_skill_zip_upsert_requires_required_tag_group(self):
+        required_tag = self.create_tag_value("domain", "required-external")
+        group = self.client.get("/api/admin/tag-groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()[0]
+        self.client.patch(
+            "/api/admin/tag-groups/domain",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"display_name": group["display_name"], "description": group["description"], "sort_order": group["sort_order"], "required": True},
+        )
+
+        missing = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-required-user", "tags": json.dumps([])},
+            files={"file": ("skill.zip", self.skill_zip("external-required"), "application/zip")},
+        )
+        created = self.client.post(
+            "/api/external/skills/upsert-zip",
+            data={"actor_id": "external-required-user", "tags": json.dumps([required_tag])},
+            files={"file": ("skill.zip", self.skill_zip("external-required"), "application/zip")},
+        )
+
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(missing.json()["field_errors"][0]["field"], "tags")
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(created.json()["operation"], "created")
 
     def test_external_skill_zip_upsert_uses_actor_owner_for_existing_global_skill_update(self):
         tag = self.create_tag_value("domain", "external-owner")

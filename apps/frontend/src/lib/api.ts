@@ -241,9 +241,9 @@ function adminApi() {
     adminRemoveGroupMember: (groupId: string, subjectId: string) =>
       apiDelete<AdminGroup>(`/api/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(subjectId)}`, { admin: true }),
     adminListTagGroups: () => apiGet<TagGroup[]>("/api/admin/tag-groups", { admin: true }),
-    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number }) =>
+    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean }) =>
       apiSend<TagGroup>("/api/admin/tag-groups", "POST", payload, { admin: true }),
-    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number }) =>
+    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }) =>
       apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, "PATCH", payload, { admin: true }),
     adminDeleteTagGroup: (groupId: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, { admin: true }),

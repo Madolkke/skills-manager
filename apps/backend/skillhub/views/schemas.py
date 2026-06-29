@@ -196,12 +196,14 @@ class AdminTagGroupPayload(BaseModel):
     display_name: Annotated[str, Field(min_length=1, max_length=120)]
     description: Annotated[str, Field(max_length=1000)] = ""
     sort_order: int = 0
+    required: bool = False
 
 
 class AdminTagGroupUpdatePayload(BaseModel):
     display_name: Annotated[str, Field(min_length=1, max_length=120)]
     description: Annotated[str, Field(max_length=1000)] = ""
     sort_order: int = 0
+    required: bool = False
 
 
 class AdminTagValuePayload(BaseModel):

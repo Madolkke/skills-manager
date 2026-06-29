@@ -7,6 +7,7 @@ import { api, ApiError } from "../lib/api";
 import { sourceFromFiles } from "../lib/bundle";
 import { validSemver } from "../lib/semver";
 import { createBlankSkillSource, validateBlankSkillDraft, validateSkillSlug } from "../lib/skillBundleDraft";
+import { requiredTagMissingMessage } from "../lib/skillTags";
 import type { SkillTagPayload, TagGroup } from "../types";
 
 const props = defineProps<{ actor: string }>();
@@ -23,8 +24,9 @@ const tagGroups = ref<TagGroup[]>([]);
 const busy = ref(false);
 const error = ref<string | null>(null);
 const blankValidation = computed(() => validateBlankSkillDraft({ slug: slug.value, description: description.value }));
+const tagValidationError = computed(() => requiredTagMissingMessage(tags.value, tagGroups.value));
 const canSubmit = computed(() => {
-  if (busy.value || !validSemver(version.value)) return false;
+  if (busy.value || !validSemver(version.value) || tagValidationError.value) return false;
   if (mode.value === "blank") return blankValidation.value.valid;
   return Boolean(zipFile.value || folderFiles.value.length);
 });
@@ -91,6 +93,7 @@ async function submit(): Promise<void> {
         <span>Skill Tags</span>
         <SkillTagPicker :value="tags" :groups="tagGroups" @change="tags = $event" />
       </label>
+      <p v-if="tagValidationError" class="field-hint danger">{{ tagValidationError }}</p>
       <BundlePicker
         v-if="mode === 'upload'"
         @files="

@@ -96,6 +96,25 @@ class CoreHelperMixin:
                 [FieldError(field="tags", message=f"Tag 必须先在后台 Tag Group 中定义：{message}", code="skill_tag.undefined")],
             )
 
+    def _require_required_tag_groups_present(self, connection, tags: list[dict[str, str]]) -> None:
+        selected_group_ids = {tag["group_id"] for tag in tags}
+        missing = (
+            connection.execute(
+                select(tables.tag_groups.c.display_name)
+                .where(tables.tag_groups.c.required.is_(True))
+                .where(tables.tag_groups.c.id.notin_(list(selected_group_ids)))
+                .order_by(tables.tag_groups.c.sort_order, tables.tag_groups.c.id)
+            )
+            .scalars()
+            .all()
+        )
+        if missing:
+            names = "、".join(missing)
+            raise FieldInvariantError(
+                "Skill tags must include required tag groups.",
+                [FieldError(field="tags", message=f"请为必选 Tag Group 选择 Tag：{names}", code="skill_tag.required_group_missing")],
+            )
+
     def _protected_skill_tags(self, connection, tags: set[tuple[str, str]]) -> set[tuple[str, str]]:
         if not tags:
             return set()
@@ -121,6 +140,7 @@ class CoreHelperMixin:
     ) -> None:
         clean_tags = self._clean_skill_tags(tags)
         self._require_tag_values_exist(connection, clean_tags)
+        self._require_required_tag_groups_present(connection, clean_tags)
         current_tags = {
             (tag["group_id"], tag["value"])
             for tag in self._skill_tags(connection, skill_id)
@@ -145,6 +165,7 @@ class CoreHelperMixin:
     def _require_protected_tag_creation_permission(self, connection, *, tags: list[dict[str, Any]], actor: str) -> None:
         clean_tags = self._clean_skill_tags(tags)
         self._require_tag_values_exist(connection, clean_tags)
+        self._require_required_tag_groups_present(connection, clean_tags)
         protected_tags = self._protected_skill_tags(connection, {(tag["group_id"], tag["value"]) for tag in clean_tags})
         if not protected_tags:
             return

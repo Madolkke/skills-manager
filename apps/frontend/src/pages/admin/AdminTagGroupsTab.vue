@@ -8,8 +8,8 @@ import AdminTagValueFormModal from "./AdminTagValueFormModal.vue";
 const props = defineProps<{ tagGroups: TagGroup[]; selectedTagGroupId: string }>();
 const emit = defineEmits<{
   select: [groupId: string];
-  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number }];
-  updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number }];
+  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean }];
+  updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }];
   deleteGroup: [group: TagGroup];
   createValue: [groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
   updateValue: [groupId: string, value: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
@@ -37,12 +37,12 @@ watch(selectedGroup, () => {
   editingValue.value = null;
 });
 
-function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number }): void {
+function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean }): void {
   if (!payload.id) return;
-  emit("createGroup", { id: payload.id, display_name: payload.display_name, description: payload.description, sort_order: payload.sort_order });
+  emit("createGroup", { id: payload.id, display_name: payload.display_name, description: payload.description, sort_order: payload.sort_order, required: payload.required });
 }
 
-function updateGroup(payload: { display_name: string; description?: string; sort_order?: number }): void {
+function updateGroup(payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }): void {
   if (!selectedGroup.value) return;
   emit("updateGroup", selectedGroup.value.id, payload);
 }
@@ -82,14 +82,17 @@ function openValueEdit(value: TagValueOption): void {
         <span>选择 Tag Group</span>
         <select :value="selectedGroup?.id ?? ''" :disabled="!filteredGroups.length" @change="emit('select', ($event.target as HTMLSelectElement).value)">
           <option v-for="group in filteredGroups" :key="group.id" :value="group.id">
-            {{ group.display_name }}（{{ group.id }}）
+            {{ group.display_name }}（{{ group.id }}）{{ group.required ? " · 必选" : "" }}
           </option>
         </select>
       </label>
 
       <div v-if="selectedGroup" class="admin-selected-summary">
         <strong>{{ selectedGroup.display_name }}</strong>
-        <span>{{ selectedGroup.id }}</span>
+        <div class="admin-chip-list">
+          <span class="tag-chip muted">{{ selectedGroup.id }}</span>
+          <span :class="['tag-chip', selectedGroup.required ? 'warning' : 'muted']">{{ selectedGroup.required ? "必选" : "可选" }}</span>
+        </div>
         <p>{{ selectedGroup.description || "无备注" }}</p>
       </div>
       <template v-if="selectedGroup">
@@ -101,6 +104,10 @@ function openValueEdit(value: TagValueOption): void {
           <div>
             <dt>Tag 数量</dt>
             <dd>{{ selectedGroup.values.length }}</dd>
+          </div>
+          <div>
+            <dt>保存要求</dt>
+            <dd>{{ selectedGroup.required ? "至少选择一个 Tag" : "可不选择" }}</dd>
           </div>
           <div>
             <dt>创建时间</dt>

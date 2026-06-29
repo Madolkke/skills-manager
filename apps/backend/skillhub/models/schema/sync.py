@@ -278,6 +278,7 @@ SCHEMA_PATCHES = (
       display_name text not null,
       description text not null default '',
       sort_order integer not null default 0,
+      required boolean not null default false,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
       created_by text not null,
@@ -285,6 +286,7 @@ SCHEMA_PATCHES = (
       constraint tag_groups_display_name_non_empty check (length(btrim(display_name)) > 0)
     )
     """,
+    "alter table tag_groups add column if not exists required boolean not null default false",
     """
     create table if not exists tag_values (
       tag_group_id text not null references tag_groups(id),

@@ -109,14 +109,14 @@ async function removeGroupMember(groupId: string, subjectId: string): Promise<vo
   await runAdminAction(() => api.adminRemoveGroupMember(groupId, subjectId), "成员已移除。");
 }
 
-async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number }): Promise<void> {
+async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean }): Promise<void> {
   await runAdminAction(async () => {
     const group = await api.adminCreateTagGroup(payload);
     selectedTagGroupId.value = group.id;
   }, "Tag Group 已创建。");
 }
 
-async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number }): Promise<void> {
+async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }): Promise<void> {
   await runAdminAction(() => api.adminUpdateTagGroup(groupId, payload), "Tag Group 已更新。");
 }
 

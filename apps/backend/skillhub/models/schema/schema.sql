@@ -374,6 +374,7 @@ create table tag_groups (
   display_name text not null,
   description text not null default '',
   sort_order integer not null default 0,
+  required boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   created_by text not null,
