@@ -8,7 +8,7 @@ import AdminTagValueFormModal from "./AdminTagValueFormModal.vue";
 const props = defineProps<{ tagGroups: TagGroup[]; selectedTagGroupId: string }>();
 const emit = defineEmits<{
   select: [groupId: string];
-  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean }];
+  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; initial_value?: string }];
   updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }];
   deleteGroup: [group: TagGroup];
   createValue: [groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
@@ -31,15 +31,26 @@ const filteredGroups = computed(() => {
       .some((value) => value.toLowerCase().includes(keyword)),
   );
 });
+const selectedGroupHiddenBySearch = computed(() => {
+  if (!groupSearch.value.trim() || !selectedGroup.value) return false;
+  return filteredGroups.value.every((group) => group.id !== selectedGroup.value?.id);
+});
 
 watch(selectedGroup, () => {
   valueModalMode.value = null;
   editingValue.value = null;
 });
 
-function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean }): void {
+function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; initial_value?: string }): void {
   if (!payload.id) return;
-  emit("createGroup", { id: payload.id, display_name: payload.display_name, description: payload.description, sort_order: payload.sort_order, required: payload.required });
+  emit("createGroup", {
+    id: payload.id,
+    display_name: payload.display_name,
+    description: payload.description,
+    sort_order: payload.sort_order,
+    required: payload.required,
+    initial_value: payload.initial_value,
+  });
 }
 
 function updateGroup(payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }): void {
@@ -82,7 +93,7 @@ function openValueEdit(value: TagValueOption): void {
         <span>选择 Tag Group</span>
         <select :value="selectedGroup?.id ?? ''" :disabled="!filteredGroups.length" @change="emit('select', ($event.target as HTMLSelectElement).value)">
           <option v-for="group in filteredGroups" :key="group.id" :value="group.id">
-            {{ group.display_name }}（{{ group.id }}）{{ group.required ? " · 必选" : "" }}
+            {{ group.display_name }}（{{ group.id }}）
           </option>
         </select>
       </label>
@@ -94,6 +105,7 @@ function openValueEdit(value: TagValueOption): void {
           <span :class="['tag-chip', selectedGroup.required ? 'warning' : 'muted']">{{ selectedGroup.required ? "必选" : "可选" }}</span>
         </div>
         <p>{{ selectedGroup.description || "无备注" }}</p>
+        <p v-if="selectedGroupHiddenBySearch" class="field-help">当前选中项被搜索条件隐藏；清空搜索可在下拉框中看到它。</p>
       </div>
       <template v-if="selectedGroup">
         <dl class="admin-detail-grid compact">

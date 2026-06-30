@@ -3,7 +3,8 @@ import { ref } from "vue";
 import { ADMIN_TABS, type AdminTab } from "../lib/admin";
 import { api, ApiError, type AdminGroup } from "../lib/api";
 import { toTagPayloads } from "../lib/skillTags";
-import type { OpencodeAgent, OpencodeAgentPayload, OpencodeProviderCatalog, PublishGateCheckDefinition, PublishGateExpression, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, TagValueOption } from "../types";
+import type { OpencodeAgent, OpencodeProviderCatalog, PublishGateCheckDefinition, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup } from "../types";
+import { createAdminStateSync } from "./admin/adminStateSync";
 import AdminGroupsTab from "./admin/AdminGroupsTab.vue";
 import AdminOpencodeAgentsTab from "./admin/AdminOpencodeAgentsTab.vue";
 import AdminOverviewTab from "./admin/AdminOverviewTab.vue";
@@ -12,6 +13,7 @@ import AdminPublishTargetsTab from "./admin/AdminPublishTargetsTab.vue";
 import AdminRoleAssignmentsTab from "./admin/AdminRoleAssignmentsTab.vue";
 import AdminSkillTagsTab from "./admin/AdminSkillTagsTab.vue";
 import AdminTagGroupsTab from "./admin/AdminTagGroupsTab.vue";
+import { useAdminActions } from "./admin/useAdminActions";
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
 
@@ -32,6 +34,28 @@ const selectedGroupId = ref("");
 const selectedTagGroupId = ref("");
 const selectedOpencodeAgentId = ref("");
 const tagDrafts = ref<Record<string, SkillTagPayload[]>>({});
+const syncAdminState = createAdminStateSync({
+  groups,
+  tagGroups,
+  roles,
+  publishTargets,
+  publishRecords,
+  opencodeAgents,
+  skills,
+  tagDrafts,
+  selectedGroupId,
+  selectedTagGroupId,
+  selectedOpencodeAgentId,
+});
+const adminActions = useAdminActions({
+  tagDrafts,
+  selectedGroupId,
+  selectedTagGroupId,
+  selectedOpencodeAgentId,
+  syncAdminState,
+  load,
+  emitToast: (toast) => emit("toast", toast),
+});
 
 async function unlock(): Promise<void> {
   sessionStorage.setItem("skillhub.admin.key", key.value.trim());
@@ -82,151 +106,10 @@ async function refreshOpencodeProviders(): Promise<void> {
   }
 }
 
-async function createGroup(payload: { name: string; description?: string }): Promise<void> {
-  await runAdminAction(async () => {
-    const group = await api.adminCreateGroup(payload);
-    selectedGroupId.value = group.id;
-  }, "用户组已创建。");
-}
-
-async function updateGroup(groupId: string, payload: { name: string; description?: string }): Promise<void> {
-  await runAdminAction(() => api.adminUpdateGroup(groupId, payload), "用户组已更新。");
-}
-
-async function deleteGroup(group: AdminGroup): Promise<void> {
-  if (!confirm(`将强制删除用户组“${group.name}”，并移除其成员和相关授权。是否继续？`)) return;
-  await runAdminAction(async () => {
-    await api.adminDeleteGroup(group.id);
-    selectedGroupId.value = "";
-  }, "用户组已删除。");
-}
-
-async function addGroupMember(groupId: string, subjectId: string): Promise<void> {
-  await runAdminAction(() => api.adminAddGroupMember(groupId, { subject_id: subjectId }), "成员已添加。");
-}
-
-async function removeGroupMember(groupId: string, subjectId: string): Promise<void> {
-  await runAdminAction(() => api.adminRemoveGroupMember(groupId, subjectId), "成员已移除。");
-}
-
-async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean }): Promise<void> {
-  await runAdminAction(async () => {
-    const group = await api.adminCreateTagGroup(payload);
-    selectedTagGroupId.value = group.id;
-  }, "Tag Group 已创建。");
-}
-
-async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }): Promise<void> {
-  await runAdminAction(() => api.adminUpdateTagGroup(groupId, payload), "Tag Group 已更新。");
-}
-
-async function deleteTagGroup(group: TagGroup): Promise<void> {
-  if (!confirm(`将强制删除 Tag Group“${group.display_name}”，并移除其 Tag 值、Skill Tag 绑定和相关授权。是否继续？`)) return;
-  await runAdminAction(async () => {
-    await api.adminDeleteTagGroup(group.id);
-    selectedTagGroupId.value = "";
-  }, "Tag Group 已删除。");
-}
-
-async function createTagValue(groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }): Promise<void> {
-  await runAdminAction(() => api.adminCreateTagValue(groupId, payload), "Tag 值已创建。");
-}
-
-async function updateTagValue(groupId: string, value: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }): Promise<void> {
-  await runAdminAction(() => api.adminUpdateTagValue(groupId, value, payload), "Tag 值已更新。");
-}
-
-async function deleteTagValue(group: TagGroup, value: TagValueOption): Promise<void> {
-  if (!confirm(`将强制删除 Tag 值“${value.display_name || value.value}”，并移除相关 Skill Tag 绑定和授权。是否继续？`)) return;
-  await runAdminAction(() => api.adminDeleteTagValue(group.id, value.value), "Tag 值已删除。");
-}
-
-async function assignRole(payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag"; resource_id: string; role: string }): Promise<void> {
-  await runAdminAction(() => api.adminAssignRole(payload), "角色已授权。");
-}
-
-async function revokeRole(role: RoleAssignment): Promise<void> {
-  if (!confirm(`将撤销 ${role.subject_type}:${role.subject_id} 的 ${role.role} 授权。是否继续？`)) return;
-  await runAdminAction(() => api.adminDeleteRoleAssignment(role.id), "授权已撤销。");
-}
-
-async function updatePublishTarget(targetId: string, payload: { enabled: boolean; auto_publish_enabled: boolean; gate_expression: PublishGateExpression }): Promise<void> {
-  await runAdminAction(() => api.adminUpdatePublishTarget(targetId, payload), "发布源已更新。");
-}
-
-async function createOpencodeAgent(payload: OpencodeAgentPayload): Promise<void> {
-  await runAdminAction(async () => {
-    const agent = await api.adminCreateOpencodeAgent(payload);
-    selectedOpencodeAgentId.value = agent.id;
-  }, "Opencode Agent 已创建。");
-}
-
-async function updateOpencodeAgent(agentId: string, payload: OpencodeAgentPayload): Promise<void> {
-  await runAdminAction(() => api.adminUpdateOpencodeAgent(agentId, payload), "Opencode Agent 已更新。");
-}
-
-async function deleteOpencodeAgent(agent: OpencodeAgent): Promise<void> {
-  if (!confirm(`将软删除 Opencode Agent“${agent.name}”，测评页将不再显示。历史运行记录不会被清理。是否继续？`)) return;
-  await runAdminAction(async () => {
-    await api.adminDeleteOpencodeAgent(agent.id);
-    selectedOpencodeAgentId.value = "";
-  }, "Opencode Agent 已删除。");
-}
-
-async function confirmPublishRecord(record: PublishRecord): Promise<void> {
-  if (!confirm(`确认发布 ${record.skill?.slug ?? record.skill_id} 到 ${record.publish_target?.name ?? record.publish_target_id}？`)) return;
-  await runAdminAction(() => api.adminConfirmPublishRecord(record.id), "发布单已确认。");
-}
-
-async function cancelPublishRecord(record: PublishRecord): Promise<void> {
-  if (!confirm("将取消该待确认发布单。是否继续？")) return;
-  await runAdminAction(() => api.adminCancelPublishRecord(record.id), "发布单已取消。");
-}
-
-async function batchConfirmPublishRecords(records: PublishRecord[]): Promise<void> {
-  if (!records.length) return;
-  if (!confirm(`将批量确认 ${records.length} 条待确认发布单。是否继续？`)) return;
-  await runBatchPublishAction(records, (record) => api.adminConfirmPublishRecord(record.id), "确认");
-}
-
-async function batchCancelPublishRecords(records: PublishRecord[]): Promise<void> {
-  if (!records.length) return;
-  if (!confirm(`将批量取消 ${records.length} 条待确认发布单。是否继续？`)) return;
-  await runBatchPublishAction(records, (record) => api.adminCancelPublishRecord(record.id), "取消");
-}
-
-async function saveSkillTags(skill: SkillSummary, tags?: SkillTagPayload[]): Promise<void> {
-  const nextTags = tags ?? tagDrafts.value[skill.skill.id] ?? [];
-  tagDrafts.value[skill.skill.id] = nextTags;
-  await runAdminAction(() => api.adminUpdateSkill(skill.skill.id, { tags: nextTags }), "Skill Tag 已更新。");
-}
-
-async function runAdminAction(action: () => Promise<unknown>, successMessage: string): Promise<void> {
-  try {
-    await action();
-    await load();
-    emit("toast", { tone: "success", message: successMessage });
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function runBatchPublishAction(records: PublishRecord[], action: (record: PublishRecord) => Promise<unknown>, verb: string): Promise<void> {
-  let succeeded = 0;
-  let failed = 0;
-  for (const record of records) {
-    try {
-      await action(record);
-      succeeded += 1;
-    } catch {
-      failed += 1;
-    }
-  }
+async function selectAdminTab(tabId: AdminTab): Promise<void> {
+  if (activeTab.value === tabId) return;
+  activeTab.value = tabId;
   await load();
-  emit("toast", {
-    tone: failed ? "danger" : "success",
-    message: `批量${verb}完成：成功 ${succeeded} 条，失败 ${failed} 条。`,
-  });
 }
 
 function showError(error: unknown): void {
@@ -255,7 +138,7 @@ function showError(error: unknown): void {
             :key="tab.id"
             type="button"
             :class="['skill-tab', { active: activeTab === tab.id }]"
-            @click="activeTab = tab.id"
+            @click="selectAdminTab(tab.id)"
           >
             {{ tab.label }}
           </button>
@@ -271,11 +154,11 @@ function showError(error: unknown): void {
           :groups="groups"
           :selected-group-id="selectedGroupId"
           @select="selectedGroupId = $event"
-          @create="createGroup"
-          @update="updateGroup"
-          @delete="deleteGroup"
-          @add-member="addGroupMember"
-          @remove-member="removeGroupMember"
+          @create="adminActions.createGroup"
+          @update="adminActions.updateGroup"
+          @delete="adminActions.deleteGroup"
+          @add-member="adminActions.addGroupMember"
+          @remove-member="adminActions.removeGroupMember"
         />
         <AdminTagGroupsTab
           v-else-if="activeTab === 'tag-groups'"
@@ -283,12 +166,12 @@ function showError(error: unknown): void {
           :tag-groups="tagGroups"
           :selected-tag-group-id="selectedTagGroupId"
           @select="selectedTagGroupId = $event"
-          @create-group="createTagGroup"
-          @update-group="updateTagGroup"
-          @delete-group="deleteTagGroup"
-          @create-value="createTagValue"
-          @update-value="updateTagValue"
-          @delete-value="deleteTagValue"
+          @create-group="adminActions.createTagGroup"
+          @update-group="adminActions.updateTagGroup"
+          @delete-group="adminActions.deleteTagGroup"
+          @create-value="adminActions.createTagValue"
+          @update-value="adminActions.updateTagValue"
+          @delete-value="adminActions.deleteTagValue"
         />
         <AdminRoleAssignmentsTab
           v-else-if="activeTab === 'roles'"
@@ -296,8 +179,8 @@ function showError(error: unknown): void {
           :roles="roles"
           :tag-groups="tagGroups"
           :skills="skills"
-          @assign="assignRole"
-          @revoke="revokeRole"
+          @assign="adminActions.assignRole"
+          @revoke="adminActions.revokeRole"
           @toast="emit('toast', { tone: 'danger', message: $event })"
         />
         <AdminSkillTagsTab
@@ -307,7 +190,7 @@ function showError(error: unknown): void {
           :tag-groups="tagGroups"
           :tag-drafts="tagDrafts"
           @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
-          @save="saveSkillTags"
+          @save="adminActions.saveSkillTags"
         />
         <AdminOpencodeAgentsTab
           v-else-if="activeTab === 'opencode-agents'"
@@ -317,25 +200,25 @@ function showError(error: unknown): void {
           :selected-agent-id="selectedOpencodeAgentId"
           @select="selectedOpencodeAgentId = $event"
           @refresh-providers="refreshOpencodeProviders"
-          @create="createOpencodeAgent"
-          @update="updateOpencodeAgent"
-          @delete="deleteOpencodeAgent"
+          @create="adminActions.createOpencodeAgent"
+          @update="adminActions.updateOpencodeAgent"
+          @delete="adminActions.deleteOpencodeAgent"
         />
         <AdminPublishTargetsTab
           v-else-if="activeTab === 'publish-targets'"
           key="publish-targets"
           :targets="publishTargets"
           :checks="publishGateChecks"
-          @update="updatePublishTarget"
+          @update="adminActions.updatePublishTarget"
         />
         <AdminPublishTab
           v-else
           key="publish"
           :records="publishRecords"
-          @confirm-record="confirmPublishRecord"
-          @cancel-record="cancelPublishRecord"
-          @batch-confirm="batchConfirmPublishRecords"
-          @batch-cancel="batchCancelPublishRecords"
+          @confirm-record="adminActions.confirmPublishRecord"
+          @cancel-record="adminActions.cancelPublishRecord"
+          @batch-confirm="adminActions.batchConfirmPublishRecords"
+          @batch-cancel="adminActions.batchCancelPublishRecords"
         />
       </Transition>
     </template>

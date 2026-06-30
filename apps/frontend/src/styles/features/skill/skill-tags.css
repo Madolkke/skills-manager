@@ -1,6 +1,8 @@
 .skill-tag-picker {
   display: grid;
   gap: 12px;
+  color: var(--ink);
+  font-weight: 650;
 }
 
 .skill-tag-toolbar {
@@ -24,7 +26,34 @@
   background: white;
   padding: 12px;
   display: grid;
-  gap: 8px;
+  gap: 12px;
+}
+
+.skill-tag-group-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.skill-tag-group-select {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.skill-tag-group-select span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.skill-tag-group-select select {
+  min-height: 38px;
+  padding: 8px 34px 8px 12px;
+  border-radius: 8px;
+  font-weight: 760;
+  background-color: #fbfdff;
 }
 
 .skill-tag-option {
@@ -37,6 +66,8 @@
   background: #f8fafc;
   padding: 6px 10px;
   cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
   transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
 }
 
@@ -51,12 +82,27 @@
   color: #1d4ed8;
 }
 
-.skill-tag-option input {
+.skill-tag-option input,
+.field-label .skill-tag-option input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
   margin: 0;
+  padding: 0;
+}
+
+.skill-tag-option span {
+  min-width: 0;
 }
 
 @media (max-width: 920px) {
   .skill-tag-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .skill-tag-group-row {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 }

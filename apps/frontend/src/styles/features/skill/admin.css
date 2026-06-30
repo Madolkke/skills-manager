@@ -201,6 +201,18 @@
   overflow-wrap: anywhere;
 }
 
+.admin-selected-summary .tag-chip {
+  color: #3154a3;
+}
+
+.admin-selected-summary .tag-chip.muted {
+  color: var(--muted);
+}
+
+.admin-selected-summary .tag-chip.warning {
+  color: #9a3412;
+}
+
 .admin-selected-summary p {
   margin: 0;
   color: #4b607a;
@@ -356,6 +368,62 @@
   gap: 16px;
 }
 
+.tag-group-requirement-field {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.tag-group-requirement-field strong {
+  display: block;
+  color: var(--ink);
+}
+
+.tag-group-requirement-field p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tag-group-requirement-toggle {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(64px, 1fr));
+  gap: 3px;
+}
+
+.tag-group-requirement-toggle button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #51637c;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.tag-group-requirement-toggle button.active {
+  background: #eff6ff;
+  color: var(--blue);
+  box-shadow: inset 0 0 0 1px rgb(37 99 235 / 16%);
+}
+
+.tag-group-initial-value {
+  border: 1px dashed #b8c7db;
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
 .admin-role-table {
   display: grid;
   gap: 6px;
@@ -498,7 +566,8 @@
   .admin-member-table-head,
   .admin-member-table-row,
   .admin-role-table-head,
-  .admin-role-table-row {
+  .admin-role-table-row,
+  .tag-group-requirement-field {
     grid-template-columns: 1fr;
   }
 

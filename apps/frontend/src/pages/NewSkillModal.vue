@@ -89,10 +89,10 @@ async function submit(): Promise<void> {
         <input v-model="version" maxlength="80" placeholder="例如 0.0.1" />
       </label>
       <p v-if="version.trim() && !validSemver(version)" class="field-hint danger">版本号必须使用 SemVer，例如 0.0.1。</p>
-      <label class="field-label">
+      <div class="field-label new-skill-tags-field">
         <span>Skill Tags</span>
         <SkillTagPicker :value="tags" :groups="tagGroups" @change="tags = $event" />
-      </label>
+      </div>
       <p v-if="tagValidationError" class="field-hint danger">{{ tagValidationError }}</p>
       <BundlePicker
         v-if="mode === 'upload'"

@@ -142,14 +142,17 @@ function preferredActiveGroupId(tags: SkillTagPayload[]): string {
     <p v-if="validationError" class="field-hint danger">{{ validationError }}</p>
 
     <section v-if="editing && activeGroup" class="skill-tag-add-panel">
-      <label class="field-label compact">
-        <span>选择 Tag Group</span>
-        <select v-model="activeGroupId">
-          <option v-for="group in groupsWithValues" :key="group.id" :value="group.id">
-            {{ group.display_name }}{{ group.required ? "（必选）" : "" }}
-          </option>
-        </select>
-      </label>
+      <div class="skill-tag-group-row">
+        <label class="skill-tag-group-select">
+          <span>选择 Tag Group</span>
+          <select v-model="activeGroupId">
+            <option v-for="group in groupsWithValues" :key="group.id" :value="group.id">
+              {{ group.display_name }}{{ group.required ? "（必选）" : "" }}
+            </option>
+          </select>
+        </label>
+        <span :class="['tag-chip', activeGroup.required ? 'warning' : 'muted']">{{ activeGroup.required ? "必选" : "可选" }}</span>
+      </div>
 
       <div class="skill-tag-add-options">
         <label
