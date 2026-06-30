@@ -12,10 +12,40 @@ export type RouteState = {
   selectedRunId: string | null;
 };
 
+/**
+ * Normalizes the Vite app base to a pathname prefix without a trailing slash.
+ */
+export function appBasePath(baseUrl = import.meta.env.BASE_URL): string {
+  const clean = baseUrl.trim();
+  if (!clean || clean === "/") return "";
+  return `/${clean.replace(/^\/+|\/+$/g, "")}`;
+}
+
+/**
+ * Adds the current app base prefix to an internal SPA pathname.
+ */
+export function withAppBase(pathname: string, baseUrl = import.meta.env.BASE_URL): string {
+  const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  return `${appBasePath(baseUrl)}${path}`;
+}
+
+/**
+ * Removes the current app base prefix before route parsing.
+ */
+export function stripAppBase(pathname: string, baseUrl = import.meta.env.BASE_URL): string {
+  const path = pathname || "/";
+  const base = appBasePath(baseUrl);
+  if (!base) return path;
+  if (path === base) return "/";
+  if (path.startsWith(`${base}/`)) return path.slice(base.length) || "/";
+  return path;
+}
+
 export function readRoute(): RouteState {
   const url = new URL(window.location.href);
+  const pathname = stripAppBase(url.pathname);
   const skillId = url.searchParams.get("skill");
-  if (url.pathname === "/skills/admin") {
+  if (pathname === "/skills/admin") {
     return {
       section: "admin",
       skillId: null,
@@ -26,7 +56,7 @@ export function readRoute(): RouteState {
       selectedRunId: null,
     };
   }
-  if (url.pathname === "/skills/reviews") {
+  if (pathname === "/skills/reviews") {
     return {
       section: "my-reviews",
       skillId: null,
@@ -53,18 +83,18 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
   const route = { ...current, ...next };
   const url = new URL(window.location.href);
   if (route.section === "admin") {
-    url.pathname = "/skills/admin";
+    url.pathname = withAppBase("/skills/admin");
     url.search = "";
     window.history.pushState(route, "", url);
     return route;
   }
   if (route.section === "my-reviews") {
-    url.pathname = "/skills/reviews";
+    url.pathname = withAppBase("/skills/reviews");
     url.search = "";
     window.history.pushState(route, "", url);
     return route;
   }
-  url.pathname = "/skills";
+  url.pathname = withAppBase("/skills");
   url.search = "";
   if (route.section !== "hub") url.searchParams.set("section", route.section);
   if (route.skillId) url.searchParams.set("skill", route.skillId);

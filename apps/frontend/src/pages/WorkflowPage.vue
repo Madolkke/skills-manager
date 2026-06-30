@@ -5,7 +5,7 @@ const workflowUrl = workflowAppUrl();
 function workflowAppUrl(): string {
   const value = import.meta.env.VITE_WORKFLOW_APP_URL;
   if (typeof value === "string" && value.trim()) return value.trim();
-  return "http://127.0.0.1:xxxx";
+  return "未配置";
 }
 </script>
 

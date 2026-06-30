@@ -10,6 +10,7 @@ import { evalRunReason, formalEvalReason, publishRequestReason } from "../lib/di
 import { runWaitHint } from "../lib/evalWaitHints";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
+import { appBasePath, stripAppBase, withAppBase } from "../lib/navigation";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
 import {
   buildBundleSourceFromDraftFiles,
@@ -479,5 +480,15 @@ describe("skill evidence helpers", () => {
     expect(bumpVersion("0.0.1", "minor")).toBe("0.1.0");
     expect(bumpVersion("0.0.1", "patch")).toBe("0.0.2");
     expect(nextPatchVersion([])).toBe("0.0.1");
+  });
+
+  it("keeps SPA route paths under the configured app base", () => {
+    expect(appBasePath("/")).toBe("");
+    expect(appBasePath("/skillhub/")).toBe("/skillhub");
+    expect(withAppBase("/skills", "/")).toBe("/skills");
+    expect(withAppBase("skills/admin", "/skillhub/")).toBe("/skillhub/skills/admin");
+    expect(stripAppBase("/skillhub/skills/reviews", "/skillhub/")).toBe("/skills/reviews");
+    expect(stripAppBase("/skillhub", "/skillhub/")).toBe("/");
+    expect(stripAppBase("/skills", "/skillhub/")).toBe("/skills");
   });
 });
