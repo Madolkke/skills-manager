@@ -15,6 +15,7 @@ from skillhub.services import (
     OpencodeService,
     ReviewService,
     SavedViewService,
+    SkillBuilderService,
     SkillService,
     VersionService,
 )
@@ -75,6 +76,10 @@ def opencode_service_dependency(request: Request) -> OpencodeService:
 
 def saved_view_service_dependency(request: Request) -> SavedViewService:
     return SavedViewService(_store(request))
+
+
+def skill_builder_service_dependency(request: Request) -> SkillBuilderService:
+    return SkillBuilderService(_store(request))
 
 
 def artifact_service_dependency(request: Request) -> ArtifactService:

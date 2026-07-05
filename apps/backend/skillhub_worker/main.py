@@ -12,13 +12,24 @@ from skillhub_worker.config import load_config
 from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
 from skillhub_worker.opencode_trace import compact_message_output, extract_opencode_trace, new_opencode_messages, opencode_message_ids
-from skillhub_worker.workspace import materialize_case_workspace, materialize_opencode_agent, render_step_prompt, workspace_snapshot
+from skillhub_worker.workspace import (
+    BUILDER_AGENT_ID,
+    BUILDER_TOOLS,
+    materialize_builder_workspace,
+    materialize_case_workspace,
+    materialize_opencode_agent,
+    render_builder_prompt,
+    render_step_prompt,
+    scan_builder_draft_files,
+    sync_builder_workspace_files,
+    workspace_snapshot,
+)
 
 
 def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
     detail = store.claim_next_eval_case_run_job(worker_id=config.worker_id)
     if detail is None:
-        return False
+        return run_builder_once(store, client, config=config)
     run = detail["eval_case_run"]
     job = detail.get("job") or {}
     eval_case_run_id = run["id"]
@@ -199,6 +210,63 @@ def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClien
     return True
 
 
+def run_builder_once(store: SkillHubStore, client: OpencodeClient, *, config) -> bool:
+    detail = store.claim_next_skill_builder_job(worker_id=config.worker_id)
+    if detail is None:
+        return False
+    session = detail["session"]
+    message = detail["message"]
+    job = detail["job"]
+    session_id = session["id"]
+    job_id = job["id"]
+    try:
+        paths = materialize_builder_workspace(session=session, host_root=config.workdir_host, container_root=config.workdir_container)
+        sync_builder_workspace_files(Path(paths["host_workdir"]), list(session.get("workspace_files") or session.get("draft_files") or []))
+        client.health()
+        opencode_session_id = session.get("opencode_session_id") or client.create_session(
+            title=f"SkillHub Builder {session_id}",
+            directory=paths["workdir"],
+        )
+        messages_before = client.list_messages(session_id=opencode_session_id, directory=paths["workdir"])
+        seen_message_ids = opencode_message_ids(messages_before)
+        prompt = render_builder_prompt(user_content=str(message.get("content") or ""), intent=str(message.get("intent") or "chat"))
+        response = client.send_message(
+            session_id=opencode_session_id,
+            prompt=prompt,
+            directory=paths["workdir"],
+            provider_id=_payload_text(job.get("payload"), "provider_id") or None,
+            model_id=_payload_text(job.get("payload"), "model_id") or None,
+            agent_id=BUILDER_AGENT_ID,
+            tools=BUILDER_TOOLS,
+        )
+        message_history = client.list_messages(session_id=opencode_session_id, directory=paths["workdir"])
+        new_messages = new_opencode_messages(message_history, seen_message_ids, seen_count=len(messages_before))
+        trace_source: object = new_messages or response
+        assistant_output = compact_message_output(trace_source)
+        workspace_files = scan_builder_draft_files(Path(paths["host_workdir"]))
+        store.complete_skill_builder_job(
+            session_id=session_id,
+            job_id=job_id,
+            assistant_content=assistant_output,
+            intent=str(message.get("intent") or "chat"),
+            draft_files=workspace_files,
+            opencode_session_id=opencode_session_id,
+            workdir=paths["workdir"],
+            metadata={
+                "runner": "opencode_skill_builder",
+                "builder_agent": BUILDER_AGENT_ID,
+                "builder_agent_file": paths["builder_agent_file"],
+                "message_response": _compact_message_response(response),
+                "opencode_trace": _public_opencode_trace(extract_opencode_trace(trace_source)),
+                "draft_file_count": len(workspace_files),
+                "workspace_file_count": len(workspace_files),
+            },
+        )
+    except Exception as exc:
+        store.fail_skill_builder_job(session_id=session_id, job_id=job_id, error=str(exc))
+    return True
+
+
 def main() -> None:
     config = load_config()
     config.workdir_host.mkdir(parents=True, exist_ok=True)
@@ -267,6 +335,13 @@ def _opencode_agent_id(run_context: Any) -> str:
     if not isinstance(opencode, dict):
         return ""
     return str(opencode.get("agent_id") or "").strip()
+
+
+def _payload_text(payload: Any, key: str) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    value = payload.get(key)
+    return value.strip() if isinstance(value, str) else ""
 
 
 def _initial_skill_usage(skill_installation: dict[str, Any]) -> dict[str, Any]:

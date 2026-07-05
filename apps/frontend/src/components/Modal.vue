@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { X } from "lucide-vue-next";
 import { onBeforeUnmount, onMounted } from "vue";
 
-const props = defineProps<{ title: string; description?: string; size?: "default" | "wide" }>();
+const props = defineProps<{ title: string; description?: string; size?: "default" | "wide" | "workspace" }>();
 const emit = defineEmits<{ close: [] }>();
 
 onMounted(() => document.addEventListener("keydown", handleKeydown));
@@ -17,7 +17,7 @@ function handleKeydown(event: KeyboardEvent): void {
 <template>
   <Teleport to="body">
     <div class="modal-backdrop" @click="emit('close')" />
-    <section :class="clsx('modal-card', props.size === 'wide' && 'wide')" role="dialog" aria-modal="true" :aria-label="props.title">
+    <section :class="clsx('modal-card', props.size === 'wide' && 'wide', props.size === 'workspace' && 'workspace')" role="dialog" aria-modal="true" :aria-label="props.title">
       <header class="modal-head">
         <div>
           <h2 class="modal-title">{{ props.title }}</h2>

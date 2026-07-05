@@ -19,6 +19,7 @@ from skillhub.models.operations.shared.results import (
     RecordEvalRunResult,
 )
 from skillhub.models.operations.skills import SkillStoreMixin
+from skillhub.models.operations.skill_builder import SkillBuilderStoreMixin
 
 
 class SkillHubStore(
@@ -29,6 +30,7 @@ class SkillHubStore(
     ReviewStoreMixin,
     SavedViewStoreMixin,
     BundleStoreMixin,
+    SkillBuilderStoreMixin,
     SharedStoreMixin,
 ):
     pass

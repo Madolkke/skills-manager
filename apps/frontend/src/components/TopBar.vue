@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, Boxes, ClipboardCheck, Plus, Settings, Workflow } from "lucide-vue-next";
+import { Bell, Boxes, ClipboardCheck, Plus, Settings, Sparkles, Workflow } from "lucide-vue-next";
 import { onBeforeUnmount, ref, watch } from "vue";
 import { slugTitle } from "../lib/format";
 import type { SkillDetail } from "../types";
@@ -9,7 +9,7 @@ const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillDet
   currentSkill: null,
   taskCount: 0,
 });
-const emit = defineEmits<{ home: []; create: []; workflows: []; settings: []; reviews: []; tasks: [] }>();
+const emit = defineEmits<{ home: []; create: []; builder: []; workflows: []; settings: []; reviews: []; tasks: [] }>();
 
 const menuOpen = ref(false);
 const menuRef = ref<HTMLDivElement | null>(null);
@@ -44,6 +44,10 @@ function handleClick(event: MouseEvent): void {
       <button class="secondary-button" type="button" @click="emit('workflows')">
         <Workflow :size="16" />
         工作流编排
+      </button>
+      <button class="secondary-button" type="button" @click="emit('builder')">
+        <Sparkles :size="16" />
+        AI 创建
       </button>
       <button class="icon-button top-task-button" type="button" aria-label="打开任务中心" title="任务中心" @click="emit('tasks')">
         <Bell :size="18" />

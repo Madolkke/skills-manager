@@ -18,6 +18,8 @@
 @import "./features/skill/admin-publish.css";
 @import "./features/skill/my-reviews.css";
 @import "./features/skill/my-review-score.css";
+@import "./features/skill/builder.css";
+@import "./features/skill/builder-markdown.css";
 @import "./features/versions/version-upload.css";
 @import "./features/versions/version-diff.css";
 @import "./features/evaluation/history.css";

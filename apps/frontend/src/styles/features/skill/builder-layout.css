@@ -1,0 +1,146 @@
+.skill-builder-page {
+  min-height: calc(100vh - 78px);
+  padding: 18px 24px 28px;
+  box-sizing: border-box;
+}
+
+.builder-chat-panel,
+.builder-workspace-panel,
+.builder-main-toolbar {
+  border: 1px solid var(--soft-line);
+  background: var(--panel);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.builder-panel-head,
+.builder-composer-actions,
+.builder-create-actions,
+.builder-main-toolbar,
+.builder-toolbar-actions,
+.builder-workspace-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.builder-main-toolbar {
+  grid-template-columns: minmax(260px, 1fr) minmax(460px, 620px) max-content;
+  align-items: center;
+  position: sticky;
+  top: 94px;
+  z-index: 8;
+  background: rgb(255 255 255 / 94%);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 14px 36px rgb(15 23 42 / 10%);
+}
+
+.builder-toolbar-title {
+  min-width: 0;
+}
+
+.builder-toolbar-actions {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.builder-toolbar-model {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.builder-toolbar-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.builder-toolbar-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.builder-toolbar-hint.danger {
+  color: #b91c1c;
+}
+
+.builder-main-toolbar h1,
+.builder-panel-head h2 {
+  margin: 3px 0 0;
+  font-size: 20px;
+}
+
+.builder-toolbar-actions .secondary-button.active {
+  border-color: var(--blue);
+  background: #f5f8ff;
+}
+
+.skill-builder-main {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.builder-chat-panel,
+.builder-workspace-panel,
+.builder-main-toolbar {
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.builder-main-toolbar {
+  align-items: center;
+}
+
+.builder-model-fields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.builder-model-fields.default-mode {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.builder-default-model-pill {
+  min-height: 44px;
+  border: 1px solid #dbe8ff;
+  border-radius: var(--radius);
+  background: #f5f8ff;
+  color: #1d4ed8;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (max-width: 920px) {
+  .skill-builder-page {
+    padding: 14px 12px 24px;
+  }
+
+  .builder-panel-head,
+  .builder-create-actions,
+  .builder-main-toolbar,
+  .builder-toolbar-actions,
+  .builder-workspace-actions {
+    display: grid;
+  }
+
+  .builder-model-fields {
+    min-width: 0;
+    grid-template-columns: 1fr;
+  }
+}

@@ -31,6 +31,8 @@ SAVED_VIEW_NAME_MAX_LENGTH = 80
 ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH = 1_000
 VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
 VERSION_DISPLAY_NAME_MAX_LENGTH = 80
+SKILL_BUILDER_MESSAGE_MAX_LENGTH = 20_000
+SKILL_BUILDER_FILE_CONTENT_MAX_LENGTH = 200_000
 
 EvalCaseTitle = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_TITLE_MAX_LENGTH)]
 EvalCaseInput = Annotated[str, Field(min_length=1, max_length=EVAL_CASE_INPUT_MAX_LENGTH)]
@@ -43,6 +45,8 @@ AcceptedVerificationNote = Annotated[str, Field(max_length=ACCEPTED_VERIFICATION
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
 VersionDisplayName = Annotated[str, Field(min_length=1, max_length=VERSION_DISPLAY_NAME_MAX_LENGTH)]
 SkillVersionSemVer = Annotated[str, Field(min_length=5, max_length=80, pattern=SEMVER_PATTERN)]
+SkillBuilderMessageText = Annotated[str, Field(min_length=1, max_length=SKILL_BUILDER_MESSAGE_MAX_LENGTH)]
+SkillBuilderFileContent = Annotated[str, Field(max_length=SKILL_BUILDER_FILE_CONTENT_MAX_LENGTH)]
 
 
 class ContentRefPayload(BaseModel):
@@ -217,6 +221,46 @@ class AdminSkillUpdatePayload(BaseModel):
     slug: SkillSlug | None = None
     owner_ref: IdentityRef | None = None
     tags: list[SkillTagPayload] | None = None
+
+
+class CreateSkillBuilderSessionPayload(BaseModel):
+    title: Annotated[str, Field(max_length=160)] | None = None
+
+
+class SkillBuilderMessagePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: SkillBuilderMessageText
+    intent: str = "chat"
+    provider_id: Annotated[str, Field(max_length=120)] | None = None
+    model_id: Annotated[str, Field(max_length=120)] | None = None
+
+
+class SkillBuilderDraftFilePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: Annotated[str, Field(min_length=1, max_length=240)]
+    content_text: SkillBuilderFileContent
+
+
+class UpdateSkillBuilderDraftPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    files: list[SkillBuilderDraftFilePayload] = Field(min_length=1, max_length=100)
+
+
+class UpdateSkillBuilderWorkspacePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    files: list[SkillBuilderDraftFilePayload] = Field(default_factory=list, max_length=100)
+
+
+class CreateSkillFromBuilderPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: SkillVersionSemVer
+    tags: list[SkillTagPayload] = Field(default_factory=list)
+    files: list[SkillBuilderDraftFilePayload] | None = Field(default=None, max_length=100)
 
 
 class EvalStepAssertionPayload(BaseModel):

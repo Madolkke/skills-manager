@@ -3,11 +3,182 @@ import base64
 import httpx
 from io import BytesIO
 import json
+from sqlalchemy import insert, select
 from zipfile import ZipFile
+from skillhub.models.entities import utc_now
+from skillhub.models.schema import tables
 from skillhub.services import opencode as opencode_service
 
 
 class ApiSkillManagementTest(ApiCommandTestCase):
+    def test_skill_builder_session_draft_and_create_skill_flow(self):
+        session_response = self.client.post(
+            "/api/skill-builder/sessions",
+            headers={"X-SkillHub-Actor": "builder-user"},
+            json={"title": "PR reviewer"},
+        )
+        self.assertEqual(session_response.status_code, 200)
+        session_id = session_response.json()["id"]
+
+        message_response = self.client.post(
+            f"/api/skill-builder/sessions/{session_id}/messages",
+            headers={"X-SkillHub-Actor": "builder-user"},
+            json={
+                "content": "帮我创建一个 PR 安全评审 Skill。",
+                "intent": "chat",
+                "provider_id": "deepseek",
+                "model_id": "deepseek-v4",
+            },
+        )
+        self.assertEqual(message_response.status_code, 200)
+        self.assertEqual(message_response.json()["status"], "running")
+        self.assertEqual(message_response.json()["messages"][0]["role"], "user")
+
+        other_actor = self.client.get(f"/api/skill-builder/sessions/{session_id}", headers={"X-SkillHub-Actor": "other-user"})
+        self.assertEqual(other_actor.status_code, 404)
+
+        self.store.complete_skill_builder_job(
+            session_id=session_id,
+            job_id=message_response.json()["messages"][0]["job_id"],
+            assistant_content="已理解需求。",
+            intent="chat",
+            draft_files=[
+                {
+                    "path": "SKILL.md",
+                    "content_text": (
+                        "---\n"
+                        "name: builder-pr-reviewer\n"
+                        "description: Review pull requests for security and data access regressions.\n"
+                        "---\n"
+                        "\n"
+                        "# PR Security Review\n"
+                        "Flag missing authorization checks first.\n"
+                    ),
+                }
+            ],
+            opencode_session_id="session_1",
+            workdir="/workspace/eval-runs/builder/workdir",
+            metadata={},
+        )
+
+        workspace_response = self.client.patch(
+            f"/api/skill-builder/sessions/{session_id}/workspace",
+            headers={"X-SkillHub-Actor": "builder-user"},
+            json={"files": [{"path": "notes/raw.md", "content_text": "用户手动补充的上下文。"}]},
+        )
+        create_response = self.client.post(
+            f"/api/skill-builder/sessions/{session_id}/create-skill",
+            headers={"X-SkillHub-Actor": "builder-user"},
+            json={
+                "version": "0.1.0",
+                "tags": [],
+                "files": [
+                    {
+                        "path": "SKILL.md",
+                        "content_text": (
+                            "---\n"
+                            "name: builder-mapped-reviewer\n"
+                            "description: Review pull requests for security and data access regressions.\n"
+                            "---\n"
+                            "\n"
+                            "# PR Security Review\n"
+                            "Flag missing authorization checks first.\n"
+                        ),
+                    },
+                    {"path": "references/raw.md", "content_text": "用户手动补充的上下文。"},
+                ],
+            },
+        )
+        detail = self.client.get(f"/api/skill-builder/sessions/{session_id}", headers={"X-SkillHub-Actor": "builder-user"}).json()
+
+        self.assertEqual(workspace_response.status_code, 200)
+        self.assertEqual(workspace_response.json()["workspace_files"], [{"path": "notes/raw.md", "content_text": "用户手动补充的上下文。"}])
+        self.assertEqual(workspace_response.json()["draft_files"], workspace_response.json()["workspace_files"])
+        self.assertEqual(create_response.status_code, 200)
+        self.assertEqual(create_response.json()["slug"], "builder-mapped-reviewer")
+        self.assertEqual(detail["status"], "created")
+        self.assertEqual(detail["created_skill_id"], create_response.json()["skill_id"])
+
+    def test_skill_builder_rejects_second_message_while_running(self):
+        session = self.client.post("/api/skill-builder/sessions", json={}).json()
+        first = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            json={"content": "创建 Skill", "intent": "chat"},
+        )
+        second = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            json={"content": "再发一条", "intent": "chat"},
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 409)
+
+    def test_skill_builder_create_session_replaces_existing_session(self):
+        headers = {"X-SkillHub-Actor": "single-builder-user"}
+        first = self.client.post("/api/skill-builder/sessions", headers=headers, json={"title": "旧会话"}).json()
+        workspace = self.client.patch(
+            f"/api/skill-builder/sessions/{first['id']}/workspace",
+            headers=headers,
+            json={"files": [{"path": "SKILL.md", "content_text": "---\nname: old\ndescription: Old.\n---\n"}]},
+        )
+
+        second = self.client.post("/api/skill-builder/sessions", headers=headers, json={"title": "新会话"})
+        sessions = self.client.get("/api/skill-builder/sessions", headers=headers).json()
+        old_detail = self.client.get(f"/api/skill-builder/sessions/{first['id']}", headers=headers)
+
+        self.assertEqual(workspace.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertNotEqual(second.json()["id"], first["id"])
+        self.assertEqual([item["id"] for item in sessions], [second.json()["id"]])
+        self.assertEqual(old_detail.status_code, 404)
+
+    def test_skill_builder_create_session_rejects_running_existing_session(self):
+        headers = {"X-SkillHub-Actor": "running-builder-user"}
+        session = self.client.post("/api/skill-builder/sessions", headers=headers, json={}).json()
+        running = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            headers=headers,
+            json={"content": "创建 Skill", "intent": "chat"},
+        )
+
+        replaced = self.client.post("/api/skill-builder/sessions", headers=headers, json={"title": "覆盖"})
+        sessions = self.client.get("/api/skill-builder/sessions", headers=headers).json()
+
+        self.assertEqual(running.status_code, 200)
+        self.assertEqual(replaced.status_code, 409)
+        self.assertEqual([item["id"] for item in sessions], [session["id"]])
+
+    def test_skill_builder_create_session_cancels_old_queued_builder_jobs(self):
+        headers = {"X-SkillHub-Actor": "queued-builder-user"}
+        old = self.client.post("/api/skill-builder/sessions", headers=headers, json={}).json()
+        now = utc_now()
+        with self.engine.begin() as connection:
+            connection.execute(
+                insert(tables.jobs).values(
+                    id="job_builder_old",
+                    type="skill_builder_message",
+                    status="queued",
+                    payload={"runner": "opencode_skill_builder", "session_id": old["id"], "message_id": "buildermsg_old"},
+                    result_ref=None,
+                    attempts=0,
+                    locked_by=None,
+                    last_heartbeat_at=None,
+                    created_at=now,
+                    started_at=None,
+                    finished_at=None,
+                    created_by="queued-builder-user",
+                    error=None,
+                )
+            )
+
+        created = self.client.post("/api/skill-builder/sessions", headers=headers, json={})
+        with self.engine.begin() as connection:
+            job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == "job_builder_old")).mappings().one()
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(job["status"], "canceled")
+        self.assertEqual(job["error"], "Skill Builder session was replaced by a new session.")
+
     def test_opencode_provider_proxy_returns_sanitized_catalog(self):
         def fake_get(*_args, **_kwargs):
             return httpx.Response(

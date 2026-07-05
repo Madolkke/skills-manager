@@ -13,6 +13,15 @@ import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/histor
 import { appBasePath, stripAppBase, withAppBase } from "../lib/navigation";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
 import {
+  builderSubmitMappingsFromFiles,
+  builderSubmitPayloadFiles,
+  builderWorkspaceFilesFromSession,
+  builderRunningElapsedLabel,
+  renderMarkdown,
+  validateBuilderSubmitMappings,
+  validateBuilderWorkspaceFiles,
+} from "../features/skill-builder/lib/builderUi";
+import {
   buildBundleSourceFromDraftFiles,
   bundleFilesToDraftFiles,
   createBlankSkillSource,
@@ -26,6 +35,64 @@ import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
 import type { EvalSetCase } from "../types";
+
+describe("skill builder UI helpers", () => {
+  it("renders common markdown and safe external links", () => {
+    const html = renderMarkdown("# 标题\n\n- A\n- B\n\n```py\nprint('hi')\n```\n\n[站点](https://example.com)");
+
+    expect(html).toContain("<h1>标题</h1>");
+    expect(html).toContain("<li>A</li>");
+    expect(html).toContain("language-py");
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
+  });
+
+  it("does not emit executable markdown html", () => {
+    const html = renderMarkdown("<script>alert(1)</script>\n\n[bad](javascript:alert(1))");
+
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("href=\"javascript:");
+  });
+
+  it("formats builder running elapsed time", () => {
+    const now = Date.parse("2026-07-05T12:00:00.000Z");
+
+    expect(builderRunningElapsedLabel(null, now)).toBe("正在等待模型返回");
+    expect(builderRunningElapsedLabel("2026-07-05T11:59:58.000Z", now)).toBe("刚刚开始");
+    expect(builderRunningElapsedLabel("2026-07-05T11:59:42.000Z", now)).toBe("已等待 18 秒");
+    expect(builderRunningElapsedLabel("2026-07-05T11:57:50.000Z", now)).toBe("已等待 2 分 10 秒");
+  });
+
+  it("uses workspace files from Builder sessions before legacy draft files", () => {
+    const files = builderWorkspaceFilesFromSession({
+      draft_files: [{ path: "legacy.md", content_text: "legacy" }],
+      workspace_files: [{ path: "SKILL.md", content_text: "---\nname: writer\ndescription: Write.\n---\n" }],
+      run_selection: {},
+      messages: [],
+    } as never);
+
+    expect(files.map((file) => file.path)).toEqual(["SKILL.md"]);
+    expect(validateBuilderWorkspaceFiles([{ id: "file-1", path: "notes.md", binary: false, content_text: "" }]).valid).toBe(true);
+  });
+
+  it("builds mapped Builder submit files and validates final bundle paths", () => {
+    const mappings = builderSubmitMappingsFromFiles([
+      { id: "file-1", path: "workspace/skill.md", binary: false, content_text: "---\nname: writer\ndescription: Write.\n---\n" },
+      { id: "file-2", path: "notes.md", binary: false, content_text: "Notes" },
+    ]);
+    mappings[0].targetPath = "SKILL.md";
+    mappings[1].targetPath = "references/notes.md";
+
+    expect(validateBuilderSubmitMappings(mappings).valid).toBe(true);
+    expect(builderSubmitPayloadFiles(mappings)).toEqual([
+      { path: "SKILL.md", content_text: "---\nname: writer\ndescription: Write.\n---\n" },
+      { path: "references/notes.md", content_text: "Notes" },
+    ]);
+    mappings[1].targetPath = "SKILL.md";
+    expect(validateBuilderSubmitMappings(mappings).valid).toBe(false);
+  });
+});
 
 describe("skill evidence helpers", () => {
   it("distinguishes untested cards from verified cards", () => {
@@ -490,5 +557,10 @@ describe("skill evidence helpers", () => {
     expect(stripAppBase("/skillhub/skills/reviews", "/skillhub/")).toBe("/skills/reviews");
     expect(stripAppBase("/skillhub", "/skillhub/")).toBe("/");
     expect(stripAppBase("/skills", "/skillhub/")).toBe("/skills");
+  });
+
+  it("keeps the Skill Builder route under the app base", () => {
+    expect(withAppBase("/skills/builder", "/skillhub/")).toBe("/skillhub/skills/builder");
+    expect(stripAppBase("/skillhub/skills/builder", "/skillhub/")).toBe("/skills/builder");
   });
 });

@@ -14,6 +14,7 @@
 - `publish_release.py`：封装后台确认发布时调用的发布 hook。
 - `reviews.py`：封装评审、评审回复、关闭评审、通知、发布单创建和评审通过后的自动发布流程。
 - `saved_views.py`：封装保存视图的创建和删除流程。
+- `skill_builder.py`：封装 AI 创建 Skill 会话、消息入队、工作区快照保存和最终创建 Skill 流程。
 - `skills.py`：封装 Skill 创建、导入、更新、权限和列表详情查询流程。
 - `versions.py`：封装 Skill 版本创建流程。
 

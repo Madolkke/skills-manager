@@ -26,6 +26,8 @@ from skillhub.models.schema.tables import (
     review_responses,
     role_assignments,
     saved_views,
+    skill_builder_messages,
+    skill_builder_sessions,
     skill_tags,
     skill_versions,
     tag_groups,
@@ -70,6 +72,10 @@ Index("publish_targets_enabled_idx", publish_targets.c.enabled, publish_targets.
 Index("publish_records_skill_version_idx", publish_records.c.skill_version_id)
 Index("publish_records_target_status_idx", publish_records.c.publish_target_id, publish_records.c.status)
 Index("notifications_recipient_idx", notifications.c.recipient_actor_id, notifications.c.created_at.desc())
+Index("skill_builder_sessions_actor_idx", skill_builder_sessions.c.actor_ref, skill_builder_sessions.c.created_at.desc())
+Index("skill_builder_sessions_status_idx", skill_builder_sessions.c.status, skill_builder_sessions.c.updated_at.desc())
+Index("skill_builder_messages_session_idx", skill_builder_messages.c.session_id, skill_builder_messages.c.created_at)
+Index("skill_builder_messages_job_id_idx", skill_builder_messages.c.job_id)
 Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
 Index("skill_tags_group_value_idx", skill_tags.c.tag_group_id, skill_tags.c.tag_value)
 Index("tag_groups_sort_idx", tag_groups.c.sort_order, tag_groups.c.id)

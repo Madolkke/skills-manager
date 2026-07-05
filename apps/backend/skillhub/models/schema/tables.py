@@ -389,6 +389,43 @@ opencode_agents = Table(
     CheckConstraint("jsonb_typeof(steps) = 'array'", name="opencode_agents_steps_array"),
 )
 
+skill_builder_sessions = Table(
+    "skill_builder_sessions",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("actor_ref", Text, nullable=False),
+    Column("title", Text, nullable=False, server_default=text("''")),
+    Column("status", Text, nullable=False, server_default=text("'active'")),
+    Column("opencode_session_id", Text),
+    Column("workdir", Text),
+    Column("draft_files", JSONB(), nullable=False, server_default=text("'[]'::jsonb")),
+    Column("run_selection", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    Column("created_skill_id", Text, ForeignKey("skills.id")),
+    Column("created_skill_version_id", Text, ForeignKey("skill_versions.id")),
+    Column("last_error", Text),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    CheckConstraint("status in ('active', 'running', 'draft_ready', 'created', 'failed')", name="skill_builder_sessions_status_check"),
+    CheckConstraint("jsonb_typeof(draft_files) = 'array'", name="skill_builder_sessions_draft_files_array"),
+    CheckConstraint("jsonb_typeof(run_selection) = 'object'", name="skill_builder_sessions_run_selection_object"),
+)
+
+skill_builder_messages = Table(
+    "skill_builder_messages",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("session_id", Text, ForeignKey("skill_builder_sessions.id"), nullable=False),
+    Column("role", Text, nullable=False),
+    Column("intent", Text, nullable=False, server_default=text("'chat'")),
+    Column("content", Text, nullable=False, server_default=text("''")),
+    Column("metadata", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    Column("job_id", Text, ForeignKey("jobs.id")),
+    timestamp_column(),
+    CheckConstraint("role in ('user', 'assistant', 'system')", name="skill_builder_messages_role_check"),
+    CheckConstraint("intent in ('chat', 'generate_draft')", name="skill_builder_messages_intent_check"),
+    CheckConstraint("jsonb_typeof(metadata) = 'object'", name="skill_builder_messages_metadata_object"),
+)
+
 saved_views = Table(
     "saved_views",
     metadata,

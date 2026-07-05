@@ -37,10 +37,11 @@ class OpencodeClient:
         provider_id: str | None = None,
         model_id: str | None = None,
         agent_id: str | None = None,
+        tools: dict[str, bool] | None = None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "parts": [{"type": "text", "text": prompt}],
-            "tools": {
+            "tools": tools or {
                 "bash": True,
                 "edit": True,
                 "glob": True,

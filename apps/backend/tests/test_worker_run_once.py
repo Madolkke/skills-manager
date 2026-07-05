@@ -9,16 +9,22 @@ from skillhub_worker.main import run_once
 
 
 class FakeStore:
-    def __init__(self, detail: dict[str, Any]) -> None:
+    def __init__(self, detail: dict[str, Any] | None) -> None:
         self.detail = detail
+        self.builder_detail: dict[str, Any] | None = None
         self.agents: dict[str, dict[str, Any]] = {}
         self.metadata_updates: list[dict[str, Any]] = []
         self.finalized: dict[str, Any] | None = None
         self.failed: str | None = None
         self.retried: str | None = None
+        self.completed_builder: dict[str, Any] | None = None
+        self.failed_builder: dict[str, Any] | None = None
 
-    def claim_next_eval_case_run_job(self, *, worker_id: str) -> dict[str, Any]:
+    def claim_next_eval_case_run_job(self, *, worker_id: str) -> dict[str, Any] | None:
         return self.detail
+
+    def claim_next_skill_builder_job(self, *, worker_id: str) -> dict[str, Any] | None:
+        return self.builder_detail
 
     def update_eval_case_run_metadata(self, *, eval_case_run_id: str, runner_metadata: dict[str, Any]) -> None:
         self.metadata_updates.append(runner_metadata.copy())
@@ -37,6 +43,12 @@ class FakeStore:
         if not agent:
             raise RuntimeError(f"Opencode Agent not found: {agent_id}")
         return agent
+
+    def complete_skill_builder_job(self, **kwargs: Any) -> None:
+        self.completed_builder = kwargs
+
+    def fail_skill_builder_job(self, **kwargs: Any) -> None:
+        self.failed_builder = kwargs
 
 
 class FakeOpencodeClient:
@@ -238,6 +250,41 @@ def test_run_once_can_assert_tested_skill_was_used(tmp_path: Path):
     assert store.finalized["passed"] is True
     assert step_result["assertions"][0]["status"] == "passed"
     assert step_result["assertions"][0]["details"]["skill_slug"] == "test-skill"
+
+
+def test_run_once_processes_skill_builder_job_when_no_eval_job(tmp_path: Path):
+    store = FakeStore(None)
+    store.builder_detail = {
+        "session": {
+            "id": "builder_1",
+            "opencode_session_id": None,
+            "workspace_files": [{"path": "SKILL.md", "content_text": "---\nname: writer\ndescription: Write docs.\n---\nBody"}],
+        },
+        "message": {"id": "buildermsg_1", "content": "请继续完善 SKILL.md", "intent": "chat"},
+        "job": {"id": "job_builder_1", "payload": {"provider_id": "deepseek", "model_id": "deepseek-v4"}},
+    }
+    client = FakeOpencodeClient()
+    laminar = FakeLaminarClient()
+
+    did_work = _run_worker(tmp_path, store=store, client=client, laminar=laminar)
+
+    agent_file = tmp_path / "builder_1" / "workdir" / ".opencode" / "agents" / "skillhub-skill-builder.md"
+    skill_file = tmp_path / "builder_1" / "workdir" / "SKILL.md"
+    assert did_work is True
+    assert agent_file.is_file()
+    assert skill_file.read_text(encoding="utf-8").startswith("---\nname: writer")
+    assert client.session_kwargs is not None
+    assert client.session_kwargs["directory"].endswith("/builder_1/workdir")
+    assert client.message_kwargs[0]["agent_id"] == "skillhub-skill-builder"
+    assert client.message_kwargs[0]["provider_id"] == "deepseek"
+    assert client.message_kwargs[0]["model_id"] == "deepseek-v4"
+    assert client.message_kwargs[0]["tools"]["bash"] is False
+    assert client.message_kwargs[0]["prompt"] == "请继续完善 SKILL.md"
+    assert store.completed_builder is not None
+    assert store.completed_builder["opencode_session_id"] == "session_1"
+    assert store.completed_builder["intent"] == "chat"
+    assert store.completed_builder["draft_files"][0]["path"] == "SKILL.md"
+    assert store.failed_builder is None
 
 
 def test_run_once_fails_when_another_skill_is_used(tmp_path: Path):

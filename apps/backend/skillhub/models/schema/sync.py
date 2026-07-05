@@ -651,6 +651,41 @@ SCHEMA_PATCHES = (
     "alter table opencode_agents add constraint opencode_agents_prompt_non_empty check (length(btrim(prompt)) > 0)",
     "alter table opencode_agents add constraint opencode_agents_permission_object check (jsonb_typeof(permission) = 'object')",
     "alter table opencode_agents add constraint opencode_agents_steps_array check (jsonb_typeof(steps) = 'array')",
+    """
+    create table if not exists skill_builder_sessions (
+      id text primary key,
+      actor_ref text not null,
+      title text not null default '',
+      status text not null default 'active',
+      opencode_session_id text,
+      workdir text,
+      draft_files jsonb not null default '[]'::jsonb,
+      run_selection jsonb not null default '{}'::jsonb,
+      created_skill_id text references skills(id),
+      created_skill_version_id text references skill_versions(id),
+      last_error text,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      constraint skill_builder_sessions_status_check check (status in ('active', 'running', 'draft_ready', 'created', 'failed')),
+      constraint skill_builder_sessions_draft_files_array check (jsonb_typeof(draft_files) = 'array'),
+      constraint skill_builder_sessions_run_selection_object check (jsonb_typeof(run_selection) = 'object')
+    )
+    """,
+    """
+    create table if not exists skill_builder_messages (
+      id text primary key,
+      session_id text not null references skill_builder_sessions(id),
+      role text not null,
+      intent text not null default 'chat',
+      content text not null default '',
+      metadata jsonb not null default '{}'::jsonb,
+      job_id text references jobs(id),
+      created_at timestamptz not null default now(),
+      constraint skill_builder_messages_role_check check (role in ('user', 'assistant', 'system')),
+      constraint skill_builder_messages_intent_check check (intent in ('chat', 'generate_draft')),
+      constraint skill_builder_messages_metadata_object check (jsonb_typeof(metadata) = 'object')
+    )
+    """,
     "drop index if exists skill_tags_tag_idx",
     "create index if not exists skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value)",
     "create index if not exists tag_groups_sort_idx on tag_groups (sort_order, id)",
@@ -668,6 +703,10 @@ SCHEMA_PATCHES = (
     "create index if not exists publish_records_target_status_idx on publish_records (publish_target_id, status)",
     "create index if not exists notifications_recipient_idx on notifications (recipient_actor_id, created_at desc)",
     "create index if not exists opencode_agents_enabled_idx on opencode_agents (enabled, deleted_at, name)",
+    "create index if not exists skill_builder_sessions_actor_idx on skill_builder_sessions (actor_ref, created_at desc)",
+    "create index if not exists skill_builder_sessions_status_idx on skill_builder_sessions (status, updated_at desc)",
+    "create index if not exists skill_builder_messages_session_idx on skill_builder_messages (session_id, created_at)",
+    "create index if not exists skill_builder_messages_job_id_idx on skill_builder_messages (job_id)",
 )
 
 

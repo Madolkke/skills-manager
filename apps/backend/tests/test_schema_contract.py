@@ -34,6 +34,8 @@ class SchemaContractTest(unittest.TestCase):
             "publish_records",
             "notifications",
             "opencode_agents",
+            "skill_builder_sessions",
+            "skill_builder_messages",
             "saved_views",
             "skill_tags",
             "tag_groups",
@@ -195,6 +197,8 @@ class SchemaContractTest(unittest.TestCase):
             "create index publish_records_target_status_idx",
             "create index notifications_recipient_idx",
             "create index opencode_agents_enabled_idx",
+            "create index skill_builder_sessions_actor_idx",
+            "create index skill_builder_messages_session_idx",
         ]:
             self.assertIn(index, self.normalized)
 
@@ -244,6 +248,30 @@ class SchemaContractTest(unittest.TestCase):
             "check (jsonb_typeof(steps) = 'array')",
         ]:
             self.assertIn(snippet, table_sql)
+
+    def test_skill_builder_tables_exist(self):
+        session_sql = self._table_sql("skill_builder_sessions")
+        message_sql = self._table_sql("skill_builder_messages")
+        for snippet in [
+            "actor_ref text not null",
+            "status text not null default 'active'",
+            "opencode_session_id text",
+            "draft_files jsonb not null default '[]'::jsonb",
+            "run_selection jsonb not null default '{}'::jsonb",
+            "created_skill_id text references skills(id)",
+            "created_skill_version_id text references skill_versions(id)",
+            "check (status in ('active', 'running', 'draft_ready', 'created', 'failed'))",
+        ]:
+            self.assertIn(snippet, session_sql)
+        for snippet in [
+            "session_id text not null references skill_builder_sessions(id)",
+            "role text not null",
+            "intent text not null default 'chat'",
+            "job_id text references jobs(id)",
+            "check (role in ('user', 'assistant', 'system'))",
+            "check (intent in ('chat', 'generate_draft'))",
+        ]:
+            self.assertIn(snippet, message_sql)
 
     def test_status_and_score_constraints_are_explicit(self):
         self.assertIn("constraint skills_lifecycle_status_check check (lifecycle_status in ('active', 'archived'))", self.normalized)

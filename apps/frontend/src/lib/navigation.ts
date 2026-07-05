@@ -1,4 +1,4 @@
-export type AppSection = "hub" | "skills" | "workflows" | "admin" | "my-reviews";
+export type AppSection = "hub" | "skills" | "workflows" | "admin" | "my-reviews" | "skill-builder";
 
 export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history" | "reviews" | "publish" | "settings";
 
@@ -67,6 +67,17 @@ export function readRoute(): RouteState {
       selectedRunId: null,
     };
   }
+  if (pathname === "/skills/builder") {
+    return {
+      section: "skill-builder",
+      skillId: null,
+      tab: "overview",
+      selectedCaseId: null,
+      selectedEvalSetId: null,
+      selectedVersionId: null,
+      selectedRunId: null,
+    };
+  }
   return {
     section: normalizeSection(url.searchParams.get("section"), skillId),
     skillId,
@@ -94,6 +105,12 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
     window.history.pushState(route, "", url);
     return route;
   }
+  if (route.section === "skill-builder") {
+    url.pathname = withAppBase("/skills/builder");
+    url.search = "";
+    window.history.pushState(route, "", url);
+    return route;
+  }
   url.pathname = withAppBase("/skills");
   url.search = "";
   if (route.section !== "hub") url.searchParams.set("section", route.section);
@@ -108,7 +125,7 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
 }
 
 function normalizeSection(value: string | null, skillId: string | null): AppSection {
-  if (value === "skills" || value === "workflows" || value === "my-reviews") return value;
+  if (value === "skills" || value === "workflows" || value === "my-reviews" || value === "skill-builder") return value;
   if (skillId) return "skills";
   return "hub";
 }

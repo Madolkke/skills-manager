@@ -9,7 +9,7 @@ import zipfile
 import pytest
 
 from skillhub_worker.opencode_trace import extract_opencode_trace, new_opencode_messages, opencode_message_ids
-from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, materialize_opencode_agent, render_step_prompt, _extract_zip_to_workdir
+from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, materialize_opencode_agent, render_step_prompt, scan_builder_draft_files, sync_builder_workspace_files, _extract_zip_to_workdir
 
 
 def zip_payload(files: dict[str, str]) -> str:
@@ -86,11 +86,49 @@ def test_materialize_opencode_agent_writes_primary_agent_markdown(tmp_path: Path
     assert "mode: 'primary'" in content
     assert "model: 'deepseek/deepseek-v4'" in content
     assert "temperature: 0.2" in content
-    assert "read: true" in content
-    assert "write: false" in content
+    assert "read: 'allow'" in content
+    assert "write: 'deny'" in content
     assert "你是严格的评审 Agent。" in content
     assert snapshot["agent_id"] == "strict-reviewer"
     assert snapshot["opencode_agent_file"] == "/workspace/eval-runs/run_1/workdir/.opencode/agents/strict-reviewer.md"
+
+
+def test_sync_builder_workspace_files_preserves_agent_config_and_removes_stale_files(tmp_path: Path):
+    agent_file = tmp_path / ".opencode" / "agents" / "skillhub-skill-builder.md"
+    stale_file = tmp_path / "old.md"
+    agent_file.parent.mkdir(parents=True)
+    agent_file.write_text("agent", encoding="utf-8")
+    stale_file.write_text("old", encoding="utf-8")
+
+    sync_builder_workspace_files(tmp_path, [{"path": "SKILL.md", "content_text": "---\nname: writer\ndescription: Write.\n---\n"}])
+
+    assert agent_file.read_text(encoding="utf-8") == "agent"
+    assert not stale_file.exists()
+    assert (tmp_path / "SKILL.md").read_text(encoding="utf-8").startswith("---\nname: writer")
+
+
+def test_builder_workspace_scanner_ignores_opencode_runtime_tree(tmp_path: Path):
+    runtime_file = tmp_path / ".opencode" / "node_modules" / ".bin" / "download-msgpackr-prebuilds"
+    runtime_file.parent.mkdir(parents=True)
+    runtime_file.write_text("runtime", encoding="utf-8")
+    (tmp_path / "SKILL.md").write_text("---\nname: writer\ndescription: Write.\n---\n", encoding="utf-8")
+
+    assert scan_builder_draft_files(tmp_path) == [
+        {"path": "SKILL.md", "content_text": "---\nname: writer\ndescription: Write.\n---\n"}
+    ]
+
+    sync_builder_workspace_files(tmp_path, [{"path": "README.md", "content_text": "ok"}])
+
+    assert runtime_file.read_text(encoding="utf-8") == "runtime"
+    assert not (tmp_path / "SKILL.md").exists()
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "ok"
+
+
+def test_sync_builder_workspace_files_rejects_opencode_and_traversal_paths(tmp_path: Path):
+    with pytest.raises(RuntimeError, match="Unsafe builder workspace path"):
+        sync_builder_workspace_files(tmp_path, [{"path": ".opencode/agents/x.md", "content_text": "bad"}])
+    with pytest.raises(RuntimeError, match="Unsafe zip path"):
+        sync_builder_workspace_files(tmp_path, [{"path": "../escape.md", "content_text": "bad"}])
 
 
 def test_compact_message_output_prefers_text_parts():

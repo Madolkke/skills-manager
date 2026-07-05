@@ -7,6 +7,7 @@ from .external import ExternalSkillService
 from .opencode import OpencodeService
 from .reviews import ReviewService
 from .saved_views import SavedViewService
+from .skill_builder import SkillBuilderService
 from .skills import SkillService
 from .versions import VersionService
 
@@ -19,6 +20,7 @@ __all__ = [
     "OpencodeService",
     "ReviewService",
     "SavedViewService",
+    "SkillBuilderService",
     "SkillService",
     "VersionService",
 ]

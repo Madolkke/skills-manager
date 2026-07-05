@@ -12,6 +12,7 @@ import AdminPage from "./pages/AdminPage.vue";
 import HubPage from "./pages/HubPage.vue";
 import NewSkillModal from "./pages/NewSkillModal.vue";
 import MyReviewsPage from "./pages/MyReviewsPage.vue";
+import SkillBuilderPage from "./pages/SkillBuilderPage.vue";
 import SkillPage from "./pages/SkillPage.vue";
 import WorkflowPage from "./pages/WorkflowPage.vue";
 import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types";
@@ -30,10 +31,10 @@ const taskCenterLoading = ref(false);
 const taskCenterError = ref("");
 
 const actor = computed(() => session.value?.actor ?? getActorId());
-const sectionShell = computed(() => (route.value.section === "workflows" ? "workflow-shell" : route.value.skillId ? "skill-shell" : "hub-shell"));
+const sectionShell = computed(() => (route.value.section === "workflows" || route.value.section === "skill-builder" ? "workflow-shell" : route.value.skillId ? "skill-shell" : "hub-shell"));
 const shellClass = computed(() => `app-shell ${sectionShell.value}`);
 const currentSkill = computed(() => (route.value.section === "skills" && route.value.skillId ? skill.value : null));
-const mainClass = computed(() => (route.value.section === "workflows" ? "workflow-shell-page" : "page-shell"));
+const mainClass = computed(() => (route.value.section === "workflows" || route.value.section === "skill-builder" ? "workflow-shell-page" : "page-shell"));
 const taskCount = computed(() => taskCenterBadgeCount(taskCenterGroups.value));
 
 watch(() => [route.value.section, route.value.skillId] as const, () => void load(), { immediate: true });
@@ -108,6 +109,10 @@ function goWorkflows(): void {
   navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
+function goSkillBuilder(): void {
+  navigate({ section: "skill-builder", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
+}
+
 function goMyReviews(): void {
   navigate({ section: "my-reviews", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
@@ -178,6 +183,7 @@ function isMissingSkillError(error: unknown): boolean {
         :task-count="taskCount"
         @home="goHome"
         @create="newSkillOpen = true"
+        @builder="goSkillBuilder"
         @workflows="goWorkflows"
         @settings="identityOpen = true"
         @reviews="goMyReviews"
@@ -196,6 +202,11 @@ function isMissingSkillError(error: unknown): boolean {
           @toast="toast = $event"
         />
         <WorkflowPage v-else-if="route.section === 'workflows'" @back="goHome" />
+        <SkillBuilderPage
+          v-else-if="route.section === 'skill-builder'"
+          @created="handleSkillCreated"
+          @toast="toast = $event"
+        />
         <MyReviewsPage
           v-else-if="route.section === 'my-reviews'"
           :actor="actor"

@@ -22,6 +22,11 @@ import type {
   SkillCapabilities,
   SkillDetail,
   SkillPublishOverview,
+  SkillBuilderCreateSkillPayload,
+  SkillBuilderDraftPayload,
+  SkillBuilderMessagePayload,
+  SkillBuilderSession,
+  SkillBuilderWorkspacePayload,
   SkillTagPayload,
   SkillSummary,
   TagGroup,
@@ -95,6 +100,18 @@ function skillApi() {
     getSkill: (skillId: string) => apiGet<SkillDetail>(`/api/skills/${skillId}`),
     importSkill: (payload: { owner_ref: string; source: BundleSource; version?: string; tags?: SkillTagPayload[] }) =>
       apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
+    listSkillBuilderSessions: () => apiGet<SkillBuilderSession[]>("/api/skill-builder/sessions"),
+    createSkillBuilderSession: (payload: { title?: string | null }) =>
+      apiSend<SkillBuilderSession>("/api/skill-builder/sessions", "POST", payload),
+    getSkillBuilderSession: (sessionId: string) => apiGet<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}`),
+    sendSkillBuilderMessage: (sessionId: string, payload: SkillBuilderMessagePayload) =>
+      apiSend<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/messages`, "POST", payload),
+    updateSkillBuilderDraft: (sessionId: string, payload: SkillBuilderDraftPayload) =>
+      apiSend<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/draft`, "PATCH", payload),
+    updateSkillBuilderWorkspace: (sessionId: string, payload: SkillBuilderWorkspacePayload) =>
+      apiSend<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/workspace`, "PATCH", payload),
+    createSkillFromBuilder: (sessionId: string, payload: SkillBuilderCreateSkillPayload) =>
+      apiSend<{ skill_id: string; skill_version_id: string; slug: string }>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/create-skill`, "POST", payload),
     createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string; version?: string }) =>
       apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
     updateSkillVersionName: (versionId: string, displayName: string | null) =>
