@@ -34,7 +34,8 @@ import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
-import type { EvalSetCase } from "../types";
+import { durationText, queuedWorkerJobs, workerCurrentJobText, workerJobTypeText, workerStatusText, workerStatusTone } from "../lib/workerStatus";
+import type { EvalSetCase, WorkerStatusOverview } from "../types";
 
 describe("skill builder UI helpers", () => {
   it("renders common markdown and safe external links", () => {
@@ -562,5 +563,58 @@ describe("skill evidence helpers", () => {
   it("keeps the Skill Builder route under the app base", () => {
     expect(withAppBase("/skills/builder", "/skillhub/")).toBe("/skillhub/skills/builder");
     expect(stripAppBase("/skillhub/skills/builder", "/skillhub/")).toBe("/skills/builder");
+  });
+
+  it("summarizes worker status labels and queued jobs", () => {
+    const overview: WorkerStatusOverview = {
+      generated_at: "2026-07-09T10:05:30.000Z",
+      online_threshold_seconds: 30,
+      active_window_hours: 24,
+      summary: {
+        total: 2,
+        online: 1,
+        running: 1,
+        idle: 0,
+        offline: 1,
+        queued_eval_jobs: 3,
+        queued_builder_jobs: 2,
+        running_jobs: 1,
+      },
+      workers: [
+        {
+          worker_id: "worker-1",
+          status: "running",
+          online: true,
+          last_seen_at: "2026-07-09T10:05:20.000Z",
+          started_at: "2026-07-09T09:00:00.000Z",
+          current_job: {
+            id: "job_1",
+            type: "eval_case_run",
+            attempts: 2,
+            started_at: "2026-07-09T10:00:00.000Z",
+            run_id: "run_1",
+            skill_version_id: "skillver_1",
+          },
+        },
+        {
+          worker_id: "worker-2",
+          status: "offline",
+          online: false,
+          last_seen_at: "2026-07-09T09:00:00.000Z",
+          started_at: "2026-07-09T08:00:00.000Z",
+        },
+      ],
+    };
+
+    expect(queuedWorkerJobs(overview)).toBe(5);
+    expect(workerStatusText(overview.workers[0])).toBe("运行中");
+    expect(workerStatusTone(overview.workers[0])).toBe("neutral");
+    expect(workerStatusText(overview.workers[1])).toBe("离线");
+    expect(workerStatusTone(overview.workers[1])).toBe("negative");
+    expect(workerJobTypeText("skill_builder_message")).toBe("AI 创建任务");
+    expect(workerCurrentJobText(overview.workers[0])).toBe("Run run_1 · Version skillver_1");
+    expect(workerCurrentJobText(overview.workers[1])).toBe("无当前任务");
+    expect(durationText("2026-07-09T10:05:00.000Z", overview.generated_at)).toBe("30s");
+    expect(durationText("2026-07-09T09:00:00.000Z", overview.generated_at)).toBe("1h 5m");
   });
 });

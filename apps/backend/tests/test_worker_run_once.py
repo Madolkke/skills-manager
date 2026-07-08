@@ -19,6 +19,7 @@ class FakeStore:
         self.retried: str | None = None
         self.completed_builder: dict[str, Any] | None = None
         self.failed_builder: dict[str, Any] | None = None
+        self.heartbeats: list[dict[str, Any]] = []
 
     def claim_next_eval_case_run_job(self, *, worker_id: str) -> dict[str, Any] | None:
         return self.detail
@@ -49,6 +50,9 @@ class FakeStore:
 
     def fail_skill_builder_job(self, **kwargs: Any) -> None:
         self.failed_builder = kwargs
+
+    def record_worker_heartbeat(self, **kwargs: Any) -> None:
+        self.heartbeats.append(kwargs)
 
 
 class FakeOpencodeClient:

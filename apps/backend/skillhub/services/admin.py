@@ -116,6 +116,9 @@ class AdminService(ServiceBase[SkillHubStore]):
     def list_publish_records(self) -> Any:
         return self.store.list_publish_records()
 
+    def list_workers(self) -> Any:
+        return self.store.admin_worker_status_overview()
+
     def confirm_publish_record(self, *, publish_record_id: str) -> Any:
         snapshot = self.store.publish_confirmation_snapshot(publish_record_id=publish_record_id, actor="admin-console")
         if snapshot["record"]["status"] != "pending_confirmation":

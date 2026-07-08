@@ -69,13 +69,14 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `SKILLHUB_SESSION_COOKIE_SECURE` | 未启用 | HTTPS 部署时设为 `1`。 |
 | `SKILLHUB_CORS_ALLOW_ORIGINS` | 空 | 明确允许的前端 Origin，多个值用逗号分隔。 |
 | `SKILLHUB_CORS_ALLOW_ORIGIN_REGEX` | 允许 localhost、IP 和常见主机名 | 自定义跨域匹配规则。 |
+| `SKILLHUB_LOG_LEVEL` | `INFO` | 后端 API 和 Worker 日志级别；排查问题时可临时设为 `DEBUG`。 |
 | `OPENCODE_BASE_URL` | 后端默认 `http://127.0.0.1:4096`，Worker 默认 `http://opencode:4096` | Opencode 服务地址。 |
 | `EVAL_WORKDIR_HOST` | Worker 默认 `/var/lib/skillhub/eval-runs` | Worker 在宿主机上的测评工作目录。 |
 | `EVAL_WORKDIR_CONTAINER` | `/workspace/eval-runs` | 传给容器化 Opencode 时使用的容器内路径。 |
 | `EVAL_RUNNER_POLL_SECONDS` | `2` | Worker 轮询任务间隔。 |
 | `EVAL_RUNNER_TIMEOUT_SECONDS` | `300` | Worker 默认运行超时。 |
 | `EVAL_RUNNER_MAX_ATTEMPTS` | `2` | 测评任务最大尝试次数。 |
-| `EVAL_RUNNER_WORKER_ID` | `opencode-worker` | Worker 实例标识。 |
+| `EVAL_RUNNER_WORKER_ID` | `opencode-worker` | Worker 实例标识；多实例部署时必须为每个 Worker 设置不同值，后台 Worker 状态页依赖该值聚合心跳。 |
 | `LMNR_PROJECT_API_KEY` | 空 | 配置后启用 Laminar trace。 |
 | `LMNR_BASE_URL` | `https://api.lmnr.ai` | Laminar API 地址。 |
 | `LMNR_HTTP_PORT` | 空 | Laminar 本地 HTTP 端口，可选。 |
@@ -301,6 +302,10 @@ sudo systemctl enable --now skillhub-worker
 journalctl -u skillhub-api -f
 journalctl -u skillhub-worker -f
 ```
+
+API 每个响应都会带 `X-Request-ID`，日志中也会输出同名 `request_id`。临时排查时可在 `skillhub.env` 中设置 `SKILLHUB_LOG_LEVEL=DEBUG`，重启 API 和 Worker 后查看更详细的外部调用、任务认领和执行阶段日志。
+
+后台管理的 “Worker 状态” 页读取 Worker 心跳：Worker 每轮轮询会写入空闲心跳，认领测评或 AI 创建任务后写入运行中心跳。最近 30 秒内有心跳的实例显示为在线，最近 24 小时内活跃但超过 30 秒无心跳的实例显示为离线。
 
 ## 11. Docker 镜像部署
 

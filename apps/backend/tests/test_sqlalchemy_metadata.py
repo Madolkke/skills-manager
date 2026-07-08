@@ -22,6 +22,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "case_results",
                 "eval_case_runs",
                 "jobs",
+                "worker_heartbeats",
                 "saved_views",
                 "skill_tags",
                 "tag_groups",
@@ -132,6 +133,19 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         self.assertIn("attempts", metadata.tables["jobs"].c)
         self.assertIn("locked_by", metadata.tables["jobs"].c)
         self.assertIn("last_heartbeat_at", metadata.tables["jobs"].c)
+        heartbeat_columns = metadata.tables["worker_heartbeats"].c
+        for column in [
+            "worker_id",
+            "status",
+            "current_job_id",
+            "current_job_type",
+            "current_run_id",
+            "current_session_id",
+            "last_seen_at",
+            "started_at",
+            "metadata",
+        ]:
+            self.assertIn(column, heartbeat_columns)
 
     def test_query_indexes_are_mapped(self):
         for table_name, index_name in [
@@ -162,6 +176,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("tag_values", "tag_values_group_sort_idx"),
             ("group_memberships", "group_memberships_subject_idx"),
             ("jobs", "jobs_status_created_at_idx"),
+            ("worker_heartbeats", "worker_heartbeats_last_seen_idx"),
             ("role_assignments", "role_assignments_subject_idx"),
         ]:
             self.assertIn(index_name, self.index_names(table_name))

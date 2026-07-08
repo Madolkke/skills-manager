@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Bell, Boxes, ClipboardCheck, Plus, Settings, Sparkles, Workflow } from "lucide-vue-next";
 import { onBeforeUnmount, ref, watch } from "vue";
-import { slugTitle } from "../lib/format";
 import type { SkillDetail } from "../types";
 
 const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillDetail | null; taskCount?: number }>(), {
@@ -37,7 +36,7 @@ function handleClick(event: MouseEvent): void {
     </button>
     <template v-if="currentSkill">
       <span class="breadcrumb-separator">/</span>
-      <strong class="breadcrumb-current">{{ slugTitle(currentSkill.skill.slug) }}</strong>
+      <strong class="breadcrumb-current">{{ currentSkill.skill.slug }}</strong>
     </template>
     <div class="top-spacer" />
     <div class="top-bar-actions">

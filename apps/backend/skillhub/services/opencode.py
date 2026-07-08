@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from os import environ
 from typing import Any, Mapping
 
@@ -10,6 +11,9 @@ from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 
 
+logger = logging.getLogger(__name__)
+
+
 class OpencodeService(ServiceBase[SkillHubStore]):
     def __init__(self, store: SkillHubStore, environment: Mapping[str, str] = environ, *, timeout_seconds: float = 10) -> None:
         super().__init__(store)
@@ -18,12 +22,16 @@ class OpencodeService(ServiceBase[SkillHubStore]):
 
     def provider_options(self) -> dict[str, Any]:
         try:
+            logger.debug("opencode providers loading base_url=%s", self.base_url)
             response = httpx.get(f"{self.base_url}/config/providers", timeout=self.timeout_seconds, trust_env=False)
             response.raise_for_status()
         except httpx.HTTPError as exc:
+            logger.warning("opencode providers load failed base_url=%s error_type=%s", self.base_url, exc.__class__.__name__)
             raise InvariantError("无法读取 Opencode provider 配置，请确认 Opencode 服务可用。") from exc
         payload = response.json()
-        return sanitize_opencode_providers(payload)
+        result = sanitize_opencode_providers(payload)
+        logger.info("opencode providers loaded base_url=%s provider_count=%s", self.base_url, len(result["providers"]))
+        return result
 
     def agent_options(self) -> dict[str, Any]:
         return {"agents": self.store.list_enabled_opencode_agents()}

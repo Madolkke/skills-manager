@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import clsx from "clsx";
 import { CheckCircle2, Circle } from "lucide-vue-next";
-import { humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../../lib/format";
+import { humanDate, scoreKind, scoreLabel, versionName } from "../../lib/format";
 import type { SkillSummary } from "../../types";
 
 defineProps<{ item: SkillSummary }>();
@@ -16,7 +16,7 @@ const emit = defineEmits<{ click: [] }>();
         <span>更新 {{ humanDate(item.skill.updated_at) }}</span>
       </div>
       <div class="skill-card-head">
-        <h3>{{ slugTitle(item.skill.slug) }}</h3>
+        <h3>{{ item.skill.slug }}</h3>
         <span :class="clsx('score-chip', scoreKind(item.summary.latest_accepted_eval_run))">{{ scoreLabel(item.summary.latest_accepted_eval_run) }}</span>
       </div>
       <p>{{ item.summary.current_version?.change_summary ?? "尚未写入说明。" }}</p>

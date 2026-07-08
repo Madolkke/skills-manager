@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import BundleBrowser from "../components/BundleBrowser.vue";
 import InlineLoading from "../components/InlineLoading.vue";
 import { api } from "../lib/api";
-import { compactText, humanDate, scoreKind, scoreLabel, slugTitle, versionName } from "../lib/format";
+import { compactText, humanDate, scoreKind, scoreLabel, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
 import { tagLabel } from "../lib/skillTags";
@@ -64,7 +64,7 @@ function skillLifecycleLabel(status: string): string {
     <section class="skill-summary-panel">
       <div class="skill-summary-main">
         <div class="skill-title-copy">
-          <h1>{{ slugTitle(skill.skill.slug) }}</h1>
+          <h1>{{ skill.skill.slug }}</h1>
           <p>{{ compactText(version?.change_summary, "这个 Skill 还没有说明。") }}</p>
         </div>
         <dl class="skill-identity-card" aria-label="Skill 身份信息">

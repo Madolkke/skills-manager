@@ -32,14 +32,6 @@ export function humanDate(value?: string): string {
   }).format(new Date(value));
 }
 
-export function slugTitle(slug: string): string {
-  return slug
-    .split("-")
-    .filter(Boolean)
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 export function compactText(value?: string | null, fallback = "-"): string {
   const text = value?.trim();
   return text ? text : fallback;

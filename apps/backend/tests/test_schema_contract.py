@@ -43,6 +43,7 @@ class SchemaContractTest(unittest.TestCase):
             "groups",
             "group_memberships",
             "jobs",
+            "worker_heartbeats",
             "role_assignments",
             "audit_events",
         ]:
@@ -138,6 +139,20 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("attempts integer not null default 0", jobs_sql)
         self.assertIn("locked_by text", jobs_sql)
         self.assertIn("last_heartbeat_at timestamptz", jobs_sql)
+        worker_sql = self._table_sql("worker_heartbeats")
+        for snippet in [
+            "worker_id text primary key",
+            "status text not null default 'idle'",
+            "current_job_id text",
+            "current_job_type text",
+            "current_run_id text",
+            "current_session_id text",
+            "last_seen_at timestamptz not null",
+            "started_at timestamptz not null",
+            "metadata jsonb not null default '{}'::jsonb",
+            "check (status in ('idle', 'running'))",
+        ]:
+            self.assertIn(snippet, worker_sql)
 
     def test_eval_runs_store_run_context(self):
         table_sql = self._table_sql("eval_runs")
@@ -199,6 +214,7 @@ class SchemaContractTest(unittest.TestCase):
             "create index opencode_agents_enabled_idx",
             "create index skill_builder_sessions_actor_idx",
             "create index skill_builder_messages_session_idx",
+            "create index worker_heartbeats_last_seen_idx",
         ]:
             self.assertIn(index, self.normalized)
 

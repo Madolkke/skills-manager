@@ -459,6 +459,21 @@ jobs = Table(
     CheckConstraint("status in ('queued', 'running', 'succeeded', 'failed', 'canceled')", name="jobs_status_check"),
 )
 
+worker_heartbeats = Table(
+    "worker_heartbeats",
+    metadata,
+    Column("worker_id", Text, primary_key=True),
+    Column("status", Text, nullable=False, server_default=text("'idle'")),
+    Column("current_job_id", Text),
+    Column("current_job_type", Text),
+    Column("current_run_id", Text),
+    Column("current_session_id", Text),
+    Column("last_seen_at", DateTime(timezone=True), nullable=False),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("metadata", JSONB(), nullable=False, server_default=text("'{}'::jsonb")),
+    CheckConstraint("status in ('idle', 'running')", name="worker_heartbeats_status_check"),
+)
+
 skill_tags = Table(
     "skill_tags",
     metadata,

@@ -1,0 +1,84 @@
+.admin-workers-panel {
+  gap: 16px;
+}
+
+.admin-worker-queue {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-worker-queue span {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: #fbfdff;
+  padding: 10px 12px;
+  color: var(--muted);
+}
+
+.admin-worker-queue strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.admin-worker-table {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-worker-table-head,
+.admin-worker-table-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) 96px minmax(260px, 1.4fr) minmax(150px, 0.7fr) 92px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.admin-worker-table-head {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-worker-table-row {
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: white;
+  overflow-wrap: anywhere;
+}
+
+.admin-worker-main,
+.admin-worker-job {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-worker-main small,
+.admin-worker-job span,
+.admin-worker-job small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.admin-worker-error {
+  color: #be123c !important;
+}
+
+.admin-workers-empty {
+  padding: 10px 12px;
+}
+
+@media (max-width: 900px) {
+  .admin-worker-queue,
+  .admin-worker-table-head,
+  .admin-worker-table-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-worker-table-head {
+    display: none;
+  }
+}

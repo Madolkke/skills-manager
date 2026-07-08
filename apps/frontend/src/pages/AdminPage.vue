@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onBeforeUnmount, ref, watch } from "vue";
 import { ADMIN_TABS, type AdminTab } from "../lib/admin";
 import { api, ApiError, type AdminGroup } from "../lib/api";
 import { toTagPayloads } from "../lib/skillTags";
-import type { OpencodeAgent, OpencodeProviderCatalog, PublishGateCheckDefinition, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup } from "../types";
+import type { OpencodeAgent, OpencodeProviderCatalog, PublishGateCheckDefinition, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, WorkerStatusOverview } from "../types";
 import { createAdminStateSync } from "./admin/adminStateSync";
 import AdminGroupsTab from "./admin/AdminGroupsTab.vue";
 import AdminOpencodeAgentsTab from "./admin/AdminOpencodeAgentsTab.vue";
@@ -13,6 +13,7 @@ import AdminPublishTargetsTab from "./admin/AdminPublishTargetsTab.vue";
 import AdminRoleAssignmentsTab from "./admin/AdminRoleAssignmentsTab.vue";
 import AdminSkillTagsTab from "./admin/AdminSkillTagsTab.vue";
 import AdminTagGroupsTab from "./admin/AdminTagGroupsTab.vue";
+import AdminWorkersTab from "./admin/AdminWorkersTab.vue";
 import { useAdminActions } from "./admin/useAdminActions";
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
@@ -28,6 +29,7 @@ const roles = ref<RoleAssignment[]>([]);
 const publishTargets = ref<PublishTarget[]>([]);
 const publishGateChecks = ref<PublishGateCheckDefinition[]>([]);
 const publishRecords = ref<PublishRecord[]>([]);
+const workerStatus = ref<WorkerStatusOverview | null>(null);
 const opencodeAgents = ref<OpencodeAgent[]>([]);
 const opencodeProviderCatalog = ref<OpencodeProviderCatalog | null>(null);
 const selectedGroupId = ref("");
@@ -56,6 +58,14 @@ const adminActions = useAdminActions({
   load,
   emitToast: (toast) => emit("toast", toast),
 });
+let workerRefreshTimer: number | undefined;
+
+watch(activeTab, (tab) => {
+  if (tab === "workers") startWorkerRefresh();
+  else stopWorkerRefresh();
+});
+
+onBeforeUnmount(stopWorkerRefresh);
 
 async function unlock(): Promise<void> {
   sessionStorage.setItem("skillhub.admin.key", key.value.trim());
@@ -66,7 +76,18 @@ async function unlock(): Promise<void> {
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    const [nextSkills, nextGroups, nextTagGroups, nextRoles, nextPublishTargets, nextPublishGateChecks, nextPublishRecords, nextOpencodeAgents, nextProviderCatalog] = await Promise.all([
+    const [
+      nextSkills,
+      nextGroups,
+      nextTagGroups,
+      nextRoles,
+      nextPublishTargets,
+      nextPublishGateChecks,
+      nextPublishRecords,
+      nextWorkerStatus,
+      nextOpencodeAgents,
+      nextProviderCatalog,
+    ] = await Promise.all([
       api.adminListSkills(),
       api.adminListGroups(),
       api.adminListTagGroups(),
@@ -74,6 +95,7 @@ async function load(): Promise<void> {
       api.adminListPublishTargets(),
       api.adminListPublishGateChecks(),
       api.adminListPublishRecords(),
+      api.adminListWorkers(),
       api.adminListOpencodeAgents(),
       api.listOpencodeProviders().catch(() => null),
     ]);
@@ -84,6 +106,7 @@ async function load(): Promise<void> {
     publishTargets.value = nextPublishTargets;
     publishGateChecks.value = nextPublishGateChecks;
     publishRecords.value = nextPublishRecords;
+    workerStatus.value = nextWorkerStatus;
     opencodeAgents.value = nextOpencodeAgents;
     opencodeProviderCatalog.value = nextProviderCatalog;
     tagDrafts.value = Object.fromEntries(nextSkills.map((item) => [item.skill.id, toTagPayloads(item.skill.tags ?? [])]));
@@ -94,6 +117,14 @@ async function load(): Promise<void> {
     showError(error);
   } finally {
     loading.value = false;
+  }
+}
+
+async function refreshWorkers(): Promise<void> {
+  try {
+    workerStatus.value = await api.adminListWorkers();
+  } catch (error) {
+    showError(error);
   }
 }
 
@@ -110,6 +141,19 @@ async function selectAdminTab(tabId: AdminTab): Promise<void> {
   if (activeTab.value === tabId) return;
   activeTab.value = tabId;
   await load();
+}
+
+function startWorkerRefresh(): void {
+  if (workerRefreshTimer !== undefined) return;
+  workerRefreshTimer = window.setInterval(() => {
+    void refreshWorkers();
+  }, 5000);
+}
+
+function stopWorkerRefresh(): void {
+  if (workerRefreshTimer === undefined) return;
+  window.clearInterval(workerRefreshTimer);
+  workerRefreshTimer = undefined;
 }
 
 function showError(error: unknown): void {
@@ -191,6 +235,13 @@ function showError(error: unknown): void {
           :tag-drafts="tagDrafts"
           @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
           @save="adminActions.saveSkillTags"
+        />
+        <AdminWorkersTab
+          v-else-if="activeTab === 'workers'"
+          key="workers"
+          :overview="workerStatus"
+          :loading="loading"
+          @refresh="refreshWorkers"
         />
         <AdminOpencodeAgentsTab
           v-else-if="activeTab === 'opencode-agents'"

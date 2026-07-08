@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import SkillTagPicker from "../../components/SkillTagPicker.vue";
-import { slugTitle } from "../../lib/format";
 import type { SkillSummary, SkillTagPayload, TagGroup } from "../../types";
 
 defineProps<{
@@ -26,7 +25,7 @@ const emit = defineEmits<{
     </div>
     <div v-for="item in skills" :key="item.skill.id" class="admin-skill-row">
       <div>
-        <strong>{{ slugTitle(item.skill.slug) }}</strong>
+        <strong>{{ item.skill.slug }}</strong>
         <small>{{ item.skill.id }}</small>
       </div>
       <SkillTagPicker :value="tagDrafts[item.skill.id] ?? []" :groups="tagGroups" @change="emit('updateDraft', item.skill.id, $event)" @done="emit('save', item, $event)" />

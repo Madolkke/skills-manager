@@ -125,6 +125,28 @@ SCHEMA_PATCHES = (
     "alter table jobs add column if not exists attempts integer not null default 0",
     "alter table jobs add column if not exists locked_by text",
     "alter table jobs add column if not exists last_heartbeat_at timestamptz",
+    """
+    create table if not exists worker_heartbeats (
+      worker_id text primary key,
+      status text not null default 'idle',
+      current_job_id text,
+      current_job_type text,
+      current_run_id text,
+      current_session_id text,
+      last_seen_at timestamptz not null,
+      started_at timestamptz not null,
+      metadata jsonb not null default '{}'::jsonb,
+      constraint worker_heartbeats_status_check check (status in ('idle', 'running'))
+    )
+    """,
+    "alter table worker_heartbeats add column if not exists status text not null default 'idle'",
+    "alter table worker_heartbeats add column if not exists current_job_id text",
+    "alter table worker_heartbeats add column if not exists current_job_type text",
+    "alter table worker_heartbeats add column if not exists current_run_id text",
+    "alter table worker_heartbeats add column if not exists current_session_id text",
+    "alter table worker_heartbeats add column if not exists last_seen_at timestamptz not null default now()",
+    "alter table worker_heartbeats add column if not exists started_at timestamptz not null default now()",
+    "alter table worker_heartbeats add column if not exists metadata jsonb not null default '{}'::jsonb",
     "alter table eval_case_runs add column if not exists runner_metadata jsonb not null default '{}'::jsonb",
     "alter table eval_case_versions drop column if exists input_artifact_id",
     "alter table eval_case_versions drop column if exists expected_output_artifact_id",
@@ -707,6 +729,7 @@ SCHEMA_PATCHES = (
     "create index if not exists skill_builder_sessions_status_idx on skill_builder_sessions (status, updated_at desc)",
     "create index if not exists skill_builder_messages_session_idx on skill_builder_messages (session_id, created_at)",
     "create index if not exists skill_builder_messages_job_id_idx on skill_builder_messages (job_id)",
+    "create index if not exists worker_heartbeats_last_seen_idx on worker_heartbeats (last_seen_at desc)",
 )
 
 

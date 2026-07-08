@@ -36,6 +36,7 @@ import type {
   PublishGateExpression,
   PublishTarget,
   ReviewRequest,
+  WorkerStatusOverview,
 } from "../types";
 import { getActorId } from "./identity";
 
@@ -280,6 +281,7 @@ function adminApi() {
     adminUpdatePublishTarget: (targetId: string, payload: { enabled: boolean; auto_publish_enabled: boolean; gate_expression: PublishGateExpression }) =>
       apiSend<PublishTarget>(`/api/admin/publish-targets/${encodeURIComponent(targetId)}`, "PATCH", payload, { admin: true }),
     adminListPublishRecords: () => apiGet<PublishRecord[]>("/api/admin/publish-records", { admin: true }),
+    adminListWorkers: () => apiGet<WorkerStatusOverview>("/api/admin/workers", { admin: true }),
     adminConfirmPublishRecord: (recordId: string) =>
       apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/confirm`, "POST", {}, { admin: true }),
     adminCancelPublishRecord: (recordId: string) =>

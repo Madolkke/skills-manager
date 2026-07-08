@@ -218,6 +218,10 @@ def register_admin_routes(app: FastAPI) -> None:
     def admin_publish_records(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
         return result_payload(service.list_publish_records())
 
+    @app.get("/api/admin/workers")
+    def admin_workers(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
+        return result_payload(service.list_workers())
+
     @app.get("/api/admin/opencode-agents")
     def admin_opencode_agents(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
         return result_payload(service.list_opencode_agents())

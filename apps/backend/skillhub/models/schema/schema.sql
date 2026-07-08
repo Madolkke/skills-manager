@@ -153,6 +153,19 @@ create table jobs (
   constraint jobs_status_check check (status in ('queued', 'running', 'succeeded', 'failed', 'canceled'))
 );
 
+create table worker_heartbeats (
+  worker_id text primary key,
+  status text not null default 'idle',
+  current_job_id text,
+  current_job_type text,
+  current_run_id text,
+  current_session_id text,
+  last_seen_at timestamptz not null,
+  started_at timestamptz not null,
+  metadata jsonb not null default '{}'::jsonb,
+  constraint worker_heartbeats_status_check check (status in ('idle', 'running'))
+);
+
 create table eval_case_runs (
   id text primary key,
   job_id text references jobs(id),
@@ -499,6 +512,7 @@ create index skill_builder_sessions_actor_idx on skill_builder_sessions (actor_r
 create index skill_builder_sessions_status_idx on skill_builder_sessions (status, updated_at desc);
 create index skill_builder_messages_session_idx on skill_builder_messages (session_id, created_at);
 create index skill_builder_messages_job_id_idx on skill_builder_messages (job_id);
+create index worker_heartbeats_last_seen_idx on worker_heartbeats (last_seen_at desc);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
 create index tag_groups_sort_idx on tag_groups (sort_order, id);
