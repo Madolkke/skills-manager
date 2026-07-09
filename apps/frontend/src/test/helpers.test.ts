@@ -35,7 +35,8 @@ import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
 import { durationText, queuedWorkerJobs, workerCurrentJobText, workerJobTypeText, workerStatusText, workerStatusTone } from "../lib/workerStatus";
-import type { EvalSetCase, WorkerStatusOverview } from "../types";
+import { buildReviewerSources, reviewerSourceText, reviewerUserIds, selectedReviewerCount } from "../lib/reviewerSelection";
+import type { EvalSetCase, ReviewerCandidateOverview, WorkerStatusOverview } from "../types";
 
 describe("skill builder UI helpers", () => {
   it("renders common markdown and safe external links", () => {
@@ -616,5 +617,34 @@ describe("skill evidence helpers", () => {
     expect(workerCurrentJobText(overview.workers[1])).toBe("无当前任务");
     expect(durationText("2026-07-09T10:05:00.000Z", overview.generated_at)).toBe("30s");
     expect(durationText("2026-07-09T09:00:00.000Z", overview.generated_at)).toBe("1h 5m");
+  });
+
+  it("builds explicit review subjects from groups and typed users", () => {
+    const candidates: ReviewerCandidateOverview = {
+      skill_id: "skill_1",
+      groups: [
+        {
+          id: "group_1",
+          scope_type: "global",
+          scope_id: "default",
+          name: "backend-reviewers",
+          description: "",
+          member_count: 2,
+          members: [
+            { group_id: "group_1", subject_type: "user", subject_id: "alice" },
+            { group_id: "group_1", subject_type: "user", subject_id: "bob" },
+          ],
+        },
+      ],
+    };
+
+    expect(reviewerUserIds("alice, bob；alice carol")).toEqual(["alice", "bob", "carol"]);
+    expect(buildReviewerSources(["group_1", "group_1"], "bob; carol")).toEqual([
+      { subject_type: "group", subject_id: "group_1" },
+      { subject_type: "user", subject_id: "bob" },
+      { subject_type: "user", subject_id: "carol" },
+    ]);
+    expect(selectedReviewerCount(["group_1"], "bob carol", candidates)).toBe(3);
+    expect(reviewerSourceText({ reviewer_actor: "alice", source_subject_type: "group", source_subject_id: "group_1" } as never, candidates)).toBe("alice（backend-reviewers）");
   });
 });

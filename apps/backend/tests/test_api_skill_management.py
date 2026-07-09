@@ -1013,6 +1013,104 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(records[0]["metadata"]["auto_publish"], True)
         self.assertEqual(records[0]["metadata"]["release_result"]["metadata"]["auto_publish"], True)
 
+    def test_review_can_snapshot_explicit_group_and_user_reviewers(self):
+        skill = self.create_skill("explicit-review-groups")
+        group = self.client.post(
+            "/api/admin/groups",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"name": "backend-reviewers", "description": "Backend review pool"},
+        ).json()
+        self.client.post(f"/api/admin/groups/{group['id']}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "alice"})
+        self.client.post(f"/api/admin/groups/{group['id']}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "bob"})
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={"subject_id": "auto-reviewer", "role": "reviewer"},
+        )
+
+        review = self.client.post(
+            f"/api/skills/{skill['skill_id']}/reviews",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={
+                "skill_version_id": skill["skill_version_id"],
+                "publish_targets": [],
+                "reviewer_sources": [
+                    {"subject_type": "group", "subject_id": group["id"]},
+                    {"subject_type": "user", "subject_id": "bob"},
+                    {"subject_type": "user", "subject_id": "carol"},
+                ],
+            },
+        )
+
+        self.assertEqual(review.status_code, 200)
+        reviewers = {item["reviewer_actor"]: item for item in review.json()["reviewers"]}
+        self.assertEqual(set(reviewers), {"alice", "bob", "carol"})
+        self.assertEqual(reviewers["alice"]["source_subject_type"], "group")
+        self.assertEqual(reviewers["alice"]["source_subject_id"], group["id"])
+        self.assertEqual(reviewers["bob"]["source_subject_type"], "user")
+        self.assertEqual(reviewers["carol"]["source_subject_type"], "user")
+        self.assertNotIn("auto-reviewer", reviewers)
+
+        notifications = self.client.get("/api/me/notifications", headers={"X-SkillHub-Actor": "bob"}).json()
+        self.assertEqual(len(notifications), 1)
+
+    def test_review_with_no_explicit_reviewers_keeps_role_snapshot(self):
+        skill = self.create_skill("auto-reviewer-fallback")
+        self.client.post(
+            f"/api/skills/{skill['skill_id']}/role-assignments",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={"subject_id": "role-reviewer", "role": "reviewer"},
+        )
+
+        review = self.client.post(
+            f"/api/skills/{skill['skill_id']}/reviews",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={"skill_version_id": skill["skill_version_id"], "publish_targets": []},
+        )
+
+        self.assertEqual(review.status_code, 200)
+        self.assertEqual([item["reviewer_actor"] for item in review.json()["reviewers"]], ["role-reviewer"])
+
+    def test_review_rejects_empty_explicit_group(self):
+        skill = self.create_skill("empty-review-group")
+        group = self.client.post(
+            "/api/admin/groups",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"name": "empty-reviewers"},
+        ).json()
+
+        review = self.client.post(
+            f"/api/skills/{skill['skill_id']}/reviews",
+            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            json={
+                "skill_version_id": skill["skill_version_id"],
+                "publish_targets": [],
+                "reviewer_sources": [{"subject_type": "group", "subject_id": group["id"]}],
+            },
+        )
+
+        self.assertEqual(review.status_code, 409)
+        self.assertIn("No reviewers", review.json()["detail"])
+
+    def test_reviewer_candidates_require_review_manage_permission(self):
+        skill = self.create_skill("reviewer-candidates")
+        group = self.client.post(
+            "/api/admin/groups",
+            headers={"X-SkillHub-Admin-Key": "test-admin-key"},
+            json={"name": "candidate-reviewers"},
+        ).json()
+        self.client.post(f"/api/admin/groups/{group['id']}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "candidate-user"})
+
+        denied = self.client.get(f"/api/skills/{skill['skill_id']}/reviewer-candidates", headers={"X-SkillHub-Actor": "viewer"})
+        allowed = self.client.get(f"/api/skills/{skill['skill_id']}/reviewer-candidates", headers={"X-SkillHub-Actor": "skillhub-lab"})
+
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(allowed.status_code, 200)
+        candidate = next(item for item in allowed.json()["groups"] if item["id"] == group["id"])
+        self.assertEqual(candidate["scope_type"], "global")
+        self.assertEqual(candidate["member_count"], 1)
+        self.assertEqual(candidate["members"][0]["subject_id"], "candidate-user")
+
     def test_saved_run_view_endpoints_create_list_and_delete_view(self):
         skill = self.create_skill("saved-view-api")
 

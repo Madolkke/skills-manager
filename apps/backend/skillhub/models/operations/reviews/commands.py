@@ -18,10 +18,16 @@ class ReviewCommandMixin:
         skill_id: str,
         skill_version_id: str,
         publish_targets: list[dict[str, Any]],
+        reviewer_sources: list[dict[str, Any]] | None = None,
         actor: str,
     ) -> dict[str, Any]:
         """Legacy store facade; ReviewService owns the normal create-review orchestration."""
-        opened = self.open_review_request(skill_id=skill_id, skill_version_id=skill_version_id, actor=actor)
+        opened = self.open_review_request(
+            skill_id=skill_id,
+            skill_version_id=skill_version_id,
+            reviewer_sources=reviewer_sources or [],
+            actor=actor,
+        )
         self.attach_review_publish_targets(review_id=opened["review_id"], skill_id=skill_id, publish_targets=publish_targets)
         self.create_review_notifications(review_id=opened["review_id"], skill_slug=opened["skill_slug"], reviewers=opened["reviewers"], actor=actor)
         self.record_review_created_audit(
@@ -33,7 +39,14 @@ class ReviewCommandMixin:
         )
         return self.review_detail(review_id=opened["review_id"])
 
-    def open_review_request(self, *, skill_id: str, skill_version_id: str, actor: str) -> dict[str, Any]:
+    def open_review_request(
+        self,
+        *,
+        skill_id: str,
+        skill_version_id: str,
+        actor: str,
+        reviewer_sources: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         created_at = utc_now()
         with self.engine.begin() as connection:
             skill = self._skill_row(connection, skill_id)
@@ -57,7 +70,17 @@ class ReviewCommandMixin:
                     created_by=actor,
                 )
             )
-            reviewers = self._snapshot_reviewers(connection, skill_id=skill_id, review_id=review_id, created_at=created_at)
+            reviewers = (
+                self._snapshot_selected_reviewers(
+                    connection,
+                    skill_id=skill_id,
+                    review_id=review_id,
+                    created_at=created_at,
+                    reviewer_sources=reviewer_sources or [],
+                )
+                if reviewer_sources
+                else self._snapshot_reviewers(connection, skill_id=skill_id, review_id=review_id, created_at=created_at)
+            )
             if not reviewers:
                 raise InvariantError("No reviewer role assignments are available for this skill.")
             return {"review_id": review_id, "skill_slug": skill["slug"], "reviewers": reviewers}

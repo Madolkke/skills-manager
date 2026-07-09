@@ -17,8 +17,21 @@ class ReviewService(ServiceBase[SkillHubStore]):
     def list_skill_reviews(self, *, skill_id: str, actor: str) -> Any:
         return self.store.list_skill_reviews(skill_id=skill_id, actor=actor)
 
-    def create_review_request(self, *, skill_id: str, skill_version_id: str, publish_targets: list[dict[str, Any]], actor: str) -> Any:
-        opened = self.store.open_review_request(skill_id=skill_id, skill_version_id=skill_version_id, actor=actor)
+    def create_review_request(
+        self,
+        *,
+        skill_id: str,
+        skill_version_id: str,
+        publish_targets: list[dict[str, Any]],
+        reviewer_sources: list[dict[str, Any]] | None = None,
+        actor: str,
+    ) -> Any:
+        opened = self.store.open_review_request(
+            skill_id=skill_id,
+            skill_version_id=skill_version_id,
+            reviewer_sources=reviewer_sources or [],
+            actor=actor,
+        )
         self.store.attach_review_publish_targets(review_id=opened["review_id"], skill_id=skill_id, publish_targets=publish_targets)
         self.store.create_review_notifications(
             review_id=opened["review_id"],
@@ -34,6 +47,9 @@ class ReviewService(ServiceBase[SkillHubStore]):
             actor=actor,
         )
         return self.store.review_detail(review_id=opened["review_id"])
+
+    def reviewer_candidates(self, *, skill_id: str, actor: str) -> Any:
+        return self.store.reviewer_candidates(skill_id=skill_id, actor=actor)
 
     def submit_review_response(self, *, review_id: str, score: int, comment: str | None, actor: str) -> Any:
         if score not in {-1, 0, 1}:

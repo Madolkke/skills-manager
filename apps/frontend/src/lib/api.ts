@@ -35,7 +35,9 @@ import type {
   PublishGateCheckDefinition,
   PublishGateExpression,
   PublishTarget,
+  ReviewerCandidateOverview,
   ReviewRequest,
+  ReviewSubject,
   WorkerStatusOverview,
 } from "../types";
 import { getActorId } from "./identity";
@@ -134,7 +136,8 @@ function skillApi() {
     assignSkillRole: (skillId: string, payload: { subject_type: "user" | "group"; subject_id: string; role: string }) =>
       apiSend<RoleAssignment>(`/api/skills/${encodeURIComponent(skillId)}/role-assignments`, "POST", payload),
     listSkillReviews: (skillId: string) => apiGet<ReviewRequest[]>(`/api/skills/${encodeURIComponent(skillId)}/reviews`),
-    createReviewRequest: (skillId: string, payload: { skill_version_id: string; publish_targets: Array<{ publish_target_id: string; auto_submit_on_pass: boolean }> }) =>
+    listReviewerCandidates: (skillId: string) => apiGet<ReviewerCandidateOverview>(`/api/skills/${encodeURIComponent(skillId)}/reviewer-candidates`),
+    createReviewRequest: (skillId: string, payload: { skill_version_id: string; publish_targets: Array<{ publish_target_id: string; auto_submit_on_pass: boolean }>; reviewer_sources?: ReviewSubject[] }) =>
       apiSend<ReviewRequest>(`/api/skills/${encodeURIComponent(skillId)}/reviews`, "POST", payload),
     closeReview: (reviewId: string) => apiSend<ReviewRequest>(`/api/reviews/${encodeURIComponent(reviewId)}/close`, "POST", {}),
     submitReviewResponse: (reviewId: string, payload: { score: -1 | 0 | 1; comment: string }) =>

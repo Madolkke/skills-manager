@@ -109,6 +109,10 @@
   gap: 8px;
 }
 
+.review-direct-reviewers {
+  margin-top: 8px;
+}
+
 .review-target-row {
   width: 100%;
   min-width: 0;

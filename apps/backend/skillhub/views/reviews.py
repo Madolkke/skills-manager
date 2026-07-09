@@ -30,9 +30,18 @@ def register_review_routes(app: FastAPI) -> None:
                 skill_id=skill_id,
                 skill_version_id=payload.skill_version_id,
                 publish_targets=[item.model_dump() for item in payload.publish_targets],
+                reviewer_sources=[item.model_dump() for item in payload.reviewer_sources],
                 actor=actor.id,
             )
         )
+
+    @app.get("/api/skills/{skill_id}/reviewer-candidates")
+    def reviewer_candidates(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        service: ReviewService = Depends(review_service_dependency),
+    ):
+        return result_payload(service.reviewer_candidates(skill_id=skill_id, actor=actor.id))
 
     @app.post("/api/reviews/{review_id}/responses")
     def submit_review_response(

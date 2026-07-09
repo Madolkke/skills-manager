@@ -153,6 +153,48 @@ class ReviewHelperMixin:
                 )
                 for member in members:
                     reviewers.setdefault(member, ("group", assignment["subject_id"]))
+        self._insert_reviewers(connection, skill_id=skill_id, review_id=review_id, reviewers=reviewers, created_at=created_at)
+        return sorted(reviewers)
+
+    def _snapshot_selected_reviewers(self, connection, *, skill_id: str, review_id: str, created_at, reviewer_sources: list[dict[str, Any]]) -> list[str]:
+        groups: list[str] = []
+        users: list[str] = []
+        for source in reviewer_sources:
+            subject_type = self._clean_subject_type(str(source.get("subject_type", "user")))
+            subject_id = self._clean_subject_id(str(source.get("subject_id", "")))
+            if subject_type == "group":
+                if subject_id not in groups:
+                    groups.append(subject_id)
+            elif subject_id not in users:
+                users.append(subject_id)
+
+        reviewers: dict[str, tuple[str, str]] = {}
+        for group_id in groups:
+            group = self._group_row(connection, group_id)
+            if group["scope_type"] != "global":
+                raise InvariantError("Only global groups can be selected as review groups.")
+            members = (
+                connection.execute(
+                    select(tables.group_memberships.c.subject_id)
+                    .where(tables.group_memberships.c.group_id == group_id)
+                    .where(tables.group_memberships.c.subject_type == "user")
+                    .order_by(tables.group_memberships.c.subject_id)
+                )
+                .scalars()
+                .all()
+            )
+            for member in members:
+                reviewers.setdefault(member, ("group", group_id))
+
+        for user in users:
+            reviewers[user] = ("user", user)
+
+        if not reviewers:
+            raise InvariantError("No reviewers were resolved from selected reviewer sources.")
+        self._insert_reviewers(connection, skill_id=skill_id, review_id=review_id, reviewers=reviewers, created_at=created_at)
+        return sorted(reviewers)
+
+    def _insert_reviewers(self, connection, *, skill_id: str, review_id: str, reviewers: dict[str, tuple[str, str]], created_at) -> None:
         for reviewer, source in sorted(reviewers.items()):
             connection.execute(
                 insert(tables.review_request_reviewers).values(
@@ -164,7 +206,6 @@ class ReviewHelperMixin:
                     created_at=created_at,
                 )
             )
-        return sorted(reviewers)
 
     def _insert_review_notifications(self, connection, *, review_id: str, skill_slug: str, reviewers: list[str], actor: str, created_at) -> None:
         for reviewer in reviewers:

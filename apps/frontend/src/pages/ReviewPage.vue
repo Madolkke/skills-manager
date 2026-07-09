@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import DropdownSelect from "../components/DropdownSelect.vue";
 import EmptyState from "../components/EmptyState.vue";
-import type { DropdownSelectOption } from "../components/dropdown";
 import { api, ApiError } from "../lib/api";
 import { reviewManageReason } from "../lib/disabledReasons";
 import { humanDate } from "../lib/format";
-import type { PublishTarget, ReviewRequest, SkillDetail, ToastState } from "../types";
+import { buildReviewerSources, reviewerSourceText, selectedReviewerCount } from "../lib/reviewerSelection";
+import type { PublishTarget, ReviewerCandidateOverview, ReviewRequest, SkillDetail, ToastState } from "../types";
+import ReviewLaunchPanel from "./review/ReviewLaunchPanel.vue";
 
 const props = defineProps<{ skill: SkillDetail }>();
 const emit = defineEmits<{ toast: [toast: ToastState]; refresh: [] }>();
@@ -15,12 +15,15 @@ const loading = ref(false);
 const busy = ref(false);
 const reviews = ref<ReviewRequest[]>([]);
 const targets = ref<PublishTarget[]>([]);
+const reviewerCandidates = ref<ReviewerCandidateOverview | null>(null);
 const selectedVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
 const selectedTargets = ref<string[]>([]);
+const selectedReviewerGroupIds = ref<string[]>([]);
+const directReviewerInput = ref("");
 
 const canManage = computed(() => Boolean(props.skill.capabilities?.permissions["review.manage"]));
 const manageReason = computed(() => reviewManageReason(canManage.value));
-const versionOptions = computed<DropdownSelectOption[]>(() =>
+const versionOptions = computed(() =>
   props.skill.versions.map((version) => ({
     value: version.id,
     label: version.version,
@@ -31,15 +34,22 @@ const orderedReviews = computed(() => [...reviews.value].sort((a, b) => (b.creat
 const openReviews = computed(() => orderedReviews.value.filter((review) => review.status === "open"));
 const closedReviews = computed(() => orderedReviews.value.filter((review) => review.status === "closed"));
 const selectedVersion = computed(() => props.skill.versions.find((version) => version.id === selectedVersionId.value) ?? null);
+const reviewerGroups = computed(() => reviewerCandidates.value?.groups ?? []);
+const explicitReviewerCount = computed(() => selectedReviewerCount(selectedReviewerGroupIds.value, directReviewerInput.value, reviewerCandidates.value));
 
 onMounted(() => void load());
 
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    const [nextReviews, publish] = await Promise.all([api.listSkillReviews(props.skill.skill.id), api.getSkillPublishOverview(props.skill.skill.id)]);
+    const [nextReviews, publish, candidates] = await Promise.all([
+      api.listSkillReviews(props.skill.skill.id),
+      api.getSkillPublishOverview(props.skill.skill.id),
+      canManage.value ? api.listReviewerCandidates(props.skill.skill.id) : Promise.resolve({ skill_id: props.skill.skill.id, groups: [] }),
+    ]);
     reviews.value = nextReviews;
     targets.value = publish.publish_targets.filter((target) => target.enabled);
+    reviewerCandidates.value = candidates;
   } catch (error) {
     showError(error);
   } finally {
@@ -51,12 +61,16 @@ async function createReview(): Promise<void> {
   if (!selectedVersionId.value) return;
   busy.value = true;
   try {
+    const reviewerSources = buildReviewerSources(selectedReviewerGroupIds.value, directReviewerInput.value);
     await api.createReviewRequest(props.skill.skill.id, {
       skill_version_id: selectedVersionId.value,
       publish_targets: selectedTargets.value.map((publish_target_id) => ({ publish_target_id, auto_submit_on_pass: true })),
+      ...(reviewerSources.length ? { reviewer_sources: reviewerSources } : {}),
     });
     emit("toast", { tone: "success", message: "评审已发起。" });
     selectedTargets.value = [];
+    selectedReviewerGroupIds.value = [];
+    directReviewerInput.value = "";
     await load();
   } catch (error) {
     showError(error);
@@ -86,6 +100,12 @@ function toggleTarget(targetId: string): void {
     : [...selectedTargets.value, targetId];
 }
 
+function toggleReviewerGroup(groupId: string): void {
+  selectedReviewerGroupIds.value = selectedReviewerGroupIds.value.includes(groupId)
+    ? selectedReviewerGroupIds.value.filter((id) => id !== groupId)
+    : [...selectedReviewerGroupIds.value, groupId];
+}
+
 function responseCount(review: ReviewRequest): string {
   return `${review.responses.length} / ${review.reviewers.length}`;
 }
@@ -96,7 +116,7 @@ function autoTargetText(review: ReviewRequest): string {
 }
 
 function reviewerText(review: ReviewRequest): string {
-  return review.reviewers.map((item) => item.reviewer_actor).join("、") || "无";
+  return review.reviewers.map((item) => reviewerSourceText(item, reviewerCandidates.value)).join("、") || "无";
 }
 
 function reviewStatusText(review: ReviewRequest): string {
@@ -156,50 +176,23 @@ function showError(error: unknown): void {
     </section>
 
     <section class="review-manager-layout">
-      <aside class="primary-panel review-launch-panel">
-        <div class="review-panel-head">
-          <div>
-            <h2>发起评审</h2>
-            <p>选择版本和自动提交发布源。</p>
-          </div>
-        </div>
-
-        <div v-if="canManage" class="review-launch-form">
-          <label class="field-label">
-            <span>Skill 版本</span>
-            <DropdownSelect v-model="selectedVersionId" :options="versionOptions" compact />
-          </label>
-
-          <div v-if="selectedVersion" class="review-selected-version">
-            <span>将评审</span>
-            <strong>{{ selectedVersion.version }}</strong>
-            <p>{{ selectedVersion.display_name || selectedVersion.change_summary || "当前版本没有备注。" }}</p>
-          </div>
-
-          <div class="field-label">
-            <span>自动提交发布源</span>
-            <div class="review-target-list">
-              <button
-                v-for="target in targets"
-                :key="target.id"
-                type="button"
-                :class="['review-target-row', { active: selectedTargets.includes(target.id) }]"
-                @click="toggleTarget(target.id)"
-              >
-                <span class="review-target-main">
-                  <strong>{{ target.name }}</strong>
-                  <small>{{ target.description || target.target_key }}</small>
-                </span>
-                <span class="review-target-state">{{ selectedTargets.includes(target.id) ? "已选" : target.auto_publish_enabled ? "自动发布" : "后台确认" }}</span>
-              </button>
-              <span v-if="!targets.length" class="field-help">后台还没有启用的发布源。</span>
-            </div>
-          </div>
-
-          <button class="primary-button full-width" type="button" :disabled="busy || !selectedVersionId" :title="manageReason || (!selectedVersionId ? '需要先选择一个 Skill 版本。' : '')" @click="createReview">发起评审</button>
-        </div>
-        <p v-else class="field-help permission-hint review-launch-permission">当前身份需要 maintainer、owner 或 admin 才能发起评审。</p>
-      </aside>
+      <ReviewLaunchPanel
+        v-model:selected-version-id="selectedVersionId"
+        v-model:direct-reviewer-input="directReviewerInput"
+        :can-manage="canManage"
+        :busy="busy"
+        :manage-reason="manageReason"
+        :version-options="versionOptions"
+        :selected-version="selectedVersion"
+        :targets="targets"
+        :selected-targets="selectedTargets"
+        :reviewer-groups="reviewerGroups"
+        :selected-reviewer-group-ids="selectedReviewerGroupIds"
+        :explicit-reviewer-count="explicitReviewerCount"
+        @toggle-reviewer-group="toggleReviewerGroup"
+        @toggle-target="toggleTarget"
+        @create="createReview"
+      />
 
       <section class="primary-panel review-records-panel">
         <div class="review-panel-head">

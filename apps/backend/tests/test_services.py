@@ -104,6 +104,10 @@ class FakeStore:
         self.calls.append(("review_detail", kwargs))
         return {"id": kwargs["review_id"]}
 
+    def reviewer_candidates(self, **kwargs):
+        self.calls.append(("reviewer_candidates", kwargs))
+        return {"skill_id": kwargs["skill_id"], "groups": []}
+
     def review_closure_snapshot(self, **kwargs):
         self.calls.append(("review_closure_snapshot", kwargs))
         return {
@@ -529,8 +533,43 @@ def test_review_service_creates_review_with_publish_target_snapshot() -> None:
         "review_detail",
     ]
     assert store.calls[1][1]["publish_targets"] == targets
+    assert store.calls[0][1]["reviewer_sources"] == []
     assert store.calls[2][1]["reviewers"] == ["alice", "bob"]
     assert store.calls[3][1]["reviewer_count"] == 2
+
+
+def test_review_service_forwards_explicit_reviewer_sources() -> None:
+    store = FakeStore()
+    service = ReviewService(store)
+    sources = [{"subject_type": "group", "subject_id": "group_1"}, {"subject_type": "user", "subject_id": "alice"}]
+
+    service.create_review_request(
+        skill_id="skill_1",
+        skill_version_id="version_1",
+        publish_targets=[],
+        reviewer_sources=sources,
+        actor="maintainer",
+    )
+
+    assert store.calls[0] == (
+        "open_review_request",
+        {
+            "skill_id": "skill_1",
+            "skill_version_id": "version_1",
+            "reviewer_sources": sources,
+            "actor": "maintainer",
+        },
+    )
+
+
+def test_review_service_lists_reviewer_candidates() -> None:
+    store = FakeStore()
+    service = ReviewService(store)
+
+    result = service.reviewer_candidates(skill_id="skill_1", actor="maintainer")
+
+    assert result == {"skill_id": "skill_1", "groups": []}
+    assert store.calls == [("reviewer_candidates", {"skill_id": "skill_1", "actor": "maintainer"})]
 
 
 def test_review_service_closes_review_with_domain_policy_decision() -> None:

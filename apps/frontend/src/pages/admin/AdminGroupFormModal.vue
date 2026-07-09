@@ -30,7 +30,7 @@ function submit(): void {
 <template>
   <Modal
     :title="editing ? '编辑用户组' : '新建用户组'"
-    description="用户组用于集中管理一批身份 ID，并对 Skill 或 Tag 授权。"
+    description="用户组用于集中管理身份 ID，可在发起评审时直接选择，也可对 Skill 或 Tag 授权。"
     @close="emit('close')"
   >
     <div class="form-stack admin-modal-form">

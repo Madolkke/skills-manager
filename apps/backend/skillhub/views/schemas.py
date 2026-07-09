@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -112,9 +112,15 @@ class ReviewPublishTargetPayload(BaseModel):
     auto_submit_on_pass: bool = True
 
 
+class ReviewSubjectPayload(BaseModel):
+    subject_type: Literal["user", "group"] = "user"
+    subject_id: IdentityRef
+
+
 class CreateReviewRequestPayload(BaseModel):
     skill_version_id: str
     publish_targets: list[ReviewPublishTargetPayload] = Field(default_factory=list)
+    reviewer_sources: list[ReviewSubjectPayload] = Field(default_factory=list)
 
 
 class SubmitReviewResponsePayload(BaseModel):

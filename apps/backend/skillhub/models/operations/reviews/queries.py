@@ -8,6 +8,25 @@ from skillhub.models.schema import tables
 
 
 class ReviewQueryMixin:
+    def reviewer_candidates(self, *, skill_id: str, actor: str) -> dict[str, Any]:
+        with self.engine.connect() as connection:
+            self._skill_row(connection, skill_id)
+            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="review.manage")
+            rows = (
+                connection.execute(
+                    select(tables.groups)
+                    .where(tables.groups.c.scope_type == "global")
+                    .order_by(tables.groups.c.name, tables.groups.c.id)
+                )
+                .mappings()
+                .all()
+            )
+            groups = []
+            for row in rows:
+                members = self._group_members(connection, row["id"])
+                groups.append({**self._row_dict(row), "members": members, "member_count": len(members)})
+            return {"skill_id": skill_id, "groups": groups}
+
     def list_skill_reviews(self, *, skill_id: str, actor: str | None = None) -> list[dict[str, Any]]:
         with self.engine.connect() as connection:
             self._skill_row(connection, skill_id)

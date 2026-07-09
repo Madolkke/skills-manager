@@ -82,6 +82,29 @@ export type ReviewPublishTarget = {
   created_at?: string;
 };
 
+export type ReviewSubject = {
+  subject_type: "user" | "group";
+  subject_id: string;
+};
+
+export type ReviewerCandidateGroup = {
+  id: string;
+  scope_type: "global";
+  scope_id: string;
+  name: string;
+  description: string;
+  member_count: number;
+  members: Array<{ group_id: string; subject_type: "user"; subject_id: string }>;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+};
+
+export type ReviewerCandidateOverview = {
+  skill_id: string;
+  groups: ReviewerCandidateGroup[];
+};
+
 export type PublishRecord = {
   id: string;
   skill_id: string;
