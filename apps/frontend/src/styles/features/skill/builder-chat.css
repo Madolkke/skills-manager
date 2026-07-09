@@ -104,6 +104,78 @@
   padding: 0 12px;
 }
 
+.builder-run-recovery {
+  border: 1px solid #dbe8ff;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.2fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.builder-run-recovery.failed {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.builder-run-recovery-copy {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #1d4ed8;
+}
+
+.builder-run-recovery.failed .builder-run-recovery-copy {
+  color: #b42318;
+}
+
+.builder-run-recovery-copy strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.builder-run-recovery-copy p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.builder-progress-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.builder-progress-step {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.builder-progress-step.done {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.builder-progress-step.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .builder-composer {
   position: sticky;
   bottom: 18px;
@@ -247,6 +319,10 @@
 
   .builder-composer-input {
     max-height: 220px;
+  }
+
+  .builder-run-recovery {
+    grid-template-columns: 1fr;
   }
 }
 

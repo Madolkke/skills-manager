@@ -17,6 +17,9 @@ import {
   builderSubmitPayloadFiles,
   builderWorkspaceFilesFromSession,
   builderRunningElapsedLabel,
+  builderProgressStageText,
+  builderProgressSteps,
+  builderRecoveryNotice,
   renderMarkdown,
   validateBuilderSubmitMappings,
   validateBuilderWorkspaceFiles,
@@ -64,6 +67,36 @@ describe("skill builder UI helpers", () => {
     expect(builderRunningElapsedLabel("2026-07-05T11:59:58.000Z", now)).toBe("刚刚开始");
     expect(builderRunningElapsedLabel("2026-07-05T11:59:42.000Z", now)).toBe("已等待 18 秒");
     expect(builderRunningElapsedLabel("2026-07-05T11:57:50.000Z", now)).toBe("已等待 2 分 10 秒");
+  });
+
+  it("builds builder recovery notices", () => {
+    expect(builderRecoveryNotice(null)).toBeNull();
+    expect(builderRecoveryNotice({ status: "running", messages: [], draft_files: [], run_selection: {} } as never)).toEqual({
+      title: "Agent 运行中",
+      message: "排队中",
+      tone: "running",
+    });
+    expect(builderRecoveryNotice({ status: "failed", last_error: "AI 创建任务长时间没有进展。", messages: [], draft_files: [], run_selection: {} } as never)).toEqual({
+      title: "上次运行未完成",
+      message: "AI 创建任务长时间没有进展。",
+      tone: "failed",
+    });
+  });
+
+  it("maps builder progress stages for display", () => {
+    expect(builderProgressStageText("sending_message")).toBe("等待模型返回");
+    expect(builderProgressStageText("unknown")).toBe("处理中");
+    const steps = builderProgressSteps({
+      status: "running",
+      run_progress: { job_id: "job_1", status: "running", stage: "sending_message" },
+      messages: [],
+      draft_files: [],
+      run_selection: {},
+    } as never);
+
+    expect(steps.find((item) => item.stage === "preparing_workspace")?.state).toBe("done");
+    expect(steps.find((item) => item.stage === "sending_message")?.state).toBe("active");
+    expect(steps.find((item) => item.stage === "saving_result")?.state).toBe("pending");
   });
 
   it("uses workspace files from Builder sessions before legacy draft files", () => {

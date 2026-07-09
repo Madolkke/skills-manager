@@ -77,6 +77,7 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `EVAL_RUNNER_TIMEOUT_SECONDS` | `300` | Worker 默认运行超时。 |
 | `EVAL_RUNNER_MAX_ATTEMPTS` | `2` | 测评任务最大尝试次数。 |
 | `EVAL_RUNNER_WORKER_ID` | `opencode-worker` | Worker 实例标识；多实例部署时必须为每个 Worker 设置不同值，后台 Worker 状态页依赖该值聚合心跳。 |
+| `SKILL_BUILDER_STALE_AFTER_SECONDS` | `600` | AI 创建 Skill 会话超过该秒数无进展时，后端会自动释放为可恢复失败态，避免一直占用新会话入口。 |
 | `LMNR_PROJECT_API_KEY` | 空 | 配置后启用 Laminar trace。 |
 | `LMNR_BASE_URL` | `https://api.lmnr.ai` | Laminar API 地址。 |
 | `LMNR_HTTP_PORT` | 空 | Laminar 本地 HTTP 端口，可选。 |
@@ -440,6 +441,10 @@ journalctl -u skillhub-worker -f
 - Opencode provider/model 是否已在 Opencode 侧配置。
 - `EVAL_WORKDIR_HOST` 是否可写。
 - Opencode 是否能访问 Worker 物化出的测试工作目录。
+
+### AI 创建 Skill 长时间处于 running
+
+Skill Builder 会话超过 `SKILL_BUILDER_STALE_AFTER_SECONDS` 无进展后，后端会在下次读取或操作该会话时自动标记为失败态。失败态会保留当前对话和工作区，用户可以继续发送消息、取消本次运行或新建会话。若频繁触发，请检查 Worker 日志、`OPENCODE_BASE_URL`、Opencode provider/model 配置和 `EVAL_RUNNER_TIMEOUT_SECONDS`。
 
 ### 运行详情没有 Laminar trace
 

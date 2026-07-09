@@ -38,7 +38,7 @@ class SkillBuilderHelperMixin:
         connection.execute(
             update(tables.jobs)
             .where(tables.jobs.c.type == BUILDER_JOB_TYPE)
-            .where(tables.jobs.c.status == "queued")
+            .where(tables.jobs.c.status.in_(["queued", "running"]))
             .where(tables.jobs.c.payload["session_id"].as_string().in_(session_ids))
             .values(
                 status="canceled",
@@ -60,7 +60,39 @@ class SkillBuilderHelperMixin:
         payload["workspace_files"] = list(payload["draft_files"])
         payload["run_selection"] = dict(payload.get("run_selection") or {})
         payload["messages"] = messages
+        payload["run_progress"] = None
         return payload
+
+    def _builder_session_payload_with_progress(self, connection, row, *, messages: list[dict[str, Any]]) -> dict[str, Any]:
+        payload = self._builder_session_payload(row, messages=messages)
+        payload["run_progress"] = self._builder_run_progress(connection, session_id=str(row["id"])) if row["status"] == "running" else None
+        return payload
+
+    def _builder_run_progress(self, connection, *, session_id: str) -> dict[str, Any] | None:
+        row = (
+            connection.execute(
+                select(tables.jobs)
+                .join(tables.skill_builder_messages, tables.skill_builder_messages.c.job_id == tables.jobs.c.id)
+                .where(tables.skill_builder_messages.c.session_id == session_id)
+                .where(tables.jobs.c.type == BUILDER_JOB_TYPE)
+                .where(tables.jobs.c.status.in_(["queued", "running"]))
+                .order_by(tables.jobs.c.created_at.desc(), tables.skill_builder_messages.c.created_at.desc())
+                .limit(1)
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        payload = row["payload"] if isinstance(row["payload"], dict) else {}
+        return {
+            "job_id": row["id"],
+            "status": row["status"],
+            "stage": str(payload.get("progress_stage") or ("queued" if row["status"] == "queued" else "claimed")),
+            "started_at": row["started_at"] or row["created_at"],
+            "updated_at": payload.get("progress_updated_at") or row["last_heartbeat_at"] or row["created_at"],
+            "attempts": row["attempts"],
+        }
 
     def _clean_builder_run_selection(self, value: dict[str, Any]) -> dict[str, str]:
         provider_id = str(value.get("provider_id") or "").strip()

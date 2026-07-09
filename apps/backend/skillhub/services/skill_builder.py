@@ -10,8 +10,8 @@ class SkillBuilderService(ServiceBase[SkillHubStore]):
     def list_sessions(self, *, actor: str) -> Any:
         return self.store.list_skill_builder_sessions(actor=actor)
 
-    def create_session(self, *, actor: str, title: str | None = None) -> Any:
-        return self.store.create_skill_builder_session(actor=actor, title=title)
+    def create_session(self, *, actor: str, title: str | None = None, replace_running: bool = False) -> Any:
+        return self.store.create_skill_builder_session(actor=actor, title=title, replace_running=replace_running)
 
     def session_detail(self, *, session_id: str, actor: str) -> Any:
         return self.store.skill_builder_session_detail(session_id=session_id, actor=actor)
@@ -39,6 +39,9 @@ class SkillBuilderService(ServiceBase[SkillHubStore]):
 
     def update_draft(self, *, session_id: str, actor: str, files: list[dict[str, Any]]) -> Any:
         return self.update_workspace(session_id=session_id, actor=actor, files=files)
+
+    def cancel_session(self, *, session_id: str, actor: str) -> Any:
+        return self.store.cancel_skill_builder_session(session_id=session_id, actor=actor)
 
     def create_skill(self, *, session_id: str, actor: str, version: str | None, tags: list[Any], files: list[dict[str, Any]] | None = None) -> Any:
         return self.store.create_skill_from_builder_session(session_id=session_id, actor=actor, version=version, tags=tags, files=files)

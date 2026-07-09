@@ -16,6 +16,7 @@ from .constants import BUILDER_JOB_TYPE, BUILDER_RUNNER
 class SkillBuilderSessionMixin:
     def list_skill_builder_sessions(self, *, actor: str) -> list[dict[str, Any]]:
         with self.engine.begin() as connection:
+            self._recover_stale_builder_sessions(connection, actor=actor, now=utc_now())
             rows = (
                 connection.execute(
                     select(tables.skill_builder_sessions)
@@ -26,13 +27,15 @@ class SkillBuilderSessionMixin:
                 .mappings()
                 .all()
             )
-        return [self._builder_session_payload(row, messages=[]) for row in rows]
+            payloads = [self._builder_session_payload_with_progress(connection, row, messages=[]) for row in rows]
+        return payloads
 
-    def create_skill_builder_session(self, *, actor: str, title: str | None = None) -> dict[str, Any]:
+    def create_skill_builder_session(self, *, actor: str, title: str | None = None, replace_running: bool = False) -> dict[str, Any]:
         now = utc_now()
         session_id = new_id("builder")
         clean_title = (title or "").strip()[:160]
         with self.engine.begin() as connection:
+            self._recover_stale_builder_sessions(connection, actor=actor, now=now)
             existing = (
                 connection.execute(
                     select(tables.skill_builder_sessions)
@@ -42,8 +45,17 @@ class SkillBuilderSessionMixin:
                 .mappings()
                 .all()
             )
-            if any(row["status"] == "running" for row in existing):
+            running_session_ids = [str(row["id"]) for row in existing if row["status"] == "running"]
+            if running_session_ids and not replace_running:
                 raise InvariantError("Skill 创建 Agent 正在运行，完成后才能新建会话。")
+            if replace_running:
+                for old_session_id in running_session_ids:
+                    self._cancel_builder_session_job(
+                        connection,
+                        session_id=old_session_id,
+                        now=now,
+                        message="Skill Builder session was replaced by a new session.",
+                    )
             self._delete_existing_skill_builder_sessions(
                 connection,
                 actor=actor,
@@ -72,9 +84,11 @@ class SkillBuilderSessionMixin:
 
     def skill_builder_session_detail(self, *, session_id: str, actor: str) -> dict[str, Any]:
         with self.engine.begin() as connection:
+            self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=utc_now())
             row = self._builder_session_row(connection, session_id=session_id, actor=actor)
             messages = self._builder_messages(connection, session_id=session_id)
-        return self._builder_session_payload(row, messages=messages)
+            payload = self._builder_session_payload_with_progress(connection, row, messages=messages)
+        return payload
 
     def enqueue_skill_builder_message(
         self,
@@ -97,6 +111,7 @@ class SkillBuilderSessionMixin:
         now = utc_now()
         message_id = new_id("buildermsg")
         with self.engine.begin() as connection:
+            self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
                 raise InvariantError("Skill 创建 Agent 正在处理上一条消息，请稍后。")
@@ -124,6 +139,8 @@ class SkillBuilderSessionMixin:
                     "intent": intent,
                     "provider_id": clean_selection.get("provider_id", ""),
                     "model_id": clean_selection.get("model_id", ""),
+                    "progress_stage": "queued",
+                    "progress_updated_at": now.isoformat(),
                 },
                 actor=actor,
                 created_at=now,
@@ -144,6 +161,7 @@ class SkillBuilderSessionMixin:
         workspace_files = self._clean_builder_workspace_files(files, require_entry=False)
         now = utc_now()
         with self.engine.begin() as connection:
+            self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
                 raise InvariantError("Skill 创建 Agent 正在处理消息，暂不能编辑工作区文件。")
@@ -170,6 +188,7 @@ class SkillBuilderSessionMixin:
     ) -> dict[str, Any]:
         now = utc_now()
         with self.engine.begin() as connection:
+            self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
                 raise InvariantError("Skill 创建 Agent 正在处理消息，暂不能创建 Skill。")

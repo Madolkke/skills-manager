@@ -18,6 +18,24 @@ export type BuilderSubmitFileMapping = {
   content_text: string;
 };
 
+export type BuilderProgressStep = {
+  stage: string;
+  label: string;
+  state: "done" | "active" | "pending";
+};
+
+const builderProgressStages = [
+  { stage: "queued", label: "排队中" },
+  { stage: "claimed", label: "已认领" },
+  { stage: "preparing_workspace", label: "准备工作区" },
+  { stage: "checking_opencode", label: "检查 Opencode" },
+  { stage: "creating_opencode_session", label: "创建会话" },
+  { stage: "loading_message_history", label: "读取历史" },
+  { stage: "sending_message", label: "等待模型返回" },
+  { stage: "scanning_workspace", label: "扫描工作区" },
+  { stage: "saving_result", label: "保存结果" },
+];
+
 const markdown = new MarkdownIt({
   breaks: true,
   html: false,
@@ -70,6 +88,32 @@ export function builderSessionStatusText(session: SkillBuilderSession | null): s
   if (session.status === "created") return "Skill 已创建";
   if (session.status === "failed") return "执行失败";
   return "等待输入";
+}
+
+export function builderRecoveryNotice(session: SkillBuilderSession | null): { title: string; message: string; tone: "running" | "failed" } | null {
+  if (!session) return null;
+  if (session.status === "running") {
+    return { title: "Agent 运行中", message: builderProgressStageText(session.run_progress?.stage || "queued"), tone: "running" };
+  }
+  const lastError = session.last_error?.trim();
+  if (lastError) {
+    return { title: "上次运行未完成", message: lastError, tone: "failed" };
+  }
+  return null;
+}
+
+export function builderProgressStageText(stage?: string | null): string {
+  return builderProgressStages.find((item) => item.stage === stage)?.label ?? "处理中";
+}
+
+export function builderProgressSteps(session: SkillBuilderSession | null): BuilderProgressStep[] {
+  if (session?.status !== "running") return [];
+  const currentStage = session?.run_progress?.stage || (session?.status === "running" ? "queued" : "");
+  const currentIndex = Math.max(0, builderProgressStages.findIndex((item) => item.stage === currentStage));
+  return builderProgressStages.map((item, index) => ({
+    ...item,
+    state: index < currentIndex ? "done" : index === currentIndex ? "active" : "pending",
+  }));
 }
 
 export function builderProviderOptions(providers: OpencodeProviderOption[]): DropdownSelectOption[] {

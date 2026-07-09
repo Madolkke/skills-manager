@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BuilderChatPanel from "../features/skill-builder/components/BuilderChatPanel.vue";
 import BuilderLoadAlert from "../features/skill-builder/components/BuilderLoadAlert.vue";
 import BuilderNewSessionConfirmModal from "../features/skill-builder/components/BuilderNewSessionConfirmModal.vue";
+import BuilderRunRecoveryActions from "../features/skill-builder/components/BuilderRunRecoveryActions.vue";
 import BuilderSubmitSkillModal from "../features/skill-builder/components/BuilderSubmitSkillModal.vue";
 import BuilderTopToolbar from "../features/skill-builder/components/BuilderTopToolbar.vue";
 import BuilderWorkspaceDropdown from "../features/skill-builder/components/BuilderWorkspaceDropdown.vue";
@@ -26,6 +27,7 @@ const workspaceDirty = ref(false);
 const workspaceOpen = ref(false);
 const confirmNewSessionOpen = ref(false);
 const creating = ref(false);
+const cancellingRun = ref(false);
 const submitOpen = ref(false);
 const error = ref("");
 const loadFailed = ref(false);
@@ -49,10 +51,10 @@ const submitDisabledReason = computed(() => {
   return "";
 });
 const newSessionDisabledReason = computed(() => {
-  if (session.value?.status === "running") return "Agent 正在运行，完成后才能覆盖会话。";
   if (sending.value) return "消息正在发送。";
   if (savingWorkspace.value) return "工作区正在保存。";
   if (creating.value) return "Skill 正在创建。";
+  if (cancellingRun.value) return "正在取消本次运行。";
   return "";
 });
 const workspaceButtonText = computed(() => {
@@ -103,8 +105,9 @@ function requestCreateSession(): void {
 async function createSession(): Promise<void> {
   error.value = "";
   stopPolling();
+  const replaceRunning = session.value?.status === "running";
   try {
-    const created = await api.createSkillBuilderSession({ title: "新的 Skill 创建会话" });
+    const created = await api.createSkillBuilderSession({ title: "新的 Skill 创建会话", replace_running: replaceRunning });
     message.value = "";
     version.value = "0.0.1";
     tags.value = [];
@@ -114,6 +117,22 @@ async function createSession(): Promise<void> {
     applySession(created);
   } catch (caught) {
     error.value = errorMessage(caught);
+    if (session.value?.status === "running") startPolling();
+  }
+}
+
+async function cancelRun(): Promise<void> {
+  if (!session.value || session.value.status !== "running") return;
+  cancellingRun.value = true;
+  error.value = "";
+  try {
+    applySession(await api.cancelSkillBuilderSession(session.value.id));
+    stopPolling();
+    emit("toast", { tone: "info", message: "本次 AI 创建运行已取消。" });
+  } catch (caught) {
+    error.value = errorMessage(caught);
+  } finally {
+    cancellingRun.value = false;
   }
 }
 
@@ -285,6 +304,8 @@ function errorMessage(caught: unknown, fallback = "操作失败。"): string {
         @close="workspaceOpen = false"
       />
 
+      <BuilderRunRecoveryActions :session="session" :cancelling="cancellingRun" @cancel="cancelRun" />
+
       <BuilderChatPanel
         :status-text="statusText"
         :message="message"
@@ -311,7 +332,12 @@ function errorMessage(caught: unknown, fallback = "操作失败。"): string {
         @submit="createSkill"
       />
 
-      <BuilderNewSessionConfirmModal v-if="confirmNewSessionOpen" @close="confirmNewSessionOpen = false" @confirm="createSession" />
+      <BuilderNewSessionConfirmModal
+        v-if="confirmNewSessionOpen"
+        :running="session?.status === 'running'"
+        @close="confirmNewSessionOpen = false"
+        @confirm="createSession"
+      />
     </main>
   </div>
 </template>

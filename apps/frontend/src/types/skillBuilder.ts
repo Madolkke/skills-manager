@@ -29,9 +29,19 @@ export type SkillBuilderSession = {
   created_skill_id?: string | null;
   created_skill_version_id?: string | null;
   last_error?: string | null;
+  run_progress?: SkillBuilderRunProgress | null;
   created_at?: string;
   updated_at?: string;
   messages: SkillBuilderMessage[];
+};
+
+export type SkillBuilderRunProgress = {
+  job_id: string;
+  status: "queued" | "running";
+  stage: string;
+  started_at?: string | null;
+  updated_at?: string | null;
+  attempts?: number;
 };
 
 export type SkillBuilderRunSelection = {
@@ -44,6 +54,11 @@ export type SkillBuilderMessagePayload = {
   intent: "chat" | "generate_draft";
   provider_id?: string | null;
   model_id?: string | null;
+};
+
+export type SkillBuilderCreateSessionPayload = {
+  title?: string | null;
+  replace_running?: boolean;
 };
 
 export type SkillBuilderDraftPayload = {

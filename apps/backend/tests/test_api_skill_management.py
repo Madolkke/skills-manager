@@ -1,9 +1,10 @@
 from tests.api_command_test_case import ApiCommandTestCase
 import base64
+from datetime import timedelta
 import httpx
 from io import BytesIO
 import json
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 from zipfile import ZipFile
 from skillhub.models.entities import utc_now
 from skillhub.models.schema import tables
@@ -33,13 +34,26 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(message_response.status_code, 200)
         self.assertEqual(message_response.json()["status"], "running")
         self.assertEqual(message_response.json()["messages"][0]["role"], "user")
+        self.assertEqual(message_response.json()["run_progress"]["stage"], "queued")
 
         other_actor = self.client.get(f"/api/skill-builder/sessions/{session_id}", headers={"X-SkillHub-Actor": "other-user"})
         self.assertEqual(other_actor.status_code, 404)
 
+        job_id = message_response.json()["messages"][0]["job_id"]
+        now = utc_now()
+        with self.engine.begin() as connection:
+            connection.execute(
+                update(tables.jobs)
+                .where(tables.jobs.c.id == job_id)
+                .values(status="running", started_at=now, last_heartbeat_at=now, locked_by="test-worker")
+            )
+        self.store.update_skill_builder_job_progress(session_id=session_id, job_id=job_id, stage="sending_message")
+        running_detail = self.client.get(f"/api/skill-builder/sessions/{session_id}", headers={"X-SkillHub-Actor": "builder-user"})
+        self.assertEqual(running_detail.json()["run_progress"]["stage"], "sending_message")
+
         self.store.complete_skill_builder_job(
             session_id=session_id,
-            job_id=message_response.json()["messages"][0]["job_id"],
+            job_id=job_id,
             assistant_content="已理解需求。",
             intent="chat",
             draft_files=[
@@ -147,6 +161,106 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(running.status_code, 200)
         self.assertEqual(replaced.status_code, 409)
         self.assertEqual([item["id"] for item in sessions], [session["id"]])
+
+    def test_skill_builder_recovers_stale_running_session(self):
+        headers = {"X-SkillHub-Actor": "stale-builder-user"}
+        session = self.client.post("/api/skill-builder/sessions", headers=headers, json={}).json()
+        running = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            headers=headers,
+            json={"content": "创建 Skill", "intent": "chat"},
+        )
+        job_id = running.json()["messages"][0]["job_id"]
+        stale_at = utc_now() - timedelta(minutes=20)
+        with self.engine.begin() as connection:
+            connection.execute(
+                update(tables.jobs)
+                .where(tables.jobs.c.id == job_id)
+                .values(created_at=stale_at, started_at=stale_at, last_heartbeat_at=stale_at)
+            )
+            connection.execute(
+                update(tables.skill_builder_sessions)
+                .where(tables.skill_builder_sessions.c.id == session["id"])
+                .values(updated_at=stale_at)
+            )
+
+        detail = self.client.get(f"/api/skill-builder/sessions/{session['id']}", headers=headers)
+        continued = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            headers=headers,
+            json={"content": "继续创建", "intent": "chat"},
+        )
+        with self.engine.begin() as connection:
+            old_job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == job_id)).mappings().one()
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["status"], "failed")
+        self.assertIn("长时间没有进展", detail.json()["last_error"])
+        self.assertEqual(old_job["status"], "failed")
+        self.assertEqual(continued.status_code, 200)
+        self.assertEqual(continued.json()["status"], "running")
+
+    def test_skill_builder_create_session_can_replace_running_session(self):
+        headers = {"X-SkillHub-Actor": "replace-running-builder-user"}
+        session = self.client.post("/api/skill-builder/sessions", headers=headers, json={}).json()
+        running = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            headers=headers,
+            json={"content": "创建 Skill", "intent": "chat"},
+        )
+        job_id = running.json()["messages"][0]["job_id"]
+
+        replaced = self.client.post(
+            "/api/skill-builder/sessions",
+            headers=headers,
+            json={"title": "新会话", "replace_running": True},
+        )
+        sessions = self.client.get("/api/skill-builder/sessions", headers=headers).json()
+        old_detail = self.client.get(f"/api/skill-builder/sessions/{session['id']}", headers=headers)
+        with self.engine.begin() as connection:
+            old_job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == job_id)).mappings().one()
+
+        self.assertEqual(replaced.status_code, 200)
+        self.assertNotEqual(replaced.json()["id"], session["id"])
+        self.assertEqual([item["id"] for item in sessions], [replaced.json()["id"]])
+        self.assertEqual(old_detail.status_code, 404)
+        self.assertEqual(old_job["status"], "canceled")
+
+    def test_skill_builder_cancel_running_session_allows_new_message_and_ignores_late_worker_result(self):
+        headers = {"X-SkillHub-Actor": "cancel-builder-user"}
+        session = self.client.post("/api/skill-builder/sessions", headers=headers, json={}).json()
+        running = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            headers=headers,
+            json={"content": "创建 Skill", "intent": "chat"},
+        )
+        job_id = running.json()["messages"][0]["job_id"]
+
+        canceled = self.client.post(f"/api/skill-builder/sessions/{session['id']}/cancel", headers=headers)
+        self.store.complete_skill_builder_job(
+            session_id=session["id"],
+            job_id=job_id,
+            assistant_content="晚到的结果不应写入。",
+            intent="chat",
+            draft_files=[{"path": "SKILL.md", "content_text": "---\nname: late\ndescription: Late.\n---\n"}],
+            opencode_session_id="late_session",
+            workdir="/workspace/eval-runs/builder/late",
+            metadata={},
+        )
+        continued = self.client.post(
+            f"/api/skill-builder/sessions/{session['id']}/messages",
+            headers=headers,
+            json={"content": "重新开始", "intent": "chat"},
+        )
+        detail = self.client.get(f"/api/skill-builder/sessions/{session['id']}", headers=headers).json()
+        with self.engine.begin() as connection:
+            old_job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == job_id)).mappings().one()
+
+        self.assertEqual(canceled.status_code, 200)
+        self.assertEqual(canceled.json()["status"], "failed")
+        self.assertEqual(old_job["status"], "canceled")
+        self.assertEqual(continued.status_code, 200)
+        self.assertFalse(any(message["content"] == "晚到的结果不应写入。" for message in detail["messages"]))
 
     def test_skill_builder_create_session_cancels_old_queued_builder_jobs(self):
         headers = {"X-SkillHub-Actor": "queued-builder-user"}

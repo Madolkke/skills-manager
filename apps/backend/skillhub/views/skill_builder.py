@@ -29,7 +29,7 @@ def register_skill_builder_routes(app: FastAPI) -> None:
         actor: ActorContext = Depends(actor_dependency),
         service: SkillBuilderService = Depends(skill_builder_service_dependency),
     ):
-        return result_payload(service.create_session(actor=actor.id, title=payload.title))
+        return result_payload(service.create_session(actor=actor.id, title=payload.title, replace_running=payload.replace_running))
 
     @app.get("/api/skill-builder/sessions/{session_id}")
     def skill_builder_session_detail(
@@ -74,6 +74,14 @@ def register_skill_builder_routes(app: FastAPI) -> None:
         service: SkillBuilderService = Depends(skill_builder_service_dependency),
     ):
         return result_payload(service.update_workspace(session_id=session_id, actor=actor.id, files=[item.model_dump() for item in payload.files]))
+
+    @app.post("/api/skill-builder/sessions/{session_id}/cancel")
+    def cancel_skill_builder_session(
+        session_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        service: SkillBuilderService = Depends(skill_builder_service_dependency),
+    ):
+        return result_payload(service.cancel_session(session_id=session_id, actor=actor.id))
 
     @app.post("/api/skill-builder/sessions/{session_id}/create-skill")
     def create_skill_from_builder(

@@ -23,6 +23,7 @@ import type {
   SkillDetail,
   SkillPublishOverview,
   SkillBuilderCreateSkillPayload,
+  SkillBuilderCreateSessionPayload,
   SkillBuilderDraftPayload,
   SkillBuilderMessagePayload,
   SkillBuilderSession,
@@ -104,7 +105,7 @@ function skillApi() {
     importSkill: (payload: { owner_ref: string; source: BundleSource; version?: string; tags?: SkillTagPayload[] }) =>
       apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
     listSkillBuilderSessions: () => apiGet<SkillBuilderSession[]>("/api/skill-builder/sessions"),
-    createSkillBuilderSession: (payload: { title?: string | null }) =>
+    createSkillBuilderSession: (payload: SkillBuilderCreateSessionPayload) =>
       apiSend<SkillBuilderSession>("/api/skill-builder/sessions", "POST", payload),
     getSkillBuilderSession: (sessionId: string) => apiGet<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}`),
     sendSkillBuilderMessage: (sessionId: string, payload: SkillBuilderMessagePayload) =>
@@ -113,6 +114,8 @@ function skillApi() {
       apiSend<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/draft`, "PATCH", payload),
     updateSkillBuilderWorkspace: (sessionId: string, payload: SkillBuilderWorkspacePayload) =>
       apiSend<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/workspace`, "PATCH", payload),
+    cancelSkillBuilderSession: (sessionId: string) =>
+      apiSend<SkillBuilderSession>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/cancel`, "POST", {}),
     createSkillFromBuilder: (sessionId: string, payload: SkillBuilderCreateSkillPayload) =>
       apiSend<{ skill_id: string; skill_version_id: string; slug: string }>(`/api/skill-builder/sessions/${encodeURIComponent(sessionId)}/create-skill`, "POST", payload),
     createSkillVersion: (payload: { skill_id: string; source: BundleSource; make_current?: boolean; display_name?: string; change_summary?: string; version?: string }) =>

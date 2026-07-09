@@ -43,6 +43,7 @@ def run_builder_once(store: SkillHubStore, client: OpencodeClient, *, config) ->
     )
     record_builder_running(store, detail, config=config)
     try:
+        _record_progress(store, session_id=session_id, job_id=job_id, stage="preparing_workspace")
         paths = materialize_builder_workspace(session=session, host_root=config.workdir_host, container_root=config.workdir_container)
         workspace_files = list(session.get("workspace_files") or session.get("draft_files") or [])
         sync_builder_workspace_files(Path(paths["host_workdir"]), workspace_files)
@@ -53,8 +54,14 @@ def run_builder_once(store: SkillHubStore, client: OpencodeClient, *, config) ->
             paths["host_workdir"],
             len(workspace_files),
         )
+        _record_progress(store, session_id=session_id, job_id=job_id, stage="checking_opencode")
         client.health()
-        opencode_session_id = session.get("opencode_session_id") or _create_session(client, session_id, paths)
+        if session.get("opencode_session_id"):
+            opencode_session_id = str(session["opencode_session_id"])
+        else:
+            _record_progress(store, session_id=session_id, job_id=job_id, stage="creating_opencode_session")
+            opencode_session_id = _create_session(client, session_id, paths)
+        _record_progress(store, session_id=session_id, job_id=job_id, stage="loading_message_history")
         messages_before = client.list_messages(session_id=opencode_session_id, directory=paths["workdir"])
         seen_message_ids = opencode_message_ids(messages_before)
         prompt = render_builder_prompt(user_content=str(message.get("content") or ""), intent=str(message.get("intent") or "chat"))
@@ -66,6 +73,7 @@ def run_builder_once(store: SkillHubStore, client: OpencodeClient, *, config) ->
             payload_text(job.get("payload"), "provider_id"),
             payload_text(job.get("payload"), "model_id"),
         )
+        _record_progress(store, session_id=session_id, job_id=job_id, stage="sending_message")
         response = client.send_message(
             session_id=opencode_session_id,
             prompt=prompt,
@@ -75,11 +83,13 @@ def run_builder_once(store: SkillHubStore, client: OpencodeClient, *, config) ->
             agent_id=BUILDER_AGENT_ID,
             tools=BUILDER_TOOLS,
         )
+        _record_progress(store, session_id=session_id, job_id=job_id, stage="scanning_workspace")
         message_history = client.list_messages(session_id=opencode_session_id, directory=paths["workdir"])
         new_messages = new_opencode_messages(message_history, seen_message_ids, seen_count=len(messages_before))
         trace_source: object = new_messages or response
         assistant_output = compact_message_output(trace_source)
         draft_files = scan_builder_draft_files(Path(paths["host_workdir"]))
+        _record_progress(store, session_id=session_id, job_id=job_id, stage="saving_result")
         store.complete_skill_builder_job(
             session_id=session_id,
             job_id=job_id,
@@ -118,3 +128,10 @@ def _create_session(client: OpencodeClient, session_id: str, paths: dict[str, An
     opencode_session_id = client.create_session(title=f"SkillHub Builder {session_id}", directory=paths["workdir"])
     logger.info("skill builder opencode session created session_id=%s opencode_session_id=%s", session_id, opencode_session_id)
     return opencode_session_id
+
+
+def _record_progress(store: SkillHubStore, *, session_id: str, job_id: str, stage: str) -> None:
+    try:
+        store.update_skill_builder_job_progress(session_id=session_id, job_id=job_id, stage=stage)
+    except Exception:
+        logger.warning("skill builder progress update failed session_id=%s job_id=%s stage=%s", session_id, job_id, stage, exc_info=True)

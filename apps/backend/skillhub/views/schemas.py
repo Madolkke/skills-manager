@@ -231,6 +231,7 @@ class AdminSkillUpdatePayload(BaseModel):
 
 class CreateSkillBuilderSessionPayload(BaseModel):
     title: Annotated[str, Field(max_length=160)] | None = None
+    replace_running: bool = False
 
 
 class SkillBuilderMessagePayload(BaseModel):

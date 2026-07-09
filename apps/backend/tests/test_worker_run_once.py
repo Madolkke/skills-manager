@@ -19,6 +19,7 @@ class FakeStore:
         self.retried: str | None = None
         self.completed_builder: dict[str, Any] | None = None
         self.failed_builder: dict[str, Any] | None = None
+        self.builder_progress: list[dict[str, Any]] = []
         self.heartbeats: list[dict[str, Any]] = []
 
     def claim_next_eval_case_run_job(self, *, worker_id: str) -> dict[str, Any] | None:
@@ -50,6 +51,9 @@ class FakeStore:
 
     def fail_skill_builder_job(self, **kwargs: Any) -> None:
         self.failed_builder = kwargs
+
+    def update_skill_builder_job_progress(self, **kwargs: Any) -> None:
+        self.builder_progress.append(kwargs)
 
     def record_worker_heartbeat(self, **kwargs: Any) -> None:
         self.heartbeats.append(kwargs)
@@ -288,6 +292,15 @@ def test_run_once_processes_skill_builder_job_when_no_eval_job(tmp_path: Path):
     assert store.completed_builder["opencode_session_id"] == "session_1"
     assert store.completed_builder["intent"] == "chat"
     assert store.completed_builder["draft_files"][0]["path"] == "SKILL.md"
+    assert [item["stage"] for item in store.builder_progress] == [
+        "preparing_workspace",
+        "checking_opencode",
+        "creating_opencode_session",
+        "loading_message_history",
+        "sending_message",
+        "scanning_workspace",
+        "saving_result",
+    ]
     assert store.failed_builder is None
 
 
