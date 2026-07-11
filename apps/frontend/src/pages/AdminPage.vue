@@ -13,8 +13,10 @@ import AdminPublishTargetsTab from "./admin/AdminPublishTargetsTab.vue";
 import AdminRoleAssignmentsTab from "./admin/AdminRoleAssignmentsTab.vue";
 import AdminSkillTagsTab from "./admin/AdminSkillTagsTab.vue";
 import AdminTagGroupsTab from "./admin/AdminTagGroupsTab.vue";
+import AdminTagCascadesTab from "./admin/AdminTagCascadesTab.vue";
 import AdminWorkersTab from "./admin/AdminWorkersTab.vue";
 import { useAdminActions } from "./admin/useAdminActions";
+import { useAdminTagCascades } from "./admin/useAdminTagCascades";
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
 
@@ -36,6 +38,10 @@ const selectedGroupId = ref("");
 const selectedTagGroupId = ref("");
 const selectedOpencodeAgentId = ref("");
 const tagDrafts = ref<Record<string, SkillTagPayload[]>>({});
+const tagCascadeActions = useAdminTagCascades({
+  activeTab,
+  emitToast: (toast) => emit("toast", toast),
+});
 const syncAdminState = createAdminStateSync({
   groups,
   tagGroups,
@@ -80,6 +86,7 @@ async function load(): Promise<void> {
       nextSkills,
       nextGroups,
       nextTagGroups,
+      nextTagCascades,
       nextRoles,
       nextPublishTargets,
       nextPublishGateChecks,
@@ -91,6 +98,7 @@ async function load(): Promise<void> {
       api.adminListSkills(),
       api.adminListGroups(),
       api.adminListTagGroups(),
+      api.adminListTagCascades(),
       api.adminListRoleAssignments(),
       api.adminListPublishTargets(),
       api.adminListPublishGateChecks(),
@@ -102,6 +110,7 @@ async function load(): Promise<void> {
     skills.value = nextSkills;
     groups.value = nextGroups;
     tagGroups.value = nextTagGroups;
+    tagCascadeActions.overview.value = nextTagCascades;
     roles.value = nextRoles;
     publishTargets.value = nextPublishTargets;
     publishGateChecks.value = nextPublishGateChecks;
@@ -227,14 +236,25 @@ function showError(error: unknown): void {
           @revoke="adminActions.revokeRole"
           @toast="emit('toast', { tone: 'danger', message: $event })"
         />
+        <AdminTagCascadesTab
+          v-else-if="activeTab === 'tag-cascades'"
+          key="tag-cascades"
+          :tag-groups="tagGroups"
+          :overview="tagCascadeActions.overview.value"
+          @attach="tagCascadeActions.attach"
+          @detach="tagCascadeActions.detach"
+          @inspect="tagCascadeActions.inspect"
+        />
         <AdminSkillTagsTab
           v-else-if="activeTab === 'skill-tags'"
           key="skill-tags"
           :skills="skills"
           :tag-groups="tagGroups"
           :tag-drafts="tagDrafts"
+          :focus="tagCascadeActions.focus.value"
           @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
           @save="adminActions.saveSkillTags"
+          @clear-focus="tagCascadeActions.focus.value = null"
         />
         <AdminWorkersTab
           v-else-if="activeTab === 'workers'"

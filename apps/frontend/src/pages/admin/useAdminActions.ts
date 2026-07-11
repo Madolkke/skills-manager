@@ -63,9 +63,16 @@ export function useAdminActions(options: AdminActionsOptions) {
     }, "成员已移除。");
   }
 
-  async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; initial_value?: string }): Promise<void> {
+  async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }): Promise<void> {
     try {
-      let group = await api.adminCreateTagGroup({ ...payload, required: false });
+      let group = await api.adminCreateTagGroup({
+        id: payload.id,
+        display_name: payload.display_name,
+        description: payload.description,
+        sort_order: payload.sort_order,
+        required: payload.free_form ? payload.required : false,
+        free_form: payload.free_form,
+      });
       if (payload.initial_value) {
         group = await api.adminCreateTagValue(group.id, { value: payload.initial_value, display_name: payload.initial_value, description: "", sort_order: 0 });
       }
@@ -75,6 +82,7 @@ export function useAdminActions(options: AdminActionsOptions) {
           description: payload.description,
           sort_order: payload.sort_order,
           required: true,
+          free_form: false,
         });
       }
       syncAdminState.upsertTagGroup(group);
@@ -91,14 +99,14 @@ export function useAdminActions(options: AdminActionsOptions) {
     }
   }
 
-  async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }): Promise<void> {
+  async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }): Promise<void> {
     await runLocalAdminAction(async () => {
       syncAdminState.upsertTagGroup(await api.adminUpdateTagGroup(groupId, payload));
     }, "Tag Group 已更新。");
   }
 
   async function deleteTagGroup(group: TagGroup): Promise<void> {
-    if (!confirm(`将强制删除 Tag Group“${group.display_name}”，并移除其 Tag 值、Skill Tag 绑定和相关授权。是否继续？`)) return;
+    if (!confirm(`将删除 Tag Group“${group.display_name}”。仍有 Skill Tag、授权或级联引用时系统会拒绝删除。是否继续？`)) return;
     await runLocalAdminAction(async () => {
       await api.adminDeleteTagGroup(group.id);
       syncAdminState.removeTagGroup(group.id);
@@ -118,7 +126,7 @@ export function useAdminActions(options: AdminActionsOptions) {
   }
 
   async function deleteTagValue(group: TagGroup, value: TagValueOption): Promise<void> {
-    if (!confirm(`将强制删除 Tag 值“${value.display_name || value.value}”，并移除相关 Skill Tag 绑定和授权。是否继续？`)) return;
+    if (!confirm(`将删除 Tag 值“${value.display_name || value.value}”。仍有 Skill Tag、授权或级联引用时系统会拒绝删除。是否继续？`)) return;
     await runLocalAdminAction(async () => {
       await api.adminDeleteTagValue(group.id, value.value);
       syncAdminState.removeTagValue(group.id, value.value);

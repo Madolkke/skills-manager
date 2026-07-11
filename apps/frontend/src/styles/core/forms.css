@@ -298,6 +298,7 @@ select:focus,
   grid-column: 1 / -1;
   color: var(--muted);
   font-weight: 720;
+  max-width: min(100%, 420px);
 }
 
 .toast {

@@ -1,0 +1,91 @@
+.admin-tag-cascades {
+  display: grid;
+  gap: 16px;
+}
+
+.cascade-link-editor {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 320px) auto auto;
+  align-items: center;
+  gap: 10px;
+  border-block: 1px solid var(--soft-line);
+  background: #f8fafc;
+  padding: 12px 0;
+}
+
+.cascade-link-editor p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cascade-tree {
+  min-width: 0;
+  display: grid;
+  border-top: 1px solid var(--soft-line);
+}
+
+.cascade-tree-row {
+  min-width: 0;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--soft-line);
+  padding: 8px;
+}
+
+.cascade-tree-row.group {
+  background: #fbfdff;
+}
+
+.cascade-tree-row.value {
+  min-height: 40px;
+  color: #475569;
+}
+
+.cascade-node-main,
+.cascade-node-actions,
+.cascade-value-label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cascade-node-main small,
+.cascade-value-label small {
+  color: var(--muted);
+}
+
+.cascade-value-label {
+  max-width: min(100%, 620px);
+}
+
+.cascade-issue-button {
+  min-height: 30px;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #9a3412;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+@media (max-width: 920px) {
+  .cascade-link-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .cascade-tree-row,
+  .cascade-node-main,
+  .cascade-node-actions {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}

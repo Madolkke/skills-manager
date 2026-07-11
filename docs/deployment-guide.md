@@ -308,6 +308,10 @@ API 每个响应都会带 `X-Request-ID`，日志中也会输出同名 `request_
 
 后台管理的 “Worker 状态” 页读取 Worker 心跳：Worker 每轮轮询会写入空闲心跳，认领测评或 AI 创建任务后写入运行中心跳。最近 30 秒内有心跳的实例显示为在线，最近 24 小时内活跃但超过 30 秒无心跳的实例显示为离线。
 
+后台的 “Tag Group” 页支持枚举组和自由组。自由组允许用户输入新值，新值会在 Skill 保存事务中写入全局候选；枚举组只接受后台已经维护的值。“Tag 级联” 页可把无父级 Group 挂到某个枚举值下，并显示因重配产生的路径失效或条件必填缺失。升级后首次启动会由 schema sync 自动增加 `tag_groups.free_form` 和 `tag_group_cascades`，已有 Group 保持为非自由顶层组。
+
+级联重配不会批量改写历史 Skill。路径失效的 Tag 仍会显示并参与全文搜索，但不会参与结构化 Tag 筛选或 `skill_tag` 授权；管理员应通过诊断数量跳转到 “Skill Tags” 页逐项修复。仍被 Skill、授权或级联引用的 Group/Tag 值不能删除。
+
 ## 11. Docker 镜像部署
 
 项目保留单服务 Dockerfile，但不提供 compose 编排。

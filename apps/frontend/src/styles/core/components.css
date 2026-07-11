@@ -170,6 +170,14 @@
   color: #3154a3;
   font-size: 13px;
   font-weight: 750;
+  max-width: min(100%, 420px);
+}
+
+.tag-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag-chip.warning {

@@ -27,6 +27,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "skill_tags",
                 "tag_groups",
                 "tag_values",
+                "tag_group_cascades",
                 "groups",
                 "group_memberships",
                 "role_assignments",
@@ -147,6 +148,17 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         ]:
             self.assertIn(column, heartbeat_columns)
 
+    def test_tag_cascade_columns_and_foreign_key_are_mapped(self):
+        self.assertIn("free_form", metadata.tables["tag_groups"].c)
+        self.assertFalse(metadata.tables["tag_groups"].c.free_form.nullable)
+        self.assert_foreign_key(
+            "tag_group_cascades",
+            "tag_group_cascades_parent_value_fkey",
+            ("parent_tag_group_id", "parent_tag_value"),
+            "tag_values",
+            ("tag_group_id", "value"),
+        )
+
     def test_query_indexes_are_mapped(self):
         for table_name, index_name in [
             ("skill_versions", "skill_versions_skill_id_idx"),
@@ -174,6 +186,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("skill_tags", "skill_tags_group_value_idx"),
             ("tag_groups", "tag_groups_sort_idx"),
             ("tag_values", "tag_values_group_sort_idx"),
+            ("tag_group_cascades", "tag_group_cascades_parent_idx"),
             ("group_memberships", "group_memberships_subject_idx"),
             ("jobs", "jobs_status_created_at_idx"),
             ("worker_heartbeats", "worker_heartbeats_last_seen_idx"),

@@ -68,6 +68,7 @@
   cursor: pointer;
   line-height: 1.2;
   white-space: nowrap;
+  max-width: 100%;
   transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
 }
 

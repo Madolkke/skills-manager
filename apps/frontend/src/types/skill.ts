@@ -33,6 +33,7 @@ export type SkillTag = {
   group_display_name?: string | null;
   value: string;
   value_display_name?: string | null;
+  path_valid?: boolean;
 };
 
 export type SkillTagPayload = {
@@ -57,10 +58,31 @@ export type TagGroup = {
   description: string;
   sort_order: number;
   required: boolean;
+  free_form: boolean;
+  parent?: { group_id: string; value: string } | null;
   values: TagValueOption[];
   created_at?: string;
   updated_at?: string;
   created_by?: string;
+};
+
+export type TagCascadeRelation = {
+  child_group_id: string;
+  parent_group_id: string;
+  parent_value: string;
+  created_at?: string;
+  created_by?: string;
+};
+
+export type TagCascadeDiagnostic = {
+  group_id: string;
+  orphaned_skill_ids: string[];
+  missing_required_skill_ids: string[];
+};
+
+export type TagCascadeOverview = {
+  relations: TagCascadeRelation[];
+  diagnostics: TagCascadeDiagnostic[];
 };
 
 export type SkillRole = "viewer" | "evaluator" | "reviewer" | "maintainer" | "owner" | "admin";

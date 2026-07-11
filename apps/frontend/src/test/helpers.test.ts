@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildBundleTree } from "../lib/bundle";
 import { actionBarStatusText, agentLabel, emptyActualOutputText, modelLabel, promptSourceLabel, runnerInsightRows, runnerState, stepTimelineRows, summarizeOpencodeRuns, summarizeRunnerBoard } from "../features/evaluation/lib/evalRunner";
 import { currentRunContext, runContextHash } from "../features/evaluation/composables/useOpencodeEvaluation";
@@ -33,13 +33,15 @@ import {
   validateBundlePath,
 } from "../lib/skillBundleDraft";
 import { missingRequiredTagGroups, requiredTagMissingMessage, sortTagGroupsForPicker } from "../lib/skillTags";
+import { activeTagGroups, buildTagCascadeTreeRows, orphanedTags, pruneInactiveTags, withCascadeParents } from "../lib/tagCascades";
+import { filterSkills, tagUsageCounts } from "../pages/hub/hubFilters";
 import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
-import { ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
+import { api, ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
 import { bumpVersion, nextPatchVersion } from "../lib/semver";
 import { durationText, queuedWorkerJobs, workerCurrentJobText, workerJobTypeText, workerStatusText, workerStatusTone } from "../lib/workerStatus";
 import { buildReviewerSources, reviewerSourceText, reviewerUserIds, selectedReviewerCount } from "../lib/reviewerSelection";
-import type { EvalSetCase, ReviewerCandidateOverview, WorkerStatusOverview } from "../types";
+import type { EvalSetCase, ReviewerCandidateOverview, SkillSummary, TagGroup, WorkerStatusOverview } from "../types";
 
 describe("skill builder UI helpers", () => {
   it("renders common markdown and safe external links", () => {
@@ -333,6 +335,92 @@ describe("skill evidence helpers", () => {
     expect(requiredTagMissingMessage([{ group_id: "domain", value: "api" }, { group_id: "risk", value: "high" }], groups)).toBe("");
   });
 
+  it("activates nested Tag Groups and removes descendants with their parent value", () => {
+    const groups = [
+      {
+        id: "platform",
+        display_name: "平台",
+        description: "",
+        sort_order: 0,
+        required: true,
+        free_form: false,
+        parent: null,
+        values: [
+          { tag_group_id: "platform", value: "cloud", description: "", sort_order: 0 },
+          { tag_group_id: "platform", value: "desktop", description: "", sort_order: 1 },
+        ],
+      },
+      {
+        id: "provider",
+        display_name: "云厂商",
+        description: "",
+        sort_order: 0,
+        required: true,
+        free_form: false,
+        parent: { group_id: "platform", value: "cloud" },
+        values: [{ tag_group_id: "provider", value: "aws", description: "", sort_order: 0 }],
+      },
+      {
+        id: "region",
+        display_name: "区域",
+        description: "",
+        sort_order: 0,
+        required: true,
+        free_form: true,
+        parent: { group_id: "provider", value: "aws" },
+        values: [],
+      },
+    ] as TagGroup[];
+    const selected = [
+      { group_id: "platform", value: "cloud" },
+      { group_id: "provider", value: "aws" },
+      { group_id: "region", value: "cn-north" },
+    ];
+
+    expect(activeTagGroups(groups, selected).map((item) => `${item.depth}:${item.group.id}`)).toEqual(["0:platform", "1:provider", "2:region"]);
+    expect(missingRequiredTagGroups(selected.slice(0, 2), groups).map((group) => group.id)).toEqual(["region"]);
+    expect(pruneInactiveTags(selected.filter((tag) => tag.value !== "cloud"), groups)).toEqual([]);
+    expect(orphanedTags([{ group_id: "provider", value: "aws" }], groups)).toEqual([{ group_id: "provider", value: "aws" }]);
+  });
+
+  it("builds a cascade tree from flat relations", () => {
+    const groups = [
+      { id: "root", display_name: "Root", description: "", sort_order: 0, required: false, free_form: false, values: [{ tag_group_id: "root", value: "one", description: "", sort_order: 0 }] },
+      { id: "child", display_name: "Child", description: "", sort_order: 0, required: false, free_form: true, values: [] },
+    ] as TagGroup[];
+    const nested = withCascadeParents(groups, [{ child_group_id: "child", parent_group_id: "root", parent_value: "one" }]);
+
+    expect(buildTagCascadeTreeRows(nested).map((row) => `${row.depth}:${row.kind}:${row.kind === "group" ? row.group.id : row.value.value}`)).toEqual([
+      "0:group:root",
+      "1:value:one",
+      "2:group:child",
+    ]);
+  });
+
+  it("keeps orphan Tags searchable but excludes them from structured Hub filters", () => {
+    const skill = {
+      skill: {
+        id: "skill-1",
+        slug: "writer",
+        owner_ref: "alice",
+        current_version_id: null,
+        lifecycle_status: "active",
+        tags: [{ group_id: "child", value: "orphan-value", path_valid: false }],
+      },
+      summary: { current_version: null, latest_accepted_eval_run: null },
+    } as SkillSummary;
+
+    expect(filterSkills([skill], { query: "orphan-value", filter: "all", actor: "", selectedTags: [], tagGroups: [] })).toHaveLength(1);
+    expect(filterSkills([skill], {
+      query: "",
+      filter: "all",
+      actor: "",
+      selectedTags: [{ group_id: "child", value: "orphan-value" }],
+      tagGroups: [],
+    })).toHaveLength(0);
+    expect(tagUsageCounts([skill])).toEqual({});
+  });
+
   it("validates Skill bundle file paths", () => {
     for (const path of ["../x", "/x", "C:\\x", "a\\ b", "", "safe/../x"]) {
       expect(validateBundlePath(path)).not.toBe("");
@@ -385,6 +473,28 @@ describe("skill evidence helpers", () => {
 
   it("prefers concrete API field errors over generic request messages", () => {
     expect(apiErrorMessage(new ApiError("请求字段不完整或格式不正确。", 422, { title: "填写标题。" }))).toBe("填写标题。");
+  });
+
+  it("serializes free Tag Group and cascade admin requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response(JSON.stringify({ relations: [], diagnostics: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await api.adminCreateTagGroup({ id: "keywords", display_name: "关键词", free_form: true, required: true });
+    await api.adminCreateTagCascade({ parent_group_id: "platform", parent_value: "cloud", child_group_id: "provider" });
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ id: "keywords", display_name: "关键词", free_form: true, required: true }),
+    });
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ parent_group_id: "platform", parent_value: "cloud", child_group_id: "provider" }),
+    });
+    fetchMock.mockRestore();
   });
 
   it("only sends preserve_workspace when updating an existing eval case", () => {

@@ -301,6 +301,7 @@ SCHEMA_PATCHES = (
       description text not null default '',
       sort_order integer not null default 0,
       required boolean not null default false,
+      free_form boolean not null default false,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now(),
       created_by text not null,
@@ -309,6 +310,7 @@ SCHEMA_PATCHES = (
     )
     """,
     "alter table tag_groups add column if not exists required boolean not null default false",
+    "alter table tag_groups add column if not exists free_form boolean not null default false",
     """
     create table if not exists tag_values (
       tag_group_id text not null references tag_groups(id),
@@ -321,6 +323,17 @@ SCHEMA_PATCHES = (
       created_by text not null,
       primary key (tag_group_id, value),
       constraint tag_values_value_non_empty check (length(btrim(value)) > 0)
+    )
+    """,
+    """
+    create table if not exists tag_group_cascades (
+      child_tag_group_id text primary key references tag_groups(id),
+      parent_tag_group_id text not null,
+      parent_tag_value text not null,
+      created_at timestamptz not null default now(),
+      created_by text not null,
+      constraint tag_group_cascades_parent_value_fkey foreign key (parent_tag_group_id, parent_tag_value) references tag_values(tag_group_id, value),
+      constraint tag_group_cascades_no_self_parent_check check (child_tag_group_id <> parent_tag_group_id)
     )
     """,
     """
@@ -712,6 +725,7 @@ SCHEMA_PATCHES = (
     "create index if not exists skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value)",
     "create index if not exists tag_groups_sort_idx on tag_groups (sort_order, id)",
     "create index if not exists tag_values_group_sort_idx on tag_values (tag_group_id, sort_order, value)",
+    "create index if not exists tag_group_cascades_parent_idx on tag_group_cascades (parent_tag_group_id, parent_tag_value)",
     "create index if not exists groups_scope_idx on groups (scope_type, scope_id, name)",
     "create index if not exists group_memberships_subject_idx on group_memberships (subject_type, subject_id)",
     "create index if not exists role_assignments_subject_idx on role_assignments (subject_type, subject_id)",

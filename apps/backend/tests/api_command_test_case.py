@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import base64
 import os
 
 from skillhub.bootstrap.app import create_app

@@ -965,7 +965,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(groups, [])
         self.assertFalse(any(role["subject_type"] == "group" and role["subject_id"] == group_id for role in roles))
 
-    def test_admin_delete_tag_value_removes_skill_tags_and_matching_tag_roles_only(self):
+    def test_admin_delete_tag_value_rejects_skill_and_role_references(self):
         self.create_tag_value("domain", "shared")
         self.create_tag_value("team", "shared")
         first = self.client.post(
@@ -994,13 +994,14 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         second_detail = self.client.get(f"/api/skills/{second['skill_id']}").json()
         roles = self.client.get("/api/admin/role-assignments", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
 
-        self.assertEqual(deleted.status_code, 200)
-        self.assertEqual(first_detail["skill"]["tags"], [])
+        self.assertEqual(deleted.status_code, 400)
+        self.assertIn("Tag 值仍被引用", deleted.json()["detail"])
+        self.assertEqual(first_detail["skill"]["tags"][0]["group_id"], "domain")
         self.assertEqual(second_detail["skill"]["tags"][0]["group_id"], "team")
-        self.assertFalse(any(role["resource_id"] == self.tag_resource_id("domain", "shared") for role in roles))
+        self.assertTrue(any(role["resource_id"] == self.tag_resource_id("domain", "shared") for role in roles))
         self.assertTrue(any(role["resource_id"] == self.tag_resource_id("team", "shared") for role in roles))
 
-    def test_admin_delete_tag_group_removes_values_skill_tags_and_matching_roles(self):
+    def test_admin_delete_tag_group_rejects_skill_and_role_references(self):
         tag = self.create_tag_value("cleanup", "one")
         self.create_tag_value("cleanup", "two")
         skill = self.client.post(
@@ -1019,10 +1020,11 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         tag_groups = self.client.get("/api/admin/tag-groups", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
         roles = self.client.get("/api/admin/role-assignments", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
 
-        self.assertEqual(deleted.status_code, 200)
-        self.assertEqual(detail["skill"]["tags"], [])
-        self.assertEqual(tag_groups, [])
-        self.assertFalse(any(role["resource_type"] == "skill_tag" and role["resource_id"].startswith("cleanup:") for role in roles))
+        self.assertEqual(deleted.status_code, 400)
+        self.assertIn("Tag Group 仍被引用", deleted.json()["detail"])
+        self.assertEqual(detail["skill"]["tags"][0]["group_id"], "cleanup")
+        self.assertEqual([group["id"] for group in tag_groups], ["cleanup"])
+        self.assertTrue(any(role["resource_type"] == "skill_tag" and role["resource_id"].startswith("cleanup:") for role in roles))
 
     def test_admin_api_requires_configured_key(self):
         denied = self.client.get("/api/admin/skills", headers={"X-SkillHub-Admin-Key": "wrong"})
@@ -1101,12 +1103,12 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         )
         self.client.post(
             f"/api/skills/{skill['skill_id']}/role-assignments",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={"subject_id": "reviewer-one", "role": "reviewer"},
         )
         review = self.client.post(
             f"/api/skills/{skill['skill_id']}/reviews",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={"skill_version_id": skill["skill_version_id"], "publish_targets": [{"publish_target_id": target["id"], "auto_submit_on_pass": True}]},
         ).json()
         self.client.post(
@@ -1115,7 +1117,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
             json={"score": 1, "comment": "可以发布"},
         )
 
-        closed = self.client.post(f"/api/reviews/{review['id']}/close", headers={"X-SkillHub-Actor": "skillhub-lab"})
+        closed = self.client.post(f"/api/reviews/{review['id']}/close", headers={"X-SkillHub-Actor": "product-operator"})
         records = self.client.get("/api/admin/publish-records", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
 
         self.assertEqual(updated_target.status_code, 200)
@@ -1138,13 +1140,13 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.client.post(f"/api/admin/groups/{group['id']}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "bob"})
         self.client.post(
             f"/api/skills/{skill['skill_id']}/role-assignments",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={"subject_id": "auto-reviewer", "role": "reviewer"},
         )
 
         review = self.client.post(
             f"/api/skills/{skill['skill_id']}/reviews",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={
                 "skill_version_id": skill["skill_version_id"],
                 "publish_targets": [],
@@ -1172,13 +1174,13 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         skill = self.create_skill("auto-reviewer-fallback")
         self.client.post(
             f"/api/skills/{skill['skill_id']}/role-assignments",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={"subject_id": "role-reviewer", "role": "reviewer"},
         )
 
         review = self.client.post(
             f"/api/skills/{skill['skill_id']}/reviews",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={"skill_version_id": skill["skill_version_id"], "publish_targets": []},
         )
 
@@ -1195,7 +1197,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         review = self.client.post(
             f"/api/skills/{skill['skill_id']}/reviews",
-            headers={"X-SkillHub-Actor": "skillhub-lab"},
+            headers={"X-SkillHub-Actor": "product-operator"},
             json={
                 "skill_version_id": skill["skill_version_id"],
                 "publish_targets": [],
@@ -1216,7 +1218,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.client.post(f"/api/admin/groups/{group['id']}/members", headers={"X-SkillHub-Admin-Key": "test-admin-key"}, json={"subject_id": "candidate-user"})
 
         denied = self.client.get(f"/api/skills/{skill['skill_id']}/reviewer-candidates", headers={"X-SkillHub-Actor": "viewer"})
-        allowed = self.client.get(f"/api/skills/{skill['skill_id']}/reviewer-candidates", headers={"X-SkillHub-Actor": "skillhub-lab"})
+        allowed = self.client.get(f"/api/skills/{skill['skill_id']}/reviewer-candidates", headers={"X-SkillHub-Actor": "product-operator"})
 
         self.assertEqual(denied.status_code, 403)
         self.assertEqual(allowed.status_code, 200)

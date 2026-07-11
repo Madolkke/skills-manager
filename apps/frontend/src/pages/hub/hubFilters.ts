@@ -48,7 +48,7 @@ export function sortSkills(skills: SkillSummary[], key: SortKey): SkillSummary[]
 export function tagUsageCounts(skills: SkillSummary[]): TagCountMap {
   const counts: TagCountMap = {};
   for (const item of skills) {
-    const unique = new Set((item.skill.tags ?? []).map(tagKey));
+    const unique = new Set((item.skill.tags ?? []).filter((tag) => tag.path_valid !== false).map(tagKey));
     for (const key of unique) counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
@@ -84,7 +84,7 @@ function groupSelectedTags(tags: SkillTagPayload[]): Map<string, Set<string>> {
 
 function matchesSelectedTags(item: SkillSummary, selectedByGroup: Map<string, Set<string>>): boolean {
   if (selectedByGroup.size === 0) return true;
-  const tags = item.skill.tags ?? [];
+  const tags = (item.skill.tags ?? []).filter((tag) => tag.path_valid !== false);
   for (const [groupId, values] of selectedByGroup) {
     if (!tags.some((tag) => tag.group_id === groupId && values.has(tag.value))) return false;
   }

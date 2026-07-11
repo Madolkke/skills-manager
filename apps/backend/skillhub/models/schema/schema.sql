@@ -421,6 +421,7 @@ create table tag_groups (
   description text not null default '',
   sort_order integer not null default 0,
   required boolean not null default false,
+  free_form boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   created_by text not null,
@@ -439,6 +440,16 @@ create table tag_values (
   created_by text not null,
   primary key (tag_group_id, value),
   constraint tag_values_value_non_empty check (length(btrim(value)) > 0)
+);
+
+create table tag_group_cascades (
+  child_tag_group_id text primary key references tag_groups(id),
+  parent_tag_group_id text not null,
+  parent_tag_value text not null,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  constraint tag_group_cascades_parent_value_fkey foreign key (parent_tag_group_id, parent_tag_value) references tag_values(tag_group_id, value),
+  constraint tag_group_cascades_no_self_parent_check check (child_tag_group_id <> parent_tag_group_id)
 );
 
 create table skill_tags (
@@ -517,6 +528,7 @@ create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
 create index tag_groups_sort_idx on tag_groups (sort_order, id);
 create index tag_values_group_sort_idx on tag_values (tag_group_id, sort_order, value);
+create index tag_group_cascades_parent_idx on tag_group_cascades (parent_tag_group_id, parent_tag_value);
 create index groups_scope_idx on groups (scope_type, scope_id, name);
 create index group_memberships_subject_idx on group_memberships (subject_type, subject_id);
 create index jobs_status_created_at_idx on jobs (status, created_at);

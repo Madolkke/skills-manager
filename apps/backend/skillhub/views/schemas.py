@@ -207,6 +207,7 @@ class AdminTagGroupPayload(BaseModel):
     description: Annotated[str, Field(max_length=1000)] = ""
     sort_order: int = 0
     required: bool = False
+    free_form: bool = False
 
 
 class AdminTagGroupUpdatePayload(BaseModel):
@@ -214,6 +215,7 @@ class AdminTagGroupUpdatePayload(BaseModel):
     description: Annotated[str, Field(max_length=1000)] = ""
     sort_order: int = 0
     required: bool = False
+    free_form: bool = False
 
 
 class AdminTagValuePayload(BaseModel):
@@ -221,6 +223,14 @@ class AdminTagValuePayload(BaseModel):
     display_name: Annotated[str, Field(max_length=120)] | None = None
     description: Annotated[str, Field(max_length=1000)] = ""
     sort_order: int = 0
+
+
+class AdminTagCascadePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parent_group_id: TagGroupId
+    parent_value: TagValue
+    child_group_id: TagGroupId
 
 
 class AdminSkillUpdatePayload(BaseModel):

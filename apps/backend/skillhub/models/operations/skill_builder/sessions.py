@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import insert, select, update
 
 from skillhub.models.entities import ContentRef, new_id, utc_now
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
+from skillhub.models.errors import ConflictError, FieldError, FieldInvariantError, InvariantError
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.models.rules.skills import initial_skill_version
 from skillhub.models.schema import tables
@@ -47,7 +47,7 @@ class SkillBuilderSessionMixin:
             )
             running_session_ids = [str(row["id"]) for row in existing if row["status"] == "running"]
             if running_session_ids and not replace_running:
-                raise InvariantError("Skill 创建 Agent 正在运行，完成后才能新建会话。")
+                raise ConflictError("Skill 创建 Agent 正在运行，完成后才能新建会话。")
             if replace_running:
                 for old_session_id in running_session_ids:
                     self._cancel_builder_session_job(
@@ -114,7 +114,7 @@ class SkillBuilderSessionMixin:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
-                raise InvariantError("Skill 创建 Agent 正在处理上一条消息，请稍后。")
+                raise ConflictError("Skill 创建 Agent 正在处理上一条消息，请稍后。")
             if session["status"] == "created":
                 raise InvariantError("该创建会话已经完成，不能继续发送消息。")
             connection.execute(
@@ -164,7 +164,7 @@ class SkillBuilderSessionMixin:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
-                raise InvariantError("Skill 创建 Agent 正在处理消息，暂不能编辑工作区文件。")
+                raise ConflictError("Skill 创建 Agent 正在处理消息，暂不能编辑工作区文件。")
             if session["status"] == "created":
                 raise InvariantError("该创建会话已经完成，不能继续编辑工作区文件。")
             connection.execute(
@@ -191,7 +191,7 @@ class SkillBuilderSessionMixin:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
-                raise InvariantError("Skill 创建 Agent 正在处理消息，暂不能创建 Skill。")
+                raise ConflictError("Skill 创建 Agent 正在处理消息，暂不能创建 Skill。")
             if session["status"] == "created":
                 raise InvariantError("该创建会话已经创建过 Skill。")
             bundle_files = self._clean_builder_workspace_files(

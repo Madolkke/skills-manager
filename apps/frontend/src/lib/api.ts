@@ -30,6 +30,7 @@ import type {
   SkillBuilderWorkspacePayload,
   SkillTagPayload,
   SkillSummary,
+  TagCascadeOverview,
   TagGroup,
   NotificationItem,
   PublishRecord,
@@ -265,9 +266,9 @@ function adminApi() {
     adminRemoveGroupMember: (groupId: string, subjectId: string) =>
       apiDelete<AdminGroup>(`/api/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(subjectId)}`, { admin: true }),
     adminListTagGroups: () => apiGet<TagGroup[]>("/api/admin/tag-groups", { admin: true }),
-    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean }) =>
+    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }) =>
       apiSend<TagGroup>("/api/admin/tag-groups", "POST", payload, { admin: true }),
-    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }) =>
+    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }) =>
       apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, "PATCH", payload, { admin: true }),
     adminDeleteTagGroup: (groupId: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, { admin: true }),
@@ -277,6 +278,11 @@ function adminApi() {
       apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}/values/${encodeURIComponent(value)}`, "PATCH", payload, { admin: true }),
     adminDeleteTagValue: (groupId: string, value: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}/values/${encodeURIComponent(value)}`, { admin: true }),
+    adminListTagCascades: () => apiGet<TagCascadeOverview>("/api/admin/tag-cascades", { admin: true }),
+    adminCreateTagCascade: (payload: { parent_group_id: string; parent_value: string; child_group_id: string }) =>
+      apiSend<TagCascadeOverview>("/api/admin/tag-cascades", "POST", payload, { admin: true }),
+    adminDeleteTagCascade: (childGroupId: string) =>
+      apiDelete<TagCascadeOverview>(`/api/admin/tag-cascades/${encodeURIComponent(childGroupId)}`, { admin: true }),
     adminListRoleAssignments: () => apiGet<RoleAssignment[]>("/api/admin/role-assignments", { admin: true }),
     adminAssignRole: (payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag"; resource_id: string; role: string }) =>
       apiSend<RoleAssignment>("/api/admin/role-assignments", "POST", payload, { admin: true }),

@@ -40,6 +40,7 @@ class SchemaContractTest(unittest.TestCase):
             "skill_tags",
             "tag_groups",
             "tag_values",
+            "tag_group_cascades",
             "groups",
             "group_memberships",
             "jobs",
@@ -198,6 +199,7 @@ class SchemaContractTest(unittest.TestCase):
             "create index eval_case_runs_job_id_idx",
             "create index skill_tags_group_value_idx",
             "create index tag_groups_sort_idx",
+            "create index tag_group_cascades_parent_idx",
             "create index tag_values_group_sort_idx",
             "create index groups_scope_idx",
             "create index group_memberships_subject_idx",
@@ -231,7 +233,13 @@ class SchemaContractTest(unittest.TestCase):
         self.assertIn("tag_value text not null", self._table_sql("skill_tags"))
         self.assertIn("foreign key (tag_group_id, tag_value) references tag_values(tag_group_id, value)", self.normalized)
         self.assertIn("required boolean not null default false", self._table_sql("tag_groups"))
+        self.assertIn("free_form boolean not null default false", self._table_sql("tag_groups"))
         self.assertIn("check (id ~ '^[a-za-z0-9_-]+$')", self._table_sql("tag_groups"))
+        self.assertIn("create table tag_group_cascades", self.normalized)
+        self.assertIn(
+            "foreign key (parent_tag_group_id, parent_tag_value) references tag_values(tag_group_id, value)",
+            self._table_sql("tag_group_cascades"),
+        )
         self.assertIn("resource_type text not null", self._table_sql("role_assignments"))
         self.assertIn("check (resource_type in ('skill', 'skill_tag'))", self._table_sql("role_assignments"))
         self.assertIn("check (subject_type in ('user', 'group'))", self._table_sql("role_assignments"))

@@ -13,6 +13,10 @@ class InvariantError(DomainError):
     """Raised when a command would violate a domain rule."""
 
 
+class ConflictError(DomainError):
+    """Raised when a command conflicts with the current resource state."""
+
+
 @dataclass(frozen=True)
 class FieldError:
     """Machine-readable field error for API clients."""

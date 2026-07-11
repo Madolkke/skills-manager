@@ -8,8 +8,8 @@ import AdminTagValueFormModal from "./AdminTagValueFormModal.vue";
 const props = defineProps<{ tagGroups: TagGroup[]; selectedTagGroupId: string }>();
 const emit = defineEmits<{
   select: [groupId: string];
-  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; initial_value?: string }];
-  updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }];
+  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }];
+  updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }];
   deleteGroup: [group: TagGroup];
   createValue: [groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
   updateValue: [groupId: string, value: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
@@ -41,7 +41,7 @@ watch(selectedGroup, () => {
   editingValue.value = null;
 });
 
-function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; initial_value?: string }): void {
+function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }): void {
   if (!payload.id) return;
   emit("createGroup", {
     id: payload.id,
@@ -49,11 +49,12 @@ function createGroup(payload: { id?: string; display_name: string; description?:
     description: payload.description,
     sort_order: payload.sort_order,
     required: payload.required,
+    free_form: payload.free_form,
     initial_value: payload.initial_value,
   });
 }
 
-function updateGroup(payload: { display_name: string; description?: string; sort_order?: number; required?: boolean }): void {
+function updateGroup(payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }): void {
   if (!selectedGroup.value) return;
   emit("updateGroup", selectedGroup.value.id, payload);
 }
@@ -80,7 +81,7 @@ function openValueEdit(value: TagValueOption): void {
       <div class="panel-title-row">
         <div>
           <h2>Tag Group</h2>
-          <p>{{ tagGroups.length }} 组枚举 · {{ selectedGroup?.values.length ?? 0 }} 个当前 Tag</p>
+          <p>{{ tagGroups.length }} 个 Group · {{ selectedGroup?.values.length ?? 0 }} 个当前候选</p>
         </div>
         <button class="primary-button" type="button" @click="groupModalMode = 'create'">新建 Tag Group</button>
       </div>
@@ -103,6 +104,8 @@ function openValueEdit(value: TagValueOption): void {
         <div class="admin-chip-list">
           <span class="tag-chip muted">{{ selectedGroup.id }}</span>
           <span :class="['tag-chip', selectedGroup.required ? 'warning' : 'muted']">{{ selectedGroup.required ? "必选" : "可选" }}</span>
+          <span class="tag-chip muted">{{ selectedGroup.free_form ? "自由输入" : "枚举" }}</span>
+          <span v-if="selectedGroup.parent" class="tag-chip muted">子组</span>
         </div>
         <p>{{ selectedGroup.description || "无备注" }}</p>
         <p v-if="selectedGroupHiddenBySearch" class="field-help">当前选中项被搜索条件隐藏；清空搜索可在下拉框中看到它。</p>
@@ -122,6 +125,10 @@ function openValueEdit(value: TagValueOption): void {
             <dd>{{ selectedGroup.required ? "至少选择一个 Tag" : "可不选择" }}</dd>
           </div>
           <div>
+            <dt>输入模式</dt>
+            <dd>{{ selectedGroup.free_form ? "自由输入 + 候选" : "仅枚举候选" }}</dd>
+          </div>
+          <div>
             <dt>创建时间</dt>
             <dd>{{ humanDate(selectedGroup.created_at) }}</dd>
           </div>
@@ -132,7 +139,7 @@ function openValueEdit(value: TagValueOption): void {
         </dl>
         <div class="button-row">
           <button class="secondary-button" type="button" @click="groupModalMode = 'edit'">编辑 Group</button>
-          <button class="danger-button" type="button" @click="emit('deleteGroup', selectedGroup)">强制删除</button>
+          <button class="danger-button" type="button" @click="emit('deleteGroup', selectedGroup)">删除</button>
         </div>
       </template>
       <div v-else class="admin-selected-summary empty">

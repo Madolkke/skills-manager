@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from skillhub.views.responses import error_payload, request_validation_field_errors
-from skillhub.models.errors import InvariantError, NotFoundError, PermissionDeniedError
+from skillhub.models.errors import ConflictError, InvariantError, NotFoundError, PermissionDeniedError
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     def invariant_handler(request, exc: InvariantError):
         _log_warning(request, exc, 400)
         return JSONResponse(status_code=400, content=error_payload(exc))
+
+    @app.exception_handler(ConflictError)
+    def conflict_handler(request, exc: ConflictError):
+        _log_warning(request, exc, 409)
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     @app.exception_handler(RequestValidationError)
     def validation_error_handler(request, exc: RequestValidationError):

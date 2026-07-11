@@ -9,6 +9,9 @@
 - `rules/`：纯业务规则，不访问数据库、不依赖 FastAPI、不产生外部副作用。
 - `schema/`：SQLAlchemy Core 表、索引、schema sync 和 `schema.sql`。
 - `operations/`：按业务域组织的 SQLAlchemy Core 数据读写操作，包括 Skill、测评、评审、发布、Opencode Agent、Worker 心跳等持久化能力。
+- `operations/skills/tag_catalog.py`、`tag_catalog_helpers.py`：Tag Group、Tag 候选值及删除引用保护。
+- `operations/skills/tag_cascades.py`：Tag 级联关系、活跃路径计算和历史数据诊断。
+- `operations/shared/tagging.py`：所有 Skill 写入口共用的 Tag 清洗、自由值沉淀、条件必填和权限辅助逻辑。
 - `store.py`：Model 层对 Service 层暴露的统一数据访问入口，组合各业务域 operations。
 
 ## 依赖方向

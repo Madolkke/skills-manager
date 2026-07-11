@@ -17,6 +17,7 @@
 @import "./features/skill/publish.css";
 @import "./features/skill/admin-publish.css";
 @import "./features/skill/admin-workers.css";
+@import "./features/skill/admin-tag-cascades.css";
 @import "./features/skill/my-reviews.css";
 @import "./features/skill/my-review-score.css";
 @import "./features/skill/builder.css";

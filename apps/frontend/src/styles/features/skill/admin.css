@@ -471,6 +471,15 @@
   margin-top: 4px;
 }
 
+.admin-skill-row.has-tag-issue {
+  border-color: #fdba74;
+  background: #fffaf5;
+}
+
+.admin-skill-row small.field-hint.danger {
+  color: #b42318;
+}
+
 .opencode-agent-form {
   padding: 24px;
 }

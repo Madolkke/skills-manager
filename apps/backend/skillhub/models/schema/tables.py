@@ -498,6 +498,7 @@ tag_groups = Table(
     Column("description", Text, nullable=False, server_default=text("''")),
     Column("sort_order", Integer, nullable=False, server_default=text("0")),
     Column("required", Boolean, nullable=False, server_default=text("false")),
+    Column("free_form", Boolean, nullable=False, server_default=text("false")),
     timestamp_column(),
     timestamp_column("updated_at"),
     Column("created_by", Text, nullable=False),
@@ -518,6 +519,22 @@ tag_values = Table(
     Column("created_by", Text, nullable=False),
     PrimaryKeyConstraint("tag_group_id", "value"),
     CheckConstraint("length(btrim(value)) > 0", name="tag_values_value_non_empty"),
+)
+
+tag_group_cascades = Table(
+    "tag_group_cascades",
+    metadata,
+    Column("child_tag_group_id", Text, ForeignKey("tag_groups.id"), primary_key=True),
+    Column("parent_tag_group_id", Text, nullable=False),
+    Column("parent_tag_value", Text, nullable=False),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    ForeignKeyConstraint(
+        ["parent_tag_group_id", "parent_tag_value"],
+        ["tag_values.tag_group_id", "tag_values.value"],
+        name="tag_group_cascades_parent_value_fkey",
+    ),
+    CheckConstraint("child_tag_group_id <> parent_tag_group_id", name="tag_group_cascades_no_self_parent_check"),
 )
 
 groups = Table(

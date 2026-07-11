@@ -1,4 +1,5 @@
 import type { SkillTag, SkillTagPayload, TagGroup } from "../types";
+import { missingActiveRequiredGroups } from "./tagCascades";
 
 export function tagLabel(tag: SkillTag | SkillTagPayload, groups: TagGroup[] = []): string {
   const group = groups.find((item) => item.id === tag.group_id);
@@ -20,8 +21,7 @@ export function sortTagGroupsForPicker(groups: TagGroup[]): TagGroup[] {
 }
 
 export function missingRequiredTagGroups(tags: SkillTagPayload[], groups: TagGroup[]): TagGroup[] {
-  const selectedGroupIds = new Set(tags.map((tag) => tag.group_id));
-  return sortTagGroupsForPicker(groups).filter((group) => group.required && !selectedGroupIds.has(group.id));
+  return missingActiveRequiredGroups(tags, groups);
 }
 
 export function requiredTagMissingMessage(tags: SkillTagPayload[], groups: TagGroup[]): string {

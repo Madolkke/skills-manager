@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy import and_, desc, insert, or_, select, update
 
-from skillhub.models.errors import InvariantError, NotFoundError
+from skillhub.models.errors import ConflictError, InvariantError, NotFoundError
 from skillhub.models.entities import new_id
 from skillhub.models.rules.publish_policy import decide_publish_request
 from skillhub.models.schema import tables
@@ -190,7 +190,7 @@ class ReviewHelperMixin:
             reviewers[user] = ("user", user)
 
         if not reviewers:
-            raise InvariantError("No reviewers were resolved from selected reviewer sources.")
+            raise ConflictError("No reviewers were resolved from selected reviewer sources.")
         self._insert_reviewers(connection, skill_id=skill_id, review_id=review_id, reviewers=reviewers, created_at=created_at)
         return sorted(reviewers)
 

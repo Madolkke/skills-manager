@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI
 from skillhub.views.auth import admin_key_dependency
 from skillhub.views.dependencies import admin_service_dependency
 from skillhub.views.responses import result_payload
-from skillhub.views.schemas import AdminGroupMemberPayload, AdminGroupPayload, AdminOpencodeAgentCreatePayload, AdminOpencodeAgentPayload, AdminPublishTargetUpdatePayload, AdminRoleAssignmentPayload, AdminSkillUpdatePayload, AdminTagGroupPayload, AdminTagGroupUpdatePayload, AdminTagValuePayload
+from skillhub.views.schemas import AdminGroupMemberPayload, AdminGroupPayload, AdminOpencodeAgentCreatePayload, AdminOpencodeAgentPayload, AdminPublishTargetUpdatePayload, AdminRoleAssignmentPayload, AdminSkillUpdatePayload, AdminTagCascadePayload, AdminTagGroupPayload, AdminTagGroupUpdatePayload, AdminTagValuePayload
 from skillhub.services import AdminService
 
 
@@ -46,6 +46,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 description=payload.description,
                 sort_order=payload.sort_order,
                 required=payload.required,
+                free_form=payload.free_form,
             )
         )
 
@@ -63,6 +64,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 description=payload.description,
                 sort_order=payload.sort_order,
                 required=payload.required,
+                free_form=payload.free_form,
             )
         )
 
@@ -91,7 +93,7 @@ def register_admin_routes(app: FastAPI) -> None:
             )
         )
 
-    @app.patch("/api/admin/tag-groups/{tag_group_id}/values/{tag_value}")
+    @app.patch("/api/admin/tag-groups/{tag_group_id}/values/{tag_value:path}")
     def admin_update_tag_value(
         tag_group_id: str,
         tag_value: str,
@@ -109,7 +111,7 @@ def register_admin_routes(app: FastAPI) -> None:
             )
         )
 
-    @app.delete("/api/admin/tag-groups/{tag_group_id}/values/{tag_value}")
+    @app.delete("/api/admin/tag-groups/{tag_group_id}/values/{tag_value:path}")
     def admin_delete_tag_value(
         tag_group_id: str,
         tag_value: str,
@@ -117,6 +119,32 @@ def register_admin_routes(app: FastAPI) -> None:
         service: AdminService = Depends(admin_service_dependency),
     ):
         return result_payload(service.delete_tag_value(group_id=tag_group_id, value=tag_value))
+
+    @app.get("/api/admin/tag-cascades")
+    def admin_tag_cascades(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
+        return result_payload(service.tag_cascade_overview())
+
+    @app.post("/api/admin/tag-cascades")
+    def admin_create_tag_cascade(
+        payload: AdminTagCascadePayload,
+        _: None = admin_auth,
+        service: AdminService = Depends(admin_service_dependency),
+    ):
+        return result_payload(
+            service.create_tag_cascade(
+                parent_group_id=payload.parent_group_id,
+                parent_value=payload.parent_value,
+                child_group_id=payload.child_group_id,
+            )
+        )
+
+    @app.delete("/api/admin/tag-cascades/{child_group_id}")
+    def admin_delete_tag_cascade(
+        child_group_id: str,
+        _: None = admin_auth,
+        service: AdminService = Depends(admin_service_dependency),
+    ):
+        return result_payload(service.delete_tag_cascade(child_group_id=child_group_id))
 
     @app.post("/api/admin/groups")
     def admin_create_group(

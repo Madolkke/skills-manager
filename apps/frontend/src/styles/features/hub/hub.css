@@ -226,6 +226,16 @@
   padding: 0;
 }
 
+.hub-tag-value-search {
+  min-height: 36px;
+  padding: 0 9px;
+}
+
+.hub-tag-value-search input {
+  min-width: 0;
+  font-size: 13px;
+}
+
 .hub-tag-option {
   min-width: 0;
   min-height: 34px;

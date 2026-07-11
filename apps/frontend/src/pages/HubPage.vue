@@ -6,6 +6,7 @@ import DropdownSelect from "../components/DropdownSelect.vue";
 import EmptyState from "../components/EmptyState.vue";
 import type { DropdownSelectOption } from "../components/dropdown";
 import { api } from "../lib/api";
+import { pruneInactiveTags } from "../lib/tagCascades";
 import { tagKey } from "../lib/skillTags";
 import HubFilterPanel from "./hub/HubFilterPanel.vue";
 import HubSkillCard from "./hub/HubSkillCard.vue";
@@ -78,7 +79,7 @@ async function loadTagGroups(): Promise<void> {
 function toggleTag(tag: SkillTagPayload): void {
   const key = tagKey(tag);
   if (selectedTags.value.some((item) => tagKey(item) === key)) {
-    selectedTags.value = selectedTags.value.filter((item) => tagKey(item) !== key);
+    selectedTags.value = pruneInactiveTags(selectedTags.value.filter((item) => tagKey(item) !== key), tagGroups.value);
     return;
   }
   selectedTags.value = [...selectedTags.value, tag];
