@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronRight, CirclePlus, Plus, Trash2 } from "lucide-vue-next";
+import { ChevronRight, CirclePlus, Plus, Trash2 } from "lucide-vue-next";
 import { ref } from "vue";
 import TagInput from "../../../components/TagInput.vue";
+import UiButton from "../../../components/ui/UiButton.vue";
+import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionDefinition, CollectionOutput, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { cloneWorkflow, createWorkflowId } from "../domain/utils";
 
@@ -57,17 +59,19 @@ function issue(field: string): WorkflowValidationIssue | undefined {
         </label>
         <label class="field-label"><span>Key</span><input :value="props.definition.key" :disabled="props.readonly" @input="update((draft) => { draft.key = ($event.target as HTMLInputElement).value; })" /></label>
       </div>
-      <button class="workflow-section-toggle" type="button" @click="metadataOpen = !metadataOpen">
-        <ChevronDown v-if="metadataOpen" :size="15" /><ChevronRight v-else :size="15" />扩展元信息
+      <button class="workflow-section-toggle" type="button" :aria-expanded="metadataOpen" @click="metadataOpen = !metadataOpen">
+        <ChevronRight :class="metadataOpen && 'open'" :size="15" />扩展元信息
         <small>{{ props.definition.metadata.industry || props.definition.metadata.device || props.definition.metadata.versions.length ? "已继承" : "可选" }}</small>
       </button>
-      <div v-if="metadataOpen" class="workflow-form-grid workflow-metadata-fields">
-        <label class="field-label span-2"><span>说明</span><textarea rows="3" :value="props.definition.metadata.description" :disabled="props.readonly" @input="update((draft) => { draft.metadata.description = ($event.target as HTMLTextAreaElement).value; })" /></label>
-        <label class="field-label"><span>产业</span><input :value="props.definition.metadata.industry" :disabled="props.readonly" @input="update((draft) => { draft.metadata.industry = ($event.target as HTMLInputElement).value; })" /></label>
-        <label class="field-label"><span>设备</span><input :value="props.definition.metadata.device" :disabled="props.readonly" @input="update((draft) => { draft.metadata.device = ($event.target as HTMLInputElement).value; })" /></label>
-        <label class="field-label span-2"><span>适用版本</span><input :value="props.definition.metadata.versions.join(', ')" :disabled="props.readonly" @change="update((draft) => { draft.metadata.versions = list(($event.target as HTMLInputElement).value); })" /></label>
-        <label class="field-label span-2"><span>Tags</span><TagInput :value="props.definition.metadata.tags" :disabled="props.readonly" placeholder="输入标签后按 Enter" @change="update((draft) => { draft.metadata.tags = $event; })" /></label>
-      </div>
+      <Transition name="workflow-collapse">
+        <div v-if="metadataOpen" class="workflow-form-grid workflow-metadata-fields">
+          <label class="field-label span-2"><span>说明</span><textarea rows="3" :value="props.definition.metadata.description" :disabled="props.readonly" @input="update((draft) => { draft.metadata.description = ($event.target as HTMLTextAreaElement).value; })" /></label>
+          <label class="field-label"><span>产业</span><input :value="props.definition.metadata.industry" :disabled="props.readonly" @input="update((draft) => { draft.metadata.industry = ($event.target as HTMLInputElement).value; })" /></label>
+          <label class="field-label"><span>设备</span><input :value="props.definition.metadata.device" :disabled="props.readonly" @input="update((draft) => { draft.metadata.device = ($event.target as HTMLInputElement).value; })" /></label>
+          <label class="field-label span-2"><span>适用版本</span><input :value="props.definition.metadata.versions.join(', ')" :disabled="props.readonly" @change="update((draft) => { draft.metadata.versions = list(($event.target as HTMLInputElement).value); })" /></label>
+          <label class="field-label span-2"><span>Tags</span><TagInput :value="props.definition.metadata.tags" :disabled="props.readonly" placeholder="输入标签后按 Enter" @change="update((draft) => { draft.metadata.tags = $event; })" /></label>
+        </div>
+      </Transition>
     </section>
 
     <section :class="['workflow-field-section', issue('spec.commandTemplate') && 'field-invalid']">
@@ -77,32 +81,32 @@ function issue(field: string): WorkflowValidationIssue | undefined {
     </section>
 
     <section class="workflow-field-section">
-      <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><button type="button" :disabled="props.readonly" @click="addInput"><Plus :size="14" />添加</button></div>
+      <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>
       <div v-for="item in props.definition.inputs" :key="item.id" class="workflow-parameter-row">
         <input class="workflow-key-input" :value="item.key" aria-label="输入 Key" :disabled="props.readonly" @input="updateInput(item.id, { key: ($event.target as HTMLInputElement).value })" />
         <input :value="item.name" aria-label="输入名称" :disabled="props.readonly" @input="updateInput(item.id, { name: ($event.target as HTMLInputElement).value })" />
         <select :value="item.dataType" aria-label="输入类型" :disabled="props.readonly" @change="updateInput(item.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select>
         <label class="workflow-check"><input type="checkbox" :checked="item.required" :disabled="props.readonly" @change="updateInput(item.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label>
-        <button class="icon-button mini" type="button" aria-label="删除输入" :disabled="props.readonly" @click="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== item.id); })"><Trash2 :size="14" /></button>
+        <UiIconButton label="删除输入" size="sm" variant="danger" :disabled="props.readonly" @click="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== item.id); })"><Trash2 /></UiIconButton>
       </div>
       <p v-if="props.definition.inputs.length === 0" class="workflow-inline-empty">当前采集不需要输入参数</p>
     </section>
 
     <section class="workflow-field-section">
-      <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><button type="button" :disabled="props.readonly" @click="addOutput"><Plus :size="14" />添加</button></div>
+      <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addOutput"><template #icon><Plus /></template>添加</UiButton></div>
       <div v-for="item in props.definition.outputs" :key="item.id" class="workflow-parameter-row">
         <input class="workflow-key-input" :value="item.key" aria-label="输出 Key" :disabled="props.readonly" @input="updateOutput(item.id, { key: ($event.target as HTMLInputElement).value })" />
         <input :value="item.name" aria-label="输出名称" :disabled="props.readonly" @input="updateOutput(item.id, { name: ($event.target as HTMLInputElement).value })" />
         <select :value="item.dataType" aria-label="输出类型" :disabled="props.readonly" @change="updateOutput(item.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select>
-        <button class="icon-button mini" type="button" aria-label="删除输出" :disabled="props.readonly" @click="update((draft) => { draft.outputs = draft.outputs.filter((value) => value.id !== item.id); })"><Trash2 :size="14" /></button>
+        <UiIconButton label="删除输出" size="sm" variant="danger" :disabled="props.readonly" @click="update((draft) => { draft.outputs = draft.outputs.filter((value) => value.id !== item.id); })"><Trash2 /></UiIconButton>
       </div>
       <p v-if="props.definition.outputs.length === 0" class="workflow-inline-empty">尚未声明结构化输出</p>
     </section>
 
     <section class="workflow-field-section">
-      <div class="workflow-subhead"><div><h3>回显示例</h3><p>{{ props.definition.spec.outputSamples.length }} 个样例</p></div><button type="button" :disabled="props.readonly" @click="update((draft) => draft.spec.outputSamples.push({ id: createWorkflowId('sample'), name: `示例 ${draft.spec.outputSamples.length + 1}`, stdout: '', inputValues: {} }))"><CirclePlus :size="14" />添加</button></div>
+      <div class="workflow-subhead"><div><h3>回显示例</h3><p>{{ props.definition.spec.outputSamples.length }} 个样例</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="update((draft) => draft.spec.outputSamples.push({ id: createWorkflowId('sample'), name: `示例 ${draft.spec.outputSamples.length + 1}`, stdout: '', inputValues: {} }))"><template #icon><CirclePlus /></template>添加</UiButton></div>
       <article v-for="sample in props.definition.spec.outputSamples" :key="sample.id" class="workflow-sample">
-        <div><input :value="sample.name" aria-label="样例名称" :disabled="props.readonly" @input="update((draft) => { const target = draft.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.name = ($event.target as HTMLInputElement).value; })" /><button class="icon-button mini" type="button" aria-label="删除样例" :disabled="props.readonly" @click="update((draft) => { draft.spec.outputSamples = draft.spec.outputSamples.filter((item) => item.id !== sample.id); })"><Trash2 :size="14" /></button></div>
+        <div><input :value="sample.name" aria-label="样例名称" :disabled="props.readonly" @input="update((draft) => { const target = draft.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.name = ($event.target as HTMLInputElement).value; })" /><UiIconButton label="删除样例" size="sm" variant="danger" :disabled="props.readonly" @click="update((draft) => { draft.spec.outputSamples = draft.spec.outputSamples.filter((item) => item.id !== sample.id); })"><Trash2 /></UiIconButton></div>
         <textarea rows="5" spellcheck="false" :value="sample.stdout" :disabled="props.readonly" @input="update((draft) => { const target = draft.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.stdout = ($event.target as HTMLTextAreaElement).value; })" />
       </article>
       <p v-if="props.definition.spec.outputSamples.length === 0" class="workflow-inline-empty">尚未添加回显示例</p>

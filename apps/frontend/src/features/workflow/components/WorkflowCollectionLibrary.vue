@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Library, Plus, Search, Trash2 } from "lucide-vue-next";
 import { computed, ref } from "vue";
+import UiButton from "../../../components/ui/UiButton.vue";
+import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionDefinition, VersionedRef, WorkflowCollectionChange } from "../../../types";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
 
@@ -47,7 +49,7 @@ function changeLabel(id: string): string {
     <header class="workflow-document-head">
       <span><Library :size="18" /></span>
       <div><small>COLLECTION CATALOG</small><h2>共享采集库</h2><p>管理当前 Workflow 可复用的采集定义及精确 revision。</p></div>
-      <button class="secondary-button" type="button" :disabled="props.readonly" @click="emit('add')"><Plus :size="15" />新建采集</button>
+      <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add')"><template #icon><Plus /></template>新建采集</UiButton>
     </header>
     <div class="workflow-library-layout">
       <aside class="workflow-library-list">
@@ -62,7 +64,7 @@ function changeLabel(id: string): string {
       <div v-if="selected" class="workflow-library-detail">
         <div class="workflow-library-detail-head">
           <div><strong>{{ selected.metadata.name || "未命名采集" }}</strong><span>revision {{ selected.revision }}</span><span v-if="selectedChange">{{ changeLabel(selected.id) }}</span><span v-if="selected.forkedFrom">来自副本</span></div>
-          <button v-if="removable" class="icon-button mini danger" type="button" aria-label="删除未保存采集" @click="emit('remove', selected.id)"><Trash2 :size="15" /></button>
+          <UiIconButton v-if="removable" label="删除未保存采集" size="sm" variant="danger" @click="emit('remove', selected.id)"><Trash2 /></UiIconButton>
         </div>
         <WorkflowCollectionFields :definition="selected" :readonly="props.readonly" @change="emit('change', { id: selected.id, revision: selected.revision }, $event)" />
       </div>

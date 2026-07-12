@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 const LEFT_MIN = 216;
 const LEFT_MAX = 360;
@@ -10,14 +10,19 @@ export function useWorkflowLayout() {
   const rightWidth = ref(390);
   const leftCollapsed = ref(false);
   const rightCollapsed = ref(false);
+  const resizing = ref(false);
+  let stopResize: (() => void) | null = null;
   const gridStyle = computed(() => ({
     gridTemplateColumns: `${leftCollapsed.value ? 0 : leftWidth.value}px ${leftCollapsed.value ? 20 : 6}px minmax(560px, 1fr) ${rightCollapsed.value ? 20 : 6}px ${rightCollapsed.value ? 0 : rightWidth.value}px`,
   }));
 
   function startResize(side: "left" | "right", event: PointerEvent): void {
+    if ((side === "left" && leftCollapsed.value) || (side === "right" && rightCollapsed.value)) return;
+    stopResize?.();
     const startX = event.clientX;
     const startWidth = side === "left" ? leftWidth.value : rightWidth.value;
     document.body.classList.add("workflow-resizing");
+    resizing.value = true;
     const move = (next: PointerEvent) => {
       const delta = next.clientX - startX;
       if (side === "left") leftWidth.value = clamp(startWidth + delta, LEFT_MIN, LEFT_MAX);
@@ -25,14 +30,24 @@ export function useWorkflowLayout() {
     };
     const stop = () => {
       document.body.classList.remove("workflow-resizing");
+      resizing.value = false;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", stop);
+      stopResize = null;
     };
+    stopResize = stop;
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop, { once: true });
   }
 
-  return { leftCollapsed, rightCollapsed, gridStyle, startResize };
+  function toggle(side: "left" | "right"): void {
+    if (side === "left") leftCollapsed.value = !leftCollapsed.value;
+    else rightCollapsed.value = !rightCollapsed.value;
+  }
+
+  onBeforeUnmount(() => stopResize?.());
+
+  return { leftCollapsed, rightCollapsed, resizing, gridStyle, startResize, toggle };
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

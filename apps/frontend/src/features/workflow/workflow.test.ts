@@ -7,8 +7,15 @@ import { workflowStatusLabel } from "./domain/presentation";
 import { parseWorkflowBundle } from "./domain/schema";
 import { validateWorkflow } from "./domain/validation";
 import { useWorkflowEditor } from "./useWorkflowEditor";
+import { interpolatePosition } from "./useWorkflowGraphLayout";
 
 describe("workflow domain", () => {
+  it("interpolates graph positions without overshooting their targets", () => {
+    expect(interpolatePosition({ x: 10, y: 30 }, { x: 110, y: 230 }, 0)).toEqual({ x: 10, y: 30 });
+    expect(interpolatePosition({ x: 10, y: 30 }, { x: 110, y: 230 }, 0.5)).toEqual({ x: 60, y: 130 });
+    expect(interpolatePosition({ x: 10, y: 30 }, { x: 110, y: 230 }, 1)).toEqual({ x: 110, y: 230 });
+  });
+
   it("validates and projects a connected workflow", () => {
     const bundle = workflowBundle();
 

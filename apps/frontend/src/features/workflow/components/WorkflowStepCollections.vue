@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Plus } from "lucide-vue-next";
 import { computed, ref } from "vue";
+import UiButton from "../../../components/ui/UiButton.vue";
 import type { CollectionCall, CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowStep, WorkflowValidationIssue } from "../../../types";
 import { useSortableList } from "../useSortableList";
 import WorkflowCallEditor from "./WorkflowCallEditor.vue";
@@ -58,7 +59,7 @@ const hasCalls = computed(() => props.step.collectionCalls.length > 0);
       <div><h3>采集信息</h3><p>{{ props.step.collectionCalls.length }} 个采集调用，顺序用于生成和阅读。</p></div>
       <div class="workflow-add-call">
         <WorkflowCollectionPicker :definitions="props.catalog" :changes="props.changes" :readonly="props.readonly" @select="emit('add-call', $event)" />
-        <button class="secondary-button" type="button" :disabled="props.readonly" @click="emit('add-draft')"><Plus :size="14" />新建采集</button>
+        <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-draft')"><template #icon><Plus /></template>新建采集</UiButton>
       </div>
     </div>
     <div v-if="hasCalls" ref="list" class="workflow-call-list">

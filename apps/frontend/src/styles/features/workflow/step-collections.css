@@ -23,7 +23,8 @@
   border-radius: 7px;
   background: #fff;
   overflow: hidden;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color var(--ui-motion-fast) var(--ui-ease-standard), box-shadow var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
+  animation: workflow-card-enter var(--ui-motion-base) var(--ui-ease-emphasis);
 }
 
 .workflow-call-card:hover,
@@ -31,6 +32,8 @@
   border-color: #aebfd3;
   box-shadow: 0 4px 14px rgb(30 49 74 / 7%);
 }
+
+.workflow-call-card:hover { transform: translateY(-1px); }
 
 .workflow-call-card.has-issues {
   border-left: 3px solid #cf625c;
@@ -121,7 +124,27 @@
   color: #ae3e38;
 }
 
-.workflow-call-toggle { color: #758397; }
+.workflow-call-toggle {
+  color: #758397;
+  transition: transform var(--ui-motion-base) var(--ui-ease-emphasis), color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-call-toggle.expanded { color: #2c639e; transform: rotate(180deg); }
+
+.workflow-call-summary .workflow-row-actions {
+  opacity: 0;
+  transform: translateX(5px);
+  pointer-events: none;
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis);
+}
+
+.workflow-call-card:hover .workflow-row-actions,
+.workflow-call-card:focus-within .workflow-row-actions,
+.workflow-call-card.expanded .workflow-row-actions {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
 
 .workflow-call-body {
   display: grid;
@@ -172,7 +195,10 @@
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
 }
+
+.workflow-inline-definition summary:hover { color: #174f92; transform: translateX(2px); }
 
 .workflow-inline-definition summary span {
   color: #748297;
@@ -230,7 +256,12 @@
   color: #3d5f84;
   font-size: 11px;
   font-weight: 800;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
 }
+
+.workflow-section-toggle:hover { color: #174f92; transform: translateX(2px); }
+.workflow-section-toggle > svg { transition: transform var(--ui-motion-base) var(--ui-ease-emphasis); }
+.workflow-section-toggle > svg.open { transform: rotate(90deg); }
 
 .workflow-section-toggle small {
   color: #7a8798;
@@ -258,3 +289,20 @@
 
 .workflow-collection-empty strong { color: #3c4b60; }
 .workflow-collection-empty span { color: #7a8798; }
+
+@keyframes workflow-card-enter {
+  from { opacity: 0; transform: translateY(7px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-call-card,
+  .workflow-call-toggle,
+  .workflow-call-summary .workflow-row-actions,
+  .workflow-inline-definition summary,
+  .workflow-section-toggle,
+  .workflow-section-toggle > svg { transition: none; animation: none; }
+  .workflow-call-card:hover,
+  .workflow-inline-definition summary:hover,
+  .workflow-section-toggle:hover { transform: none; }
+}

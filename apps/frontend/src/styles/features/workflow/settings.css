@@ -1,0 +1,92 @@
+.workflow-settings-list {
+  display: grid;
+  gap: 12px;
+}
+
+.workflow-setting-row {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-setting-row.is-input {
+  grid-template-columns: minmax(86px, .8fr) minmax(110px, 1fr) minmax(120px, 1.2fr) 86px auto 30px;
+}
+
+.workflow-setting-row.is-role {
+  grid-template-columns: minmax(86px, .75fr) minmax(110px, .9fr) minmax(140px, 1.4fr) auto 30px;
+}
+
+.workflow-setting-row > input,
+.workflow-setting-row > select { min-width: 0; }
+
+.workflow-settings-section {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid #e3e8ef;
+  outline: 0;
+  scroll-margin-top: 18px;
+}
+
+.workflow-settings-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.workflow-settings-section-head {
+  min-height: 42px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-radius: 6px;
+  transition: background-color var(--ui-motion-base) var(--ui-ease-standard), box-shadow var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.workflow-settings-section-head > div {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.workflow-settings-section-head > div > svg {
+  margin-top: 3px;
+  color: #47709f;
+}
+
+.workflow-settings-section-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #26374d;
+  font-size: 15px;
+}
+
+.workflow-settings-section-head h3 small {
+  min-width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #edf2f8;
+  color: #66768a;
+  font-size: 10px;
+}
+
+.workflow-settings-section-head p {
+  margin-top: 3px;
+  color: #758297;
+  font-size: 11px;
+}
+
+.workflow-settings-section.is-target:focus .workflow-settings-section-head {
+  background: #f6f9fd;
+  box-shadow: 0 0 0 6px #f6f9fd;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-settings-section-head { transition: none; }
+}

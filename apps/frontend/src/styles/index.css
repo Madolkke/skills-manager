@@ -1,4 +1,6 @@
 @import "./core/base.css";
+@import "./core/ui-motion.css";
+@import "./core/ui-buttons.css";
 @import "./core/layout.css";
 @import "./core/components.css";
 @import "./core/dropdown.css";
@@ -23,8 +25,10 @@
 @import "./features/skill/builder.css";
 @import "./features/skill/builder-markdown.css";
 @import "./features/workflow/layout.css";
+@import "./features/workflow/motion.css";
 @import "./features/workflow/sidebar.css";
 @import "./features/workflow/editor.css";
+@import "./features/workflow/settings.css";
 @import "./features/workflow/paths.css";
 @import "./features/workflow/catalog.css";
 @import "./features/workflow/step-collections.css";

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowUpRight, ChevronDown, ChevronUp, Trash2 } from "lucide-vue-next";
 import { nextTick, ref } from "vue";
+import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { WorkflowBundle, WorkflowStep } from "../../../types";
 import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
 import WorkflowPathTargetPicker from "./WorkflowPathTargetPicker.vue";
@@ -34,13 +35,13 @@ async function add(choice: WorkflowPathTargetChoice): Promise<void> {
       <WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" variant="add" :readonly="props.readonly" @select="add" />
     </div>
     <article v-for="(item, index) in props.step.topology" :key="item.id" :data-path-id="item.id" class="workflow-transition-card">
-      <div class="workflow-transition-order"><button class="icon-button mini" type="button" aria-label="上移路径" :disabled="props.readonly || index === 0" @click="emit('move', item.id, -1)"><ChevronUp :size="14" /></button><button class="icon-button mini" type="button" aria-label="下移路径" :disabled="props.readonly || index === props.step.topology.length - 1" @click="emit('move', item.id, 1)"><ChevronDown :size="14" /></button></div>
+      <div class="workflow-transition-order"><UiIconButton label="上移路径" size="sm" :disabled="props.readonly || index === 0" @click="emit('move', item.id, -1)"><ChevronUp /></UiIconButton><UiIconButton label="下移路径" size="sm" :disabled="props.readonly || index === props.step.topology.length - 1" @click="emit('move', item.id, 1)"><ChevronDown /></UiIconButton></div>
       <div class="workflow-form-grid compact-grid">
-        <div class="field-label span-2"><span>目标节点</span><div class="workflow-path-target-row"><WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" :current-target-id="item.target.id" variant="target" :readonly="props.readonly" @select="emit('retarget', item.id, $event)" /><button class="icon-button" type="button" title="打开目标节点" aria-label="打开目标节点" @click="emit('open-target', item.target.id)"><ArrowUpRight :size="15" /></button></div></div>
+        <div class="field-label span-2"><span>目标节点</span><div class="workflow-path-target-row"><WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" :current-target-id="item.target.id" variant="target" :readonly="props.readonly" @select="emit('retarget', item.id, $event)" /><UiIconButton label="打开目标节点" @click="emit('open-target', item.target.id)"><ArrowUpRight /></UiIconButton></div></div>
         <label class="field-label span-2"><span>条件说明</span><input data-path-condition :value="item.conditionText" :disabled="props.readonly" placeholder="留空表示无条件跳转" @input="emit('change', item.id, { conditionText: ($event.target as HTMLInputElement).value })" /></label>
         <label class="field-label span-2"><span>条件表达式</span><input class="workflow-code-input workflow-command-input" :value="item.conditionExpression" :disabled="props.readonly" placeholder="可选的机器可读表达式" @input="emit('change', item.id, { conditionExpression: ($event.target as HTMLInputElement).value })" /></label>
       </div>
-      <button class="icon-button mini danger" type="button" aria-label="删除路径" :disabled="props.readonly" @click="emit('remove', item.id)"><Trash2 :size="14" /></button>
+      <UiIconButton label="删除路径" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove', item.id)"><Trash2 /></UiIconButton>
     </article>
     <div v-if="props.step.topology.length === 0" class="workflow-empty workflow-transition-empty">尚未声明跳转，可连接已有节点或直接创建下一步。</div>
   </section>

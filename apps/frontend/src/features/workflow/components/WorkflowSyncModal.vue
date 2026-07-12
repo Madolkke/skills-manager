@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import Modal from "../../../components/Modal.vue";
+import UiButton from "../../../components/ui/UiButton.vue";
 import VersionSelector from "../../../components/VersionSelector.vue";
 import { nextPatchVersion, validSemver } from "../../../lib/semver";
 import type { SkillDetail, WorkflowValidationIssue } from "../../../types";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   skill: SkillDetail;
+  open?: boolean;
   revision: number;
   issues: WorkflowValidationIssue[];
   busy: boolean;
   error?: string | null;
-}>();
+}>(), { open: true, error: undefined });
 const emit = defineEmits<{
   close: [];
+  closed: [];
   submit: [payload: { version: string; display_name?: string; change_summary: string }];
 }>();
 
@@ -25,6 +28,12 @@ const canSubmit = computed(() => !props.busy && validSemver(version.value) && Bo
 
 watch(() => props.revision, (revision) => {
   changeSummary.value = `从 Workflow revision ${revision} 同步。`;
+});
+watch(() => props.open, (open) => {
+  if (!open) return;
+  version.value = nextPatchVersion(props.skill.versions);
+  displayName.value = "";
+  changeSummary.value = `从 Workflow revision ${props.revision} 同步。`;
 });
 
 function submit(): void {
@@ -39,7 +48,7 @@ function submit(): void {
 </script>
 
 <template>
-  <Modal title="同步到 Skill" description="本次同步将生成完整的新 bundle，并设为当前 Skill 版本。" @close="emit('close')">
+  <Modal title="同步到 Skill" description="本次同步将生成完整的新 bundle，并设为当前 Skill 版本。" :open="props.open" motion="workflow" @close="emit('close')" @after-leave="emit('closed')">
     <div class="form-stack workflow-sync-form">
       <div v-if="props.error" class="form-error">{{ props.error }}</div>
       <div class="workflow-replace-warning">
@@ -56,10 +65,8 @@ function submit(): void {
         <textarea v-model="changeSummary" maxlength="1024" rows="4" />
       </label>
       <div class="modal-actions">
-        <button class="secondary-button" type="button" :disabled="props.busy" @click="emit('close')">取消</button>
-        <button class="primary-button" type="button" :disabled="!canSubmit" @click="submit">
-          {{ props.busy ? "同步中..." : "确认同步" }}
-        </button>
+        <UiButton variant="secondary" size="lg" :disabled="props.busy" @click="emit('close')">取消</UiButton>
+        <UiButton variant="primary" size="lg" :state="props.busy ? 'loading' : 'idle'" :disabled="!canSubmit && !props.busy" loading-label="同步中" @click="submit">确认同步</UiButton>
       </div>
     </div>
   </Modal>

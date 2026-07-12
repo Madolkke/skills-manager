@@ -31,6 +31,29 @@
 - 长文本默认换行或在容器内滚动，按钮和 tab 不允许因文本撑破布局。
 - 版本、case、run 这类固定格式对象要有稳定尺寸，避免 hover、loading 或动态标签造成布局跳动。
 
+## 按钮与动效
+
+Workflow 编辑器先行采用共享 `UiButton`、`UiIconButton` 和 `UiTooltip` 原语，其他页面继续使用现有按钮样式，后续按功能域迁移。
+
+- 按钮层级使用 `primary / secondary / ghost / danger / text`；一个操作区只保留一个主按钮。
+- 尺寸使用 `sm 30px / md 36px / lg 40px`。纯图标按钮保持正方形，并必须提供可读的 `aria-label`。
+- 异步按钮使用受控的 `idle / loading / success` 状态。正常、处理中和成功内容在同一网格轨道内叠放，切换状态不得改变按钮宽度。
+- 保存操作可在服务端确认后短暂展示成功态；会关闭弹窗、导航或改变上下文的操作继续使用 Toast 或页面结果确认。
+- 不熟悉的图标按钮在 hover 或键盘 focus 后展示 Tooltip；禁用状态仍需能够通过 Tooltip 解释原因。
+
+动效时长统一为：
+
+| 级别 | 时长 | 用途 |
+| --- | --- | --- |
+| fast | `120ms` | hover、active、图标和徽标反馈。 |
+| base | `180ms` | Popover、内容切换、展开收起。 |
+| emphasis | `260ms` | 面板折叠、Modal、流程图重排。 |
+
+- 动效只用于解释状态和空间关系，不响应普通文本输入，不添加 Ripple 或装饰性循环动画。
+- 优先动画化 `transform` 和 `opacity`；拖动调宽时必须关闭过渡，保证指针与面板同步。
+- Workflow 图谱重排时节点坐标和连线必须同帧更新，不能只对节点 DOM 添加 CSS 位移。
+- `prefers-reduced-motion: reduce` 下取消位移、缩放、图谱插值和循环边动画，状态颜色和文字仍需即时更新。
+
 ## 页面契约
 
 ### Hub

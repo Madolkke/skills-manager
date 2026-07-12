@@ -18,7 +18,14 @@
   font-size: 12px;
   font-weight: 700;
   text-align: left;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard), border-color var(--ui-motion-fast) var(--ui-ease-standard), box-shadow var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
 }
+
+.workflow-path-target-trigger:hover:not(:disabled) { border-color: #aebdd0; background: #f8fbff; box-shadow: 0 5px 12px rgb(27 49 78 / 8%); transform: translateY(-1px); }
+.workflow-path-target-trigger:active:not(:disabled) { transform: scale(0.98); }
+.workflow-path-target-trigger > svg:last-child { transition: transform var(--ui-motion-base) var(--ui-ease-emphasis); }
+.workflow-path-target-trigger.active > svg:last-child { transform: rotate(180deg); }
 
 .workflow-path-target-trigger span {
   min-width: 0;
@@ -53,7 +60,7 @@
   border-radius: 7px;
   background: #fff;
   box-shadow: var(--shadow-popover);
-  animation: popover-in var(--motion-base);
+  transform-origin: top center;
 }
 
 .workflow-path-target-picker.is-add .workflow-path-target-popover {
@@ -81,7 +88,13 @@
   color: #637186;
   font-size: 11px;
   font-weight: 800;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard), box-shadow var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
 }
+
+.workflow-path-target-tabs button:hover,
+.workflow-path-step-types button:hover { color: #224f7c; }
+.workflow-path-target-tabs button:active,
+.workflow-path-step-types button:active { transform: scale(0.97); }
 
 .workflow-path-target-tabs button.active,
 .workflow-path-step-types button.active {
@@ -139,9 +152,10 @@
   background: transparent;
   color: #35465d;
   text-align: left;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
 }
 
-.workflow-path-node-list button:hover { background: #edf3f8; }
+.workflow-path-node-list button:hover { background: #edf3f8; color: #245b9d; transform: translateX(2px); }
 .workflow-path-node-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workflow-path-node-list > p { padding: 22px 8px; color: #7b8796; text-align: center; font-size: 12px; }
 
@@ -176,4 +190,15 @@
   gap: 7px;
 }
 
-.workflow-path-target-row > .icon-button { width: 36px; height: 36px; }
+.workflow-path-target-row > .ui-tooltip-trigger { width: 36px; height: 36px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-path-target-trigger,
+  .workflow-path-target-trigger > svg:last-child,
+  .workflow-path-target-tabs button,
+  .workflow-path-step-types button,
+  .workflow-path-node-list button { transition: none; }
+  .workflow-path-target-trigger:hover:not(:disabled),
+  .workflow-path-target-trigger:active:not(:disabled),
+  .workflow-path-node-list button:hover { transform: none; }
+}

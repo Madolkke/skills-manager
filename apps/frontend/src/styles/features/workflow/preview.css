@@ -5,20 +5,46 @@
   padding: 7px;
   border-bottom: 1px solid var(--line);
   background: white;
+  position: relative;
+  gap: 2px;
 }
+
+.workflow-preview-tabs::before {
+  width: calc((100% - 14px - 4px) / 3);
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 7px;
+  border: 1px solid #c7d8ed;
+  border-radius: 5px;
+  background: #eef5ff;
+  box-shadow: 0 2px 7px rgb(35 72 116 / 8%);
+  content: "";
+  transform: translateX(0);
+  transition: transform var(--ui-motion-emphasis) var(--ui-ease-emphasis);
+}
+
+.workflow-preview-tabs.is-read::before { transform: translateX(calc(100% + 2px)); }
+.workflow-preview-tabs.is-validation::before { transform: translateX(calc(200% + 4px)); }
 
 .workflow-preview-tabs button {
   min-height: 32px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border: 0;
+  border-radius: 5px;
   background: transparent;
   color: #66758b;
   font-size: 12px;
   font-weight: 800;
+  position: relative;
+  z-index: 1;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
 }
 
+.workflow-preview-tabs button:hover { color: #285f9d; }
+.workflow-preview-tabs button:active { transform: scale(0.97); }
+
 .workflow-preview-tabs button.active {
-  border-bottom-color: var(--blue);
   color: #174ea6;
 }
 
@@ -43,7 +69,7 @@
 }
 
 .workflow-graph-modal .workflow-graph,
-.workflow-graph-modal .vue-flow { min-height: 100%; }
+.workflow-graph-modal .vue-flow { height: 100%; min-height: 0; }
 
 .workflow-graph-controls {
   display: flex;
@@ -52,23 +78,11 @@
   border-radius: 6px;
   background: #fff;
   box-shadow: 0 5px 16px rgb(35 53 76 / 10%);
+  gap: 1px;
 }
 
-.workflow-graph-controls button {
-  width: 29px;
-  height: 29px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: #53647a;
-}
-
-.workflow-graph-controls button:hover {
-  background: #edf3fa;
-  color: #245b9d;
-}
+.workflow-graph-controls .ui-tooltip-trigger { display: flex; }
+.workflow-graph-controls .ui-button { border-radius: 4px; }
 
 .workflow-graph-state {
   min-height: 320px;
@@ -78,6 +92,28 @@
   color: var(--muted);
   text-align: center;
 }
+
+.workflow-graph-layouting {
+  min-height: 26px;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid #ccdaea;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 92%);
+  color: #53647a;
+  font-size: 10px;
+  font-weight: 760;
+  box-shadow: 0 4px 12px rgb(35 53 76 / 9%);
+  pointer-events: none;
+}
+
+.workflow-graph-layouting svg { animation: ui-spin 700ms linear infinite; }
 
 .workflow-graph-node {
   width: 220px;
@@ -90,7 +126,12 @@
   background: white;
   color: var(--ink);
   box-shadow: 0 8px 22px rgb(15 23 42 / 8%);
+  transition: border-color var(--ui-motion-base) var(--ui-ease-standard), box-shadow var(--ui-motion-base) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis);
 }
+
+.workflow-graph-node:hover { transform: translateY(-2px); box-shadow: 0 11px 26px rgb(15 23 42 / 12%); }
+.workflow-graph-node.is-entering { animation: workflow-graph-node-enter var(--ui-motion-emphasis) var(--ui-ease-emphasis); }
+.workflow-graph-node.is-leaving { animation: workflow-graph-node-leave var(--ui-motion-emphasis) var(--ui-ease-exit) forwards; pointer-events: none; }
 
 .workflow-graph-node.selected {
   border-color: var(--blue);
@@ -131,6 +172,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@keyframes workflow-graph-node-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes workflow-graph-node-leave {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-preview-tabs::before,
+  .workflow-preview-tabs button,
+  .workflow-graph-node { transition: none; }
+  .workflow-preview-tabs button:active,
+  .workflow-graph-node:hover { transform: none; }
+  .workflow-graph .vue-flow__edge.animated path { animation: none; }
+  .workflow-graph-node.is-entering,
+  .workflow-graph-node.is-leaving,
+  .workflow-graph-layouting svg { animation: none; }
 }
 
 .workflow-graph-node strong {

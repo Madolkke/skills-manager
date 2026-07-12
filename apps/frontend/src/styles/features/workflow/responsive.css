@@ -7,10 +7,6 @@
     display: none;
   }
 
-  .workflow-workbench-status .workflow-status-sync {
-    display: inline-flex;
-  }
-
   .workflow-toolbar-command {
     padding-inline: 9px;
   }

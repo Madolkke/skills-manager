@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Braces, Code2, Copy, Plus, Trash2 } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import UiButton from "../../../components/ui/UiButton.vue";
+import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type {
   CollectionCall,
   CollectionDefinition,
@@ -114,7 +116,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
     <header class="workflow-document-head">
       <div class="workflow-step-index">STEP</div>
       <div><h2>{{ props.step.name }}</h2><p>{{ props.step.description || "尚未填写步骤说明" }}</p></div>
-      <div class="workflow-row-actions"><button class="secondary-button" type="button" :disabled="props.readonly" @click="emit('duplicate')"><Copy :size="15" />复制</button><button class="icon-button danger" type="button" title="删除步骤" aria-label="删除步骤" :disabled="props.readonly" @click="emit('remove')"><Trash2 :size="16" /></button></div>
+      <div class="workflow-row-actions"><UiButton variant="secondary" :disabled="props.readonly" @click="emit('duplicate')"><template #icon><Copy /></template>复制</UiButton><UiIconButton label="删除步骤" variant="danger" :disabled="props.readonly" @click="emit('remove')"><Trash2 /></UiIconButton></div>
     </header>
 
     <WorkflowSectionNav :active="activeSection" :sections="sections" @select="scrollTo($event)" />
@@ -142,8 +144,8 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
     </section>
 
     <section id="workflow-step-inputs" class="workflow-step-section" data-workflow-section="inputs">
-      <div class="workflow-subhead"><div class="workflow-section-title"><span>{{ props.step.stepType === 'script' ? '03' : '02' }}</span><div><h3>步骤输入</h3><p>{{ props.step.inputs.length }} 个当前步骤内参数。</p></div></div><button type="button" :disabled="props.readonly" @click="emit('add-input')"><Plus :size="14" />添加输入</button></div>
-      <div v-for="input in props.step.inputs" :key="input.parameter.id" class="workflow-parameter-row"><input class="workflow-key-input" :value="input.parameter.key" aria-label="步骤输入 Key" :disabled="props.readonly" @input="emit('input-change', input.parameter.id, { key: ($event.target as HTMLInputElement).value })" /><input :value="input.parameter.name" aria-label="步骤输入名称" :disabled="props.readonly" @input="emit('input-change', input.parameter.id, { name: ($event.target as HTMLInputElement).value })" /><select :value="input.parameter.dataType" :disabled="props.readonly" @change="emit('input-change', input.parameter.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select><label class="workflow-check"><input type="checkbox" :checked="input.parameter.required" :disabled="props.readonly" @change="emit('input-change', input.parameter.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label><button class="icon-button mini danger" type="button" aria-label="删除步骤输入" :disabled="props.readonly" @click="emit('input-remove', input.parameter.id)"><Trash2 :size="14" /></button></div>
+      <div class="workflow-subhead"><div class="workflow-section-title"><span>{{ props.step.stepType === 'script' ? '03' : '02' }}</span><div><h3>步骤输入</h3><p>{{ props.step.inputs.length }} 个当前步骤内参数。</p></div></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="emit('add-input')"><template #icon><Plus /></template>添加输入</UiButton></div>
+      <div v-for="input in props.step.inputs" :key="input.parameter.id" class="workflow-parameter-row"><input class="workflow-key-input" :value="input.parameter.key" aria-label="步骤输入 Key" :disabled="props.readonly" @input="emit('input-change', input.parameter.id, { key: ($event.target as HTMLInputElement).value })" /><input :value="input.parameter.name" aria-label="步骤输入名称" :disabled="props.readonly" @input="emit('input-change', input.parameter.id, { name: ($event.target as HTMLInputElement).value })" /><select :value="input.parameter.dataType" :disabled="props.readonly" @change="emit('input-change', input.parameter.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select><label class="workflow-check"><input type="checkbox" :checked="input.parameter.required" :disabled="props.readonly" @change="emit('input-change', input.parameter.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label><UiIconButton label="删除步骤输入" size="sm" variant="danger" :disabled="props.readonly" @click="emit('input-remove', input.parameter.id)"><Trash2 /></UiIconButton></div>
       <p v-if="props.step.inputs.length === 0" class="workflow-inline-empty">当前步骤没有局部输入</p>
     </section>
 

@@ -1,0 +1,45 @@
+:root {
+  --ui-motion-fast: 120ms;
+  --ui-motion-base: 180ms;
+  --ui-motion-emphasis: 260ms;
+  --ui-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ui-ease-emphasis: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ui-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+.ui-tooltip-enter-active,
+.ui-tooltip-leave-active {
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.ui-tooltip-enter-from,
+.ui-tooltip-leave-to {
+  opacity: 0;
+}
+
+.ui-tooltip-enter-from.is-top,
+.ui-tooltip-leave-to.is-top {
+  transform: translate(-50%, calc(-100% + 3px)) scale(0.97);
+}
+
+.ui-tooltip-enter-from.is-bottom,
+.ui-tooltip-leave-to.is-bottom {
+  transform: translate(-50%, -3px) scale(0.97);
+}
+
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ui-success-pop {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-tooltip-enter-active,
+  .ui-tooltip-leave-active {
+    transition: none;
+  }
+}

@@ -1,0 +1,136 @@
+.workflow-state-swap-enter-active,
+.workflow-state-swap-leave-active,
+.workflow-count-enter-active,
+.workflow-count-leave-active,
+.workflow-icon-swap-enter-active,
+.workflow-icon-swap-leave-active {
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
+}
+
+.workflow-state-swap-enter-from,
+.workflow-state-swap-leave-to,
+.workflow-count-enter-from,
+.workflow-count-leave-to {
+  opacity: 0;
+  transform: translateY(3px) scale(0.92);
+}
+
+.workflow-icon-swap-enter-from,
+.workflow-icon-swap-leave-to {
+  opacity: 0;
+  transform: rotate(-20deg) scale(0.8);
+}
+
+.workflow-error-strip-enter-active,
+.workflow-error-strip-leave-active {
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis), max-height var(--ui-motion-base) var(--ui-ease-standard), padding var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.workflow-error-strip-enter-from,
+.workflow-error-strip-leave-to {
+  max-height: 0;
+  padding-block: 0;
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.workflow-editor-switch-enter-active,
+.workflow-editor-switch-leave-active,
+.workflow-preview-switch-enter-active,
+.workflow-preview-switch-leave-active {
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis);
+}
+
+.workflow-editor-switch-enter-from { opacity: 0; transform: translateY(8px); }
+.workflow-editor-switch-leave-to { opacity: 0; transform: translateY(-4px); }
+.workflow-preview-switch-enter-from { opacity: 0; transform: translateX(6px); }
+.workflow-preview-switch-leave-to { opacity: 0; transform: translateX(-4px); }
+
+.workflow-popover-enter-active,
+.workflow-popover-leave-active {
+  transform-origin: top center;
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis);
+}
+
+.workflow-popover-enter-from,
+.workflow-popover-leave-to {
+  opacity: 0;
+  transform: translateY(-5px) scale(0.98);
+}
+
+.workflow-collapse-enter-active,
+.workflow-collapse-leave-active,
+.workflow-expand-enter-active,
+.workflow-expand-leave-active {
+  overflow: hidden;
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard), max-height var(--ui-motion-emphasis) var(--ui-ease-emphasis), transform var(--ui-motion-base) var(--ui-ease-emphasis);
+}
+
+.workflow-collapse-enter-active,
+.workflow-collapse-leave-active { max-height: 1200px; }
+.workflow-expand-enter-active,
+.workflow-expand-leave-active { max-height: 5000px; }
+
+.workflow-collapse-enter-from,
+.workflow-collapse-leave-to,
+.workflow-expand-enter-from,
+.workflow-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+.modal-backdrop.motion-workflow,
+.modal-card.motion-workflow { animation: none; }
+
+.workflow-modal-backdrop-enter-active,
+.workflow-modal-backdrop-leave-active {
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard), backdrop-filter var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.workflow-modal-backdrop-enter-from,
+.workflow-modal-backdrop-leave-to {
+  opacity: 0;
+  backdrop-filter: blur(0);
+}
+
+.workflow-modal-surface-enter-active {
+  transition: opacity var(--ui-motion-emphasis) var(--ui-ease-standard), transform var(--ui-motion-emphasis) var(--ui-ease-emphasis);
+}
+
+.workflow-modal-surface-leave-active {
+  transition: opacity var(--ui-motion-base) var(--ui-ease-exit), transform var(--ui-motion-base) var(--ui-ease-exit);
+}
+
+.workflow-modal-surface-enter-from,
+.workflow-modal-surface-leave-to {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 10px)) scale(0.975);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-state-swap-enter-active,
+  .workflow-state-swap-leave-active,
+  .workflow-count-enter-active,
+  .workflow-count-leave-active,
+  .workflow-icon-swap-enter-active,
+  .workflow-icon-swap-leave-active,
+  .workflow-error-strip-enter-active,
+  .workflow-error-strip-leave-active,
+  .workflow-editor-switch-enter-active,
+  .workflow-editor-switch-leave-active,
+  .workflow-preview-switch-enter-active,
+  .workflow-preview-switch-leave-active,
+  .workflow-popover-enter-active,
+  .workflow-popover-leave-active,
+  .workflow-collapse-enter-active,
+  .workflow-collapse-leave-active,
+  .workflow-expand-enter-active,
+  .workflow-expand-leave-active,
+  .workflow-modal-backdrop-enter-active,
+  .workflow-modal-backdrop-leave-active,
+  .workflow-modal-surface-enter-active,
+  .workflow-modal-surface-leave-active {
+    transition: none;
+  }
+}

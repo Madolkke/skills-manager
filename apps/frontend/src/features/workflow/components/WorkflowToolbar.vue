@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { AlertTriangle, ArrowLeft, Check, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-vue-next";
+import { AlertTriangle, ArrowLeft, Check, LockKeyhole, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-vue-next";
+import { computed } from "vue";
+import UiButton from "../../../components/ui/UiButton.vue";
+import UiIconButton from "../../../components/ui/UiIconButton.vue";
+import type { UiButtonState } from "../../../components/ui/button";
 
 const props = defineProps<{
   title: string;
   revision?: number;
   syncLabel?: string;
+  lastSavedAt?: string;
   dirty: boolean;
   readonly: boolean;
-  saving: boolean;
+  saveState: UiButtonState;
   syncing: boolean;
   issueCount: number;
   canUndo: boolean;
@@ -23,36 +28,68 @@ const emit = defineEmits<{
   sync: [];
   validation: [];
 }>();
+
+const lastSavedLabel = computed(() => {
+  if (!props.lastSavedAt) return "尚未保存";
+  const date = new Date(props.lastSavedAt);
+  return Number.isNaN(date.getTime()) ? props.lastSavedAt : date.toLocaleString();
+});
 </script>
 
 <template>
   <header class="workflow-toolbar">
     <div class="workflow-toolbar-context">
-      <button class="icon-button" type="button" title="返回 Skill" aria-label="返回 Skill" @click="emit('back')"><ArrowLeft :size="18" /></button>
+      <UiIconButton label="返回 Skill" variant="secondary" @click="emit('back')"><ArrowLeft /></UiIconButton>
       <div class="workflow-toolbar-title">
         <span>Workflow editor</span>
         <strong :title="props.title">{{ props.title }}</strong>
       </div>
       <span v-if="props.revision" class="workflow-toolbar-revision">r{{ props.revision }}</span>
       <span v-if="props.syncLabel" class="workflow-toolbar-sync">{{ props.syncLabel }}</span>
+      <span v-if="props.readonly" class="workflow-toolbar-readonly"><LockKeyhole />只读</span>
     </div>
 
-    <div :class="['workflow-save-state', props.dirty && 'dirty']">
-      <AlertTriangle v-if="props.dirty" :size="14" /><Check v-else :size="14" />
-      {{ props.dirty ? "未保存" : "已保存" }}
+    <div class="workflow-toolbar-persistence" role="status" aria-live="polite">
+      <span class="workflow-toolbar-updated">最后保存 <time :datetime="props.lastSavedAt">{{ lastSavedLabel }}</time></span>
+      <div :class="['workflow-save-state', props.dirty && 'dirty']">
+        <Transition name="workflow-state-swap" mode="out-in">
+          <span :key="props.dirty ? 'dirty' : 'saved'">
+            <AlertTriangle v-if="props.dirty" /><Check v-else />
+            {{ props.dirty ? "修改尚未写入服务端" : "内容已写入服务端" }}
+          </span>
+        </Transition>
+      </div>
     </div>
 
     <div class="workflow-toolbar-spacer" />
     <div class="workflow-toolbar-actions workflow-toolbar-tools">
-      <button class="icon-button" type="button" title="撤销 (Ctrl+Z)" aria-label="撤销" :disabled="!props.canUndo" @click="emit('undo')"><Undo2 :size="17" /></button>
-      <button class="icon-button" type="button" title="重做 (Ctrl+Shift+Z)" aria-label="重做" :disabled="!props.canRedo" @click="emit('redo')"><Redo2 :size="17" /></button>
-      <button class="icon-button" type="button" title="放弃未保存修改" aria-label="放弃未保存修改" :disabled="!props.dirty" @click="emit('discard')"><RotateCcw :size="17" /></button>
+      <UiIconButton label="撤销" tooltip="撤销 (Ctrl+Z)" variant="ghost" :disabled="!props.canUndo" disabled-reason="暂无可撤销操作" @click="emit('undo')"><Undo2 /></UiIconButton>
+      <UiIconButton label="重做" tooltip="重做 (Ctrl+Shift+Z)" variant="ghost" :disabled="!props.canRedo" disabled-reason="暂无可重做操作" @click="emit('redo')"><Redo2 /></UiIconButton>
+      <UiIconButton label="放弃未保存修改" variant="ghost" :disabled="!props.dirty" disabled-reason="当前没有未保存修改" @click="emit('discard')"><RotateCcw /></UiIconButton>
     </div>
 
     <div class="workflow-toolbar-actions workflow-toolbar-commands">
-      <button class="secondary-button workflow-toolbar-command" type="button" @click="emit('validation')"><AlertTriangle :size="15" />校验 <span v-if="props.issueCount" class="workflow-count">{{ props.issueCount }}</span></button>
-      <button class="primary-button workflow-toolbar-command" type="button" :disabled="props.readonly || !props.dirty || props.saving" title="保存 Workflow (Ctrl+S)" @click="emit('save')"><Save :size="15" />{{ props.saving ? "保存中" : "保存 Workflow" }}</button>
-      <button class="secondary-button workflow-toolbar-command" type="button" :disabled="!props.canSync || props.syncing" @click="emit('sync')"><RefreshCw :size="15" />{{ props.syncing ? "同步中" : "同步到 Skill" }}</button>
+      <UiButton variant="secondary" @click="emit('validation')">
+        <template #icon><AlertTriangle /></template>
+        校验 <Transition name="workflow-count"><span v-if="props.issueCount" class="workflow-count">{{ props.issueCount }}</span></Transition>
+      </UiButton>
+      <UiButton
+        variant="primary"
+        :state="props.saveState"
+        :disabled="props.readonly || (!props.dirty && props.saveState !== 'success')"
+        :disabled-reason="props.readonly ? '只读模式无法保存' : '当前没有未保存修改'"
+        loading-label="保存中"
+        success-label="已保存"
+        title="保存 Workflow (Ctrl+S)"
+        @click="emit('save')"
+      >
+        <template #icon><Save /></template>
+        保存 Workflow
+      </UiButton>
+      <UiButton variant="secondary" :state="props.syncing ? 'loading' : 'idle'" :disabled="!props.canSync" :disabled-reason="props.dirty ? '请先保存 Workflow' : props.issueCount ? '请先解决校验问题' : '当前无法创建 Skill 版本'" loading-label="同步中" @click="emit('sync')">
+        <template #icon><RefreshCw /></template>
+        同步到 Skill
+      </UiButton>
     </div>
   </header>
 </template>
