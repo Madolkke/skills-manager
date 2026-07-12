@@ -72,6 +72,11 @@ describe("Workflow UI state", () => {
     expect(wrapper.get("h2").text()).toBe("全局输入");
     expect(wrapper.get("#workflow-inputs-heading").text()).toContain("输入参数 1");
     expect(wrapper.get("#workflow-roles-heading").text()).toContain("设备角色 1");
+    expect(wrapper.findAll(".workflow-setting-field > span").map((item) => item.text())).toEqual([
+      "参数 Key", "参数名称", "参数说明", "数据类型", "角色 Key", "角色名称", "角色说明",
+    ]);
+    expect(wrapper.get('input[aria-label="输入 Key"]').attributes("placeholder")).toBe("tenant");
+    expect(wrapper.get('input[aria-label="角色 Key"]').attributes("placeholder")).toBe("primary");
     expect(document.activeElement).toBe(wrapper.get('[aria-labelledby="workflow-inputs-heading"]').element);
 
     await wrapper.findAll("button").find((button) => button.text().includes("添加输入"))!.trigger("click");

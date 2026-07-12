@@ -1,0 +1,114 @@
+.workflow-expression-editor {
+  min-width: 0;
+  position: relative;
+}
+
+.workflow-expression-editor .cm-editor {
+  height: 40px;
+  border: 1px solid #bdcad9;
+  border-radius: 6px;
+  background: #f7f9fc;
+  color: #203249;
+  font-family: var(--mono-font);
+  font-size: 13px;
+  transition: border-color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard), box-shadow var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-expression-editor .cm-editor.cm-focused {
+  border-color: #4f82bd;
+  outline: 0;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(70 119 176 / 12%);
+}
+
+.workflow-expression-editor .cm-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  font-family: inherit;
+  line-height: 38px;
+}
+
+.workflow-expression-editor .cm-content {
+  min-width: max-content;
+  padding: 0 10px;
+  caret-color: #1f5f9f;
+}
+
+.workflow-expression-editor .cm-line { padding: 0; }
+.workflow-expression-editor .cm-placeholder { color: #8b97a7; font-style: normal; }
+.workflow-expression-editor.is-readonly .cm-editor { background: #eef1f5; color: #788496; }
+
+.workflow-expression-editor .cm-tooltip-autocomplete {
+  min-width: min(360px, calc(100vw - 32px));
+  max-width: min(520px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid #c5d2e1;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(26 45 70 / 18%);
+  animation: workflow-expression-menu-in var(--ui-motion-base) var(--ui-ease-emphasis);
+  z-index: 30;
+}
+
+.workflow-expression-editor .cm-tooltip-autocomplete > ul {
+  max-height: 280px;
+  padding: 5px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.workflow-expression-editor .cm-tooltip-autocomplete > ul > li {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: #34465e;
+}
+
+.workflow-expression-editor .cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background: #eaf3ff;
+  color: #174f91;
+}
+
+.workflow-expression-editor .cm-completionLabel {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-family: var(--mono-font);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-expression-editor .cm-completionDetail {
+  min-width: 0;
+  flex: 0 1 55%;
+  max-width: 55%;
+  overflow: hidden;
+  margin-left: auto;
+  padding-left: 14px;
+  color: #748297;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-expression-editor .cm-completionInfo {
+  padding: 8px 10px;
+  border: 1px solid #cbd7e5;
+  border-radius: 5px;
+  background: #fff;
+  color: #596a80;
+  font-size: 11px;
+  box-shadow: 0 10px 26px rgb(26 45 70 / 14%);
+}
+
+@keyframes workflow-expression-menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-expression-editor .cm-editor { transition: none; }
+  .workflow-expression-editor .cm-tooltip-autocomplete { animation: none; }
+}

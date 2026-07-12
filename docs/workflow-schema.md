@@ -206,7 +206,17 @@ Workflow Metadata 不保存 Skill 的 owner、权限、Tags、生命周期或归
 | `id` | `string` | 是 | - | 跳转身份；可供脚本执行器或外部工具引用。 |
 | `target` | `NodeRef` | 是 | - | 跳转目标节点。 |
 | `conditionText` | `string` | 否 | `""` | 面向作者和读者的条件说明；为空时界面显示“无条件”。 |
-| `conditionExpression` | `string` | 否 | `""` | 条件表达式文本，具体解释由执行器或后续规则定义。 |
+| `conditionExpression` | `string` | 否 | `""` | 条件表达式文本。编辑器提供变量补全，但具体解释仍由执行器或后续规则定义。 |
+
+条件表达式编辑器使用以下作者侧变量命名空间：
+
+- `global.<key>` 引用 Workflow 全局输入。
+- `step.<key>` 引用当前步骤输入。
+- `output.<callKey>.<outputKey>` 引用任意步骤的采集输出；调用 Key 为空时使用 `output.<outputKey>`。
+
+补全候选包含所有步骤已经定义的采集输出，不依据拓扑区分前序或后续步骤。同名输出路径会按来源分别显示，但插入相同文本。该能力只辅助输入，不校验变量是否能在运行时取值，也不限制手动输入其他表达式。
+
+输入变量片段或 `.` 后会自动展开候选，也可按 `Ctrl/Cmd+Space` 主动展开。使用方向键选择，按 `Tab` 或 `Enter` 补全，按 `Escape` 关闭；候选菜单未打开时，`Tab` 保持正常的表单焦点导航。
 
 Transition 不包含 `name`、`description` 或 `key`。允许多条 Transition 指向同一目标；领域校验会拒绝跳转到不存在的节点。编辑器当前不提供步骤自循环创建入口。
 
