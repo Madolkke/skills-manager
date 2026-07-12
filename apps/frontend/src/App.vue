@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from "vue";
 import IdentitySettingsModal from "./components/IdentitySettingsModal.vue";
 import TaskCenterPanel from "./components/TaskCenterPanel.vue";
 import Toast from "./components/Toast.vue";
 import TopBar from "./components/TopBar.vue";
+import WorkflowConfirmModal from "./features/workflow/components/WorkflowConfirmModal.vue";
 import { api, ApiError } from "./lib/api";
 import { getActorId } from "./lib/identity";
 import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/navigation";
@@ -14,8 +15,9 @@ import NewSkillModal from "./pages/NewSkillModal.vue";
 import MyReviewsPage from "./pages/MyReviewsPage.vue";
 import SkillBuilderPage from "./pages/SkillBuilderPage.vue";
 import SkillPage from "./pages/SkillPage.vue";
-import WorkflowPage from "./pages/WorkflowPage.vue";
 import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types";
+
+const WorkflowPage = defineAsyncComponent(() => import("./pages/WorkflowPage.vue"));
 
 const route = ref<RouteState>(readRoute());
 const skills = ref<SkillSummary[]>([]);
@@ -29,11 +31,13 @@ const taskCenterOpen = ref(false);
 const taskCenterGroups = ref<TaskCenterGroup[]>([]);
 const taskCenterLoading = ref(false);
 const taskCenterError = ref("");
+const workflowDirty = ref(false);
+const pendingWorkflowRoute = ref<RouteState | null>(null);
 
 const actor = computed(() => session.value?.actor ?? getActorId());
 const sectionShell = computed(() => (route.value.section === "workflows" || route.value.section === "skill-builder" ? "workflow-shell" : route.value.skillId ? "skill-shell" : "hub-shell"));
 const shellClass = computed(() => `app-shell ${sectionShell.value}`);
-const currentSkill = computed(() => (route.value.section === "skills" && route.value.skillId ? skill.value : null));
+const currentSkill = computed(() => ((route.value.section === "skills" || route.value.section === "workflows") && route.value.skillId ? skill.value : null));
 const mainClass = computed(() => (route.value.section === "workflows" || route.value.section === "skill-builder" ? "workflow-shell-page" : "page-shell"));
 const taskCount = computed(() => taskCenterBadgeCount(taskCenterGroups.value));
 
@@ -55,7 +59,7 @@ async function load(): Promise<void> {
     const [, list] = await Promise.all([api.getSession(), api.listSkills()]);
     session.value = { actor: getActorId(), subject_type: "user" };
     skills.value = list;
-    if (targetRoute.section === "skills" && targetRoute.skillId) {
+    if ((targetRoute.section === "skills" || targetRoute.section === "workflows") && targetRoute.skillId) {
       try {
         skill.value = await api.getSkill(targetRoute.skillId);
       } catch (error) {
@@ -86,11 +90,40 @@ async function load(): Promise<void> {
 }
 
 function syncRoute(): void {
-  route.value = readRoute();
+  const next = readRoute();
+  if (blocksWorkflowNavigation(next)) {
+    pendingWorkflowRoute.value = next;
+    route.value = writeRoute(route.value);
+    return;
+  }
+  workflowDirty.value = false;
+  route.value = next;
 }
 
 function navigate(next: Partial<RouteState>): void {
+  const target = { ...route.value, ...next };
+  if (blocksWorkflowNavigation(target)) {
+    pendingWorkflowRoute.value = target;
+    return;
+  }
+  workflowDirty.value = false;
   route.value = writeRoute(next);
+}
+
+function confirmWorkflowNavigation(): void {
+  const target = pendingWorkflowRoute.value;
+  pendingWorkflowRoute.value = null;
+  if (!target) return;
+  workflowDirty.value = false;
+  route.value = writeRoute(target);
+}
+
+function blocksWorkflowNavigation(next: RouteState): boolean {
+  const inWorkflowEditor = route.value.section === "workflows";
+  const inWorkflowTab = route.value.section === "skills" && route.value.tab === "workflow";
+  return workflowDirty.value
+    && (inWorkflowEditor || inWorkflowTab)
+    && (next.section !== route.value.section || next.skillId !== route.value.skillId || next.tab !== route.value.tab);
 }
 
 function openSkill(skillId: string): void {
@@ -105,8 +138,8 @@ function goHome(): void {
   navigate({ section: "hub", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedVersionId: null, selectedRunId: null });
 }
 
-function goWorkflows(): void {
-  navigate({ section: "workflows", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
+function openWorkflow(skillId: string): void {
+  navigate({ section: "workflows", skillId, tab: "workflow", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
 function goSkillBuilder(): void {
@@ -184,7 +217,6 @@ function isMissingSkillError(error: unknown): boolean {
         @home="goHome"
         @create="newSkillOpen = true"
         @builder="goSkillBuilder"
-        @workflows="goWorkflows"
         @settings="identityOpen = true"
         @reviews="goMyReviews"
         @tasks="openTaskCenter"
@@ -199,9 +231,17 @@ function isMissingSkillError(error: unknown): boolean {
           @tab="setTab"
           @refresh="load"
           @navigate="navigate"
+          @dirty="workflowDirty = $event"
           @toast="toast = $event"
         />
-        <WorkflowPage v-else-if="route.section === 'workflows'" @back="goHome" />
+        <WorkflowPage
+          v-else-if="route.section === 'workflows' && route.skillId && skill"
+          :skill="skill"
+          @back="navigate({ section: 'skills', skillId: skill.skill.id, tab: 'workflow' })"
+          @refresh="load"
+          @dirty="workflowDirty = $event"
+          @toast="toast = $event"
+        />
         <SkillBuilderPage
           v-else-if="route.section === 'skill-builder'"
           @created="handleSkillCreated"
@@ -219,8 +259,8 @@ function isMissingSkillError(error: unknown): boolean {
           :actor="actor"
           :loading="loading"
           @open-skill="openSkill"
+          @open-workflow="openWorkflow"
           @create="newSkillOpen = true"
-          @open-workflows="goWorkflows"
         />
       </main>
     </div>
@@ -235,6 +275,15 @@ function isMissingSkillError(error: unknown): boolean {
       @close="taskCenterOpen = false"
       @open="openTaskItem"
       @refresh="loadTaskCenter"
+    />
+    <WorkflowConfirmModal
+      v-if="pendingWorkflowRoute"
+      title="离开 Workflow 编辑器"
+      description="当前 Workflow 有未保存修改，离开后这些修改将丢失。"
+      confirm-label="放弃并离开"
+      tone="danger"
+      @close="pendingWorkflowRoute = null"
+      @confirm="confirmWorkflowNavigation"
     />
     <Toast :toast="toast" @close="toast = null" />
   </div>

@@ -91,9 +91,10 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `VITE_SKILLHUB_API_URL` | 前端显式 API 地址，例如 `https://skillhub.example.com`。 |
 | `VITE_SKILLHUB_API_PORT` | 未配置 API URL 时，按当前浏览器 hostname 拼接该端口。 |
 | `VITE_OPENCODE_RUN_POLL_INTERVAL_MS` | 前端测评运行轮询间隔，默认由脚本设为 `5000`。 |
-| `VITE_WORKFLOW_APP_URL` | 可选的外部 Workflow 页面地址。 |
 
 生产建议优先配置 `VITE_SKILLHUB_API_URL`，避免前端在反向代理或多域名场景下拼错 API 地址。
+
+Workflow 编辑器已内置在 SkillHub 前端，不需要单独的服务地址或 iframe 配置。Workflow 文档、Collection Catalog 和同步源快照均使用现有 PostgreSQL 与 artifact 存储。
 
 ## 5. 数据库准备
 

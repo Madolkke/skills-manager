@@ -1,0 +1,219 @@
+.workflow-library {
+  width: 100%;
+  max-width: 1060px;
+}
+
+.workflow-library-layout {
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: minmax(220px, .7fr) minmax(0, 1.5fr);
+  border: 1px solid #d4dde8;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.workflow-library-list {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 10px;
+  border-right: 1px solid #dce3ec;
+  background: #f6f8fb;
+  overflow: auto;
+}
+
+.workflow-library-search {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  padding: 0 10px;
+  border: 1px solid #d2dce8;
+  border-radius: 6px;
+  background: #fff;
+  color: #748297;
+}
+
+.workflow-library-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.workflow-library-item {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #202c3e;
+  text-align: left;
+}
+
+.workflow-library-item > span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.workflow-library-item i {
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #eaf7f0;
+  color: #2f7052;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.workflow-library-item:hover,
+.workflow-library-item.active {
+  border-color: #c5d7ec;
+  background: #fff;
+  box-shadow: 0 2px 7px rgb(38 59 88 / 5%);
+}
+
+.workflow-library-item code,
+.workflow-library-item small {
+  max-width: 100%;
+  overflow: hidden;
+  color: #6c7a8d;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-library-detail {
+  min-width: 0;
+  padding: 22px;
+  overflow: auto;
+}
+
+.workflow-library-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e1e7ef;
+}
+
+.workflow-library-detail-head > div {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-library-detail-head span {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #edf3fa;
+  color: #52637b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.workflow-replace-warning {
+  padding: 12px 14px;
+  border-left: 3px solid #c98218;
+  background: #fff8e8;
+  color: #75460a;
+  line-height: 1.5;
+}
+
+.workflow-collection-picker {
+  width: min(340px, 36vw);
+  position: relative;
+}
+
+.workflow-picker-input {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid #cdd7e3;
+  border-radius: 6px;
+  background: #fff;
+  color: #748297;
+}
+
+.workflow-picker-input.active {
+  border-color: #5d8fc6;
+  box-shadow: 0 0 0 3px rgb(70 119 176 / 10%);
+}
+
+.workflow-picker-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #263348;
+  font-size: 12px;
+}
+
+.workflow-picker-menu {
+  width: 100%;
+  max-height: 310px;
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  padding: 5px;
+  border: 1px solid #cbd6e3;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(30 47 70 / 16%);
+  overflow: auto;
+  z-index: 12;
+}
+
+.workflow-picker-menu button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #263348;
+  text-align: left;
+}
+
+.workflow-picker-menu button:hover {
+  background: #f0f5fb;
+}
+
+.workflow-picker-menu button > span:first-child {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.workflow-picker-menu strong,
+.workflow-picker-menu code,
+.workflow-picker-menu small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-picker-menu strong { font-size: 12px; }
+.workflow-picker-menu code { color: #748297; font-size: 10px; }
+.workflow-picker-menu small { grid-column: 1 / 2; color: #647287; font-family: var(--mono-font); font-size: 10px; }
+.workflow-picker-menu i,
+.workflow-picker-revision { color: #2f6f51; font-size: 10px; font-style: normal; font-weight: 800; }
+.workflow-picker-menu p { padding: 16px; color: #7a8798; text-align: center; font-size: 12px; }

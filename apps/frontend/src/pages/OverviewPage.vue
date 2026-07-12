@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ExternalLink, GitCompareArrows } from "lucide-vue-next";
+import { ExternalLink, GitCompareArrows, Workflow } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import BundleBrowser from "../components/BundleBrowser.vue";
 import InlineLoading from "../components/InlineLoading.vue";
@@ -107,6 +107,10 @@ function skillLifecycleLabel(status: string): string {
       <div class="panel-title-row">
         <h2>Skill bundle</h2>
         <div class="button-row">
+          <button v-if="skill.workflow" class="secondary-button" type="button" @click="emit('navigate', { section: 'workflows', skillId: skill.skill.id, tab: 'workflow' })">
+            编辑工作流
+            <Workflow :size="16" />
+          </button>
           <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'versions' })">
             版本管理
             <GitCompareArrows :size="16" />

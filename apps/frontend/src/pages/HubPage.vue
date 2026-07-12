@@ -14,7 +14,7 @@ import { filterSkills, skillCounts, sortSkills, tagUsageCounts, type FilterKey, 
 import type { SkillSummary, SkillTagPayload, TagGroup } from "../types";
 
 const props = defineProps<{ skills: SkillSummary[]; actor: string; loading: boolean }>();
-const emit = defineEmits<{ "open-skill": [skillId: string]; "open-workflows": []; create: [] }>();
+const emit = defineEmits<{ "open-skill": [skillId: string]; "open-workflow": [skillId: string]; create: [] }>();
 
 const query = ref("");
 const filter = ref<FilterKey>("all");
@@ -109,6 +109,7 @@ function clearFilters(): void {
       <div class="hub-toolbar">
         <div class="filter-tabs">
           <FilterButton :active="filter === 'all'" label="全部" :count="counts.all" @click="filter = 'all'" />
+          <FilterButton :active="filter === 'workflow'" label="工作流" :count="counts.workflow" @click="filter = 'workflow'" />
           <FilterButton :active="filter === 'verified'" label="已验证" :count="counts.verified" @click="filter = 'verified'" />
           <FilterButton :active="filter === 'untested'" label="未测" :count="counts.untested" @click="filter = 'untested'" />
           <FilterButton :active="filter === 'mine'" label="我维护的" :count="counts.mine" @click="filter = 'mine'" />
@@ -145,9 +146,7 @@ function clearFilters(): void {
         title="还没有 Skill"
         description="新建一个 Skill 后，可以上传版本、配置测评集、发起评审并提交发布。"
         action-label="新建 Skill"
-        secondary-label="打开工作流编排"
         @action="emit('create')"
-        @secondary="emit('open-workflows')"
       />
       <EmptyState
         v-else-if="sorted.length === 0"
@@ -159,7 +158,7 @@ function clearFilters(): void {
         @secondary="emit('create')"
       />
       <TransitionGroup v-else name="list-motion" tag="div" :class="clsx('skill-grid', viewMode === 'list' && 'list-view')">
-        <HubSkillCard v-for="item in sorted" :key="item.skill.id" :item="item" @click="emit('open-skill', item.skill.id)" />
+        <HubSkillCard v-for="item in sorted" :key="item.skill.id" :item="item" @click="emit('open-skill', item.skill.id)" @workflow="emit('open-workflow', item.skill.id)" />
       </TransitionGroup>
     </section>
   </div>

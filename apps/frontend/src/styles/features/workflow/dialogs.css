@@ -1,0 +1,43 @@
+.icon-button.danger,
+.danger-button {
+  color: #af3e38;
+}
+
+.danger-button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #b6413b;
+  border-radius: 6px;
+  background: #b6413b;
+  color: #fff;
+  font-weight: 800;
+}
+
+.workflow-confirm-content {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding-top: 4px;
+  text-align: center;
+}
+
+.workflow-confirm-content p {
+  max-width: 420px;
+  color: #5c697b;
+  line-height: 1.6;
+}
+
+.workflow-confirm-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff6e5;
+  color: #9b5c05;
+}
+
+.workflow-confirm-icon.danger {
+  background: #fff0ef;
+  color: #b13c35;
+}

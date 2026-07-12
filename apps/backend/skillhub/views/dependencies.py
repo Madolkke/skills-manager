@@ -18,6 +18,7 @@ from skillhub.services import (
     SkillBuilderService,
     SkillService,
     VersionService,
+    WorkflowService,
 )
 
 
@@ -52,6 +53,10 @@ def skill_service_dependency(request: Request) -> SkillService:
 
 def version_service_dependency(request: Request) -> VersionService:
     return VersionService(_store(request))
+
+
+def workflow_service_dependency(request: Request) -> WorkflowService:
+    return WorkflowService(_store(request))
 
 
 def review_service_dependency(request: Request) -> ReviewService:

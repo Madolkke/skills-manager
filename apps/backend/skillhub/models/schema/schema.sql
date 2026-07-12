@@ -47,6 +47,62 @@ alter table skills
   add constraint skills_current_version_fkey
   foreign key (current_version_id, id) references skill_versions(id, skill_id);
 
+create table workflows (
+  id text primary key,
+  skill_id text not null references skills(id),
+  revision integer not null default 1,
+  document_schema_version integer not null default 2,
+  document jsonb not null,
+  document_digest text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null,
+  last_saved_by text not null,
+  constraint workflows_revision_positive check (revision > 0),
+  constraint workflows_schema_version_positive check (document_schema_version > 0),
+  constraint workflows_document_object check (jsonb_typeof(document) = 'object'),
+  constraint workflows_skill_unique unique (skill_id)
+);
+
+create table workflow_collection_definitions (
+  id text primary key,
+  latest_revision integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by text not null,
+  constraint workflow_collection_definitions_revision_positive check (latest_revision > 0)
+);
+
+create table workflow_collection_revisions (
+  definition_id text not null references workflow_collection_definitions(id),
+  revision integer not null,
+  document_schema_version integer not null default 2,
+  definition jsonb not null,
+  definition_digest text not null,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  primary key (definition_id, revision),
+  constraint workflow_collection_revisions_revision_positive check (revision > 0),
+  constraint workflow_collection_revisions_schema_version_positive check (document_schema_version > 0),
+  constraint workflow_collection_revisions_definition_object check (jsonb_typeof(definition) = 'object')
+);
+
+create table workflow_syncs (
+  id text primary key,
+  workflow_id text not null references workflows(id),
+  workflow_revision integer not null,
+  document_schema_version integer not null,
+  source_artifact_id text not null references artifacts(id),
+  skill_version_id text not null references skill_versions(id),
+  generator_version text not null,
+  created_at timestamptz not null default now(),
+  created_by text not null,
+  constraint workflow_syncs_revision_positive check (workflow_revision > 0),
+  constraint workflow_syncs_schema_version_positive check (document_schema_version > 0),
+  constraint workflow_syncs_workflow_revision_unique unique (workflow_id, workflow_revision),
+  constraint workflow_syncs_skill_version_unique unique (skill_version_id)
+);
+
 create table eval_sets (
   id text primary key,
   skill_id text not null references skills(id),
@@ -524,6 +580,9 @@ create index skill_builder_sessions_status_idx on skill_builder_sessions (status
 create index skill_builder_messages_session_idx on skill_builder_messages (session_id, created_at);
 create index skill_builder_messages_job_id_idx on skill_builder_messages (job_id);
 create index worker_heartbeats_last_seen_idx on worker_heartbeats (last_seen_at desc);
+create index workflows_updated_at_idx on workflows (updated_at desc);
+create index workflow_syncs_skill_version_idx on workflow_syncs (skill_version_id);
+create index workflow_collection_revisions_created_at_idx on workflow_collection_revisions (created_at desc);
 create index saved_views_skill_type_idx on saved_views (skill_id, view_type);
 create index skill_tags_group_value_idx on skill_tags (tag_group_id, tag_value);
 create index tag_groups_sort_idx on tag_groups (sort_order, id);

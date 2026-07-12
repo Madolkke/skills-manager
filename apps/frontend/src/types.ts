@@ -5,3 +5,4 @@ export type * from "./types/evaluation";
 export type * from "./types/review";
 export type * from "./types/skillBuilder";
 export type * from "./types/ui";
+export type * from "./types/workflow";

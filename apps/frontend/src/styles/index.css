@@ -22,6 +22,17 @@
 @import "./features/skill/my-review-score.css";
 @import "./features/skill/builder.css";
 @import "./features/skill/builder-markdown.css";
+@import "./features/workflow/layout.css";
+@import "./features/workflow/sidebar.css";
+@import "./features/workflow/editor.css";
+@import "./features/workflow/paths.css";
+@import "./features/workflow/catalog.css";
+@import "./features/workflow/step-collections.css";
+@import "./features/workflow/dialogs.css";
+@import "./features/workflow/preview.css";
+@import "./features/workflow/read-preview.css";
+@import "./features/workflow/responsive.css";
+@import "./features/workflow/skill-tab.css";
 @import "./features/versions/version-upload.css";
 @import "./features/versions/version-diff.css";
 @import "./features/evaluation/history.css";

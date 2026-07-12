@@ -8,8 +8,10 @@
 - `auth.py`：解析普通 actor、后台密钥等 HTTP 身份输入。
 - `dependencies.py`：创建数据库 engine、store 和 service 依赖。
 - `opencode.py`：提供 Opencode provider/model 配置的脱敏代理接口。
-- `schemas.py`：HTTP request/response schema，保持 API contract 稳定。
+- `schemas.py`：HTTP schema 兼容导出，保持 API contract 和既有 import 路径稳定。
+- `request_models/`：按资源域组织的 Pydantic request schema；新增字段优先放入对应资源模块。
 - `responses.py`：把领域对象和 service 返回值转换成 HTTP 响应结构。
+- `workflows.py`：提供 Workflow Skill 创建、文档保存、Import Bundle 导入、元信息、Collection Catalog 和同步接口。
 - 其他业务文件：按资源组织 endpoint，例如 `skills.py`、`evaluations.py`、`reviews.py`。
 
 ## 依赖方向
@@ -31,7 +33,7 @@ views -> models.entities/errors/rules
 
 ## 修改规则
 
-- 修改请求体或响应体时，同步更新 `schemas.py`、`responses.py` 和相关测试。
+- 修改请求体或响应体时，同步更新 `request_models/` 中的资源模块、`schemas.py` 兼容导出、`responses.py` 和相关测试。
 - 新增路由文件后，在 `__init__.py` 注册。
 - 保持错误返回通过统一异常处理和现有响应格式，不在 endpoint 中临时拼不同格式。
 - 不恢复 `api/routes` 旧目录。

@@ -15,6 +15,9 @@
 | `AcceptedVerification` | 把一次 finished run 接受为当前上下文验证依据。 |
 | `RoleAssignment` | Skill 作用域授权。 |
 | `AuditEvent` | append-only 治理事实。 |
+| `Workflow` | 与 Skill 永久一对一绑定的最新作者文档。 |
+| `WorkflowSync` | 某个 Workflow revision 生成 SkillVersion 时的精确源快照和追溯记录。 |
+| `CollectionDefinition` | 全局共享采集定义；同一 ID 下 revision 不可变。 |
 
 ## 关键字段
 
@@ -41,6 +44,7 @@
 - `bundle_files`
 - `created_at`
 - `created_by`
+- `workflow_sync`：如果该版本由 Workflow 生成，返回 `workflow_id/workflow_revision/generator_version/created_at`。
 
 `version_number` 仅作为历史兼容和创建顺序号保留；产品展示、创建新版本和 API 使用方应以 `version` 为准。
 创建初始 SkillVersion 时可传 `version`，不传默认 `0.0.1`。追加版本时可传目标 SemVer，不传时后端自动增加 patch。
@@ -77,6 +81,8 @@
 | --- | --- | --- |
 | `role.manage` | `owner` | 管理 skill role assignment。 |
 | `verification.accept` | `owner` 或 `maintainer` | 接受一次 EvalRun 为验证依据。 |
+| `skill.edit` | `owner`、`maintainer` 或 `admin` | 保存 Workflow 和 Workflow 元信息。 |
+| `skill.version.create` | `owner`、`maintainer` 或 `admin` | 同步 Workflow 或重新激活其生成版本。 |
 
 ## 字段校验
 
@@ -115,6 +121,8 @@
 | `GET /api/eval-cases/{case_id}/versions` | 某个 case 的历史版本。 |
 | `GET /api/artifacts/diff` | 两个 SkillVersion bundle 的真实 diff。 |
 | `GET /api/skills/{skill_id}/saved-views` | Saved view 列表。 |
+| `GET /api/skills/{skill_id}/workflow` | Workflow 当前文档、revision、校验、同步状态、保存信息和 capabilities。 |
+| `GET /api/skills/{skill_id}/workflow/collections` | 全局 Collection Catalog 最新 revisions。 |
 
 ## 写入接口
 
@@ -139,6 +147,65 @@
 | `POST /api/eval-runs/accepted-verifications` | 接受一次 finished run 为验证依据。 |
 | `POST /api/saved-views` | 保存历史或 matrix 视图配置。 |
 | `DELETE /api/saved-views/{id}` | 删除 saved view。 |
+| `POST /api/workflows` | 原子创建 Workflow Skill、`0.0.1` 空白版本、Primary EvalSet、角色、Tag 和 Workflow revision 1。 |
+| `PUT /api/skills/{skill_id}/workflow` | 显式保存 Workflow 文档和本次 CollectionChanges。 |
+| `POST /api/skills/{skill_id}/workflow/import` | 使用专用 Import Bundle 覆盖 Workflow，并为全部导入 Collection 创建独立身份。 |
+| `PATCH /api/skills/{skill_id}/workflow/metadata` | 显式保存 Workflow 元信息。 |
+| `POST /api/skills/{skill_id}/workflow/sync` | 将当前 Workflow revision 完整转换为新的 SkillVersion，或重新激活已生成版本。 |
+
+## Workflow 接口约束
+
+`POST /api/workflows`：
+
+```json
+{
+  "slug": "interface-check",
+  "owner_ref": "network-team",
+  "description": "检查网络接口状态。",
+  "tags": [{ "group_id": "domain", "value": "network" }]
+}
+```
+
+创建后 Workflow 与 Skill 永久绑定。初始 `SKILL.md` 只有安全 YAML frontmatter，初始版本号固定为 `0.0.1`。
+
+`PUT /api/skills/{skill_id}/workflow`：
+
+```json
+{
+  "document": { "documentType": "workflow_bundle", "workflow": {}, "collectionSnapshots": [] },
+  "collection_changes": [
+    { "operation": "create", "definition": {} },
+    { "operation": "revise", "definition": {} },
+    { "operation": "fork", "definition": {} }
+  ]
+}
+```
+
+Workflow 文档当前只接受 `document_schema_version = 2` 对应的结构：Step、Conclusion 和 Transition 不包含 `key`，Transition 只包含 `id/target/conditionText/conditionExpression`，其中 `target` 只包含节点 `id`。开发阶段不兼容旧结构。
+
+- 服务端执行最后写入者覆盖，不接收 `expected_revision`。
+- 相同文档且没有 Collection 变更时不增加 revision。
+- 结构错误拒绝保存；领域 `error/warning` 可保存为草稿。
+- CollectionChanges 与 Workflow 在同一事务提交，服务端返回规范化文档和正式 revision。
+- 步骤内新建采集仍使用 `operation: "create"`，不存在独立即时入库接口。
+- 参数 Key/名称、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与当前步骤输入、全局输入或其他直接暴露输出冲突则阻止同步。
+
+`POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
+
+`POST /api/skills/{skill_id}/workflow/sync`：
+
+```json
+{
+  "version": "0.0.2",
+  "display_name": "Workflow v2",
+  "change_summary": "从 Workflow 同步接口排查流程。"
+}
+```
+
+- 存在校验 `error` 时返回业务错误；`warning` 不阻止同步。
+- 同一 Workflow revision 只生成一次 SkillVersion。
+- 已生成版本不是当前版本时返回 `mode: "reactivated"`；已经是当前版本时返回 `mode: "already_current"`。
+- 新 revision 成功生成时返回 `mode: "created"`。
 
 ## EvalRun 写入约束
 

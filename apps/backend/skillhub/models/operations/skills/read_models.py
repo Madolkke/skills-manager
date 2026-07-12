@@ -24,6 +24,7 @@ class ReadModelMixin:
                 {
                     "skill": self._skill_record(connection, row),
                     "summary": self._skill_summary(connection, row),
+                    "workflow": self._workflow_summary(connection, row),
                 }
                 for row in rows
             ]
@@ -73,6 +74,7 @@ class ReadModelMixin:
                 "role_assignments": role_assignments,
                 "audit_events": audit_events,
                 "capabilities": capabilities,
+                "workflow": self._workflow_summary(connection, skill),
             }
 
     def _skill_summary(self, connection, skill) -> dict[str, Any]:
@@ -118,6 +120,15 @@ class ReadModelMixin:
 
     def _skill_version_detail(self, connection, version) -> dict[str, Any]:
         detail = self._row_dict(version)
+        workflow_sync = connection.execute(
+            select(
+                tables.workflow_syncs.c.workflow_id,
+                tables.workflow_syncs.c.workflow_revision,
+                tables.workflow_syncs.c.generator_version,
+                tables.workflow_syncs.c.created_at,
+            ).where(tables.workflow_syncs.c.skill_version_id == version["id"])
+        ).mappings().one_or_none()
+        detail["workflow_sync"] = self._row_dict(workflow_sync) if workflow_sync is not None else None
         content_ref = detail.get("content_ref") or {}
         if not isinstance(content_ref, dict):
             return detail

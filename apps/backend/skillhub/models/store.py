@@ -8,6 +8,7 @@ from skillhub.models.operations.reviews import ReviewStoreMixin
 from skillhub.models.operations.saved_views import SavedViewStoreMixin
 from skillhub.models.operations.shared import SharedStoreMixin
 from skillhub.models.operations.workers import WorkerStatusMixin
+from skillhub.models.operations.workflows import WorkflowStoreMixin
 from skillhub.models.operations.shared.errors import skill_slug_conflict
 from skillhub.models.operations.shared.results import (
     CreateEvalCaseResult,
@@ -33,6 +34,7 @@ class SkillHubStore(
     BundleStoreMixin,
     SkillBuilderStoreMixin,
     WorkerStatusMixin,
+    WorkflowStoreMixin,
     SharedStoreMixin,
 ):
     pass

@@ -15,6 +15,7 @@ export type SkillVersion = {
   created_by: string;
   bundle_artifact?: ArtifactRef;
   bundle_files?: BundleFile[];
+  workflow_sync?: { workflow_id: string; workflow_revision: number; generator_version: string; created_at: string } | null;
 };
 
 export type SkillRecord = {
@@ -116,6 +117,7 @@ export type SkillSummary = {
     primary_eval_set: EvalSetSummary | null;
     latest_accepted_eval_run: EvalRunRecord | null;
   };
+  workflow: import("./workflow").WorkflowSummary | null;
 };
 
 export type SkillDetail = {
@@ -127,4 +129,5 @@ export type SkillDetail = {
   role_assignments: RoleAssignment[];
   audit_events: unknown[];
   capabilities: SkillCapabilities | null;
+  workflow: import("./workflow").WorkflowSummary | null;
 };

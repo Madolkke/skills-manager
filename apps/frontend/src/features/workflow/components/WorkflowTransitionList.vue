@@ -1,0 +1,47 @@
+<script setup lang="ts">
+import { ArrowUpRight, ChevronDown, ChevronUp, Trash2 } from "lucide-vue-next";
+import { nextTick, ref } from "vue";
+import type { WorkflowBundle, WorkflowStep } from "../../../types";
+import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
+import WorkflowPathTargetPicker from "./WorkflowPathTargetPicker.vue";
+
+const props = defineProps<{ step: WorkflowStep; bundle: WorkflowBundle; readonly: boolean }>();
+const emit = defineEmits<{
+  add: [choice: WorkflowPathTargetChoice];
+  retarget: [id: string, choice: WorkflowPathTargetChoice];
+  change: [id: string, patch: Record<string, unknown>];
+  remove: [id: string];
+  move: [id: string, direction: -1 | 1];
+  "open-target": [id: string];
+}>();
+const root = ref<HTMLElement | null>(null);
+
+async function add(choice: WorkflowPathTargetChoice): Promise<void> {
+  emit("add", choice);
+  await nextTick();
+  const pathId = props.step.topology.at(-1)?.id;
+  if (!pathId) return;
+  const card = root.value?.querySelector<HTMLElement>(`[data-path-id="${CSS.escape(pathId)}"]`);
+  card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  card?.querySelector<HTMLInputElement>("[data-path-condition]")?.focus();
+}
+</script>
+
+<template>
+  <section ref="root" class="workflow-step-section">
+    <div class="workflow-subhead">
+      <div><h3>跳转到节点</h3><p>按作者顺序列出可能的跳转，不表达执行优先级。</p></div>
+      <WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" variant="add" :readonly="props.readonly" @select="add" />
+    </div>
+    <article v-for="(item, index) in props.step.topology" :key="item.id" :data-path-id="item.id" class="workflow-transition-card">
+      <div class="workflow-transition-order"><button class="icon-button mini" type="button" aria-label="上移路径" :disabled="props.readonly || index === 0" @click="emit('move', item.id, -1)"><ChevronUp :size="14" /></button><button class="icon-button mini" type="button" aria-label="下移路径" :disabled="props.readonly || index === props.step.topology.length - 1" @click="emit('move', item.id, 1)"><ChevronDown :size="14" /></button></div>
+      <div class="workflow-form-grid compact-grid">
+        <div class="field-label span-2"><span>目标节点</span><div class="workflow-path-target-row"><WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" :current-target-id="item.target.id" variant="target" :readonly="props.readonly" @select="emit('retarget', item.id, $event)" /><button class="icon-button" type="button" title="打开目标节点" aria-label="打开目标节点" @click="emit('open-target', item.target.id)"><ArrowUpRight :size="15" /></button></div></div>
+        <label class="field-label span-2"><span>条件说明</span><input data-path-condition :value="item.conditionText" :disabled="props.readonly" placeholder="留空表示无条件跳转" @input="emit('change', item.id, { conditionText: ($event.target as HTMLInputElement).value })" /></label>
+        <label class="field-label span-2"><span>条件表达式</span><input class="workflow-code-input workflow-command-input" :value="item.conditionExpression" :disabled="props.readonly" placeholder="可选的机器可读表达式" @input="emit('change', item.id, { conditionExpression: ($event.target as HTMLInputElement).value })" /></label>
+      </div>
+      <button class="icon-button mini danger" type="button" aria-label="删除路径" :disabled="props.readonly" @click="emit('remove', item.id)"><Trash2 :size="14" /></button>
+    </article>
+    <div v-if="props.step.topology.length === 0" class="workflow-empty workflow-transition-empty">尚未声明跳转，可连接已有节点或直接创建下一步。</div>
+  </section>
+</template>

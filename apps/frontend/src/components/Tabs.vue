@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import clsx from "clsx";
+import { computed } from "vue";
 import type { SkillTab } from "../lib/navigation";
 
-const props = defineProps<{ active: SkillTab }>();
+const props = withDefaults(defineProps<{ active: SkillTab; hasWorkflow?: boolean }>(), { hasWorkflow: false });
 const emit = defineEmits<{ change: [tab: SkillTab] }>();
 
 const labels: Record<SkillTab, string> = {
   overview: "概览",
+  workflow: "工作流",
   versions: "版本",
   evalsets: "测评集",
   evaluate: "测评",
@@ -16,7 +18,7 @@ const labels: Record<SkillTab, string> = {
   settings: "设置",
 };
 
-const tabs = Object.keys(labels) as SkillTab[];
+const tabs = computed(() => (Object.keys(labels) as SkillTab[]).filter((tab) => tab !== "workflow" || props.hasWorkflow));
 </script>
 
 <template>

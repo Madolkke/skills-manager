@@ -41,6 +41,11 @@ import type {
   ReviewRequest,
   ReviewSubject,
   WorkerStatusOverview,
+  CollectionDefinition,
+  WorkflowCollectionChange,
+  WorkflowDetail,
+  WorkflowMetadata,
+  WorkflowSyncResult,
 } from "../types";
 import { getActorId } from "./identity";
 
@@ -105,6 +110,17 @@ function skillApi() {
     getSkill: (skillId: string) => apiGet<SkillDetail>(`/api/skills/${skillId}`),
     importSkill: (payload: { owner_ref: string; source: BundleSource; version?: string; tags?: SkillTagPayload[] }) =>
       apiSend<{ skill_id: string; skill_version_id: string }>("/api/skill-imports", "POST", payload),
+    createWorkflowSkill: (payload: { slug: string; owner_ref: string; description: string; tags?: SkillTagPayload[] }) =>
+      apiSend<{ skill_id: string; skill_version_id: string; workflow_id: string }>("/api/workflows", "POST", payload),
+    getWorkflow: (skillId: string) => apiGet<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow`),
+    saveWorkflow: (skillId: string, payload: { document: WorkflowDetail["document"]; collection_changes: WorkflowCollectionChange[] }) =>
+      apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow`, "PUT", payload),
+    updateWorkflowMetadata: (skillId: string, payload: WorkflowMetadata) =>
+      apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/metadata`, "PATCH", payload),
+    listWorkflowCollections: (skillId: string) =>
+      apiGet<{ definitions: CollectionDefinition[] }>(`/api/skills/${encodeURIComponent(skillId)}/workflow/collections`),
+    syncWorkflow: (skillId: string, payload: { version: string; display_name?: string; change_summary: string }) =>
+      apiSend<WorkflowSyncResult>(`/api/skills/${encodeURIComponent(skillId)}/workflow/sync`, "POST", payload),
     listSkillBuilderSessions: () => apiGet<SkillBuilderSession[]>("/api/skill-builder/sessions"),
     createSkillBuilderSession: (payload: SkillBuilderCreateSessionPayload) =>
       apiSend<SkillBuilderSession>("/api/skill-builder/sessions", "POST", payload),
@@ -331,7 +347,7 @@ async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T>
   return response.json() as Promise<T>;
 }
 
-async function apiSend<T>(path: string, method: "POST" | "PATCH", body: unknown, options: RequestOptions = {}): Promise<T> {
+async function apiSend<T>(path: string, method: "POST" | "PATCH" | "PUT", body: unknown, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     credentials: "include",

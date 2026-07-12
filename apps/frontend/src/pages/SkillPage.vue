@@ -13,12 +13,14 @@ import ReviewPage from "./ReviewPage.vue";
 import SettingsPage from "./SettingsPage.vue";
 import UploadVersionModal from "./UploadVersionModal.vue";
 import VersionsPage from "./VersionsPage.vue";
+import WorkflowTab from "./WorkflowTab.vue";
 
 const props = defineProps<{ skill: SkillDetail; tab: SkillTab; route: RouteState }>();
 const emit = defineEmits<{
   tab: [tab: SkillTab];
   refresh: [];
   navigate: [next: Partial<RouteState>];
+  dirty: [dirty: boolean];
   toast: [toast: ToastState];
 }>();
 
@@ -27,6 +29,7 @@ const canUploadVersion = computed(() => (props.tab === "overview" || props.tab =
 
 watch(() => [props.skill.skill.id, props.tab] as const, () => {
   uploadOpen.value = false;
+  if (props.tab === "workflow" && !props.skill.workflow) emit("tab", "overview");
 });
 
 function finishUpload(): void {
@@ -39,7 +42,7 @@ function finishUpload(): void {
 <template>
   <div class="skill-page">
     <div class="skill-nav-row">
-      <SkillTabs :active="tab" @change="emit('tab', $event)" />
+      <SkillTabs :active="tab" :has-workflow="Boolean(skill.workflow)" @change="emit('tab', $event)" />
       <button v-if="canUploadVersion" class="primary-button" type="button" @click="uploadOpen = true">
         <Upload :size="17" />
         上传版本
@@ -48,6 +51,15 @@ function finishUpload(): void {
 
     <Transition name="fade-slide" mode="out-in">
       <OverviewPage v-if="tab === 'overview'" key="overview" :skill="skill" @navigate="emit('navigate', $event)" />
+      <WorkflowTab
+        v-else-if="tab === 'workflow' && skill.workflow"
+        key="workflow"
+        :skill="skill"
+        @open="emit('navigate', { section: 'workflows', skillId: skill.skill.id, tab: 'workflow' })"
+        @refresh="emit('refresh')"
+        @dirty="emit('dirty', $event)"
+        @toast="emit('toast', $event)"
+      />
       <VersionsPage
         v-else-if="tab === 'versions'"
         key="versions"

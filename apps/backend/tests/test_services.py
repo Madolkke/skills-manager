@@ -7,7 +7,7 @@ import pytest
 from skillhub.models.errors import FieldInvariantError, InvariantError, PermissionDeniedError
 from skillhub.models.entities import ContentRef
 from skillhub.models.operations.shared.results import CreateSkillResult, CreateSkillVersionResult
-from skillhub.services import AdminService, EvaluationService, ExternalSkillService, ReviewService, SavedViewService, SkillService, VersionService
+from skillhub.services import AdminService, EvaluationService, ExternalSkillService, ReviewService, SavedViewService, SkillService, VersionService, WorkflowService
 from skillhub.services.opencode import sanitize_opencode_providers
 
 
@@ -912,3 +912,36 @@ def test_evaluation_service_aggregates_from_snapshot_decision() -> None:
     assert result["case_results"][0]["case_version_id"] == "casever_1"
     assert [name for name, _ in store.calls] == ["eval_run_aggregation_snapshot", "insert_aggregated_eval_run"]
     assert store.calls[1][1]["environment_tags"] == ["linux"]
+
+
+def test_workflow_service_import_returns_detail_and_collection_mappings() -> None:
+    class WorkflowImportStore:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict]] = []
+
+        def import_workflow_bundle(self, **kwargs):
+            self.calls.append(("import_workflow_bundle", kwargs))
+            return {"revision": 2, "collection_mappings": [{"local_id": "status", "definition_id": "collection_1", "revision": 1}]}
+
+        def workflow_detail(self, **kwargs):
+            self.calls.append(("workflow_detail", kwargs))
+            return {"id": "workflow_1", "revision": 2, "document": {"documentType": "workflow_bundle"}}
+
+    store = WorkflowImportStore()
+    service = WorkflowService(store)  # type: ignore[arg-type]
+    bundle = {
+        "documentType": "workflow_import_bundle",
+        "workflow": {
+            "metadata": {"name": "Imported", "code": "", "description": "Draft", "industry": "", "device": "", "versions": []},
+            "inputs": [],
+            "deviceRoles": [],
+            "nodes": [],
+        },
+        "collections": [],
+    }
+
+    result = service.import_workflow_bundle(skill_id="skill_1", bundle=bundle, actor="owner")
+
+    assert result["revision"] == 2
+    assert result["import_result"]["collection_mappings"][0]["definition_id"] == "collection_1"
+    assert [name for name, _ in store.calls] == ["import_workflow_bundle", "workflow_detail"]

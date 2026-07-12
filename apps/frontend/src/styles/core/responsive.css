@@ -13,7 +13,7 @@
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 
-  .skill-grid.list-view .skill-card {
+  .skill-grid.list-view .skill-card-main {
     grid-template-columns: 1fr;
   }
 

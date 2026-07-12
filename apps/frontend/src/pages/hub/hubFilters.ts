@@ -2,7 +2,7 @@ import { scoreKind } from "../../lib/format";
 import { tagKey, tagLabel } from "../../lib/skillTags";
 import type { SkillSummary, SkillTag, SkillTagPayload, TagGroup, TagValueOption } from "../../types";
 
-export type FilterKey = "all" | "verified" | "untested" | "mine";
+export type FilterKey = "all" | "workflow" | "verified" | "untested" | "mine";
 export type SortKey = "updated" | "score" | "name";
 export type ViewMode = "grid" | "list";
 export type TagCountMap = Record<string, number>;
@@ -22,6 +22,7 @@ export function filterSkills(
   return skills.filter((item) => {
     if (normalized && !skillSearchText(item, options.tagGroups).includes(normalized)) return false;
     if (!matchesSelectedTags(item, selectedByGroup)) return false;
+    if (options.filter === "workflow") return Boolean(item.workflow);
     if (options.filter === "verified") return scoreKind(item.summary.latest_accepted_eval_run) !== "empty";
     if (options.filter === "untested") return scoreKind(item.summary.latest_accepted_eval_run) === "empty";
     if (options.filter === "mine") return item.skill.owner_ref === options.actor;
@@ -32,6 +33,7 @@ export function filterSkills(
 export function skillCounts(skills: SkillSummary[], actor: string) {
   return {
     all: skills.length,
+    workflow: skills.filter((item) => Boolean(item.workflow)).length,
     verified: skills.filter((item) => scoreKind(item.summary.latest_accepted_eval_run) !== "empty").length,
     untested: skills.filter((item) => scoreKind(item.summary.latest_accepted_eval_run) === "empty").length,
     mine: skills.filter((item) => item.skill.owner_ref === actor).length,

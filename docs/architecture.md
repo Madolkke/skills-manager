@@ -1,6 +1,6 @@
 # SkillHub 架构说明
 
-本文档描述当前正式版工程架构。核心模型是 `Skill -> SkillVersion -> EvalRun(context) + EvalSetVersion`：内容版本保持不可变，运行环境差异只记录在每一次测评运行上。
+本文档描述当前正式版工程架构。核心模型是 `Skill -> SkillVersion -> EvalRun(context) + EvalSetVersion`；可选的 Workflow 与 Skill 永久一对一绑定，并单向生成不可变 SkillVersion。
 
 ## 1. 产品目标
 
@@ -58,6 +58,10 @@ erDiagram
   EvalRun ||--o{ CaseResult : has
   EvalCaseVersion ||--o{ CaseResult : result_for
   EvalRun ||--o| AcceptedVerification : accepted_as
+  Skill ||--o| Workflow : binds
+  Workflow ||--o{ WorkflowSync : generates
+  WorkflowSync }o--|| SkillVersion : materializes
+  Workflow ||--o{ CollectionRevision : snapshots
 ```
 
 关键语义：
@@ -69,6 +73,18 @@ erDiagram
 - `EvalRun` 是一次 exact `SkillVersion + EvalSetVersion + run_context` 的证据。
 - `CaseResult` 只记录该 run 下某个 case version 的最终结果和 actual output artifact。
 - `AcceptedVerification` 指向一次 finished run，并按 `run_context_hash` 区分不同运行环境。
+- `Workflow` 只保存最新作者文档，通过显式保存增加 revision。
+- `WorkflowSync` 保存精确源快照并绑定生成的 SkillVersion；同一 Workflow revision 最多同步一次。
+- `CollectionRevision` 是全局 Catalog 中不可变的采集定义版本，WorkflowBundle 只携带直接引用的精确快照。
+
+### Workflow 边界
+
+- Workflow 只能在 Skill 创建时绑定，不支持独立存在、解绑或换绑。
+- Skill 仍是 owner、平台 Tag、权限和生命周期的唯一真源。
+- Workflow 保存与同步是两个独立显式操作；dirty 文档不能同步。
+- 保存允许领域错误草稿，语义 `error` 阻止同步，`warning` 不阻止。
+- 同步使用后端纯转换器完整生成单文件 `SKILL.md`，不合并当前手工版本。
+- Workflow 后端通过独立 `WorkflowService`、`models.operations.workflows` 和 `models.rules.workflows` 实现。
 
 ## 4. 数据所有权
 
@@ -139,6 +155,7 @@ apps/backend/skillhub/
     reviews.py
     admin.py
     external.py
+    workflows.py
   models/
     entities.py
     errors.py
@@ -158,6 +175,7 @@ apps/backend/skillhub/
       evaluations/
       reviews/
       history/
+      workflows/
       shared/
     # 领域模型、纯规则、数据库结构和事务内数据访问
 ```
@@ -174,6 +192,9 @@ apps/backend/skillhub/
 | `models.operations` | 按业务域组织的事务内 SQL 读写操作 |
 | `models.store.SkillHubStore` | 统一数据访问入口，组合各业务域 operations；service 直接依赖它 |
 | `views.schemas` | HTTP request/response schema，保持对外 API contract 稳定 |
+| `services.workflows` | 编排 Workflow Skill 创建、显式保存、元信息更新和同步生成 SkillVersion |
+| `models.rules.workflows` | Workflow 严格结构、领域校验和确定性 SKILL.md 转换器 |
+| `models.operations.workflows` | Workflow、WorkflowSync 和 Collection Catalog 的事务内读写 |
 
 依赖方向固定为：
 

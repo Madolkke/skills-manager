@@ -1,0 +1,195 @@
+.workflow-sidebar {
+  padding: 14px 10px 28px;
+  border-right: 1px solid #dbe2eb;
+  background: #f6f8fb;
+}
+
+.workflow-sidebar-search {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 3px 8px;
+  padding: 0 9px;
+  border: 1px solid #d7e0eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #77869a;
+}
+
+.workflow-sidebar-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #263348;
+  font-size: 12px;
+}
+
+.workflow-sidebar-section {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid #e1e7ef;
+}
+
+.workflow-sidebar-section:last-child { border-bottom: 0; }
+
+.workflow-sidebar-label {
+  min-height: 28px;
+  padding: 0 9px;
+  color: #7b8899;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.workflow-sidebar-item {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #425168;
+  text-align: left;
+}
+
+.workflow-sidebar-item:hover,
+.workflow-sidebar-item.active {
+  border-color: #c9d9ee;
+  background: #fff;
+  color: #245b9d;
+}
+
+.workflow-sidebar-item span,
+.workflow-sidebar-node-main strong,
+.workflow-sidebar-node-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-sidebar-item small { color: #8592a3; font-size: 10px; }
+
+.workflow-sidebar-heading {
+  min-height: 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 3px;
+}
+
+.workflow-sidebar-toggle,
+.workflow-sidebar-add {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #5a687b;
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.workflow-sidebar-toggle { justify-content: flex-start; }
+.workflow-sidebar-toggle small { color: #8a96a6; }
+.workflow-sidebar-add { justify-content: center; color: #2864aa; }
+.workflow-sidebar-add:hover:not(:disabled) { background: #e8f1fc; }
+.workflow-sidebar-node-list { display: grid; gap: 4px; }
+
+.workflow-sidebar-node {
+  min-height: 46px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.workflow-sidebar-node:hover,
+.workflow-sidebar-node.active {
+  border-color: #c7d8ed;
+  background: #fff;
+  box-shadow: 0 2px 7px rgb(38 59 88 / 5%);
+}
+
+.workflow-drag-handle {
+  width: 20px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #a1adbc;
+  cursor: grab;
+}
+
+.workflow-drag-handle:disabled { cursor: default; opacity: .45; }
+
+.workflow-sidebar-node-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: #344258;
+  text-align: left;
+}
+
+.workflow-sidebar-node-main > span:nth-child(2) { min-width: 0; display: grid; }
+.workflow-sidebar-node-main strong { font-size: 12px; }
+.workflow-sidebar-node-main small { color: #8592a3; font-size: 10px; }
+
+.workflow-node-kind {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: #eaf2fc;
+  color: #2d67aa;
+}
+
+.workflow-node-kind.conclusion { background: #eaf7f0; color: #287453; }
+
+.workflow-sidebar-node-main i,
+.workflow-node-issue {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-style: normal;
+}
+
+.workflow-sidebar-node-main i { color: #2d67aa; }
+.workflow-node-issue { color: #b33f38; font-size: 10px; }
+.workflow-sidebar-node-actions { display: none; padding-right: 3px; }
+.workflow-sidebar-node:hover .workflow-sidebar-node-actions { display: flex; }
+
+.workflow-sidebar-node-actions button {
+  width: 22px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #66758a;
+}
+
+.workflow-sidebar-node-actions button:hover:not(:disabled) { background: #edf3fa; }
+.workflow-sidebar-empty { padding: 8px; color: #8a96a6; font-size: 11px; }

@@ -23,7 +23,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 metadata = MetaData()
 
 # This metadata backs application queries and PostgreSQL integration tests.
-# PostgreSQL migrations still execute schema.sql as the authoritative DDL.
+# Startup applies metadata first and then runs the idempotent patches in sync.py.
+# schema.sql is the checked-in contract fixture used by schema tests and deployments.
 
 
 def timestamp_column(name: str = "created_at") -> Column[DateTime]:
@@ -83,6 +84,70 @@ skill_versions = Table(
 
 skills.append_constraint(
     ForeignKeyConstraint(["current_version_id", "id"], ["skill_versions.id", "skill_versions.skill_id"], name="skills_current_version_fkey")
+)
+
+workflows = Table(
+    "workflows",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("skill_id", Text, ForeignKey("skills.id"), nullable=False),
+    Column("revision", Integer, nullable=False, server_default=text("1")),
+    Column("document_schema_version", Integer, nullable=False, server_default=text("2")),
+    Column("document", JSONB(), nullable=False),
+    Column("document_digest", Text, nullable=False),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+    Column("last_saved_by", Text, nullable=False),
+    CheckConstraint("revision > 0", name="workflows_revision_positive"),
+    CheckConstraint("document_schema_version > 0", name="workflows_schema_version_positive"),
+    CheckConstraint("jsonb_typeof(document) = 'object'", name="workflows_document_object"),
+    UniqueConstraint("skill_id", name="workflows_skill_unique"),
+)
+
+workflow_collection_definitions = Table(
+    "workflow_collection_definitions",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("latest_revision", Integer, nullable=False, server_default=text("1")),
+    timestamp_column(),
+    timestamp_column("updated_at"),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("latest_revision > 0", name="workflow_collection_definitions_revision_positive"),
+)
+
+workflow_collection_revisions = Table(
+    "workflow_collection_revisions",
+    metadata,
+    Column("definition_id", Text, ForeignKey("workflow_collection_definitions.id"), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("document_schema_version", Integer, nullable=False, server_default=text("2")),
+    Column("definition", JSONB(), nullable=False),
+    Column("definition_digest", Text, nullable=False),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    PrimaryKeyConstraint("definition_id", "revision"),
+    CheckConstraint("revision > 0", name="workflow_collection_revisions_revision_positive"),
+    CheckConstraint("document_schema_version > 0", name="workflow_collection_revisions_schema_version_positive"),
+    CheckConstraint("jsonb_typeof(definition) = 'object'", name="workflow_collection_revisions_definition_object"),
+)
+
+workflow_syncs = Table(
+    "workflow_syncs",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("workflow_id", Text, ForeignKey("workflows.id"), nullable=False),
+    Column("workflow_revision", Integer, nullable=False),
+    Column("document_schema_version", Integer, nullable=False),
+    Column("source_artifact_id", Text, ForeignKey("artifacts.id"), nullable=False),
+    Column("skill_version_id", Text, ForeignKey("skill_versions.id"), nullable=False),
+    Column("generator_version", Text, nullable=False),
+    timestamp_column(),
+    Column("created_by", Text, nullable=False),
+    CheckConstraint("workflow_revision > 0", name="workflow_syncs_revision_positive"),
+    CheckConstraint("document_schema_version > 0", name="workflow_syncs_schema_version_positive"),
+    UniqueConstraint("workflow_id", "workflow_revision", name="workflow_syncs_workflow_revision_unique"),
+    UniqueConstraint("skill_version_id", name="workflow_syncs_skill_version_unique"),
 )
 
 eval_sets = Table(

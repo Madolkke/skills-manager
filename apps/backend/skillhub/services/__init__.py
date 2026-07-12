@@ -10,6 +10,7 @@ from .saved_views import SavedViewService
 from .skill_builder import SkillBuilderService
 from .skills import SkillService
 from .versions import VersionService
+from .workflows import WorkflowService
 
 __all__ = [
     "AdminService",
@@ -23,4 +24,5 @@ __all__ = [
     "SkillBuilderService",
     "SkillService",
     "VersionService",
+    "WorkflowService",
 ]

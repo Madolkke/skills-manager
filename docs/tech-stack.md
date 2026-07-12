@@ -10,6 +10,9 @@
 | 数据层 | SQLAlchemy 2 | PostgreSQL-only schema 和 store。 |
 | 本地数据库 | PostgreSQL | 通过 `SKILLHUB_DATABASE_URL` 注入连接串，启动时创建 schema。 |
 | Web | Vue + Vite + TypeScript | Web 正式工作台，入口为 `apps/frontend`。 |
+| Workflow 图谱 | Vue Flow + ELK.js | 只读拓扑投影和确定性分层布局。 |
+| Workflow 结构校验 | Pydantic v2 + Zod | 后端持久化契约与前端即时校验镜像。 |
+| Skill 生成 | PyYAML + 纯 Python renderer | 安全 frontmatter 和确定性单文件 `SKILL.md`。 |
 | UI 组件 | 本地组件 + CSS 分层 | Hub、版本、测评集、测评、历史和 diff 页面。 |
 | 测试 | pytest、Vitest、ESLint | API、Web 单元、lint 和 build。 |
 | 内容存储 | 数据库内 artifact 记录 | 保存标准 Skill bundle、case input、expected output 和 actual output。 |
@@ -21,6 +24,7 @@
 - 运行环境标签只属于 `EvalRun.environment_tags` 和 `EvalRun.run_context`。
 - Bundle diff 只比较同一 Skill 下两个 `SkillVersion` 的不可变 bundle artifact。
 - `AcceptedVerification` 按 `skill_id + skill_version_id + eval_set_version_id + run_context_hash` 收口。
+- Workflow 与 Skill 永久一对一绑定，只能单向生成 SkillVersion；编辑器显式保存且不使用浏览器本地持久化。
 
 ## 本地优先原则
 

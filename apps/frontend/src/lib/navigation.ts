@@ -1,6 +1,6 @@
 export type AppSection = "hub" | "skills" | "workflows" | "admin" | "my-reviews" | "skill-builder";
 
-export type SkillTab = "overview" | "versions" | "evalsets" | "evaluate" | "history" | "reviews" | "publish" | "settings";
+export type SkillTab = "overview" | "workflow" | "versions" | "evalsets" | "evaluate" | "history" | "reviews" | "publish" | "settings";
 
 export type RouteState = {
   section: AppSection;
@@ -125,12 +125,13 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
 }
 
 function normalizeSection(value: string | null, skillId: string | null): AppSection {
-  if (value === "skills" || value === "workflows" || value === "my-reviews" || value === "skill-builder") return value;
+  if (value === "workflows") return skillId ? "workflows" : "hub";
+  if (value === "skills" || value === "my-reviews" || value === "skill-builder") return value;
   if (skillId) return "skills";
   return "hub";
 }
 
 function normalizeTab(value: string | null): SkillTab {
-  if (value === "versions" || value === "evalsets" || value === "evaluate" || value === "history" || value === "reviews" || value === "publish" || value === "settings") return value;
+  if (value === "workflow" || value === "versions" || value === "evalsets" || value === "evaluate" || value === "history" || value === "reviews" || value === "publish" || value === "settings") return value;
   return "overview";
 }
