@@ -133,17 +133,23 @@ class FakeOpencodeClient:
 
 
 class FakeLaminarClient:
-    def __init__(self) -> None:
+    def __init__(self, *, create_error: str | None = None, update_error: str | None = None) -> None:
         self.executor_output: dict[str, Any] | None = None
         self.scores: dict[str, Any] | None = None
+        self.create_error = create_error
+        self.update_error = update_error
+        self.update_count = 0
 
     def create_eval_datapoint(self, *, name: str, data: dict[str, Any], target: dict[str, Any], metadata: dict[str, Any]) -> LaminarEvalRefs:
+        if self.create_error:
+            return LaminarEvalRefs(configured=True, error=self.create_error)
         return LaminarEvalRefs(configured=True, evaluation_id="11111111-1111-1111-1111-111111111111", datapoint_id="22222222-2222-2222-2222-222222222222")
 
-    def update_datapoint(self, *, refs: LaminarEvalRefs, executor_output: dict[str, Any], scores: dict[str, Any], metadata: dict[str, Any]) -> None:
+    def update_datapoint(self, *, refs: LaminarEvalRefs, executor_output: dict[str, Any], scores: dict[str, Any], metadata: dict[str, Any]) -> str | None:
+        self.update_count += 1
         self.executor_output = executor_output
         self.scores = scores
-        return None
+        return self.update_error
 
 
 def test_run_once_evaluates_all_assertions_in_one_step(tmp_path: Path):

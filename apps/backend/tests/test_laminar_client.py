@@ -74,7 +74,12 @@ def test_laminar_client_uses_sdk_evals(monkeypatch):
     client = laminar_client.LaminarClient(base_url="http://localhost", project_api_key="key", http_port=8000, timeout_seconds=30)
 
     refs = client.create_eval_datapoint(name="eval", data={"case": 1}, target={"pass": True}, metadata={"run": "r1"})
-    error = client.update_datapoint(refs=refs, executor_output={"steps": []}, scores={"passed": 1}, metadata={"run": "r1"})
+    error = client.update_datapoint(
+        refs=refs,
+        executor_output={"steps": []},
+        scores={"passed": 1},
+        metadata={"run": "r1", "step_results": [{"actual": "large result"}]},
+    )
 
     assert error is None
     assert FakeSdk.last.init_args["base_url"] == "http://localhost"

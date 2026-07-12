@@ -65,7 +65,10 @@ class LaminarClient:
             self._client().evals.update_datapoint(
                 eval_id=UUID(refs.evaluation_id),
                 datapoint_id=UUID(refs.datapoint_id),
-                executor_output={**executor_output, "metadata": metadata},
+                executor_output={
+                    **executor_output,
+                    "metadata": {key: value for key, value in metadata.items() if key != "step_results"},
+                },
                 scores=scores,
             )
             logger.info("laminar datapoint updated evaluation_id=%s datapoint_id=%s", refs.evaluation_id, refs.datapoint_id)

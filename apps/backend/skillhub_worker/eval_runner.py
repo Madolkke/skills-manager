@@ -7,7 +7,7 @@ from typing import Any
 from skillhub.models.store import SkillHubStore
 from skillhub_worker.eval_steps import run_steps
 from skillhub_worker.heartbeat import record_eval_running, record_idle
-from skillhub_worker.laminar_client import LaminarClient
+from skillhub_worker.laminar_client import LaminarClient, LaminarEvalRefs
 from skillhub_worker.opencode_client import OpencodeClient
 from skillhub_worker.results import (
     initial_skill_usage,
@@ -83,8 +83,11 @@ def run_eval_once(detail: dict[str, Any], store: SkillHubStore, client: Opencode
         )
         record_laminar_refs(metadata, refs)
         if refs.error:
-            logger.warning("laminar datapoint failed eval_case_run_id=%s configured=%s", eval_case_run_id, refs.configured)
-            raise RuntimeError(refs.error)
+            logger.warning(
+                "laminar datapoint unavailable; evaluation continuing eval_case_run_id=%s configured=%s",
+                eval_case_run_id,
+                refs.configured,
+            )
 
         metadata["current_stage"] = "checking_opencode_health"
         metadata["current_stage_label"] = "检查 Opencode 服务"
@@ -166,7 +169,7 @@ def _update_laminar(
     *,
     store: SkillHubStore,
     laminar: LaminarClient,
-    refs,
+    refs: LaminarEvalRefs,
     metadata: dict[str, Any],
     opencode_model: dict[str, str],
     agent_snapshot: dict[str, Any] | None,
@@ -176,6 +179,9 @@ def _update_laminar(
     metadata["current_stage_label"] = "写入 Laminar 测评结果"
     metadata.pop("current_step", None)
     persist_metadata(store, eval_case_run_id, metadata)
+    if not refs.evaluation_id or not refs.datapoint_id:
+        logger.debug("laminar datapoint update skipped eval_case_run_id=%s reason=missing_reference", eval_case_run_id)
+        return
     scores = _scores(metadata["step_results"])
     logger.debug("laminar datapoint updating eval_case_run_id=%s score_count=%s", eval_case_run_id, len(scores))
     laminar_error = laminar.update_datapoint(
@@ -192,8 +198,8 @@ def _update_laminar(
     )
     if laminar_error:
         metadata["laminar_error"] = laminar_error
-        logger.warning("laminar datapoint update failed eval_case_run_id=%s", eval_case_run_id)
-        raise RuntimeError(laminar_error)
+        persist_metadata(store, eval_case_run_id, metadata)
+        logger.warning("laminar datapoint update failed; evaluation continuing eval_case_run_id=%s", eval_case_run_id)
 
 
 def _scores(step_results: list[dict[str, Any]]) -> dict[str, int]:
