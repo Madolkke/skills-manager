@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Body, Depends, FastAPI
 
 from skillhub.services import WorkflowService
 from skillhub.views.auth import ActorContext, actor_dependency
@@ -69,7 +69,7 @@ def register_workflow_routes(app: FastAPI) -> None:
     @app.post("/api/skills/{skill_id}/workflow/import")
     def import_workflow_bundle(
         skill_id: str,
-        payload: Any,
+        payload: Any = Body(...),
         actor: ActorContext = Depends(actor_dependency),
         service: WorkflowService = Depends(workflow_service_dependency),
     ):
