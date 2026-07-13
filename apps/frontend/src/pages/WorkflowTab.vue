@@ -106,20 +106,20 @@ function message(error: unknown): string {
     <template v-else-if="detail && draft">
       <section class="workflow-tab-status-band">
         <div><span>同步状态</span><strong :class="`tone-${workflowStatusTone(detail.sync.status)}`">{{ workflowStatusLabel(detail.sync.status) }}</strong></div>
-        <div><span>Workflow revision</span><strong>{{ detail.revision }}</strong></div>
+        <div><span>工作流修订</span><strong>r{{ detail.revision }}</strong></div>
         <div><span>校验</span><strong><AlertTriangle v-if="errors" :size="14" />{{ errors }} 错误 · {{ warnings }} 提醒</strong></div>
         <div><span>最后保存</span><strong>{{ humanDate(detail.updated_at) }}</strong><small>{{ detail.last_saved_by }}</small></div>
       </section>
 
       <section class="primary-panel workflow-tab-form">
         <header><div><h2>元信息</h2><p v-if="dirty">有未保存更改</p><p v-else><CheckCircle2 :size="14" />已保存</p></div></header>
-        <div class="workflow-form-grid">
+        <div class="workflow-form-grid workflow-tab-form-grid">
           <label class="field-label span-2"><span>名称</span><input :value="draft.name" :disabled="!canEdit" @input="update('name', ($event.target as HTMLInputElement).value)" /></label>
-          <label class="field-label"><span>编码</span><input :value="draft.code" :disabled="!canEdit" @input="update('code', ($event.target as HTMLInputElement).value)" /></label>
+          <label class="field-label"><span>编码</span><input class="workflow-code-input" :value="draft.code" :disabled="!canEdit" @input="update('code', ($event.target as HTMLInputElement).value)" /></label>
           <label class="field-label"><span>产业</span><input :value="draft.industry" :disabled="!canEdit" @input="update('industry', ($event.target as HTMLInputElement).value)" /></label>
           <label class="field-label"><span>设备</span><input :value="draft.device" :disabled="!canEdit" @input="update('device', ($event.target as HTMLInputElement).value)" /></label>
-          <label class="field-label"><span>适用版本</span><input :value="draft.versions.join(', ')" :disabled="!canEdit" @change="update('versions', parseVersions(($event.target as HTMLInputElement).value))" /></label>
-          <label class="field-label span-2"><span>说明</span><textarea rows="6" :value="draft.description" :disabled="!canEdit" @input="update('description', ($event.target as HTMLTextAreaElement).value)" /></label>
+          <label class="field-label"><span>适用版本</span><input :value="draft.versions.join(', ')" :disabled="!canEdit" placeholder="V8R22, V8R23" @change="update('versions', parseVersions(($event.target as HTMLInputElement).value))" /></label>
+          <label class="field-label span-all"><span>说明</span><textarea rows="5" :value="draft.description" :disabled="!canEdit" @input="update('description', ($event.target as HTMLTextAreaElement).value)" /></label>
         </div>
       </section>
     </template>

@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+/* eslint-disable vue/one-component-per-file */
 
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { describe, expect, it } from "vitest";
 import type { WorkflowBundle, WorkflowParameter } from "../../types";
 import WorkflowSettingsEditor from "./components/WorkflowSettingsEditor.vue";
+import WorkflowPreviewPanel from "./components/WorkflowPreviewPanel.vue";
 import WorkflowSidebar from "./components/WorkflowSidebar.vue";
 import WorkflowToolbar from "./components/WorkflowToolbar.vue";
 import { useWorkflowLayout } from "./useWorkflowLayout";
@@ -53,6 +55,66 @@ describe("Workflow UI state", () => {
     expect(layout!.gridStyle.value.gridTemplateColumns).toContain("0px 20px");
     layout!.toggle("left");
     expect(layout!.gridStyle.value.gridTemplateColumns).toBe(expanded);
+
+    layout!.setGraphExpanded(true);
+    expect(layout!.graphExpanded.value).toBe(true);
+    expect(layout!.leftCollapsed.value).toBe(false);
+    expect(layout!.gridStyle.value.gridTemplateColumns).toBe(expanded);
+    layout!.setGraphExpanded(false);
+    expect(layout!.graphExpanded.value).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {
+    const expanded = ref(false);
+    const tab = ref<"graph" | "read" | "validation">("graph");
+    const GraphStub = defineComponent({
+      name: "WorkflowGraph",
+      props: {
+        direction: { type: String, default: "RIGHT" },
+        compact: { type: Boolean, default: false },
+        expanded: { type: Boolean, default: false },
+      },
+      emits: ["toggle-expand"],
+      setup(props, { emit }) {
+        return () => h("div", {
+          class: "workflow-graph-stub",
+          "data-direction": props.direction,
+          "data-compact": String(props.compact),
+          "data-expanded": String(props.expanded),
+        }, [h("button", { type: "button", onClick: () => emit("toggle-expand") }, "切换展开")]);
+      },
+    });
+    const Host = defineComponent({
+      setup() {
+        return () => h(WorkflowPreviewPanel, {
+          bundle: workflowBundle(),
+          catalog: [],
+          issues: [],
+          tab: tab.value,
+          expanded: expanded.value,
+          "onUpdate:tab": (value) => { tab.value = value; },
+          "onUpdate:expanded": (value) => { expanded.value = value; },
+        });
+      },
+    });
+    const wrapper = mount(Host, { global: { stubs: { WorkflowGraph: GraphStub } } });
+
+    expect(wrapper.get(".workflow-graph-stub").attributes()).toMatchObject({
+      "data-direction": "RIGHT",
+      "data-compact": "true",
+      "data-expanded": "false",
+    });
+    await wrapper.get(".workflow-graph-stub button").trigger("click");
+    expect(expanded.value).toBe(true);
+    expect(wrapper.get(".workflow-graph-stub").attributes("data-compact")).toBe("false");
+    await wrapper.get(".workflow-graph-stub button").trigger("click");
+    expect(expanded.value).toBe(false);
+    await wrapper.get(".workflow-graph-stub button").trigger("click");
+    await wrapper.findAll('button[role="tab"]').find((button) => button.text() === "阅读视图")!.trigger("click");
+    expect(tab.value).toBe("read");
+    expect(expanded.value).toBe(false);
 
     wrapper.unmount();
   });

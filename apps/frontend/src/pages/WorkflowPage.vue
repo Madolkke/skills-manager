@@ -85,10 +85,18 @@ onBeforeUnmount(() => {
   if (saveFeedbackTimer !== null) window.clearTimeout(saveFeedbackTimer);
   emit("dirty", false);
 });
-watch(() => props.skill.skill.id, () => void load());
+watch(() => props.skill.skill.id, () => {
+  layout.setGraphExpanded(false);
+  void load();
+});
 watch(editor.dirty, (dirty) => emit("dirty", dirty), { immediate: true });
 watch(editor.dirty, (dirty) => {
   if (dirty) saveFeedback.value = "idle";
+});
+watch(layout.graphExpanded, (expanded) => {
+  if (expanded && editorPane.value?.contains(document.activeElement)) {
+    (document.activeElement as HTMLElement).blur();
+  }
 });
 useWorkflowShortcuts({
   canSave: () => editor.dirty.value && !readOnly.value && !saving.value,
@@ -212,6 +220,7 @@ function openWorkflowTarget(targetId: string): void {
 }
 
 function showValidation(): void {
+  layout.setGraphExpanded(false);
   previewTab.value = "validation";
   layout.rightCollapsed.value = false;
 }
@@ -249,6 +258,7 @@ function finishConfirmClose(): void {
 function closeTransientUi(): void {
   if (confirmOpen.value) confirmOpen.value = false;
   else if (syncOpen.value) syncOpen.value = false;
+  else if (layout.graphExpanded.value) layout.setGraphExpanded(false);
   else if (editor.selection.value.type === "step" && editor.selection.value.itemId) editor.selection.value = { type: "step", id: editor.selection.value.id, section: editor.selection.value.section };
 }
 
@@ -293,7 +303,7 @@ function message(caught: unknown, fallback: string): string {
 
     <div v-if="loading" class="workflow-page-state"><InlineLoading label="正在加载 Workflow" /></div>
     <div v-else-if="loadError" class="workflow-page-state"><div class="form-error">{{ loadError }}</div><UiButton variant="secondary" @click="load()">重新加载</UiButton></div>
-    <div v-else-if="editor.bundle.value" :class="['workflow-workbench', layout.resizing.value && 'is-resizing']" :style="layout.gridStyle.value">
+    <div v-else-if="editor.bundle.value" :class="['workflow-workbench', layout.resizing.value && 'is-resizing', layout.graphExpanded.value && 'is-graph-expanded']" :style="layout.gridStyle.value">
       <WorkflowSidebar
         :class="['workflow-pane-structure', layout.leftCollapsed.value && 'is-collapsed']"
         :bundle="editor.bundle.value"
@@ -308,7 +318,7 @@ function message(caught: unknown, fallback: string): string {
       />
       <div :class="['workflow-panel-resizer', 'left', layout.leftCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整结构面板宽度" @pointerdown="layout.startResize('left', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" :aria-label="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" @pointerdown.stop @click.stop="layout.toggle('left')"><PanelLeftOpen v-if="layout.leftCollapsed.value" :size="14" /><PanelLeftClose v-else :size="14" /></button></div>
 
-      <main ref="editorPane" class="workflow-editor-pane">
+      <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="layout.graphExpanded.value" :inert="layout.graphExpanded.value">
         <Transition name="workflow-editor-switch" mode="out-in">
           <div :key="editorContentKey" class="workflow-editor-content">
             <WorkflowMetadataEditor v-if="editor.selection.value.type === 'metadata'" :metadata="editor.bundle.value.workflow.metadata" :readonly="readOnly" @change="editor.updateMetadata" />
@@ -362,8 +372,8 @@ function message(caught: unknown, fallback: string): string {
         </Transition>
       </main>
 
-      <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整预览面板宽度" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><PanelRightOpen v-if="layout.rightCollapsed.value" :size="14" /><PanelRightClose v-else :size="14" /></button></div>
-      <WorkflowPreviewPanel v-model:tab="previewTab" :class="['workflow-pane-preview', layout.rightCollapsed.value && 'is-collapsed']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
+      <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><PanelRightOpen v-if="layout.rightCollapsed.value" :size="14" /><PanelRightClose v-else :size="14" /></button></div>
+      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
     </div>
 
     <WorkflowSyncModal v-if="detail" :open="syncOpen" :skill="skill" :revision="detail.revision" :issues="editor.issues.value" :busy="syncing" :error="syncError" @close="syncOpen = false; syncError = ''" @submit="sync" />

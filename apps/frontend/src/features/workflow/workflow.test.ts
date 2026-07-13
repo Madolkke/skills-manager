@@ -1,19 +1,78 @@
 import { describe, expect, it, vi } from "vitest";
+import { Position } from "@vue-flow/core";
 import { api } from "../../lib/api";
 import type { CollectionDefinition, WorkflowBundle, WorkflowDetail, WorkflowStep } from "../../types";
 import { projectWorkflowGraph } from "./domain/graph";
+import { graphAnimationStart, interpolatePosition, workflowGraphBranchColor, workflowGraphEdgeRoute, workflowGraphLabelMetrics, workflowGraphLayoutOptions, workflowGraphNodeSize, workflowGraphPorts } from "./domain/graphRouting";
 import { workflowPredecessors } from "./domain/utils";
 import { workflowStatusLabel } from "./domain/presentation";
 import { parseWorkflowBundle } from "./domain/schema";
 import { validateWorkflow } from "./domain/validation";
 import { useWorkflowEditor } from "./useWorkflowEditor";
-import { interpolatePosition } from "./useWorkflowGraphLayout";
 
 describe("workflow domain", () => {
   it("interpolates graph positions without overshooting their targets", () => {
     expect(interpolatePosition({ x: 10, y: 30 }, { x: 110, y: 230 }, 0)).toEqual({ x: 10, y: 30 });
     expect(interpolatePosition({ x: 10, y: 30 }, { x: 110, y: 230 }, 0.5)).toEqual({ x: 60, y: 130 });
     expect(interpolatePosition({ x: 10, y: 30 }, { x: 110, y: 230 }, 1)).toEqual({ x: 110, y: 230 });
+  });
+
+  it("keeps graph dimensions and ports aligned with the selected presentation", () => {
+    expect(workflowGraphNodeSize(true, "step")).toEqual({ width: 180, height: 104 });
+    expect(workflowGraphNodeSize(true, "conclusion")).toEqual({ width: 180, height: 92 });
+    expect(workflowGraphNodeSize(false, "step")).toEqual({ width: 220, height: 104 });
+    expect(workflowGraphPorts("RIGHT")).toEqual({ sourcePosition: Position.Right, targetPosition: Position.Left });
+    expect(workflowGraphPorts("DOWN")).toEqual({ sourcePosition: Position.Bottom, targetPosition: Position.Top });
+  });
+
+  it("starts new graph nodes at their final position instead of their parent", () => {
+    const target = { x: 420, y: 160 };
+
+    expect(graphAnimationStart(undefined, target)).toEqual(target);
+    expect(graphAnimationStart({ x: 20, y: 30 }, target)).toEqual({ x: 20, y: 30 });
+  });
+
+  it("renders ELK edge sections as independent rounded orthogonal paths", () => {
+    const route = workflowGraphEdgeRoute({
+      sections: [{
+        startPoint: { x: 10, y: 20 },
+        bendPoints: [{ x: 30, y: 20 }, { x: 30, y: 50 }],
+        endPoint: { x: 60, y: 50 },
+      }],
+      labels: [{ x: 100, y: 40, width: 120, height: 24 }],
+    });
+
+    expect(route).toEqual({
+      path: "M 10 20 L 24 20 Q 30 20 30 26 L 30 44 Q 30 50 36 50 L 60 50",
+      labelPosition: { x: 160, y: 52 },
+      labelSize: { width: 120, height: 24 },
+    });
+  });
+
+  it("reserves bounded label space and disables ELK edge merging", () => {
+    expect(workflowGraphLabelMetrics("接口状态正常", false)).toEqual({ width: 84, height: 24 });
+    expect(workflowGraphLabelMetrics("这是一个非常长的跳转条件说明，需要占用两行空间避免遮挡节点", false)).toEqual({ width: 228, height: 38 });
+    expect(workflowGraphLayoutOptions(false, "RIGHT")).toMatchObject({
+      "elk.edgeLabels.inline": "true",
+      "elk.layered.mergeEdges": "false",
+      "elk.spacing.edgeEdge": "20",
+      "elk.spacing.edgeNode": "30",
+    });
+  });
+
+  it("assigns stable distinct colors to branches from the same step", () => {
+    const bundle = workflowBundle();
+    workflowStep(bundle).topology.push({
+      id: "path-second",
+      target: { id: "conclusion-done" },
+      conditionText: "Fallback",
+      conditionExpression: "",
+    });
+    const branches = projectWorkflowGraph(bundle).edges;
+
+    expect(branches.map((item) => [item.branchIndex, item.branchCount])).toEqual([[0, 2], [1, 2]]);
+    expect(workflowGraphBranchColor(0)).not.toBe(workflowGraphBranchColor(1));
+    expect(workflowGraphBranchColor(6)).toBe(workflowGraphBranchColor(0));
   });
 
   it("validates and projects a connected workflow", () => {

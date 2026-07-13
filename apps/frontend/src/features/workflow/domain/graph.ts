@@ -3,7 +3,7 @@ import { workflowConclusions, workflowSteps } from "./utils";
 
 export type WorkflowGraphProjection = {
   nodes: Array<{ id: string; type: "step" | "conclusion"; label: string; isStart?: boolean }>;
-  edges: Array<{ id: string; source: string; target: string; label: string; loop: boolean }>;
+  edges: Array<{ id: string; source: string; target: string; label: string; loop: boolean; branchIndex: number; branchCount: number }>;
 };
 
 export function projectWorkflowGraph(bundle: WorkflowBundle): WorkflowGraphProjection {
@@ -13,12 +13,14 @@ export function projectWorkflowGraph(bundle: WorkflowBundle): WorkflowGraphProje
     ...workflowConclusions(bundle).map((item) => ({ id: item.id, type: "conclusion" as const, label: item.name })),
   ];
   const adjacency = new Map(steps.map((step) => [step.id, step.topology.map((item) => item.target.id)]));
-  const edges = steps.flatMap((step) => step.topology.map((item) => ({
+  const edges = steps.flatMap((step) => step.topology.map((item, branchIndex) => ({
     id: item.id,
     source: step.id,
     target: item.target.id,
     label: item.conditionText || "无条件",
     loop: hasPath(item.target.id, step.id, adjacency),
+    branchIndex,
+    branchCount: step.topology.length,
   })));
   return { nodes, edges };
 }

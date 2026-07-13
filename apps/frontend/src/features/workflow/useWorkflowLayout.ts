@@ -2,14 +2,15 @@ import { computed, onBeforeUnmount, ref } from "vue";
 
 const LEFT_MIN = 216;
 const LEFT_MAX = 360;
-const RIGHT_MIN = 320;
-const RIGHT_MAX = 620;
+const RIGHT_MIN = 340;
+const RIGHT_MAX = 780;
 
 export function useWorkflowLayout() {
   const leftWidth = ref(252);
-  const rightWidth = ref(390);
+  const rightWidth = ref(440);
   const leftCollapsed = ref(false);
   const rightCollapsed = ref(false);
+  const graphExpanded = ref(false);
   const resizing = ref(false);
   let stopResize: (() => void) | null = null;
   const gridStyle = computed(() => ({
@@ -45,9 +46,13 @@ export function useWorkflowLayout() {
     else rightCollapsed.value = !rightCollapsed.value;
   }
 
+  function setGraphExpanded(expanded: boolean): void {
+    graphExpanded.value = expanded;
+  }
+
   onBeforeUnmount(() => stopResize?.());
 
-  return { leftCollapsed, rightCollapsed, resizing, gridStyle, startResize, toggle };
+  return { leftCollapsed, rightCollapsed, graphExpanded, resizing, gridStyle, startResize, toggle, setGraphExpanded };
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

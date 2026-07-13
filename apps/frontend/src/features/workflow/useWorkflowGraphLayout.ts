@@ -1,9 +1,22 @@
-import { MarkerType, Position, type Node } from "@vue-flow/core";
+import { MarkerType, type EdgeMarkerType, type Node } from "@vue-flow/core";
 import ELK from "elkjs/lib/elk.bundled.js";
 import { onBeforeUnmount, ref, shallowRef } from "vue";
 import { useReducedMotion } from "../../composables/useReducedMotion";
 import type { WorkflowBundle, WorkflowSelection, WorkflowValidationIssue } from "../../types";
 import { projectWorkflowGraph } from "./domain/graph";
+import {
+  graphAnimationStart,
+  interpolatePosition,
+  workflowGraphBranchColor,
+  workflowGraphEdgeRoute,
+  workflowGraphLabelMetrics,
+  workflowGraphLayoutOptions,
+  workflowGraphNodeSize,
+  workflowGraphPorts,
+  type WorkflowGraphDirection,
+  type WorkflowGraphEdgeRoute,
+  type WorkflowGraphLabelMetrics,
+} from "./domain/graphRouting";
 import { workflowConclusions, workflowSteps } from "./domain/utils";
 
 export interface WorkflowGraphNodeData {
@@ -22,12 +35,20 @@ export interface WorkflowGraphEdge {
   id: string;
   source: string;
   target: string;
-  label: string;
-  type: string;
+  type: "workflow";
   animated: boolean;
-  markerEnd: MarkerType;
+  markerEnd: EdgeMarkerType;
   style: { stroke: string; strokeWidth: number };
-  labelStyle: { fill: string; fontSize: number };
+  data: WorkflowGraphEdgeData;
+}
+
+export interface WorkflowGraphEdgeData {
+  path: string;
+  label: string;
+  labelPosition: { x: number; y: number };
+  labelSize: WorkflowGraphLabelMetrics;
+  loop: boolean;
+  color: string;
 }
 
 type GraphLayoutOptions = {
@@ -35,7 +56,7 @@ type GraphLayoutOptions = {
   issues: () => WorkflowValidationIssue[];
   selected: () => WorkflowSelection | undefined;
   compact: () => boolean;
-  direction: () => "DOWN" | "RIGHT";
+  direction: () => WorkflowGraphDirection;
 };
 
 export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
@@ -49,6 +70,10 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
   let frame: number | null = null;
   let finishAnimation: (() => void) | null = null;
   let layoutingTimer: number | null = null;
+  let previousDirection: WorkflowGraphDirection | null = null;
+  let previousCompact: boolean | null = null;
+  let previousStructure = "";
+  let routes = new Map<string, WorkflowGraphEdgeRoute>();
 
   /** 计算目标布局，并让已有节点与连线同步移动到新位置。 */
   async function layout(): Promise<boolean> {
@@ -58,42 +83,64 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
     const bundle = options.bundle();
     const projection = projectWorkflowGraph(bundle);
     const compact = options.compact();
-    const width = compact ? 180 : 240;
+    const direction = options.direction();
+    const structure = JSON.stringify({
+      nodes: projection.nodes.map((item) => item.id),
+      edges: projection.edges.map((item) => [item.id, item.source, item.target]),
+    });
     const graph = await elk.layout({
       id: "root",
-      layoutOptions: {
-        "elk.algorithm": "layered",
-        "elk.direction": options.direction(),
-        "elk.edgeRouting": "ORTHOGONAL",
-        "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-        "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-        "elk.spacing.nodeNode": compact ? "38" : "52",
-        "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "78" : "96",
-      },
-      children: projection.nodes.map((item) => ({ id: item.id, width, height: item.type === "conclusion" ? 86 : 104 })),
-      edges: projection.edges.map((item) => ({ id: item.id, sources: [item.source], targets: [item.target] })),
+      layoutOptions: workflowGraphLayoutOptions(compact, direction),
+      children: projection.nodes.map((item) => ({ id: item.id, ...workflowGraphNodeSize(compact, item.type) })),
+      edges: projection.edges.map((item) => {
+        const labelSize = workflowGraphLabelMetrics(item.label, compact);
+        return {
+          id: item.id,
+          sources: [item.source],
+          targets: [item.target],
+          labels: [{ id: `${item.id}-label`, text: item.label, ...labelSize }],
+        };
+      }),
     });
     if (currentGeneration !== generation) return false;
 
+    const ports = workflowGraphPorts(direction);
     const targets = (graph.children ?? []).map<Node<WorkflowGraphNodeData>>((item) => ({
       id: item.id,
       position: { x: item.x ?? 0, y: item.y ?? 0 },
       type: "workflow",
       data: nodeData(item.id),
       draggable: false,
-      sourcePosition: options.direction() === "RIGHT" ? Position.Right : Position.Bottom,
-      targetPosition: options.direction() === "RIGHT" ? Position.Left : Position.Top,
+      ...ports,
     }));
-    const nextEdges = graphEdges();
+    const nextRoutes = new Map<string, WorkflowGraphEdgeRoute>();
+    (graph.edges ?? []).forEach((edge) => {
+      const route = workflowGraphEdgeRoute(edge);
+      if (route) nextRoutes.set(edge.id, route);
+    });
+    routes = nextRoutes;
+    const nextEdges = graphEdges(routes);
     loading.value = false;
+    const sameNodeIds = nodes.value.length === targets.length
+      && nodes.value.every((node) => targets.some((target) => target.id === node.id));
+    const shouldFade = nodes.value.length > 0 && (
+      previousDirection !== direction
+      || previousCompact !== compact
+      || (sameNodeIds && previousStructure !== structure)
+    );
 
     if (reducedMotion.value || nodes.value.length === 0) {
       nodes.value = targets;
       edges.value = nextEdges;
+    } else if (shouldFade) {
+      await fadeInLayout(targets, nextEdges, currentGeneration);
     } else {
-      await animateNodes(targets, projection.edges, nextEdges, currentGeneration);
+      await animateNodes(targets, nextEdges, currentGeneration);
     }
     if (currentGeneration !== generation) return false;
+    previousDirection = direction;
+    previousCompact = compact;
+    previousStructure = structure;
     finishLayouting();
     return true;
   }
@@ -108,7 +155,7 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
         : { ...(node.data ?? nodeData(node.id)), leaving: true },
     }));
     const nodeIds = new Set(nodes.value.map((node) => node.id));
-    edges.value = graphEdges().filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+    edges.value = graphEdges(routes).filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
   }
 
   function nodeData(id: string): WorkflowGraphNodeData {
@@ -128,37 +175,34 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
     };
   }
 
-  function graphEdges(): WorkflowGraphEdge[] {
-    return projectWorkflowGraph(options.bundle()).edges.map((item) => ({
-      id: item.id,
-      source: item.source,
-      target: item.target,
-      label: item.label,
-      type: "step",
-      animated: item.loop && !reducedMotion.value,
-      markerEnd: MarkerType.ArrowClosed,
-      style: { stroke: item.loop ? "#c84f4c" : "#6d8f5a", strokeWidth: item.loop ? 2 : 1.7 },
-      labelStyle: { fill: item.loop ? "#a63e3a" : "#46633a", fontSize: 11 },
-    }));
+  function graphEdges(edgeRoutes: Map<string, WorkflowGraphEdgeRoute>): WorkflowGraphEdge[] {
+    return projectWorkflowGraph(options.bundle()).edges.flatMap((item) => {
+      const route = edgeRoutes.get(item.id);
+      if (!route) return [];
+      const color = workflowGraphBranchColor(item.branchIndex);
+      return [{
+        id: item.id,
+        source: item.source,
+        target: item.target,
+        type: "workflow",
+        animated: item.loop && !reducedMotion.value,
+        markerEnd: { type: MarkerType.ArrowClosed, color },
+        style: { stroke: color, strokeWidth: item.loop ? 2.1 : 1.8 },
+        data: { ...route, label: item.label, loop: item.loop, color },
+      }];
+    });
   }
 
   function animateNodes(
     targets: Node<WorkflowGraphNodeData>[],
-    projectionEdges: Array<{ source: string; target: string }>,
     nextEdges: WorkflowGraphEdge[],
     currentGeneration: number,
   ): Promise<void> {
     const current = new Map(nodes.value.map((node) => [node.id, node]));
-    const targetIds = new Set(targets.map((node) => node.id));
     const startPositions = new Map(targets.map((target) => {
       const prior = current.get(target.id);
-      if (prior) return [target.id, prior.position] as const;
-      const parentId = projectionEdges.find((edge) => edge.target === target.id)?.source;
-      return [target.id, current.get(parentId ?? "")?.position ?? target.position] as const;
+      return [target.id, graphAnimationStart(prior?.position, target.position)] as const;
     }));
-    const leaving = nodes.value
-      .filter((node) => !targetIds.has(node.id))
-      .map<Node<WorkflowGraphNodeData>>((node) => ({ ...node, data: { ...(node.data ?? nodeData(node.id)), leaving: true } }));
     const duration = 260;
 
     const render = (progress: number) => {
@@ -169,7 +213,6 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
           position: interpolatePosition(startPositions.get(target.id) ?? target.position, target.position, eased),
           data: { ...(target.data ?? nodeData(target.id)), entering: !current.has(target.id) && progress < 1 },
         })),
-        ...(progress < 1 ? leaving : []),
       ];
     };
 
@@ -189,6 +232,35 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
           finishAnimation = null;
           resolve();
         }
+      };
+      frame = window.requestAnimationFrame(tick);
+    });
+  }
+
+  function fadeInLayout(
+    targets: Node<WorkflowGraphNodeData>[],
+    nextEdges: WorkflowGraphEdge[],
+    currentGeneration: number,
+  ): Promise<void> {
+    const duration = 180;
+    nodes.value = targets.map((target) => ({
+      ...target,
+      data: { ...(target.data ?? nodeData(target.id)), entering: true },
+    }));
+    edges.value = nextEdges;
+    return new Promise((resolve) => {
+      const startedAt = performance.now();
+      finishAnimation = resolve;
+      const tick = (now: number) => {
+        if (currentGeneration !== generation) return cancelAnimation();
+        if (now - startedAt < duration) {
+          frame = window.requestAnimationFrame(tick);
+          return;
+        }
+        frame = null;
+        finishAnimation = null;
+        nodes.value = targets;
+        resolve();
       };
       frame = window.requestAnimationFrame(tick);
     });
@@ -222,15 +294,4 @@ export function useWorkflowGraphLayout(options: GraphLayoutOptions) {
   });
 
   return { nodes, edges, loading, layouting, reducedMotion, layout, refreshPresentation };
-}
-
-export function interpolatePosition(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  progress: number,
-): { x: number; y: number } {
-  return {
-    x: start.x + ((end.x - start.x) * progress),
-    y: start.y + ((end.y - start.y) * progress),
-  };
 }
