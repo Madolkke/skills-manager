@@ -19,6 +19,7 @@ import { workflowStatusLabel } from "../features/workflow/domain/presentation";
 import { workflowConclusions, workflowSteps } from "../features/workflow/domain/utils";
 import { useWorkflowEditor } from "../features/workflow/useWorkflowEditor";
 import { useWorkflowLayout } from "../features/workflow/useWorkflowLayout";
+import { useWorkflowSkillTags } from "../features/workflow/useWorkflowSkillTags";
 import type { WorkflowPathTargetChoice } from "../features/workflow/workflowPathEditing";
 import { useWorkflowShortcuts } from "../features/workflow/useWorkflowShortcuts";
 import { api, ApiError } from "../lib/api";
@@ -43,6 +44,11 @@ const previewTab = ref<"graph" | "read" | "validation">("graph");
 const editorPane = ref<HTMLElement | null>(null);
 const editor = useWorkflowEditor(() => readOnly.value);
 const layout = useWorkflowLayout();
+const skillTags = useWorkflowSkillTags({
+  skill: () => props.skill,
+  refresh: () => emit("refresh"),
+  toast: (toast) => emit("toast", toast),
+});
 let saveFeedbackTimer: number | null = null;
 
 const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
@@ -321,7 +327,18 @@ function message(caught: unknown, fallback: string): string {
       <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="layout.graphExpanded.value" :inert="layout.graphExpanded.value">
         <Transition name="workflow-editor-switch" mode="out-in">
           <div :key="editorContentKey" class="workflow-editor-content">
-            <WorkflowMetadataEditor v-if="editor.selection.value.type === 'metadata'" :metadata="editor.bundle.value.workflow.metadata" :readonly="readOnly" @change="editor.updateMetadata" />
+            <WorkflowMetadataEditor
+              v-if="editor.selection.value.type === 'metadata'"
+              :metadata="editor.bundle.value.workflow.metadata"
+              :readonly="readOnly"
+              :tags="skillTags.tags.value"
+              :tag-groups="skillTags.groups.value"
+              :tag-busy="skillTags.busy.value"
+              :tag-error="skillTags.error.value"
+              @change="editor.updateMetadata"
+              @tag-change="skillTags.update"
+              @tag-save="skillTags.save"
+            />
             <WorkflowSettingsEditor
               v-else-if="editor.selection.value.type === 'inputs' || editor.selection.value.type === 'roles'"
               :inputs="editor.bundle.value.workflow.inputs"
@@ -348,9 +365,6 @@ function message(caught: unknown, fallback: string): string {
               @change="editor.updateStep(selectedStep.id, $event)"
               @duplicate="editor.duplicateStep(selectedStep.id)"
               @remove="requestDelete('step', selectedStep.id)"
-              @add-input="editor.addStepInput(selectedStep.id)"
-              @input-change="(id, patch) => editor.updateStepInput(selectedStep!.id, id, patch)"
-              @input-remove="editor.removeStepInput(selectedStep.id, $event)"
               @add-call="addExistingCall"
               @add-draft="addDraftCall"
               @call-change="(id, patch) => editor.updateCall(selectedStep!.id, id, patch)"

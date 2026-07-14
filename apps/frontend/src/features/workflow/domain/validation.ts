@@ -26,7 +26,6 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     missingNames(definition.inputs, "Collection 输入名称", issues, selection);
     duplicates(definition.outputs, "id", "DUPLICATE_COLLECTION_OUTPUT_ID", "Collection 输出 ID", issues, selection);
     duplicates(definition.outputs, "key", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection);
-    missingNames(definition.outputs, "Collection 输出名称", issues, selection);
     duplicates(definition.spec.outputSamples, "id", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection);
   }
 
@@ -35,21 +34,16 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
   for (const step of steps) {
     const selection: WorkflowSelection = { type: "step", id: step.id };
-    duplicates(step.inputs.map((item) => item.parameter), "id", "DUPLICATE_STEP_INPUT_ID", "步骤输入 ID", issues, selection);
-    duplicates(step.inputs.map((item) => item.parameter), "key", "DUPLICATE_STEP_INPUT_KEY", "步骤输入 key", issues, selection);
-    missingNames(step.inputs.map((item) => item.parameter), "步骤输入名称", issues, selection);
     duplicates(step.collectionCalls, "id", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection);
     optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection);
     duplicates(step.topology, "id", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection);
-    const stepInputIds = new Set(step.inputs.map((item) => item.parameter.id));
     const calls = new Map(step.collectionCalls.map((item) => [item.id, item]));
     const unscopedOutputKeys = new Set<string>();
-    const stepInputKeys = new Set(step.inputs.map((item) => item.parameter.key.trim()).filter(Boolean));
     for (const call of step.collectionCalls) {
       const definition = findCollection(catalog, call.definition);
       const callSelection: WorkflowSelection = { ...selection, section: "collections", itemId: call.id };
       const callName = call.name || definition?.metadata.name || "未命名采集";
-      if (call.sampleCount < 1) add(issues, "INVALID_SAMPLE_COUNT", "error", `采集“${callName}”的样本数量必须大于零。`, { ...callSelection, field: "sampleCount" });
+      if (call.sampleCount < 1) add(issues, "INVALID_SAMPLE_COUNT", "error", `采集“${callName}”的采集次数必须大于零。`, { ...callSelection, field: "sampleCount" });
       if (!definition) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”引用的定义版本不存在。`, callSelection);
       if (call.deviceRoleId && !roleIds.has(call.deviceRoleId)) add(issues, "BROKEN_REFERENCE", "error", `采集“${call.name}”引用的设备角色不存在。`, { ...callSelection, field: "deviceRoleId" });
       definition?.inputs.forEach((input) => {
@@ -57,14 +51,14 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
         if (input.required && (!binding || (binding.kind === "literal" && (binding.value === undefined || binding.value === "")))) {
           add(issues, "MISSING_REQUIRED_BINDING", "error", `采集“${callName}”尚未绑定必填参数“${input.name}”。`, { ...callSelection, field: `binding.${input.id}` });
         }
-        if (binding && !validBinding(binding, workflowInputIds, stepInputIds, calls, catalog)) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”的参数“${input.name}”引用无效。`, { ...callSelection, field: `binding.${input.id}` });
+        if (binding && !validBinding(binding, workflowInputIds, calls, catalog)) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”的参数“${input.name}”引用无效。`, { ...callSelection, field: `binding.${input.id}` });
       });
       if (definition && !call.key.trim()) {
         definition.outputs.forEach((output) => {
           const key = output.key.trim();
           if (!key) return;
-          if (workflowInputKeys.has(key) || stepInputKeys.has(key) || unscopedOutputKeys.has(key)) {
-            add(issues, "UNSCOPED_OUTPUT_CONFLICT", "error", `采集“${callName}”直接暴露的输出字段“${key}”与当前步骤字段冲突，请填写调用 Key 作为命名空间。`, callSelection);
+          if (workflowInputKeys.has(key) || unscopedOutputKeys.has(key)) {
+            add(issues, "UNSCOPED_OUTPUT_CONFLICT", "error", `采集“${callName}”直接暴露的输出字段“${key}”与 Workflow 全局输入或其他直接输出重名，请填写调用 Key 作为命名空间。`, callSelection);
           }
           unscopedOutputKeys.add(key);
         });
@@ -92,13 +86,11 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
 function validBinding(
   binding: { kind: string; reference: Record<string, string> },
   workflowInputs: Set<string>,
-  stepInputs: Set<string>,
   calls: Map<string, { definition: { id: string; revision: number } }>,
   definitions: CollectionDefinition[],
 ): boolean {
   if (binding.kind === "literal") return true;
   if (binding.kind === "workflow_input") return workflowInputs.has(binding.reference.input_id ?? "");
-  if (binding.kind === "step_input") return stepInputs.has(binding.reference.input_id ?? "");
   if (binding.kind !== "collection_output") return false;
   const call = calls.get(binding.reference.call_id ?? "");
   const definition = call && findCollection(definitions, call.definition);

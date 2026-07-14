@@ -128,21 +128,6 @@ export function useWorkflowEditor(readonly: () => boolean) {
     selection.value = { type: "metadata" };
   }
 
-  function addStepInput(stepId: string): void {
-    commit((draft) => {
-      const step = workflowSteps(draft.bundle).find((item) => item.id === stepId);
-      if (step) step.inputs.push({ parameter: newParameter() });
-    });
-  }
-
-  function updateStepInput(stepId: string, inputId: string, patch: Record<string, unknown>): void {
-    commit((draft) => Object.assign(workflowSteps(draft.bundle).find((item) => item.id === stepId)?.inputs.find((item) => item.parameter.id === inputId)?.parameter ?? {}, patch), fieldGroup(`step-input:${stepId}:${inputId}`, patch));
-  }
-
-  function removeStepInput(stepId: string, inputId: string): void {
-    commit((draft) => { const step = workflowSteps(draft.bundle).find((item) => item.id === stepId); if (step) step.inputs = step.inputs.filter((item) => item.parameter.id !== inputId); });
-  }
-
   function addDefinition(): void {
     const definition = newCollection(catalog.value.length + 1);
     definition.key = nextUniqueKey(catalog.value.map((item) => item.key), definition.key);
@@ -194,12 +179,6 @@ export function useWorkflowEditor(readonly: () => boolean) {
     commit((draft) => {
       const step = workflowSteps(draft.bundle).find((item) => item.id === stepId);
       if (!step) return;
-      const inputBindings: CollectionCall["inputBindings"] = {};
-      definition.inputs = step.inputs.map((input) => {
-        const parameter = { ...input.parameter, id: createWorkflowId("collection-input") };
-        inputBindings[parameter.id] = { kind: "step_input", reference: { input_id: input.parameter.id } };
-        return parameter;
-      });
       draft.catalog.push(definition);
       draft.changes.push({ operation: "create", definition });
       step.collectionCalls.push({
@@ -208,7 +187,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
         name: "",
         definition: { id: definition.id, revision: definition.revision },
         sampleCount: 1,
-        inputBindings,
+        inputBindings: {},
       });
     });
     linkedCallFields.set(callId, { name: false, key: false });
@@ -302,7 +281,6 @@ export function useWorkflowEditor(readonly: () => boolean) {
     bundle, catalog, selection, changes, issues, dirty: history.dirty, canUndo: history.canUndo, canRedo: history.canRedo,
     load, accepted, undo: history.undo, redo: history.redo, discard: history.discard, updateMetadata, addInput, updateInput, removeInput, addDeviceRole, updateDeviceRole, removeDeviceRole,
     addWorkflowStep, duplicateStep, updateStep, removeStep, addWorkflowConclusion, updateConclusion, removeConclusion,
-    addStepInput, updateStepInput, removeStepInput,
     addPath: paths.addPath, retargetPath: paths.retargetPath, updatePath: paths.updatePath, removePath: paths.removePath, movePath: paths.movePath,
     moveWorkflowNode: ordering.moveWorkflowNode, reorderWorkflowNodes: ordering.reorderWorkflowNodes,
     addDefinition, editDefinition, removeDraftDefinition, addCall, addDraftCollectionCall, updateCall, removeCall, moveCall,

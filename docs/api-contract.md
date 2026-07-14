@@ -181,14 +181,14 @@
 }
 ```
 
-Workflow 文档当前只接受 `document_schema_version = 2` 对应的结构：Step、Conclusion 和 Transition 不包含 `key`，Transition 只包含 `id/target/conditionText/conditionExpression`，其中 `target` 只包含节点 `id`。开发阶段不兼容旧结构。
+Workflow 文档当前只接受 `document_schema_version = 3` 对应的结构：Step 不包含 `inputs`，Binding 不接受 `step_input`，Collection 输出不包含展示 `name`。Step、Conclusion 和 Transition 不包含 `key`，Transition 只包含 `id/target/conditionText/conditionExpression`，其中 `target` 只包含节点 `id`。开发阶段不兼容旧结构。
 
 - 服务端执行最后写入者覆盖，不接收 `expected_revision`。
 - 相同文档且没有 Collection 变更时不增加 revision。
 - 结构错误拒绝保存；领域 `error/warning` 可保存为草稿。
 - CollectionChanges 与 Workflow 在同一事务提交，服务端返回规范化文档和正式 revision。
 - 步骤内新建采集仍使用 `operation: "create"`，不存在独立即时入库接口。
-- 参数 Key/名称、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与当前步骤输入、全局输入或其他直接暴露输出冲突则阻止同步。
+- 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。
 
 `POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
 

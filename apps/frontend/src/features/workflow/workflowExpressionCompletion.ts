@@ -12,8 +12,7 @@ import { filterWorkflowExpressionVariables } from "./workflowExpressionVariables
 
 const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   global: { name: "全局输入", rank: 0 },
-  step: { name: "当前步骤输入", rank: 1 },
-  output: { name: "采集输出", rank: 2 },
+  output: { name: "采集输出", rank: 1 },
 };
 const fragmentPattern = /[^\s()[\]{}"'`,;:+*/%&|!?=<>]+$/u;
 

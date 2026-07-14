@@ -2,7 +2,7 @@
 
 本文面向负责迁移旧 Workflow 的 Agent。输入是用户提供的旧 Workflow 文件和目标 Workflow Skill ID；输出是符合本指南的 `WorkflowImportBundle`，并通过 SkillHub API 原子导入。
 
-持久化 Workflow 的完整字段语义见 [workflow-schema.md](workflow-schema.md)。本指南只描述转换和导入专用格式。
+持久化 Workflow 的完整字段语义见 [workflow-schema.md](workflow-schema.md)。本指南只描述 schema v3 的转换和导入专用格式；v2 的步骤输入、`step_input` Binding 和 Collection 输出 `name` 均不能导入。
 
 ## 1. 导入接口
 
@@ -36,7 +36,7 @@ X-SkillHub-Actor: <actor>
 
 | 字段 | 类型 | 必填 | 含义 |
 | --- | --- | --- | --- |
-| `metadata` | `WorkflowMetadata` | 是 | 名称、编码、说明、产业、设备和适用版本。 |
+| `metadata` | `WorkflowMetadata` | 是 | 名称、编码、说明、问题现象、产业、设备和适用版本。 |
 | `inputs` | `Parameter[]` | 否 | Workflow 全局输入。 |
 | `deviceRoles` | `DeviceRole[]` | 否 | 逻辑设备角色。 |
 | `nodes` | `(ImportExpressionStep \| ImportScriptStep \| Conclusion)[]` | 否 | 步骤和结论节点。 |
@@ -67,7 +67,7 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 | `name` | `string` | 是 | 可选展示名称，允许空字符串。 |
 | `definitionLocalId` | `string` | 是 | 指向 `collections[].localId`。 |
 | `deviceRoleId` | `string` | 否 | 使用的设备角色 ID。 |
-| `sampleCount` | `integer` | 否，默认 `1` | 样本数量。 |
+| `sampleCount` | `integer` | 否，默认 `1` | 采集次数。 |
 | `inputBindings` | `Record<inputId, Binding>` | 否 | Collection 输入参数的来源。 |
 
 不要提交标准持久化字段 `definition: { id, revision }`。
@@ -77,9 +77,9 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 以下对象与 [Workflow 文档 Schema](workflow-schema.md) 完全相同：
 
 - `WorkflowMetadata`
-- `Parameter`、`StepInput` 和 `Binding`
+- `Parameter` 和 `Binding`
 - `DeviceRole`
-- Step 的 `id/name/description/isStart/inputs/topology/stepType/script`
+- Step 的 `id/name/description/isStart/collectionCalls/topology/stepType/script`
 - `Transition`、`NodeRef` 和 `Conclusion`
 - `CollectionMetadata`、`CliCollectionSpec`、`CollectionOutput` 和回显示例
 
@@ -92,7 +92,7 @@ Agent 必须按以下顺序转换：
 3. 为节点、参数、Call、Output 和 Transition 生成请求内唯一且稳定的 ID。
 4. 将可复用的命令采集能力抽取到 `collections`，为每个定义分配唯一 `localId`。
 5. 将步骤调用改为 `definitionLocalId`，不要生成 Catalog ID 或 revision。
-6. 重建 Collection 输入 Binding、StepInput Binding、Transition target 和脚本返回的 Transition ID。
+6. 重建 Collection 输入 Binding、Transition target 和脚本返回的 Transition ID。
 7. 运行本地结构检查，输出 JSON 文件供人工检查。
 8. 只有操作者显式要求时才调用导入接口。
 9. 保存响应中的 Collection ID 映射，并再次 GET Workflow 核对 revision 和文档。
@@ -106,7 +106,7 @@ Agent 必须按以下顺序转换：
 
 ### 数据与安全规则
 
-- 参数和输出使用现有 `Parameter`、`CollectionOutput` 与 `Binding`，不要发明脚本专属输入格式。
+- 输入参数使用现有 `Parameter`，Collection 输出使用 `id/key/dataType/description`，不要添加输出 `name` 或发明脚本专属输入格式。
 - 原始命令回显只可作为必要的作者示例；默认不迁移生产回显、账号、Cookie、Token、私钥或设备敏感信息。
 - 不把 Skill owner、平台 Tags、权限和版本历史写入 Import Bundle。
 - 未被 Call 引用的 `collections` 仍会入库；Agent 必须在报告中列出这些定义。
@@ -122,6 +122,7 @@ Agent 必须按以下顺序转换：
       "name": "接口状态检查",
       "code": "INTERFACE_CHECK",
       "description": "采集并分析接口状态。",
+      "symptom": "接口出现频繁闪断。",
       "industry": "网络",
       "device": "交换机",
       "versions": []
@@ -134,25 +135,6 @@ Agent 必须按以下顺序转换：
         "name": "分析接口状态",
         "description": "根据命令回显选择路径。",
         "isStart": true,
-        "inputs": [
-          {
-            "parameter": {
-              "id": "input-cli-text",
-              "key": "cli_text",
-              "name": "命令回显",
-              "description": "接口状态命令回显。",
-              "dataType": "string",
-              "required": true
-            },
-            "binding": {
-              "kind": "collection_output",
-              "reference": {
-                "call_id": "call-interface",
-                "output_id": "output-cli-text"
-              }
-            }
-          }
-        ],
         "collectionCalls": [
           {
             "id": "call-interface",
@@ -209,7 +191,6 @@ Agent 必须按以下顺序转换：
         {
           "id": "output-cli-text",
           "key": "cli_text",
-          "name": "命令回显",
           "description": "原始 CLI 输出。",
           "dataType": "string"
         }
@@ -273,8 +254,6 @@ def validate_import_bundle(bundle: dict) -> None:
     for node in nodes:
         if "stepType" not in node:
             continue
-        step_input_ids = {item["parameter"]["id"] for item in node.get("inputs", [])}
-        all_ids.extend(step_input_ids)
         calls = {item["id"]: item for item in node.get("collectionCalls", [])}
         all_ids.extend(calls)
         for call in node.get("collectionCalls", []):
@@ -288,25 +267,19 @@ def validate_import_bundle(bundle: dict) -> None:
             if transition.get("target", {}).get("id") not in known_nodes:
                 raise ValueError(f"Transition 目标不存在: {transition.get('id')}")
             all_ids.append(transition.get("id", ""))
-        for step_input in node.get("inputs", []):
-            binding = step_input.get("binding")
-            if binding:
-                validate_binding(binding, workflow_input_ids, step_input_ids, calls, definitions)
         for call in node.get("collectionCalls", []):
             for binding in call.get("inputBindings", {}).values():
-                validate_binding(binding, workflow_input_ids, step_input_ids, calls, definitions)
+                validate_binding(binding, workflow_input_ids, calls, definitions)
     if any(not item for item in all_ids) or len(all_ids) != len(set(all_ids)):
         raise ValueError("节点、参数、角色、Call、Output、Sample 和 Transition ID 必须非空且全局唯一")
 
 
-def validate_binding(binding: dict, workflow_inputs: set[str], step_inputs: set[str], calls: dict, definitions: dict) -> None:
+def validate_binding(binding: dict, workflow_inputs: set[str], calls: dict, definitions: dict) -> None:
     kind = binding.get("kind")
     reference = binding.get("reference", {})
     if kind == "literal":
         return
     if kind == "workflow_input" and reference.get("input_id") in workflow_inputs:
-        return
-    if kind == "step_input" and reference.get("input_id") in step_inputs:
         return
     if kind == "collection_output":
         call = calls.get(reference.get("call_id"))

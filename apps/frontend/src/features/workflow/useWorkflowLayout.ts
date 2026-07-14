@@ -4,10 +4,11 @@ const LEFT_MIN = 216;
 const LEFT_MAX = 360;
 const RIGHT_MIN = 340;
 const RIGHT_MAX = 780;
+const COMPACT_WORKBENCH_MAX = 1360;
 
 export function useWorkflowLayout() {
   const leftWidth = ref(252);
-  const rightWidth = ref(440);
+  const rightWidth = ref(workflowInitialRightWidth(typeof window === "undefined" ? 1600 : window.innerWidth));
   const leftCollapsed = ref(false);
   const rightCollapsed = ref(false);
   const graphExpanded = ref(false);
@@ -53,6 +54,10 @@ export function useWorkflowLayout() {
   onBeforeUnmount(() => stopResize?.());
 
   return { leftCollapsed, rightCollapsed, graphExpanded, resizing, gridStyle, startResize, toggle, setGraphExpanded };
+}
+
+export function workflowInitialRightWidth(viewportWidth: number): number {
+  return viewportWidth <= COMPACT_WORKBENCH_MAX ? 360 : 440;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

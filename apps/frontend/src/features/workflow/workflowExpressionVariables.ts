@@ -1,7 +1,7 @@
 import type { WorkflowBundle, WorkflowStep } from "../../types";
 import { findCollection, workflowSteps } from "./domain/utils";
 
-export type WorkflowExpressionVariableKind = "global" | "step" | "output";
+export type WorkflowExpressionVariableKind = "global" | "output";
 
 export type WorkflowExpressionVariable = {
   id: string;
@@ -31,19 +31,6 @@ export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId
 
   const steps = workflowSteps(bundle);
   const sourceStep = steps.find((step) => step.id === sourceStepId);
-  sourceStep?.inputs.forEach(({ parameter }) => {
-    const key = parameter.key.trim();
-    if (!key) return;
-    variables.push({
-      id: `step:${sourceStep.id}:${parameter.id}`,
-      reference: `step.${key}`,
-      kind: "step",
-      name: parameter.name || key,
-      dataType: parameter.dataType,
-      source: `当前步骤 · ${sourceStep.name || "未命名步骤"}`,
-      aliases: [key, parameter.name, sourceStep.name],
-    });
-  });
 
   const orderedSteps = sourceStep
     ? [sourceStep, ...steps.filter((step) => step.id !== sourceStep.id)]
@@ -82,10 +69,10 @@ function appendStepOutputs(
         id: `output:${step.id}:${call.id}:${output.id}`,
         reference: `output.${outputPath}`,
         kind: "output",
-        name: output.name || outputKey,
+        name: outputKey,
         dataType: output.dataType,
         source: `${step.name || "未命名步骤"} · ${callName}`,
-        aliases: [outputPath, callKey, outputKey, output.name, callName, step.name],
+        aliases: [outputPath, callKey, outputKey, callName, step.name],
       });
     });
   });

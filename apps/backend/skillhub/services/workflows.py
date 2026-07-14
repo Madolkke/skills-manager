@@ -42,6 +42,7 @@ class WorkflowService(ServiceBase[SkillHubStore]):
                         "name": slug,
                         "code": "",
                         "description": clean_description,
+                        "symptom": "",
                         "industry": "",
                         "device": "",
                         "versions": [],

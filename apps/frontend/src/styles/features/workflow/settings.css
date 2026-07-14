@@ -10,7 +10,7 @@
 }
 
 .workflow-setting-row.is-input {
-  grid-template-columns: minmax(86px, .8fr) minmax(110px, 1fr) minmax(120px, 1.2fr) 86px auto 30px;
+  grid-template-columns: minmax(86px, .8fr) minmax(110px, 1fr) minmax(120px, 1.2fr) 86px 30px;
 }
 
 .workflow-setting-row.is-role {

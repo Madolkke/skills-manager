@@ -42,7 +42,6 @@ describe("Workflow expression variables", () => {
 
     expect(variables.map((item) => item.reference)).toEqual([
       "global.tenant",
-      "step.interface",
       "output.status.version",
       "output.version",
       "output.status.version",
@@ -71,7 +70,7 @@ describe("Workflow expression variables", () => {
     const readonlyState = EditorState.create({ extensions: EditorState.readOnly.of(true) });
     const readonlyResult = await source(new CompletionContext(readonlyState, 0, true));
 
-    expect(explicit?.options).toHaveLength(5);
+    expect(explicit?.options).toHaveLength(4);
     expect(automatic?.options.map((item) => item.label)).toEqual(["output.status.version", "output.status.version"]);
     expect(quoted).toBeNull();
     expect(readonlyResult).toBeNull();
@@ -156,29 +155,28 @@ function workflowBundle(): WorkflowBundle {
     workflow: {
       id: "workflow-1",
       revision: 1,
-      metadata: { name: "Variables", code: "", description: "Variables", industry: "", device: "", versions: [] },
+      metadata: { name: "Variables", code: "", description: "Variables", symptom: "", industry: "", device: "", versions: [] },
       inputs: [parameter("global-tenant", "tenant"), parameter("global-empty", "")],
       deviceRoles: [],
       nodes: [
-        step("step-other", "其他检查", [{ id: "call-other", key: "status", name: "接口状态", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} }], "other_input"),
+        step("step-other", "其他检查", [{ id: "call-other", key: "status", name: "接口状态", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} }]),
         step("step-current", "当前检查", [
           { id: "call-current", key: "status", name: "接口状态", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
           { id: "call-unscoped", key: "", name: "直接输出", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
           { id: "call-broken", key: "broken", name: "损坏引用", definition: { id: "missing", revision: 1 }, sampleCount: 1, inputBindings: {} },
-        ], "interface"),
+        ]),
       ],
     },
     collectionSnapshots: [definition],
   };
 }
 
-function step(id: string, name: string, collectionCalls: WorkflowStep["collectionCalls"], inputKey: string): WorkflowStep {
+function step(id: string, name: string, collectionCalls: WorkflowStep["collectionCalls"]): WorkflowStep {
   return {
     id,
     name,
     description: "",
     isStart: id === "step-current",
-    inputs: [{ parameter: parameter(`${id}-input`, inputKey) }],
     collectionCalls,
     topology: id === "step-current"
       ? [{ id: "path-current", target: { id: "step-other" }, conditionText: "", conditionExpression: "" }]
@@ -200,8 +198,8 @@ function collectionDefinition(): CollectionDefinition {
     spec: { collectionType: "cli", commandTemplate: "display interface", outputSamples: [] },
     inputs: [],
     outputs: [
-      { id: "output-version", key: "version", name: "版本", description: "", dataType: "string" },
-      { id: "output-empty", key: "", name: "空字段", description: "", dataType: "string" },
+      { id: "output-version", key: "version", description: "版本", dataType: "string" },
+      { id: "output-empty", key: "", description: "空字段", dataType: "string" },
     ],
   };
 }

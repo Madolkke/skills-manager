@@ -51,10 +51,6 @@ def _duplicate_issues(workflow, steps, issues) -> None:
     _append_duplicates(workflow["deviceRoles"], "key", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
     for step in steps:
         selection = {"type": "step", "id": step["id"]}
-        parameters = [item["parameter"] for item in step["inputs"]]
-        _append_duplicates(parameters, "id", "DUPLICATE_STEP_INPUT_ID", "步骤输入 ID", issues, selection)
-        _append_duplicates(parameters, "key", "DUPLICATE_STEP_INPUT_KEY", "步骤输入 key", issues, selection)
-        _append_missing_names(parameters, "步骤输入名称", issues, selection)
         _append_duplicates(step["collectionCalls"], "id", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
         _append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection)
         _append_duplicates(step["topology"], "id", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
@@ -91,7 +87,6 @@ def _collection_identity_issues(definitions, issues) -> None:
         _append_missing_names(definition["inputs"], "Collection 输入名称", issues, selection)
         _append_duplicates(definition["outputs"], "id", "DUPLICATE_COLLECTION_OUTPUT_ID", "Collection 输出 ID", issues, selection)
         _append_duplicates(definition["outputs"], "key", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection)
-        _append_missing_names(definition["outputs"], "Collection 输出名称", issues, selection)
         _append_duplicates(definition["spec"]["outputSamples"], "id", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection)
 
 
@@ -118,15 +113,13 @@ def _append_missing_names(items, label, issues, selection) -> None:
 
 def _validate_step(step, definitions, node_by_id, role_ids, workflow_input_ids, workflow_input_keys, issues) -> None:
     selection = {"type": "step", "id": step["id"]}
-    step_input_ids = {item["parameter"]["id"] for item in step["inputs"]}
-    step_input_keys = {item["parameter"]["key"].strip() for item in step["inputs"] if item["parameter"]["key"].strip()}
     call_by_id = {item["id"]: item for item in step["collectionCalls"]}
     unscoped_outputs: dict[str, str] = {}
     for call in step["collectionCalls"]:
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
         call_label = _call_label(call, definition) if definition else call["name"] or "未命名采集"
         if call["sampleCount"] < 1:
-            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的样本数量必须大于零。", selection))
+            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", selection))
         if definition is None:
             issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call_label}”引用的定义版本不存在。", selection))
             continue
@@ -137,13 +130,13 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_input_ids, 
             if parameter["required"] and not _binding_has_value(binding):
                 issues.append(_issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{parameter['name']}”。", selection))
             if binding:
-                _validate_binding(binding, workflow_input_ids, step_input_ids, call_by_id, definitions, issues, selection)
+                _validate_binding(binding, workflow_input_ids, call_by_id, definitions, issues, selection)
         if not call["key"].strip():
             _validate_unscoped_outputs(
                 call=call,
                 definition=definition,
                 names=unscoped_outputs,
-                reserved=workflow_input_keys | step_input_keys,
+                reserved=workflow_input_keys,
                 issues=issues,
                 selection=selection,
             )
@@ -163,7 +156,7 @@ def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, sel
                 _issue(
                     "UNSCOPED_OUTPUT_CONFLICT",
                     "error",
-                    f"采集“{_call_label(call, definition)}”直接暴露的输出字段“{key}”与当前步骤字段冲突，请填写调用 key 作为命名空间。",
+                    f"采集“{_call_label(call, definition)}”直接暴露的输出字段“{key}”与 Workflow 全局输入或其他直接输出重名，请填写调用 key 作为命名空间。",
                     selection,
                 )
             )
@@ -174,14 +167,12 @@ def _call_label(call, definition) -> str:
     return call["name"].strip() or definition["metadata"]["name"].strip() or definition["key"]
 
 
-def _validate_binding(binding, workflow_inputs, step_inputs, calls, definitions, issues, selection) -> None:
+def _validate_binding(binding, workflow_inputs, calls, definitions, issues, selection) -> None:
     kind = binding["kind"]
     ref = binding["reference"]
     valid = kind == "literal"
     if kind == "workflow_input":
         valid = ref.get("input_id") in workflow_inputs
-    elif kind == "step_input":
-        valid = ref.get("input_id") in step_inputs
     elif kind == "collection_output":
         call = calls.get(ref.get("call_id"))
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"])) if call else None

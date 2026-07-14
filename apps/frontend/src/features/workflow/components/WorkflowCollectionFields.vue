@@ -6,6 +6,8 @@ import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionDefinition, CollectionOutput, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { cloneWorkflow, createWorkflowId } from "../domain/utils";
+import WorkflowCollectionInputRows from "./WorkflowCollectionInputRows.vue";
+import WorkflowCollectionOutputRows from "./WorkflowCollectionOutputRows.vue";
 
 const props = withDefaults(defineProps<{
   definition: CollectionDefinition;
@@ -36,7 +38,7 @@ function updateInput(id: string, patch: Partial<WorkflowParameter>): void {
 }
 
 function addOutput(): void {
-  update((draft) => draft.outputs.push({ id: createWorkflowId("collection-output"), key: "", name: "", description: "", dataType: "string" }));
+  update((draft) => draft.outputs.push({ id: createWorkflowId("collection-output"), key: "", description: "", dataType: "string" }));
 }
 
 function updateOutput(id: string, patch: Partial<CollectionOutput>): void {
@@ -82,24 +84,13 @@ function issue(field: string): WorkflowValidationIssue | undefined {
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>
-      <div v-for="item in props.definition.inputs" :key="item.id" class="workflow-parameter-row">
-        <input class="workflow-key-input" :value="item.key" aria-label="输入 Key" :disabled="props.readonly" @input="updateInput(item.id, { key: ($event.target as HTMLInputElement).value })" />
-        <input :value="item.name" aria-label="输入名称" :disabled="props.readonly" @input="updateInput(item.id, { name: ($event.target as HTMLInputElement).value })" />
-        <select :value="item.dataType" aria-label="输入类型" :disabled="props.readonly" @change="updateInput(item.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select>
-        <label class="workflow-check"><input type="checkbox" :checked="item.required" :disabled="props.readonly" @change="updateInput(item.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label>
-        <UiIconButton label="删除输入" size="sm" variant="danger" :disabled="props.readonly" @click="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== item.id); })"><Trash2 /></UiIconButton>
-      </div>
+      <WorkflowCollectionInputRows :items="props.definition.inputs" :readonly="props.readonly" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
       <p v-if="props.definition.inputs.length === 0" class="workflow-inline-empty">当前采集不需要输入参数</p>
     </section>
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addOutput"><template #icon><Plus /></template>添加</UiButton></div>
-      <div v-for="item in props.definition.outputs" :key="item.id" class="workflow-parameter-row">
-        <input class="workflow-key-input" :value="item.key" aria-label="输出 Key" :disabled="props.readonly" @input="updateOutput(item.id, { key: ($event.target as HTMLInputElement).value })" />
-        <input :value="item.name" aria-label="输出名称" :disabled="props.readonly" @input="updateOutput(item.id, { name: ($event.target as HTMLInputElement).value })" />
-        <select :value="item.dataType" aria-label="输出类型" :disabled="props.readonly" @change="updateOutput(item.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select>
-        <UiIconButton label="删除输出" size="sm" variant="danger" :disabled="props.readonly" @click="update((draft) => { draft.outputs = draft.outputs.filter((value) => value.id !== item.id); })"><Trash2 /></UiIconButton>
-      </div>
+      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="props.readonly" @change="updateOutput" @remove="update((draft) => { draft.outputs = draft.outputs.filter((value) => value.id !== $event); })" />
       <p v-if="props.definition.outputs.length === 0" class="workflow-inline-empty">尚未声明结构化输出</p>
     </section>
 

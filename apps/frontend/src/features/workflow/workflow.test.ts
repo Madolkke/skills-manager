@@ -118,21 +118,20 @@ describe("workflow domain", () => {
     expect(editor.dirty.value).toBe(false);
   });
 
-  it("creates a step Collection draft with inherited metadata, inputs, and bindings", () => {
+  it("creates a step Collection draft with inherited metadata and empty inputs", () => {
     const editor = useWorkflowEditor(() => false);
     const detail = workflowDetail();
     detail.document.workflow.metadata.versions = ["V1", "V2"];
-    workflowStep(detail.document).inputs = [{ parameter: { id: "step-interface", key: "interface", name: "Interface", description: "Target interface.", dataType: "string", required: true } }];
     editor.load(detail, detail.document.collectionSnapshots);
 
     const result = editor.addDraftCollectionCall("step-start");
     expect(result).not.toBeNull();
     const definition = editor.catalog.value.find((item) => item.id === result?.definitionId);
     expect(definition?.metadata).toMatchObject({ industry: "Network", device: "Switch", versions: ["V1", "V2"] });
-    expect(definition?.inputs).toMatchObject([{ key: "interface", name: "Interface", dataType: "string", required: true }]);
+    expect(definition?.inputs).toEqual([]);
     expect(editor.changes.value.find((item) => item.definition.id === result?.definitionId)?.operation).toBe("create");
     const call = workflowStep(editor.bundle.value!).collectionCalls.find((item) => item.id === result?.callId);
-    expect(call).toMatchObject({ name: "", key: "", inputBindings: { [definition!.inputs[0]!.id]: { kind: "step_input", reference: { input_id: "step-interface" } } } });
+    expect(call).toMatchObject({ name: "", key: "", inputBindings: {} });
 
     editor.editDefinition({ id: result!.definitionId, revision: 1 }, (draft) => {
       draft.metadata.name = "Power status";
@@ -237,7 +236,7 @@ describe("workflow domain", () => {
   it("reports unscoped output collisions and multiline commands", () => {
     const bundle = workflowBundle();
     const definition = bundle.collectionSnapshots[0]!;
-    definition.outputs = [{ id: "output-version", key: "version", name: "Version", description: "", dataType: "string" }];
+    definition.outputs = [{ id: "output-version", key: "version", description: "Version", dataType: "string" }];
     definition.spec.commandTemplate = "display version\nverbose";
     bundle.workflow.inputs = [{ id: "workflow-version", key: "version", name: "Version", description: "", dataType: "string", required: true }];
     workflowStep(bundle).collectionCalls[0]!.key = "";
@@ -353,7 +352,7 @@ function workflowDetail(): WorkflowDetail {
     id: "workflow-1",
     skill_id: "skill-1",
     revision: 1,
-    document_schema_version: 2,
+    document_schema_version: 3,
     document: workflowBundle(),
     validation: { errors: [], warnings: [] },
     sync: { status: "never_synced", last_synced_revision: null, last_synced_skill_version_id: null, last_synced_at: null },
@@ -380,7 +379,7 @@ function workflowBundle(): WorkflowBundle {
     workflow: {
       id: "workflow-1",
       revision: 1,
-      metadata: { name: "Interface workflow", code: "IFACE", description: "Check interfaces.", industry: "Network", device: "Switch", versions: [] },
+      metadata: { name: "Interface workflow", code: "IFACE", description: "Check interfaces.", symptom: "", industry: "Network", device: "Switch", versions: [] },
       inputs: [],
       deviceRoles: [],
       nodes: [
@@ -389,7 +388,6 @@ function workflowBundle(): WorkflowBundle {
           name: "Check interface",
           description: "Collect interface status.",
           isStart: true,
-          inputs: [],
           collectionCalls: [{ id: "call-interface", key: "interface", name: "Interface status", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} }],
           topology: [{ id: "path-done", target: { id: "conclusion-done" }, conditionText: "Collected", conditionExpression: "status != ''" }],
           stepType: "expression",

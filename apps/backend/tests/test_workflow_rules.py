@@ -62,7 +62,9 @@ class WorkflowRulesTest(unittest.TestCase):
             validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
 
     def test_import_bundle_materializes_target_identity_and_collection_references(self):
-        bundle = normalize_workflow_import_bundle(self._import_bundle())
+        source = self._import_bundle()
+        source["workflow"]["metadata"]["symptom"] = "接口频繁闪断。"
+        bundle = normalize_workflow_import_bundle(source)
 
         document = materialize_workflow_import(
             bundle,
@@ -73,6 +75,7 @@ class WorkflowRulesTest(unittest.TestCase):
 
         self.assertEqual(document["workflow"]["id"], "workflow-target")
         self.assertEqual(document["workflow"]["revision"], 7)
+        self.assertEqual(document["workflow"]["metadata"]["symptom"], "接口频繁闪断。")
         self.assertEqual(
             document["workflow"]["nodes"][0]["collectionCalls"][0]["definition"],
             {"id": "collection-generated", "revision": 1},
@@ -81,6 +84,7 @@ class WorkflowRulesTest(unittest.TestCase):
 
     def test_renderer_is_deterministic_and_uses_readable_binding_references(self):
         document = normalize_workflow_document(self._document())
+        document["workflow"]["metadata"]["symptom"] = "不应写入 Skill 的问题现象。"
 
         first = render_skill_markdown(slug="interface-check", document=document)
         second = render_skill_markdown(slug="interface-check", document=document)
@@ -91,8 +95,17 @@ class WorkflowRulesTest(unittest.TestCase):
         self.assertNotIn("opaque-parameter-id", first)
         self.assertNotIn("SECRET RAW OUTPUT", first)
         self.assertNotIn("SECRET INPUT VALUE", first)
+        self.assertNotIn("不应写入 Skill 的问题现象", first)
         self.assertNotIn("- Key:", first)
         self.assertIn("接口 Down 示例", first)
+        self.assertIn("- 设备角色: 单设备", first)
+        self.assertIn("- 采集次数: 1", first)
+
+    def test_v3_metadata_defaults_missing_symptom(self):
+        document = normalize_workflow_document(self._document())
+
+        self.assertEqual(document["workflow"]["metadata"]["symptom"], "")
+        self.assertEqual(migrate_workflow_document(3, self._document())["workflow"]["metadata"]["symptom"], "")
 
     def test_renderer_safely_serializes_frontmatter(self):
         document = normalize_workflow_document(self._document())
@@ -139,7 +152,7 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_unscoped_call_outputs_conflicting_with_inputs_are_rejected(self):
         document = normalize_workflow_document(self._document())
         definition = document["collectionSnapshots"][0]
-        definition["outputs"] = [{"id": "output-interface", "key": "interface_name", "name": "接口名称", "description": "", "dataType": "string"}]
+        definition["outputs"] = [{"id": "output-interface", "key": "interface_name", "description": "接口名称", "dataType": "string"}]
         document["workflow"]["nodes"][0]["collectionCalls"][0]["key"] = ""
 
         self.assertIn("UNSCOPED_OUTPUT_CONFLICT", {item["code"] for item in validate_workflow_document(document)})
@@ -147,7 +160,7 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_renderer_uses_collection_name_and_optional_call_namespace(self):
         document = normalize_workflow_document(self._document())
         definition = document["collectionSnapshots"][0]
-        definition["outputs"] = [{"id": "output-version", "key": "version", "name": "版本", "description": "", "dataType": "string"}]
+        definition["outputs"] = [{"id": "output-version", "key": "version", "description": "版本", "dataType": "string"}]
         call = document["workflow"]["nodes"][0]["collectionCalls"][0]
         call["name"] = ""
         call["key"] = ""
@@ -163,6 +176,8 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_document_schema_rejects_legacy_and_unknown_versions(self):
         with self.assertRaisesRegex(InvariantError, "schema version: 1"):
             migrate_workflow_document(1, self._document())
+        with self.assertRaisesRegex(InvariantError, "schema version: 2"):
+            migrate_workflow_document(2, self._document())
         with self.assertRaisesRegex(InvariantError, "schema version: 99"):
             migrate_workflow_document(99, self._document())
 
@@ -178,6 +193,27 @@ class WorkflowRulesTest(unittest.TestCase):
         document["workflow"]["nodes"][0]["topology"][0]["name"] = "旧路径名称"
 
         with self.assertRaisesRegex(InvariantError, "Extra inputs are not permitted"):
+            normalize_workflow_document(document)
+
+    def test_schema_rejects_v2_step_inputs_output_names_and_bindings(self):
+        document = self._document()
+        document["workflow"]["nodes"][0]["inputs"] = []
+        with self.assertRaisesRegex(InvariantError, "Extra inputs are not permitted"):
+            normalize_workflow_document(document)
+
+        document = self._document()
+        document["collectionSnapshots"][0]["outputs"] = [
+            {"id": "output-status", "key": "status", "name": "状态", "description": "", "dataType": "string"}
+        ]
+        with self.assertRaisesRegex(InvariantError, "Extra inputs are not permitted"):
+            normalize_workflow_document(document)
+
+        document = self._document()
+        document["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]["opaque-parameter-id"] = {
+            "kind": "step_input",
+            "reference": {"input_id": "legacy-step-input"},
+        }
+        with self.assertRaisesRegex(InvariantError, "workflow_input"):
             normalize_workflow_document(document)
 
     def test_duplicate_node_names_are_allowed_and_target_ids_are_validated(self):
@@ -198,7 +234,6 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_renderer_uses_unconditional_label_for_unnamed_path(self):
         document = normalize_workflow_document(self._document())
         transition = document["workflow"]["nodes"][0]["topology"][0]
-        transition["name"] = ""
         transition["conditionText"] = ""
         transition["conditionExpression"] = ""
 
@@ -237,7 +272,6 @@ class WorkflowRulesTest(unittest.TestCase):
                         "name": "采集接口",
                         "description": "读取接口状态。",
                         "isStart": True,
-                        "inputs": [],
                         "collectionCalls": [
                             {
                                 "id": "opaque-call-id",
@@ -325,7 +359,6 @@ class WorkflowRulesTest(unittest.TestCase):
                         "name": "分析接口",
                         "description": "",
                         "isStart": True,
-                        "inputs": [],
                         "collectionCalls": [
                             {
                                 "id": "call-interface",

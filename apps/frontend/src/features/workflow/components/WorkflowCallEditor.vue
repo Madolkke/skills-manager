@@ -40,6 +40,7 @@ function bindingKind(inputId: string): string {
 
 function setBinding(inputId: string, kind: string): void {
   if (!kind) return emit("binding", inputId, null);
+  if (kind !== "literal" && kind !== "workflow_input") return;
   if (kind === "literal") return emit("binding", inputId, { kind, reference: {}, value: "" });
   const input = props.workflowInputs[0];
   emit("binding", inputId, { kind, reference: input ? { input_id: input.id } : {} });
@@ -65,8 +66,8 @@ function operationLabel(): string {
         <span class="workflow-call-title"><strong :title="displayName">{{ displayName }}</strong><code v-if="props.call.key" :title="props.call.key">{{ props.call.key }}</code></span>
         <span class="workflow-call-command" :title="props.definition?.spec.commandTemplate || '未配置采集命令'">{{ props.definition?.spec.commandTemplate || "未配置采集命令" }}</span>
         <span class="workflow-call-facts">
-          <i>{{ props.roles.find((item) => item.id === props.call.deviceRoleId)?.name || "未指定设备角色" }}</i>
-          <i>{{ props.call.sampleCount }} 份样本</i>
+          <i>{{ props.roles.find((item) => item.id === props.call.deviceRoleId)?.name || "单设备" }}</i>
+          <i>采集 {{ props.call.sampleCount }} 次</i>
           <i v-if="requiredInputs.length">绑定 {{ boundCount }}/{{ requiredInputs.length }}</i>
         </span>
       </button>
@@ -86,8 +87,8 @@ function operationLabel(): string {
           <div class="workflow-form-grid compact-grid">
             <label class="field-label"><span>调用名称</span><input :value="props.call.name" :disabled="props.readonly" @input="emit('change', { name: ($event.target as HTMLInputElement).value })" /></label>
             <label class="field-label"><span>调用 Key</span><input :value="props.call.key" :disabled="props.readonly" @input="emit('change', { key: ($event.target as HTMLInputElement).value })" /></label>
-            <label :class="['field-label', hasIssue('deviceRoleId') && 'field-invalid']"><span>设备角色</span><select :value="props.call.deviceRoleId ?? ''" :disabled="props.readonly" @change="emit('change', { deviceRoleId: ($event.target as HTMLSelectElement).value || undefined })"><option value="">未指定</option><option v-for="role in props.roles" :key="role.id" :value="role.id">{{ role.name }}</option></select></label>
-            <label :class="['field-label', hasIssue('sampleCount') && 'field-invalid']"><span>样本数量</span><input type="number" min="1" :value="props.call.sampleCount" :disabled="props.readonly" @input="emit('change', { sampleCount: Number(($event.target as HTMLInputElement).value) })" /></label>
+            <label :class="['field-label', hasIssue('deviceRoleId') && 'field-invalid']"><span>设备角色</span><select :value="props.call.deviceRoleId ?? ''" :disabled="props.readonly" @change="emit('change', { deviceRoleId: ($event.target as HTMLSelectElement).value || undefined })"><option value="">单设备</option><option v-for="role in props.roles" :key="role.id" :value="role.id">{{ role.name }}</option></select></label>
+            <label :class="['field-label', hasIssue('sampleCount') && 'field-invalid']"><span>采集次数</span><input type="number" min="1" :value="props.call.sampleCount" :disabled="props.readonly" @input="emit('change', { sampleCount: Number(($event.target as HTMLInputElement).value) })" /></label>
           </div>
         </section>
 

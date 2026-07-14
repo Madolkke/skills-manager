@@ -1,9 +1,21 @@
 <script setup lang="ts">
 import { FileText } from "lucide-vue-next";
-import type { WorkflowMetadata } from "../../../types";
+import type { SkillTagPayload, TagGroup, WorkflowMetadata } from "../../../types";
+import WorkflowSkillTagsSection from "./WorkflowSkillTagsSection.vue";
 
-const props = defineProps<{ metadata: WorkflowMetadata; readonly: boolean }>();
-const emit = defineEmits<{ change: [patch: Partial<WorkflowMetadata>] }>();
+const props = withDefaults(defineProps<{
+  metadata: WorkflowMetadata;
+  readonly: boolean;
+  tags?: SkillTagPayload[];
+  tagGroups?: TagGroup[];
+  tagBusy?: boolean;
+  tagError?: string;
+}>(), { tags: () => [], tagGroups: () => [], tagBusy: false, tagError: "" });
+const emit = defineEmits<{
+  change: [patch: Partial<WorkflowMetadata>];
+  "tag-change": [tags: SkillTagPayload[]];
+  "tag-save": [tags: SkillTagPayload[]];
+}>();
 function versions(value: string): string[] {
   return value.split(/[,，]/).map((item) => item.trim()).filter(Boolean);
 }
@@ -19,6 +31,8 @@ function versions(value: string): string[] {
       <label class="field-label"><span>设备</span><input :value="props.metadata.device" :disabled="props.readonly" @input="emit('change', { device: ($event.target as HTMLInputElement).value })" /></label>
       <label class="field-label"><span>适用版本</span><input :value="props.metadata.versions.join(', ')" :disabled="props.readonly" placeholder="V8R22, V8R23" @change="emit('change', { versions: versions(($event.target as HTMLInputElement).value) })" /></label>
       <label class="field-label span-2"><span>工作流说明</span><textarea rows="7" :value="props.metadata.description" :disabled="props.readonly" @input="emit('change', { description: ($event.target as HTMLTextAreaElement).value })" /></label>
+      <label class="field-label span-2"><span>问题现象</span><textarea aria-label="问题现象" rows="5" :value="props.metadata.symptom" :disabled="props.readonly" placeholder="描述告警、用户感知或触发条件（可选）" @input="emit('change', { symptom: ($event.target as HTMLTextAreaElement).value })" /></label>
     </div>
+    <WorkflowSkillTagsSection :tags="props.tags" :groups="props.tagGroups" :disabled="props.readonly || props.tagBusy" :error="props.tagError" @change="emit('tag-change', $event)" @save="emit('tag-save', $event)" />
   </section>
 </template>

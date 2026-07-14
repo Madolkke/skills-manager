@@ -6,7 +6,7 @@ from typing import Any
 import yaml
 
 
-GENERATOR_VERSION = "workflow-skill-v2"
+GENERATOR_VERSION = "workflow-skill-v3"
 
 
 def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:
@@ -36,14 +36,12 @@ def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:
         lines.append(f"- 类型: {'脚本草稿' if step['stepType'] == 'script' else '条件表达式'}")
         lines.append("")
         _paragraph(lines, step["description"])
-        _parameters(lines, "步骤输入", [item["parameter"] for item in step["inputs"]])
         _calls(
             lines,
             step["collectionCalls"],
             definitions,
             roles,
             workflow_inputs={item["id"]: item for item in workflow["inputs"]},
-            step_inputs={item["parameter"]["id"]: item["parameter"] for item in step["inputs"]},
         )
         _transitions(lines, step["topology"], node_names)
         if step["stepType"] == "script" and step.get("script", {}).get("source", "").strip():
@@ -94,7 +92,7 @@ def _roles(lines: list[str], roles: list[dict[str, Any]]) -> None:
     lines.append("")
 
 
-def _calls(lines, calls, definitions, roles, *, workflow_inputs, step_inputs) -> None:
+def _calls(lines, calls, definitions, roles, *, workflow_inputs) -> None:
     if not calls:
         return
     calls_by_id = {item["id"]: item for item in calls}
@@ -106,8 +104,8 @@ def _calls(lines, calls, definitions, roles, *, workflow_inputs, step_inputs) ->
         lines.append("")
         if call["key"].strip():
             lines.append(f"- 调用 key: `{call['key']}`")
-        lines.append(f"- 设备角色: {roles.get(call.get('deviceRoleId'), {}).get('name', '未指定')}")
-        lines.append(f"- 样本数量: {call['sampleCount']}")
+        lines.append(f"- 设备角色: {roles.get(call.get('deviceRoleId'), {}).get('name', '单设备')}")
+        lines.append(f"- 采集次数: {call['sampleCount']}")
         if definition:
             lines.append(f"- Collection: {definition['metadata']['name']} (`{definition['key']}`)")
             if definition["spec"]["commandTemplate"]:
@@ -117,22 +115,21 @@ def _calls(lines, calls, definitions, roles, *, workflow_inputs, step_inputs) ->
                 call["inputBindings"],
                 definition["inputs"],
                 workflow_inputs=workflow_inputs,
-                step_inputs=step_inputs,
                 calls=calls_by_id,
                 definitions=definitions,
             )
             if definition["outputs"]:
                 lines.extend(["", "输出字段:"])
                 for item in definition["outputs"]:
-                    suffix = f" - {item['description']}" if item["description"] else ""
-                    lines.append(f"- `{_call_output_key(call, item)}` ({item['dataType']}): {item['name']}{suffix}")
+                    suffix = f": {item['description']}" if item["description"] else ""
+                    lines.append(f"- `{_call_output_key(call, item)}` ({item['dataType']}){suffix}")
             samples = [item["name"] for item in definition["spec"]["outputSamples"] if item["name"].strip()]
             if samples:
                 lines.extend(["", f"回显示例: {'、'.join(samples)}"])
         lines.append("")
 
 
-def _bindings(lines, bindings, parameters, *, workflow_inputs, step_inputs, calls, definitions) -> None:
+def _bindings(lines, bindings, parameters, *, workflow_inputs, calls, definitions) -> None:
     if not bindings:
         return
     lines.extend(["", "参数绑定:"])
@@ -142,25 +139,23 @@ def _bindings(lines, bindings, parameters, *, workflow_inputs, step_inputs, call
             continue
         lines.append(
             f"- {parameter['name']} (`{parameter['key']}`): "
-            f"{_binding_text(binding, workflow_inputs=workflow_inputs, step_inputs=step_inputs, calls=calls, definitions=definitions)}"
+            f"{_binding_text(binding, workflow_inputs=workflow_inputs, calls=calls, definitions=definitions)}"
         )
 
 
-def _binding_text(binding, *, workflow_inputs, step_inputs, calls, definitions) -> str:
+def _binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
     if binding["kind"] == "literal":
         value = json.dumps(binding.get("value"), ensure_ascii=False, sort_keys=True)
         return f"固定值 `{value}`"
     reference = binding["reference"]
     if binding["kind"] == "workflow_input":
         return _named_reference("全局输入", workflow_inputs.get(reference.get("input_id")))
-    if binding["kind"] == "step_input":
-        return _named_reference("步骤输入", step_inputs.get(reference.get("input_id")))
     if binding["kind"] == "collection_output":
         call = calls.get(reference.get("call_id"))
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"])) if call else None
         output = next((item for item in definition["outputs"] if item["id"] == reference.get("output_id")), None) if definition else None
         if call and output:
-            return f"采集“{_call_name(call, definition)}”的输出 `{_call_output_key(call, output)}` ({output['name']})"
+            return f"采集“{_call_name(call, definition)}”的输出 `{_call_output_key(call, output)}`"
     return "无效引用"
 
 

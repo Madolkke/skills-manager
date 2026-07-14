@@ -56,7 +56,6 @@ function focusSection(target: "inputs" | "roles"): void {
           <label class="workflow-setting-field"><span>数据类型</span><select :value="item.dataType" aria-label="输入类型" :disabled="props.readonly" @change="emit('update-input', item.id, { dataType: ($event.target as HTMLSelectElement).value })">
             <option v-for="type in ['string', 'integer', 'number', 'boolean', 'array', 'object']" :key="type" :value="type">{{ type }}</option>
           </select></label>
-          <label class="workflow-check workflow-setting-required"><input type="checkbox" :checked="item.required" :disabled="props.readonly" @change="emit('update-input', item.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label>
           <UiIconButton label="删除输入" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove-input', item.id)"><Trash2 /></UiIconButton>
         </div>
         <div v-if="props.inputs.length === 0" class="workflow-empty">当前没有输入参数。</div>

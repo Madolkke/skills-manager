@@ -155,6 +155,13 @@
 
 .workflow-form-grid .span-2 { grid-column: 1 / -1; }
 
+.workflow-metadata-tags {
+  display: grid;
+  gap: 13px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e7ee;
+}
+
 .workflow-step-overview-grid {
   grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1fr) max-content;
   column-gap: 12px;
@@ -248,8 +255,8 @@
 .workflow-form-grid textarea,
 .workflow-setting-row input,
 .workflow-setting-row select,
-.workflow-parameter-row input,
-.workflow-parameter-row select,
+.workflow-field-table-row input,
+.workflow-field-table-row select,
 .workflow-binding-row input,
 .workflow-binding-row select,
 .workflow-sample input,
@@ -267,8 +274,8 @@
 .workflow-form-grid select,
 .workflow-setting-row input,
 .workflow-setting-row select,
-.workflow-parameter-row input,
-.workflow-parameter-row select,
+.workflow-field-table-row input,
+.workflow-field-table-row select,
 .workflow-binding-row input,
 .workflow-binding-row select,
 .workflow-sample input {
@@ -288,7 +295,7 @@
 .workflow-form-grid select:focus,
 .workflow-form-grid textarea:focus,
 .workflow-setting-row input:focus,
-.workflow-parameter-row input:focus,
+.workflow-field-table-row input:focus,
 .workflow-binding-row input:focus,
 .workflow-code-input:focus {
   border-color: #4f82bd;
@@ -363,14 +370,42 @@
   gap: 16px;
 }
 
-.workflow-parameter-row {
+.workflow-field-table-row {
   display: grid;
   align-items: center;
   gap: 8px;
 }
 
-.workflow-parameter-row {
-  grid-template-columns: minmax(100px, .8fr) minmax(130px, 1fr) minmax(100px, .7fr) auto auto;
+.workflow-field-table {
+  display: grid;
+  gap: 7px;
+}
+
+.workflow-field-table-head {
+  display: grid;
+  align-items: end;
+  gap: 8px;
+  padding: 0 1px;
+  color: #596a80;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.workflow-collection-input-grid {
+  grid-template-columns: minmax(80px, .75fr) minmax(105px, .9fr) 88px minmax(160px, 1.45fr) 36px 30px;
+}
+
+.workflow-collection-output-grid {
+  grid-template-columns: minmax(130px, 160px) 104px minmax(260px, 1fr) 30px;
+}
+
+.workflow-field-table-row input,
+.workflow-field-table-row select {
+  min-width: 0;
+}
+
+.workflow-field-required {
+  justify-content: center;
 }
 
 .workflow-transition-card,

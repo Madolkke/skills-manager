@@ -9,12 +9,11 @@ export type WorkflowParameter = {
   required: boolean;
 };
 
-export type WorkflowBinding = { kind: string; reference: Record<string, string>; value?: unknown };
-export type WorkflowStepInput = { parameter: WorkflowParameter; binding?: WorkflowBinding };
-export type WorkflowMetadata = { name: string; code: string; description: string; industry: string; device: string; versions: string[] };
+export type WorkflowBinding = { kind: "workflow_input" | "collection_output" | "literal"; reference: Record<string, string>; value?: unknown };
+export type WorkflowMetadata = { name: string; code: string; description: string; symptom: string; industry: string; device: string; versions: string[] };
 export type DeviceRole = { id: string; key: string; name: string; description: string; required: boolean };
 export type CollectionMetadata = { name: string; description: string; industry: string; device: string; versions: string[]; tags: string[] };
-export type CollectionOutput = { id: string; key: string; name: string; description: string; dataType: string };
+export type CollectionOutput = { id: string; key: string; description: string; dataType: string };
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
 
 export type CollectionDefinition = {
@@ -50,7 +49,6 @@ export type WorkflowStep = {
   name: string;
   description: string;
   isStart: boolean;
-  inputs: WorkflowStepInput[];
   collectionCalls: CollectionCall[];
   topology: WorkflowTransition[];
   stepType: "expression" | "script";
@@ -65,7 +63,7 @@ export type WorkflowBundle = {
   collectionSnapshots: CollectionDefinition[];
 };
 
-export type WorkflowEditorSection = "overview" | "script" | "inputs" | "collections" | "paths";
+export type WorkflowEditorSection = "overview" | "script" | "collections" | "paths";
 
 export type WorkflowSelection =
   | { type: "metadata" | "inputs" | "roles" | "collections" }

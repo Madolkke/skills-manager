@@ -14,6 +14,7 @@ const props = defineProps<{
   changes: WorkflowCollectionChange[];
   issues: WorkflowValidationIssue[];
   readonly: boolean;
+  sectionNumber: string;
 }>();
 const emit = defineEmits<{
   "add-call": [definition: CollectionDefinition];
@@ -56,7 +57,7 @@ const hasCalls = computed(() => props.step.collectionCalls.length > 0);
 <template>
   <section id="workflow-step-collections" class="workflow-step-section workflow-step-collections">
     <div class="workflow-subhead workflow-collection-actions">
-      <div><h3>采集信息</h3><p>{{ props.step.collectionCalls.length }} 个采集调用，顺序用于生成和阅读。</p></div>
+      <div class="workflow-section-title"><span>{{ props.sectionNumber }}</span><div><h3>采集信息</h3><p>{{ props.step.collectionCalls.length }} 个采集调用，顺序用于生成和阅读。</p></div></div>
       <div class="workflow-add-call">
         <WorkflowCollectionPicker :definitions="props.catalog" :changes="props.changes" :readonly="props.readonly" @select="emit('add-call', $event)" />
         <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-draft')"><template #icon><Plus /></template>新建采集</UiButton>

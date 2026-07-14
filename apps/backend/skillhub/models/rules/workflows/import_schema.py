@@ -15,7 +15,6 @@ from skillhub.models.rules.workflows.schema import (
     DeviceRole,
     Parameter,
     ScriptDraft,
-    StepInput,
     Transition,
     WorkflowMetadata,
     WorkflowModel,
@@ -47,7 +46,6 @@ class ImportBaseStep(WorkflowModel):
     name: str
     description: str = ""
     is_start: bool = False
-    inputs: list[StepInput] = Field(default_factory=list)
     collection_calls: list[ImportCollectionCall] = Field(default_factory=list)
     topology: list[Transition] = Field(default_factory=list)
 
@@ -88,14 +86,10 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
     for node in nodes:
         if "stepType" not in node:
             continue
-        step_input_ids = {item["parameter"]["id"] for item in node["inputs"]}
         calls = {item["id"]: item for item in node["collectionCalls"]}
         for item in node["topology"]:
             if item["target"]["id"] not in node_ids:
                 raise InvariantError(f"Workflow import transition target does not exist: {item['target']['id']}")
-        for item in node["inputs"]:
-            if item.get("binding"):
-                _validate_binding(item["binding"], workflow_input_ids, step_input_ids, calls, definitions)
         for call in node["collectionCalls"]:
             local_id = call["definitionLocalId"]
             definition = definitions.get(local_id)
@@ -105,7 +99,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             for input_id, binding in call["inputBindings"].items():
                 if input_id not in definition_input_ids:
                     raise InvariantError(f"Workflow import Collection input does not exist: {input_id}")
-                _validate_binding(binding, workflow_input_ids, step_input_ids, calls, definitions)
+                _validate_binding(binding, workflow_input_ids, calls, definitions)
 
 
 def materialize_workflow_import(
@@ -138,14 +132,12 @@ def _definition_map(definitions: list[dict[str, Any]]) -> dict[str, dict[str, An
     return result
 
 
-def _validate_binding(binding, workflow_inputs, step_inputs, calls, definitions) -> None:
+def _validate_binding(binding, workflow_inputs, calls, definitions) -> None:
     kind = binding["kind"]
     reference = binding["reference"]
     valid = kind == "literal"
     if kind == "workflow_input":
         valid = reference.get("input_id") in workflow_inputs
-    elif kind == "step_input":
-        valid = reference.get("input_id") in step_inputs
     elif kind == "collection_output":
         call = calls.get(reference.get("call_id"))
         definition = definitions.get(call["definitionLocalId"]) if call else None

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from skillhub.models.errors import InvariantError
 
 
-DOCUMENT_SCHEMA_VERSION = 2
+DOCUMENT_SCHEMA_VERSION = 3
 
 
 def _camel(name: str) -> str:
@@ -34,20 +34,16 @@ class Parameter(WorkflowModel):
 
 
 class Binding(WorkflowModel):
-    kind: str
+    kind: Literal["workflow_input", "collection_output", "literal"]
     reference: dict[str, str] = Field(default_factory=dict)
     value: Any = None
-
-
-class StepInput(WorkflowModel):
-    parameter: Parameter
-    binding: Binding | None = None
 
 
 class WorkflowMetadata(WorkflowModel):
     name: str
     code: str = ""
     description: str = ""
+    symptom: str = ""
     industry: str = ""
     device: str = ""
     versions: list[str] = Field(default_factory=list)
@@ -73,7 +69,6 @@ class CollectionMetadata(WorkflowModel):
 class CollectionOutput(WorkflowModel):
     id: str
     key: str
-    name: str
     description: str = ""
     data_type: str = "string"
 
@@ -134,7 +129,6 @@ class BaseStep(WorkflowModel):
     name: str
     description: str = ""
     is_start: bool = False
-    inputs: list[StepInput] = Field(default_factory=list)
     collection_calls: list[CollectionCall] = Field(default_factory=list)
     topology: list[Transition] = Field(default_factory=list)
 

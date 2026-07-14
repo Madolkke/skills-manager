@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Braces, Code2, Copy, Plus, Trash2 } from "lucide-vue-next";
+import { Braces, Code2, Copy, Trash2 } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
@@ -33,9 +33,6 @@ const emit = defineEmits<{
   change: [patch: Partial<WorkflowStep>];
   duplicate: [];
   remove: [];
-  "add-input": [];
-  "input-change": [id: string, patch: Record<string, unknown>];
-  "input-remove": [id: string];
   "add-call": [definition: CollectionDefinition];
   "add-draft": [];
   "call-change": [id: string, patch: Partial<CollectionCall>];
@@ -59,9 +56,8 @@ const activeCallId = ref<string | null>(null);
 let observer: IntersectionObserver | null = null;
 
 const sections = computed(() => [
-  { id: "overview" as const, label: "基础", issues: sectionIssueCount("overview") },
+  { id: "overview" as const, label: "步骤信息", issues: sectionIssueCount("overview") },
   ...(props.step.stepType === "script" ? [{ id: "script" as const, label: "脚本", issues: sectionIssueCount("script") }] : []),
-  { id: "inputs" as const, label: "输入", issues: sectionIssueCount("inputs") },
   { id: "collections" as const, label: "采集", issues: sectionIssueCount("collections") },
   { id: "paths" as const, label: "路径", issues: sectionIssueCount("paths") },
 ]);
@@ -104,7 +100,6 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
     }
     if (selection.type !== "step" || selection.id !== props.step.id) return false;
     if (selection.section) return selection.section === section;
-    if (issue.code.includes("INPUT")) return section === "inputs";
     if (issue.code.includes("TRANSITION") || issue.message.includes("跳转")) return section === "paths";
     return section === "overview";
   }).length;
@@ -122,7 +117,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
     <WorkflowSectionNav :active="activeSection" :sections="sections" @select="scrollTo($event)" />
 
     <section id="workflow-step-overview" class="workflow-step-section workflow-step-overview" data-workflow-section="overview">
-      <div class="workflow-section-title"><span>01</span><div><h3>基础信息</h3><p>步骤的名称和执行类型。</p></div></div>
+      <div class="workflow-section-title"><span>01</span><div><h3>步骤信息</h3><p>步骤的名称和执行类型。</p></div></div>
       <div class="workflow-form-grid workflow-step-overview-grid">
         <label class="field-label"><span>步骤名称</span><input :value="props.step.name" :disabled="props.readonly" @input="emit('change', { name: ($event.target as HTMLInputElement).value })" /></label>
         <div class="field-label">
@@ -143,15 +138,10 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
       <div class="workflow-form-grid"><label class="field-label"><span>语言</span><input :value="props.step.script?.language ?? 'python'" :disabled="props.readonly" @input="emit('change', { script: { language: ($event.target as HTMLInputElement).value, source: props.step.script?.source ?? '', options: props.step.script?.options ?? {} } })" /></label><label class="field-label span-2"><span>源码</span><textarea class="workflow-code-input workflow-script-input" rows="12" spellcheck="false" :value="props.step.script?.source ?? ''" :disabled="props.readonly" @input="emit('change', { script: { language: props.step.script?.language ?? 'python', source: ($event.target as HTMLTextAreaElement).value, options: props.step.script?.options ?? {} } })" /></label></div>
     </section>
 
-    <section id="workflow-step-inputs" class="workflow-step-section" data-workflow-section="inputs">
-      <div class="workflow-subhead"><div class="workflow-section-title"><span>{{ props.step.stepType === 'script' ? '03' : '02' }}</span><div><h3>步骤输入</h3><p>{{ props.step.inputs.length }} 个当前步骤内参数。</p></div></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="emit('add-input')"><template #icon><Plus /></template>添加输入</UiButton></div>
-      <div v-for="input in props.step.inputs" :key="input.parameter.id" class="workflow-parameter-row"><input class="workflow-key-input" :value="input.parameter.key" aria-label="步骤输入 Key" :disabled="props.readonly" @input="emit('input-change', input.parameter.id, { key: ($event.target as HTMLInputElement).value })" /><input :value="input.parameter.name" aria-label="步骤输入名称" :disabled="props.readonly" @input="emit('input-change', input.parameter.id, { name: ($event.target as HTMLInputElement).value })" /><select :value="input.parameter.dataType" :disabled="props.readonly" @change="emit('input-change', input.parameter.id, { dataType: ($event.target as HTMLSelectElement).value })"><option v-for="type in ['string','integer','number','boolean','array','object']" :key="type">{{ type }}</option></select><label class="workflow-check"><input type="checkbox" :checked="input.parameter.required" :disabled="props.readonly" @change="emit('input-change', input.parameter.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label><UiIconButton label="删除步骤输入" size="sm" variant="danger" :disabled="props.readonly" @click="emit('input-remove', input.parameter.id)"><Trash2 /></UiIconButton></div>
-      <p v-if="props.step.inputs.length === 0" class="workflow-inline-empty">当前步骤没有局部输入</p>
-    </section>
-
     <WorkflowStepCollections
       v-model:active-call-id="activeCallId"
       data-workflow-section="collections"
+      :section-number="props.step.stepType === 'script' ? '03' : '02'"
       :step="props.step"
       :bundle="props.bundle"
       :catalog="props.catalog"
@@ -171,6 +161,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
     <WorkflowTransitionList
       id="workflow-step-paths"
       data-workflow-section="paths"
+      :section-number="props.step.stepType === 'script' ? '04' : '03'"
       :step="props.step"
       :bundle="props.bundle"
       :readonly="props.readonly"

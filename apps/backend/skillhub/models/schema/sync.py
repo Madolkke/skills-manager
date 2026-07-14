@@ -749,7 +749,7 @@ SCHEMA_PATCHES = (
       id text primary key,
       skill_id text not null references skills(id),
       revision integer not null default 1,
-      document_schema_version integer not null default 2,
+      document_schema_version integer not null default 3,
       document jsonb not null,
       document_digest text not null,
       created_at timestamptz not null default now(),
@@ -776,7 +776,7 @@ SCHEMA_PATCHES = (
     create table if not exists workflow_collection_revisions (
       definition_id text not null references workflow_collection_definitions(id),
       revision integer not null,
-      document_schema_version integer not null default 2,
+      document_schema_version integer not null default 3,
       definition jsonb not null,
       definition_digest text not null,
       created_at timestamptz not null default now(),

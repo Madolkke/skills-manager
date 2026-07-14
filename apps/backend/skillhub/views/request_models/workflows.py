@@ -40,6 +40,7 @@ class WorkflowMetadataPayload(BaseModel):
     name: Annotated[str, Field(max_length=160)]
     code: WorkflowMetadataText = ""
     description: WorkflowDescription
+    symptom: WorkflowDescription = ""
     industry: WorkflowMetadataText = ""
     device: WorkflowMetadataText = ""
     versions: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(default_factory=list)

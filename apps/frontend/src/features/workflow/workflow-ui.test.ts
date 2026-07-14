@@ -5,11 +5,12 @@ import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { describe, expect, it } from "vitest";
 import type { WorkflowBundle, WorkflowParameter } from "../../types";
+import WorkflowMetadataEditor from "./components/WorkflowMetadataEditor.vue";
 import WorkflowSettingsEditor from "./components/WorkflowSettingsEditor.vue";
 import WorkflowPreviewPanel from "./components/WorkflowPreviewPanel.vue";
 import WorkflowSidebar from "./components/WorkflowSidebar.vue";
 import WorkflowToolbar from "./components/WorkflowToolbar.vue";
-import { useWorkflowLayout } from "./useWorkflowLayout";
+import { useWorkflowLayout, workflowInitialRightWidth } from "./useWorkflowLayout";
 
 describe("Workflow UI state", () => {
   it("keeps save success visible after dirty state clears", async () => {
@@ -64,6 +65,11 @@ describe("Workflow UI state", () => {
     expect(layout!.graphExpanded.value).toBe(false);
 
     wrapper.unmount();
+  });
+
+  it("gives the editor more room on compact desktop workbenches", () => {
+    expect(workflowInitialRightWidth(1280)).toBe(360);
+    expect(workflowInitialRightWidth(1600)).toBe(440);
   });
 
   it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {
@@ -139,6 +145,8 @@ describe("Workflow UI state", () => {
     ]);
     expect(wrapper.get('input[aria-label="输入 Key"]').attributes("placeholder")).toBe("tenant");
     expect(wrapper.get('input[aria-label="角色 Key"]').attributes("placeholder")).toBe("primary");
+    expect(wrapper.find('.workflow-setting-row.is-input input[type="checkbox"]').exists()).toBe(false);
+    expect(wrapper.find('.workflow-setting-row.is-role input[type="checkbox"]').exists()).toBe(true);
     expect(document.activeElement).toBe(wrapper.get('[aria-labelledby="workflow-inputs-heading"]').element);
 
     await wrapper.findAll("button").find((button) => button.text().includes("添加输入"))!.trigger("click");
@@ -158,6 +166,23 @@ describe("Workflow UI state", () => {
     await nextTick();
     expect(document.activeElement).toBe(wrapper.get('[aria-labelledby="workflow-roles-heading"]').element);
     wrapper.unmount();
+  });
+
+  it("edits the optional workflow symptom without exposing it elsewhere", async () => {
+    const wrapper = mount(WorkflowMetadataEditor, {
+      props: {
+        metadata: { name: "接口排障", code: "", description: "检查接口。", symptom: "接口闪断", industry: "网络", device: "交换机", versions: [] },
+        readonly: false,
+      },
+    });
+
+    const symptom = wrapper.get('textarea[aria-label="问题现象"]');
+    expect(symptom.element).toHaveProperty("value", "接口闪断");
+    await symptom.setValue("接口频繁闪断");
+    expect(wrapper.emitted("change")?.at(-1)).toEqual([{ symptom: "接口频繁闪断" }]);
+
+    await wrapper.setProps({ readonly: true });
+    expect(symptom.attributes()).toHaveProperty("disabled");
   });
 
   it("uses one sidebar entry with separate input and role counts", async () => {
@@ -191,7 +216,7 @@ function workflowBundle(): WorkflowBundle {
     workflow: {
       id: "workflow-1",
       revision: 1,
-      metadata: { name: "Test", code: "", description: "Test", industry: "", device: "", versions: [] },
+      metadata: { name: "Test", code: "", description: "Test", symptom: "", industry: "", device: "", versions: [] },
       inputs: [workflowInput("input-1", "interface"), workflowInput("input-2", "site")],
       deviceRoles: [{ id: "role-1", key: "device", name: "目标设备", description: "", required: true }],
       nodes: [],

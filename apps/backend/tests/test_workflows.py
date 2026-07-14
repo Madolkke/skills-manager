@@ -152,12 +152,13 @@ class WorkflowApiTest(ApiCommandTestCase):
         patched = self.client.patch(
             f"/api/skills/{created['skill_id']}/workflow/metadata",
             headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"name": "", "code": "", "description": "", "industry": "", "device": "", "versions": []},
+            json={"name": "", "code": "", "description": "", "symptom": "接口间歇性中断。", "industry": "", "device": "", "versions": []},
         )
 
         self.assertEqual(blank_create.status_code, 400)
         self.assertEqual(blank_create.json()["field_errors"][0]["code"], "workflow.description_required")
         self.assertEqual(patched.status_code, 200)
+        self.assertEqual(patched.json()["document"]["workflow"]["metadata"]["symptom"], "接口间歇性中断。")
         self.assertEqual({item["code"] for item in patched.json()["validation"]["errors"]}, {"MISSING_WORKFLOW_NAME", "MISSING_WORKFLOW_DESCRIPTION", "NO_START_STEP"})
 
     def test_catalog_is_global_and_revise_creates_immutable_revision(self):
@@ -295,6 +296,7 @@ class WorkflowApiTest(ApiCommandTestCase):
         self.assertEqual(result["id"], created["workflow_id"])
         self.assertEqual(result["revision"], 2)
         self.assertEqual(result["document"]["workflow"]["id"], created["workflow_id"])
+        self.assertEqual(result["document"]["workflow"]["metadata"]["symptom"], "接口频繁闪断。")
         self.assertEqual(result["validation"]["errors"], [])
         mappings = {item["local_id"]: item for item in result["import_result"]["collection_mappings"]}
         self.assertEqual(set(mappings), {"interface-status", "unused-diagnostics"})
@@ -395,7 +397,7 @@ class WorkflowApiTest(ApiCommandTestCase):
                 "outputSamples": [{"id": "sample-down", "name": "接口 Down 示例", "stdout": "SECRET RAW OUTPUT", "inputValues": {"interfaceName": "10GE1/0/1"}}],
             },
             "inputs": [],
-            "outputs": [{"id": "output-state", "key": "state", "name": "状态", "description": "接口状态", "dataType": "string"}],
+            "outputs": [{"id": "output-state", "key": "state", "description": "接口状态", "dataType": "string"}],
         }
 
     def _import_bundle(self) -> dict:
@@ -410,7 +412,7 @@ class WorkflowApiTest(ApiCommandTestCase):
         return {
             "documentType": "workflow_import_bundle",
             "workflow": {
-                "metadata": {"name": "接口状态导入", "code": "IMPORT", "description": "分析接口状态。", "industry": "网络", "device": "交换机", "versions": []},
+                "metadata": {"name": "接口状态导入", "code": "IMPORT", "description": "分析接口状态。", "symptom": "接口频繁闪断。", "industry": "网络", "device": "交换机", "versions": []},
                 "inputs": [],
                 "deviceRoles": [],
                 "nodes": [
@@ -419,12 +421,6 @@ class WorkflowApiTest(ApiCommandTestCase):
                         "name": "分析接口状态",
                         "description": "",
                         "isStart": True,
-                        "inputs": [
-                            {
-                                "parameter": {"id": "step-input-cli", "key": "cli_text", "name": "命令回显", "description": "", "dataType": "string", "required": True},
-                                "binding": {"kind": "collection_output", "reference": {"call_id": "call-interface", "output_id": "output-state"}},
-                            }
-                        ],
                         "collectionCalls": [{"id": "call-interface", "key": "interface", "name": "接口状态", "definitionLocalId": "interface-status", "sampleCount": 1, "inputBindings": {}}],
                         "topology": [{"id": "transition-done", "target": {"id": "conclusion-done"}, "conditionText": "分析完成", "conditionExpression": ""}],
                         "stepType": "script",
@@ -444,7 +440,6 @@ class WorkflowApiTest(ApiCommandTestCase):
                 "name": "检查接口",
                 "description": "采集接口状态。",
                 "isStart": True,
-                "inputs": [],
                 "collectionCalls": [{"id": "call-interface", "key": "interface", "name": "接口状态", "definition": {"id": definition["id"], "revision": definition["revision"]}, "sampleCount": 1, "inputBindings": {}}],
                 "topology": [{"id": "transition-done", "target": {"id": "conclusion-done"}, "conditionText": "采集完成", "conditionExpression": "interface.state != ''"}],
                 "stepType": "expression",
