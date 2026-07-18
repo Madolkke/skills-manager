@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from skillhub.views.request_models.common import EnvironmentTagValue
 
-
 EVAL_CASE_TITLE_MAX_LENGTH = 160
 EVAL_CASE_INPUT_MAX_LENGTH = 20_000
 EVAL_CASE_NOTES_MAX_LENGTH = 2_000

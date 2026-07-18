@@ -4,10 +4,10 @@ from typing import Any
 
 from sqlalchemy import insert, update
 
-from skillhub.models.errors import InvariantError, NotFoundError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
+from skillhub.models.errors import InvariantError, NotFoundError
 from skillhub.models.operations.shared.results import CreateEvalCaseResult
+from skillhub.models.schema import orm
 
 
 class EvalCaseVersionCommandMixin:
@@ -49,7 +49,7 @@ class EvalCaseVersionCommandMixin:
         )
 
     def eval_case_version_create_snapshot(self, *, case_id: str, eval_set_id: str | None, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             eval_case = self._eval_case_row(connection, case_id)
             skill_id = eval_case["skill_id"]
             eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
@@ -81,7 +81,7 @@ class EvalCaseVersionCommandMixin:
     ) -> CreateEvalCaseResult:
         created_at = utc_now()
         eval_case_version_id = new_id("casever")
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             eval_case = self._eval_case_row(connection, case_id)
             if eval_case["skill_id"] != skill_id:
                 raise InvariantError("Eval case does not match the requested skill.")
@@ -99,7 +99,7 @@ class EvalCaseVersionCommandMixin:
             if workspace_artifact_id is None and preserve_workspace and eval_case["current_version_id"]:
                 workspace_artifact_id = self._eval_case_version_row(connection, eval_case["current_version_id"])["workspace_artifact_id"]
             connection.execute(
-                insert(tables.eval_case_versions).values(
+                insert(orm.EvalCaseVersion).values(
                     id=eval_case_version_id,
                     skill_id=skill_id,
                     case_id=case_id,
@@ -116,11 +116,11 @@ class EvalCaseVersionCommandMixin:
                 values: dict[str, Any] = {"current_version_id": eval_case_version_id, "updated_at": created_at}
                 if title is not None:
                     values["title"] = title
-                connection.execute(update(tables.eval_cases).where(tables.eval_cases.c.id == case_id).values(**values))
+                connection.execute(update(orm.EvalCase).where(orm.EvalCase.id == case_id).values(**values))
             elif title is not None:
                 connection.execute(
-                    update(tables.eval_cases)
-                    .where(tables.eval_cases.c.id == case_id)
+                    update(orm.EvalCase)
+                    .where(orm.EvalCase.id == case_id)
                     .values(title=title, updated_at=created_at)
                 )
         return CreateEvalCaseResult(skill_id, eval_set["id"], case_id, eval_case_version_id, workspace_artifact_id)
@@ -134,7 +134,7 @@ class EvalCaseVersionCommandMixin:
         actor: str,
         notes: str | None = None,
     ) -> CreateEvalCaseResult:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._eval_case_row(connection, case_id)
             source_case_version = self._eval_case_version_row(connection, source_case_version_id)
             if source_case_version["case_id"] != case_id:

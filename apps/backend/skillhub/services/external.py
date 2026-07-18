@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from base64 import b64encode
-from typing import Any
 
 from skillhub.models.rules.semver import normalize_semver
 from skillhub.models.rules.skill_imports import parse_skill_import_source
@@ -26,7 +25,7 @@ class ExternalSkillService(ServiceBase[SkillHubStore]):
         display_name: str | None,
         version: str | None,
         make_current: bool,
-    ) -> Any:
+    ) -> object:
         if archive is not None:
             bundle = parse_skill_import_source({"kind": "zip", "zip_base64": b64encode(archive).decode("ascii")})
             slug = bundle.slug

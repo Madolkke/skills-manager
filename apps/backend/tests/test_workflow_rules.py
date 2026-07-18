@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
 import unittest
+from pathlib import Path
 
 import yaml
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows import (
-    migrate_workflow_document,
     materialize_workflow_import,
+    migrate_workflow_document,
     normalize_workflow_document,
     normalize_workflow_import_bundle,
     render_skill_markdown,

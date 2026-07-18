@@ -6,10 +6,10 @@ from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.models.entities import ContentRef, new_id, utc_now
-from skillhub.models.rules.semver import normalize_semver
-from skillhub.models.schema import tables
 from skillhub.models.operations.shared.errors import skill_slug_conflict
 from skillhub.models.operations.shared.results import CreateSkillResult
+from skillhub.models.rules.semver import normalize_semver
+from skillhub.models.schema import orm
 
 
 class SkillCreateCommandMixin:
@@ -62,7 +62,7 @@ class SkillCreateCommandMixin:
                 creator_role_reason=creator_role_reason,
             )
         try:
-            with self.engine.begin() as opened_connection:
+            with self._write_session() as opened_connection:
                 return self._insert_skill_with_initial_version(
                     opened_connection,
                     slug=slug,
@@ -99,7 +99,7 @@ class SkillCreateCommandMixin:
         try:
             self._require_protected_tag_creation_permission(connection, tags=tags, actor=actor)
             connection.execute(
-                insert(tables.skills).values(
+                insert(orm.Skill).values(
                     id=skill_id,
                     slug=slug,
                     owner_ref=owner_ref,
@@ -110,7 +110,7 @@ class SkillCreateCommandMixin:
                 )
             )
             connection.execute(
-                insert(tables.skill_versions).values(
+                insert(orm.SkillVersion).values(
                     id=skill_version_id,
                     skill_id=skill_id,
                     version_number=1,
@@ -124,8 +124,8 @@ class SkillCreateCommandMixin:
                 )
             )
             connection.execute(
-                update(tables.skills)
-                .where(tables.skills.c.id == skill_id)
+                update(orm.Skill)
+                .where(orm.Skill.id == skill_id)
                 .values(current_version_id=skill_version_id, updated_at=created_at)
             )
             self._set_skill_tags(
@@ -137,7 +137,7 @@ class SkillCreateCommandMixin:
                 enforce_protected=False,
             )
             connection.execute(
-                insert(tables.eval_sets).values(
+                insert(orm.EvalSet).values(
                     id=eval_set_id,
                     skill_id=skill_id,
                     name="Primary",
@@ -155,7 +155,7 @@ class SkillCreateCommandMixin:
                 created_at=created_at,
             )
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="role.assigned",

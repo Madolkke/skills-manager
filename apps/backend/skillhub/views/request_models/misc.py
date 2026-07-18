@@ -4,7 +4,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-
 SAVED_VIEW_NAME_MAX_LENGTH = 80
 SavedViewName = Annotated[str, Field(min_length=1, max_length=SAVED_VIEW_NAME_MAX_LENGTH)]
 

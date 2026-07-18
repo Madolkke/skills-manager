@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
+from skillhub.services import VersionService
 from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import version_service_dependency
 from skillhub.views.responses import result_payload
 from skillhub.views.schemas import CreateSkillVersionPayload, UpdateVersionDisplayNamePayload, content_ref
-from skillhub.services import VersionService
 
 
 def register_version_routes(app: FastAPI) -> None:

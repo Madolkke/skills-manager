@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 
-from skillhub.models.errors import InvariantError
 from skillhub.models.entities import digest_text
+from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, normalize_collection_definition
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class WorkflowCatalogMixin:
@@ -31,7 +31,7 @@ class WorkflowCatalogMixin:
                 raise InvariantError("Collection changes require unique non-empty IDs.")
             seen.add(definition_id)
             existing = connection.execute(
-                select(tables.workflow_collection_definitions).where(tables.workflow_collection_definitions.c.id == definition_id)
+                orm.select_entity(orm.WorkflowCollectionDefinition).where(orm.WorkflowCollectionDefinition.id == definition_id)
             ).mappings().one_or_none()
             if operation in {"create", "fork"}:
                 if existing is not None:
@@ -45,7 +45,7 @@ class WorkflowCatalogMixin:
                     raise InvariantError("New Collection cannot set forkedFrom without fork operation.")
                 revision = 1
                 connection.execute(
-                    insert(tables.workflow_collection_definitions).values(
+                    insert(orm.WorkflowCollectionDefinition).values(
                         id=definition_id,
                         latest_revision=revision,
                         created_at=created_at,
@@ -58,8 +58,8 @@ class WorkflowCatalogMixin:
                     raise InvariantError(f"Collection does not exist: {definition_id}")
                 revision = int(existing["latest_revision"]) + 1
                 connection.execute(
-                    update(tables.workflow_collection_definitions)
-                    .where(tables.workflow_collection_definitions.c.id == definition_id)
+                    update(orm.WorkflowCollectionDefinition)
+                    .where(orm.WorkflowCollectionDefinition.id == definition_id)
                     .values(latest_revision=revision, updated_at=created_at)
                 )
             else:
@@ -67,7 +67,7 @@ class WorkflowCatalogMixin:
             definition["revision"] = revision
             serialized = self._canonical_document_text(definition)
             connection.execute(
-                insert(tables.workflow_collection_revisions).values(
+                insert(orm.WorkflowCollectionRevision).values(
                     definition_id=definition_id,
                     revision=revision,
                     document_schema_version=DOCUMENT_SCHEMA_VERSION,

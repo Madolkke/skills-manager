@@ -1,10 +1,10 @@
-from sqlalchemy import select
 import base64
 
-from skillhub.models.errors import FieldInvariantError, InvariantError
-from skillhub.models.entities import ContentRef
-from skillhub.models.schema.tables import accepted_verifications, artifacts, case_results, eval_case_runs, eval_runs, jobs
+from sqlalchemy import select
 
+from skillhub.models.entities import ContentRef
+from skillhub.models.errors import FieldInvariantError, InvariantError
+from skillhub.models.schema.tables import accepted_verifications, artifacts, case_results, eval_case_runs, eval_runs, jobs
 from tests.store_test_case import SqlStoreTestCase
 
 

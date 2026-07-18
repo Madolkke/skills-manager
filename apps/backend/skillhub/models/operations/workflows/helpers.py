@@ -3,16 +3,14 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from sqlalchemy import select
-
-from skillhub.models.errors import InvariantError, NotFoundError
 from skillhub.models.entities import digest_text
-from skillhub.models.schema import tables
+from skillhub.models.errors import InvariantError, NotFoundError
+from skillhub.models.schema import orm
 
 
 class WorkflowHelperMixin:
     def _workflow_row(self, connection, *, skill_id: str):
-        row = connection.execute(select(tables.workflows).where(tables.workflows.c.skill_id == skill_id)).mappings().one_or_none()
+        row = connection.execute(orm.select_entity(orm.Workflow).where(orm.Workflow.skill_id == skill_id)).mappings().one_or_none()
         if row is None:
             raise NotFoundError(f"Workflow not found for skill: {skill_id}")
         return row
@@ -29,14 +27,17 @@ class WorkflowHelperMixin:
     def _workflow_sync_status(self, connection, *, workflow, skill) -> dict[str, Any]:
         latest = (
             connection.execute(
-                select(tables.workflow_syncs)
-                .where(tables.workflow_syncs.c.workflow_id == workflow["id"])
-                .order_by(tables.workflow_syncs.c.workflow_revision.desc())
+                orm.select_entity(orm.WorkflowSync)
+                .where(orm.WorkflowSync.workflow_id == workflow["id"])
+                .order_by(orm.WorkflowSync.workflow_revision.desc())
                 .limit(1)
             )
             .mappings()
             .one_or_none()
         )
+        return self._workflow_sync_status_from_latest(latest=latest, workflow=workflow, skill=skill)
+
+    def _workflow_sync_status_from_latest(self, *, latest, workflow, skill) -> dict[str, Any]:
         if latest is None:
             return {"status": "never_synced", "last_synced_revision": None, "last_synced_skill_version_id": None, "last_synced_at": None}
         workflow_changed = int(latest["workflow_revision"]) != int(workflow["revision"])
@@ -65,9 +66,9 @@ class WorkflowHelperMixin:
     def _collection_revision(self, connection, definition_id: str, revision: int) -> dict[str, Any]:
         row = (
             connection.execute(
-                select(tables.workflow_collection_revisions)
-                .where(tables.workflow_collection_revisions.c.definition_id == definition_id)
-                .where(tables.workflow_collection_revisions.c.revision == revision)
+                orm.select_entity(orm.WorkflowCollectionRevision)
+                .where(orm.WorkflowCollectionRevision.definition_id == definition_id)
+                .where(orm.WorkflowCollectionRevision.revision == revision)
             )
             .mappings()
             .one_or_none()
@@ -77,7 +78,7 @@ class WorkflowHelperMixin:
         return dict(row["definition"])
 
     def _workflow_summary(self, connection, skill) -> dict[str, Any] | None:
-        workflow = connection.execute(select(tables.workflows).where(tables.workflows.c.skill_id == skill["id"])).mappings().one_or_none()
+        workflow = connection.execute(orm.select_entity(orm.Workflow).where(orm.Workflow.skill_id == skill["id"])).mappings().one_or_none()
         if workflow is None:
             return None
         sync = self._workflow_sync_status(connection, workflow=workflow, skill=skill)

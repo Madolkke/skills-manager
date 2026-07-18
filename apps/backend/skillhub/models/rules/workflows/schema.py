@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from skillhub.models.errors import InvariantError
 
-
 DOCUMENT_SCHEMA_VERSION = 3
 
 

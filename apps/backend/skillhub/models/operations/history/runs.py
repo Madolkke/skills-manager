@@ -4,11 +4,11 @@ from typing import Any
 
 from sqlalchemy import desc, insert, select, update
 
+from skillhub.models.entities import new_id, utc_now
+from skillhub.models.errors import InvariantError
 from skillhub.models.rules.run_comparison import build_run_case_comparisons, build_run_comparison_summary
 from skillhub.models.rules.run_matrix import build_eval_run_matrix
-from skillhub.models.errors import InvariantError
-from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class RunHistoryQueryMixin:
@@ -21,7 +21,7 @@ class RunHistoryQueryMixin:
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             skill = self._skill_row(connection, skill_id)
             rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, status, limit)
             runs = [self._eval_run_context_row(connection, row, include_accepted=True) for row in rows]
@@ -36,7 +36,7 @@ class RunHistoryQueryMixin:
         status: str | None = None,
         limit: int = 50,
     ) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             skill = self._skill_row(connection, skill_id)
             rows = self._filtered_eval_run_rows(connection, skill_id, skill_version_id, eval_set_id, status, limit)
             runs = [self._eval_run_context_row(connection, row, include_accepted=False) for row in rows]
@@ -44,7 +44,7 @@ class RunHistoryQueryMixin:
             results_by_run = {
                 row["id"]: [
                     self._row_dict(result)
-                    for result in connection.execute(select(tables.case_results).where(tables.case_results.c.run_id == row["id"]))
+                    for result in connection.execute(orm.select_entity(orm.CaseResult).where(orm.CaseResult.run_id == row["id"]))
                     .mappings()
                     .all()
                 ]
@@ -53,7 +53,7 @@ class RunHistoryQueryMixin:
         return build_eval_run_matrix(skill=self._row_dict(skill), runs=runs, eval_set_cases_by_run=eval_set_cases_by_run, results_by_run=results_by_run)
 
     def compare_eval_runs(self, *, baseline_run_id: str, candidate_run_id: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             baseline_run = self._eval_run_row(connection, baseline_run_id)
             candidate_run = self._eval_run_row(connection, candidate_run_id)
             if baseline_run["skill_id"] != candidate_run["skill_id"]:
@@ -87,7 +87,7 @@ class RunHistoryQueryMixin:
 
     def accept_eval_run_verification(self, *, eval_run_id: str, note: str, actor: str) -> dict[str, Any]:
         accepted_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             eval_run = self._eval_run_row(connection, eval_run_id)
             if eval_run["status"] != "finished":
                 raise InvariantError("Accepted verification requires a finished eval run.")
@@ -116,12 +116,12 @@ class RunHistoryQueryMixin:
             )
             if existing is None:
                 accepted_id = new_id("accepted")
-                connection.execute(insert(tables.accepted_verifications).values(id=accepted_id, **values))
+                connection.execute(insert(orm.AcceptedVerification).values(id=accepted_id, **values))
             else:
                 accepted_id = existing["id"]
-                connection.execute(update(tables.accepted_verifications).where(tables.accepted_verifications.c.id == accepted_id).values(**values))
+                connection.execute(update(orm.AcceptedVerification).where(orm.AcceptedVerification.id == accepted_id).values(**values))
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="eval_run.accepted_verification_set",
@@ -149,15 +149,15 @@ class RunHistoryQueryMixin:
         status: str | None,
         limit: int,
     ):
-        query = select(tables.eval_runs).where(tables.eval_runs.c.skill_id == skill_id)
+        query = orm.select_entity(orm.EvalRun).where(orm.EvalRun.skill_id == skill_id)
         if skill_version_id:
-            query = query.where(tables.eval_runs.c.skill_version_id == skill_version_id)
+            query = query.where(orm.EvalRun.skill_version_id == skill_version_id)
         if eval_set_id:
-            query = query.where(tables.eval_runs.c.eval_set_id == eval_set_id)
+            query = query.where(orm.EvalRun.eval_set_id == eval_set_id)
         if status:
-            query = query.where(tables.eval_runs.c.status == status)
+            query = query.where(orm.EvalRun.status == status)
         return (
-            connection.execute(query.order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id)).limit(max(1, min(limit, 200))))
+            connection.execute(query.order_by(desc(orm.EvalRun.created_at), desc(orm.EvalRun.id)).limit(max(1, min(limit, 200))))
             .mappings()
             .all()
         )
@@ -177,11 +177,11 @@ class RunHistoryQueryMixin:
     def _latest_finished_run(self, connection, *, skill_version_id: str, eval_set_id: str):
         return (
             connection.execute(
-                select(tables.eval_runs)
-                .where(tables.eval_runs.c.skill_version_id == skill_version_id)
-                .where(tables.eval_runs.c.eval_set_id == eval_set_id)
-                .where(tables.eval_runs.c.status == "finished")
-                .order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id))
+                orm.select_entity(orm.EvalRun)
+                .where(orm.EvalRun.skill_version_id == skill_version_id)
+                .where(orm.EvalRun.eval_set_id == eval_set_id)
+                .where(orm.EvalRun.status == "finished")
+                .order_by(desc(orm.EvalRun.created_at), desc(orm.EvalRun.id))
                 .limit(1)
             )
             .mappings()
@@ -192,7 +192,7 @@ class RunHistoryQueryMixin:
         return {
             row["case_version_id"]: row["passed"]
             for row in connection.execute(
-                select(tables.case_results.c.case_version_id, tables.case_results.c.passed).where(tables.case_results.c.run_id == run_id)
+                select(orm.CaseResult.case_version_id, orm.CaseResult.passed).where(orm.CaseResult.run_id == run_id)
             )
             .mappings()
             .all()

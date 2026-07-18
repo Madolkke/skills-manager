@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-
 SKILL_TOOL_NAMES = {"skill"}
 COMPLETED_STATUSES = {"completed", "complete", "success", "succeeded"}
 

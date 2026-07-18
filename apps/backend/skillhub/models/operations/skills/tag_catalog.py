@@ -7,18 +7,17 @@ from sqlalchemy import delete, insert, select, update
 
 from skillhub.models.entities import utc_now
 from skillhub.models.errors import InvariantError
-from skillhub.models.rules.tag_resources import encode_skill_tag_resource_id
-from skillhub.models.schema import tables
 from skillhub.models.operations.skills.tag_catalog_helpers import TagCatalogHelperMixin
-
+from skillhub.models.rules.tag_resources import encode_skill_tag_resource_id
+from skillhub.models.schema import orm
 
 logger = logging.getLogger(__name__)
 
 
 class TagCatalogMixin(TagCatalogHelperMixin):
     def list_tag_groups(self) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
-            rows = connection.execute(select(tables.tag_groups).order_by(tables.tag_groups.c.sort_order, tables.tag_groups.c.id)).mappings().all()
+        with self._read_session() as connection:
+            rows = connection.execute(orm.select_entity(orm.TagGroup).order_by(orm.TagGroup.sort_order, orm.TagGroup.id)).mappings().all()
             return [self._tag_group_payload(connection, row) for row in rows]
 
     def create_tag_group(
@@ -37,11 +36,11 @@ class TagCatalogMixin(TagCatalogHelperMixin):
         if required and not free_form:
             logger.warning("tag group create rejected reason=required_enum_without_values group_id=%s", clean_id)
             raise InvariantError("必选 Tag Group（枚举组）至少需要先添加一个 Tag 值。")
-        with self.engine.begin() as connection:
-            if connection.execute(select(tables.tag_groups.c.id).where(tables.tag_groups.c.id == clean_id)).scalar_one_or_none() is not None:
+        with self._write_session() as connection:
+            if connection.execute(select(orm.TagGroup.id).where(orm.TagGroup.id == clean_id)).scalar_one_or_none() is not None:
                 raise InvariantError(f"Tag Group already exists: {clean_id}")
             connection.execute(
-                insert(tables.tag_groups).values(
+                insert(orm.TagGroup).values(
                     id=clean_id,
                     display_name=self._clean_display_text(display_name, "Tag Group display_name"),
                     description=description.strip(),
@@ -67,7 +66,7 @@ class TagCatalogMixin(TagCatalogHelperMixin):
         actor: str,
     ) -> dict[str, Any]:
         now = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             group = self._tag_group_row(connection, group_id)
             if free_form and self._tag_group_has_children(connection, group_id=group_id):
                 logger.warning("tag group update rejected reason=free_parent_has_children group_id=%s", group_id)
@@ -76,8 +75,8 @@ class TagCatalogMixin(TagCatalogHelperMixin):
                 logger.warning("tag group update rejected reason=required_enum_without_values group_id=%s", group_id)
                 raise InvariantError("必选 Tag Group（枚举组）至少需要先添加一个 Tag 值。")
             connection.execute(
-                update(tables.tag_groups)
-                .where(tables.tag_groups.c.id == group_id)
+                update(orm.TagGroup)
+                .where(orm.TagGroup.id == group_id)
                 .values(
                     display_name=self._clean_display_text(display_name, "Tag Group display_name"),
                     description=description.strip(),
@@ -103,15 +102,15 @@ class TagCatalogMixin(TagCatalogHelperMixin):
 
     def delete_tag_group_admin(self, *, group_id: str) -> dict[str, bool]:
         now = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             group = self._tag_group_row(connection, group_id)
             counts = self._tag_group_reference_counts(connection, group_id=group_id)
             if any(counts.values()):
                 logger.warning("tag group delete rejected group_id=%s references=%s", group_id, counts)
                 raise InvariantError(self._tag_group_delete_error(counts))
-            values = list(connection.execute(select(tables.tag_values.c.value).where(tables.tag_values.c.tag_group_id == group_id)).scalars())
-            connection.execute(delete(tables.tag_values).where(tables.tag_values.c.tag_group_id == group_id))
-            connection.execute(delete(tables.tag_groups).where(tables.tag_groups.c.id == group_id))
+            values = list(connection.execute(select(orm.TagValue.value).where(orm.TagValue.tag_group_id == group_id)).scalars())
+            connection.execute(delete(orm.TagValue).where(orm.TagValue.tag_group_id == group_id))
+            connection.execute(delete(orm.TagGroup).where(orm.TagGroup.id == group_id))
             self._insert_tag_audit(
                 connection,
                 actor="admin-console",
@@ -124,7 +123,7 @@ class TagCatalogMixin(TagCatalogHelperMixin):
         return {"ok": True}
 
     def tag_group_detail(self, group_id: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             return self._tag_group_payload(connection, self._tag_group_row(connection, group_id))
 
     def create_tag_value(
@@ -139,12 +138,12 @@ class TagCatalogMixin(TagCatalogHelperMixin):
     ) -> dict[str, Any]:
         now = utc_now()
         clean_value = self._clean_tag_value(value)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._tag_group_row(connection, group_id)
             if self._tag_value_exists(connection, group_id=group_id, value=clean_value):
                 raise InvariantError(f"Tag value already exists: {group_id}:{clean_value}")
             connection.execute(
-                insert(tables.tag_values).values(
+                insert(orm.TagValue).values(
                     tag_group_id=group_id,
                     value=clean_value,
                     display_name=self._optional_display_text(display_name),
@@ -169,12 +168,12 @@ class TagCatalogMixin(TagCatalogHelperMixin):
     ) -> dict[str, Any]:
         now = utc_now()
         clean_value = self._clean_tag_value(value)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._tag_value_row(connection, group_id, clean_value)
             connection.execute(
-                update(tables.tag_values)
-                .where(tables.tag_values.c.tag_group_id == group_id)
-                .where(tables.tag_values.c.value == clean_value)
+                update(orm.TagValue)
+                .where(orm.TagValue.tag_group_id == group_id)
+                .where(orm.TagValue.value == clean_value)
                 .values(
                     display_name=self._optional_display_text(display_name),
                     description=description.strip(),
@@ -187,7 +186,7 @@ class TagCatalogMixin(TagCatalogHelperMixin):
     def delete_tag_value_admin(self, *, group_id: str, value: str) -> dict[str, bool]:
         now = utc_now()
         clean_value = self._clean_tag_value(value)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             row = self._tag_value_row(connection, group_id, clean_value)
             group = self._tag_group_row(connection, group_id)
             counts = self._tag_value_reference_counts(connection, group_id=group_id, value=clean_value)
@@ -198,9 +197,9 @@ class TagCatalogMixin(TagCatalogHelperMixin):
                 logger.warning("tag value delete rejected reason=required_last_value group_id=%s value=%s", group_id, clean_value)
                 raise InvariantError("必选 Tag Group（枚举组）至少需要保留一个 Tag 值。")
             connection.execute(
-                delete(tables.tag_values)
-                .where(tables.tag_values.c.tag_group_id == group_id)
-                .where(tables.tag_values.c.value == clean_value)
+                delete(orm.TagValue)
+                .where(orm.TagValue.tag_group_id == group_id)
+                .where(orm.TagValue.value == clean_value)
             )
             self._insert_tag_audit(
                 connection,

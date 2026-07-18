@@ -5,11 +5,11 @@ import json
 from fastapi import Depends, FastAPI, File, Form, UploadFile
 from pydantic import ValidationError
 
+from skillhub.models.errors import FieldError, FieldInvariantError
+from skillhub.services import ExternalSkillService
 from skillhub.views.dependencies import external_skill_service_dependency
 from skillhub.views.responses import result_payload
 from skillhub.views.schemas import ExternalSkillUpsertTagsPayload, IdentityRef, SkillVersionSemVer, VersionChangeSummary, VersionDisplayName
-from skillhub.models.errors import FieldError, FieldInvariantError
-from skillhub.services import ExternalSkillService
 
 
 def register_external_routes(app: FastAPI) -> None:

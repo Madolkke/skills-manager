@@ -6,7 +6,6 @@ from hashlib import sha256
 from typing import Any, Literal
 from uuid import uuid4
 
-
 ContentKind = Literal["inline_bundle", "skill_bundle", "artifact", "git", "external_repo"]
 EvalRunStatus = Literal["queued", "running", "finished", "failed"]
 LifecycleStatus = Literal["active", "archived"]

@@ -19,7 +19,6 @@ from skillhub.models.rules.workflows import (
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 
-
 logger = logging.getLogger(__name__)
 
 

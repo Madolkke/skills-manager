@@ -6,22 +6,22 @@ from sqlalchemy import and_, insert, or_, select
 
 from skillhub.models.entities import new_id
 from skillhub.models.errors import ConflictError, InvariantError
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class ReviewerSnapshotMixin:
     def _snapshot_reviewers(self, connection, *, skill_id: str, review_id: str, created_at) -> list[str]:
-        resource_filters = [and_(tables.role_assignments.c.resource_type == "skill", tables.role_assignments.c.resource_id == skill_id)]
+        resource_filters = [and_(orm.RoleAssignment.resource_type == "skill", orm.RoleAssignment.resource_id == skill_id)]
         tag_resource_ids = self._skill_tag_resource_ids(connection, skill_id)
         if tag_resource_ids:
             resource_filters.append(
-                and_(tables.role_assignments.c.resource_type == "skill_tag", tables.role_assignments.c.resource_id.in_(tag_resource_ids))
+                and_(orm.RoleAssignment.resource_type == "skill_tag", orm.RoleAssignment.resource_id.in_(tag_resource_ids))
             )
         rows = (
             connection.execute(
-                select(tables.role_assignments)
+                orm.select_entity(orm.RoleAssignment)
                 .where(or_(*resource_filters))
-                .where(tables.role_assignments.c.role == "reviewer")
+                .where(orm.RoleAssignment.role == "reviewer")
             )
             .mappings()
             .all()
@@ -33,9 +33,9 @@ class ReviewerSnapshotMixin:
             elif assignment["subject_type"] == "group":
                 members = (
                     connection.execute(
-                        select(tables.group_memberships.c.subject_id)
-                        .where(tables.group_memberships.c.group_id == assignment["subject_id"])
-                        .where(tables.group_memberships.c.subject_type == "user")
+                        select(orm.GroupMembership.subject_id)
+                        .where(orm.GroupMembership.group_id == assignment["subject_id"])
+                        .where(orm.GroupMembership.subject_type == "user")
                     )
                     .scalars()
                     .all()
@@ -72,10 +72,10 @@ class ReviewerSnapshotMixin:
                 raise InvariantError("Only global groups can be selected as review groups.")
             members = (
                 connection.execute(
-                    select(tables.group_memberships.c.subject_id)
-                    .where(tables.group_memberships.c.group_id == group_id)
-                    .where(tables.group_memberships.c.subject_type == "user")
-                    .order_by(tables.group_memberships.c.subject_id)
+                    select(orm.GroupMembership.subject_id)
+                    .where(orm.GroupMembership.group_id == group_id)
+                    .where(orm.GroupMembership.subject_type == "user")
+                    .order_by(orm.GroupMembership.subject_id)
                 )
                 .scalars()
                 .all()
@@ -94,7 +94,7 @@ class ReviewerSnapshotMixin:
     def _insert_reviewers(self, connection, *, skill_id: str, review_id: str, reviewers: dict[str, tuple[str, str]], created_at) -> None:
         for reviewer, source in sorted(reviewers.items()):
             connection.execute(
-                insert(tables.review_request_reviewers).values(
+                insert(orm.ReviewRequestReviewer).values(
                     review_request_id=review_id,
                     skill_id=skill_id,
                     reviewer_actor=reviewer,
@@ -107,7 +107,7 @@ class ReviewerSnapshotMixin:
     def _insert_review_notifications(self, connection, *, review_id: str, skill_slug: str, reviewers: list[str], actor: str, created_at) -> None:
         for reviewer in reviewers:
             connection.execute(
-                insert(tables.notifications).values(
+                insert(orm.Notification).values(
                     id=new_id("notification"),
                     recipient_actor_id=reviewer,
                     type="review_requested",

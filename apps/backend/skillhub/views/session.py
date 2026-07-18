@@ -3,8 +3,8 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, Response
 
 from skillhub.views.auth import (
-    ActorContext,
     DEFAULT_LOCAL_ACTOR,
+    ActorContext,
     actor_dependency,
     clear_actor_cookie,
     normalize_actor,

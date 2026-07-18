@@ -4,6 +4,8 @@ import json
 
 from fastapi import Depends, FastAPI
 
+from skillhub.models.errors import InvariantError
+from skillhub.services import EvaluationService
 from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import evaluation_service_dependency
 from skillhub.views.responses import result_payload
@@ -21,8 +23,6 @@ from skillhub.views.schemas import (
     RestoreEvalCaseVersionPayload,
     UpdateEvalSetPayload,
 )
-from skillhub.services import EvaluationService
-from skillhub.models.errors import InvariantError
 
 
 def register_evaluation_routes(app: FastAPI) -> None:

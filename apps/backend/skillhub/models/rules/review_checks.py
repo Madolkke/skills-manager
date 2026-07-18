@@ -5,11 +5,8 @@ from typing import Any
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.review_check_definitions import (
     DEFAULT_GATE_EXPRESSION,
-    FIXED_PUBLISH_TARGET_KEYS,
-    FIXED_PUBLISH_TARGETS,
     REVIEW_CHECK_DEFINITIONS,
     REVIEW_CHECK_LABELS,
-    publish_gate_check_definitions,
 )
 from skillhub.models.rules.review_check_params import non_negative_int, number, percent_ratio, positive_int
 

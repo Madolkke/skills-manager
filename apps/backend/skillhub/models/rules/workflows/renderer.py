@@ -5,7 +5,6 @@ from typing import Any
 
 import yaml
 
-
 GENERATOR_VERSION = "workflow-skill-v3"
 
 

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from os import environ
-from typing import Mapping
 
-from fastapi import Request
-from sqlalchemy import Engine, create_engine
+from fastapi import Depends, Request
+from sqlalchemy.orm import Session
 
 from skillhub.models.store import SkillHubStore
 from skillhub.services import (
     AdminService,
     ArtifactService,
+    EvaluationReadService,
     EvaluationService,
     ExternalSkillService,
     OpencodeService,
@@ -22,74 +23,58 @@ from skillhub.services import (
 )
 
 
-POSTGRESQL_SCHEMES = ("postgresql://", "postgresql+psycopg://")
+def session_dependency(request: Request) -> Iterator[Session]:
+    with request.app.state.session_factory.begin() as session:
+        yield session
 
 
-def resolve_database_url(environment: Mapping[str, str] = environ) -> str:
-    database_url = environment.get("SKILLHUB_DATABASE_URL")
-    if not database_url:
-        raise ValueError("SKILLHUB_DATABASE_URL is required and must point to a PostgreSQL database.")
-    validate_postgres_url(database_url)
-    return database_url
+def store_dependency(session: Session = Depends(session_dependency)) -> SkillHubStore:
+    return SkillHubStore(session)
 
 
-def create_postgres_engine(database_url: str) -> Engine:
-    validate_postgres_url(database_url)
-    return create_engine(database_url, pool_pre_ping=True)
+def skill_service_dependency(session: Session = Depends(session_dependency)) -> SkillService:
+    return SkillService(SkillHubStore(session))
 
 
-def validate_postgres_url(database_url: str) -> None:
-    if not database_url.startswith(POSTGRESQL_SCHEMES):
-        raise ValueError("SKILLHUB_DATABASE_URL must use postgresql:// or postgresql+psycopg://.")
+def version_service_dependency(session: Session = Depends(session_dependency)) -> VersionService:
+    return VersionService(SkillHubStore(session))
 
 
-def store_dependency(request: Request) -> SkillHubStore:
-    return _store(request)
+def workflow_service_dependency(session: Session = Depends(session_dependency)) -> WorkflowService:
+    return WorkflowService(SkillHubStore(session))
 
 
-def skill_service_dependency(request: Request) -> SkillService:
-    return SkillService(_store(request))
+def review_service_dependency(session: Session = Depends(session_dependency)) -> ReviewService:
+    return ReviewService(SkillHubStore(session))
 
 
-def version_service_dependency(request: Request) -> VersionService:
-    return VersionService(_store(request))
+def evaluation_service_dependency(session: Session = Depends(session_dependency)) -> EvaluationService:
+    return EvaluationService(SkillHubStore(session))
 
 
-def workflow_service_dependency(request: Request) -> WorkflowService:
-    return WorkflowService(_store(request))
+def admin_service_dependency(session: Session = Depends(session_dependency)) -> AdminService:
+    return AdminService(SkillHubStore(session))
 
 
-def review_service_dependency(request: Request) -> ReviewService:
-    return ReviewService(_store(request))
+def external_skill_service_dependency(session: Session = Depends(session_dependency)) -> ExternalSkillService:
+    return ExternalSkillService(SkillHubStore(session))
 
 
-def evaluation_service_dependency(request: Request) -> EvaluationService:
-    return EvaluationService(_store(request))
+def opencode_service_dependency(session: Session = Depends(session_dependency)) -> OpencodeService:
+    return OpencodeService(SkillHubStore(session), environ)
 
 
-def admin_service_dependency(request: Request) -> AdminService:
-    return AdminService(_store(request))
+def saved_view_service_dependency(session: Session = Depends(session_dependency)) -> SavedViewService:
+    return SavedViewService(SkillHubStore(session))
 
 
-def external_skill_service_dependency(request: Request) -> ExternalSkillService:
-    return ExternalSkillService(_store(request))
+def skill_builder_service_dependency(session: Session = Depends(session_dependency)) -> SkillBuilderService:
+    return SkillBuilderService(SkillHubStore(session))
 
 
-def opencode_service_dependency(request: Request) -> OpencodeService:
-    return OpencodeService(_store(request), environ)
+def artifact_service_dependency(session: Session = Depends(session_dependency)) -> ArtifactService:
+    return ArtifactService(SkillHubStore(session))
 
 
-def saved_view_service_dependency(request: Request) -> SavedViewService:
-    return SavedViewService(_store(request))
-
-
-def skill_builder_service_dependency(request: Request) -> SkillBuilderService:
-    return SkillBuilderService(_store(request))
-
-
-def artifact_service_dependency(request: Request) -> ArtifactService:
-    return ArtifactService(_store(request))
-
-
-def _store(request: Request) -> SkillHubStore:
-    return SkillHubStore(request.app.state.engine)
+def evaluation_read_service_dependency(session: Session = Depends(session_dependency)) -> EvaluationReadService:
+    return EvaluationReadService(SkillHubStore(session))

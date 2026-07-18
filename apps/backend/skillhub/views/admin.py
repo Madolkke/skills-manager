@@ -2,15 +2,26 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
+from skillhub.services import AdminService
+from skillhub.views.admin_runtime import register_admin_runtime_routes
 from skillhub.views.auth import admin_key_dependency
 from skillhub.views.dependencies import admin_service_dependency
 from skillhub.views.responses import result_payload
-from skillhub.views.schemas import AdminGroupMemberPayload, AdminGroupPayload, AdminOpencodeAgentCreatePayload, AdminOpencodeAgentPayload, AdminPublishTargetUpdatePayload, AdminRoleAssignmentPayload, AdminSkillUpdatePayload, AdminTagCascadePayload, AdminTagGroupPayload, AdminTagGroupUpdatePayload, AdminTagValuePayload
-from skillhub.services import AdminService
+from skillhub.views.schemas import (
+    AdminGroupMemberPayload,
+    AdminGroupPayload,
+    AdminRoleAssignmentPayload,
+    AdminSkillUpdatePayload,
+    AdminTagCascadePayload,
+    AdminTagGroupPayload,
+    AdminTagGroupUpdatePayload,
+    AdminTagValuePayload,
+)
 
 
 def register_admin_routes(app: FastAPI) -> None:
     admin_auth = Depends(admin_key_dependency)
+    register_admin_runtime_routes(app, admin_auth)
 
     @app.get("/api/admin/skills")
     def admin_skills(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
@@ -217,82 +228,3 @@ def register_admin_routes(app: FastAPI) -> None:
         service: AdminService = Depends(admin_service_dependency),
     ):
         return result_payload(service.revoke_role_assignment(role_assignment_id=role_assignment_id))
-
-    @app.get("/api/admin/publish-targets")
-    def admin_publish_targets(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
-        return result_payload(service.list_publish_targets())
-
-    @app.get("/api/admin/publish-gate-checks")
-    def admin_publish_gate_checks(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
-        return result_payload(service.list_publish_gate_checks())
-
-    @app.patch("/api/admin/publish-targets/{publish_target_id}")
-    def admin_update_publish_target(
-        publish_target_id: str,
-        payload: AdminPublishTargetUpdatePayload,
-        _: None = admin_auth,
-        service: AdminService = Depends(admin_service_dependency),
-    ):
-        return result_payload(
-            service.update_publish_target(
-                publish_target_id=publish_target_id,
-                enabled=payload.enabled,
-                auto_publish_enabled=payload.auto_publish_enabled,
-                gate_expression=payload.gate_expression,
-            )
-        )
-
-    @app.get("/api/admin/publish-records")
-    def admin_publish_records(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
-        return result_payload(service.list_publish_records())
-
-    @app.get("/api/admin/workers")
-    def admin_workers(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
-        return result_payload(service.list_workers())
-
-    @app.get("/api/admin/opencode-agents")
-    def admin_opencode_agents(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
-        return result_payload(service.list_opencode_agents())
-
-    @app.post("/api/admin/opencode-agents")
-    def admin_create_opencode_agent(
-        payload: AdminOpencodeAgentCreatePayload,
-        _: None = admin_auth,
-        service: AdminService = Depends(admin_service_dependency),
-    ):
-        return result_payload(service.create_opencode_agent(payload=payload.model_dump()))
-
-    @app.patch("/api/admin/opencode-agents/{agent_id}")
-    def admin_update_opencode_agent(
-        agent_id: str,
-        payload: AdminOpencodeAgentPayload,
-        _: None = admin_auth,
-        service: AdminService = Depends(admin_service_dependency),
-    ):
-        data = payload.model_dump()
-        data["id"] = agent_id
-        return result_payload(service.update_opencode_agent(agent_id=agent_id, payload=data))
-
-    @app.delete("/api/admin/opencode-agents/{agent_id}")
-    def admin_delete_opencode_agent(
-        agent_id: str,
-        _: None = admin_auth,
-        service: AdminService = Depends(admin_service_dependency),
-    ):
-        return result_payload(service.delete_opencode_agent(agent_id=agent_id))
-
-    @app.post("/api/admin/publish-records/{publish_record_id}/confirm")
-    def admin_confirm_publish_record(
-        publish_record_id: str,
-        _: None = admin_auth,
-        service: AdminService = Depends(admin_service_dependency),
-    ):
-        return result_payload(service.confirm_publish_record(publish_record_id=publish_record_id))
-
-    @app.post("/api/admin/publish-records/{publish_record_id}/cancel")
-    def admin_cancel_publish_record(
-        publish_record_id: str,
-        _: None = admin_auth,
-        service: AdminService = Depends(admin_service_dependency),
-    ):
-        return result_payload(service.cancel_publish_record(publish_record_id=publish_record_id))

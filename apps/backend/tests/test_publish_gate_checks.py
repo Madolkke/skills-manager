@@ -3,7 +3,6 @@ import pytest
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.review_checks import evaluate_gate_expression, normalize_gate_expression
 
-
 RESPONSES = [{"score": 1}, {"score": 0}, {"score": -1}]
 
 

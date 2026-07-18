@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from skillhub.models.schema import tables
 from skillhub.models.operations.shared.results import EvalRunDetail, EvalSetDetail
+from skillhub.models.schema import orm
 
 
 class DetailQueryMixin:
     def eval_set_detail(self, eval_set_id: str) -> EvalSetDetail:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
             cases = self._eval_set_cases(connection, eval_set_id)
         return EvalSetDetail(self._row_dict(eval_set), cases)
 
     def eval_run_detail(self, eval_run_id: str) -> EvalRunDetail:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             eval_run = self._eval_run_row(connection, eval_run_id)
             skill = self._skill_row(connection, eval_run["skill_id"])
             skill_version = self._skill_version_row(connection, eval_run["skill_version_id"])
@@ -22,7 +22,7 @@ class DetailQueryMixin:
             result_rows = {
                 result["case_version_id"]: result
                 for result in connection.execute(
-                    select(tables.case_results).where(tables.case_results.c.run_id == eval_run_id)
+                    orm.select_entity(orm.CaseResult).where(orm.CaseResult.run_id == eval_run_id)
                 )
                 .mappings()
                 .all()
@@ -35,7 +35,7 @@ class DetailQueryMixin:
                 result_artifact = None
                 if result["result_artifact_id"] is not None:
                     result_artifact = (
-                        connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == result["result_artifact_id"]))
+                        connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == result["result_artifact_id"]))
                         .mappings()
                         .one_or_none()
                     )
@@ -56,8 +56,8 @@ class DetailQueryMixin:
         return {
             row["case_id"]: row["position"]
             for row in connection.execute(
-                select(tables.eval_set_cases.c.case_id, tables.eval_set_cases.c.position)
-                .where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
+                select(orm.EvalSetCase.case_id, orm.EvalSetCase.position)
+                .where(orm.EvalSetCase.eval_set_id == eval_set_id)
             )
             .mappings()
             .all()

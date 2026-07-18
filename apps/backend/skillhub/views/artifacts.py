@@ -3,30 +3,30 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI
 from fastapi.responses import Response
 
-from skillhub.views.dependencies import artifact_service_dependency
+from skillhub.services import ArtifactService, EvaluationReadService
+from skillhub.views.dependencies import artifact_service_dependency, evaluation_read_service_dependency
 from skillhub.views.responses import result_payload
-from skillhub.services import ArtifactService
 
 
 def register_artifact_routes(app: FastAPI) -> None:
     @app.get("/api/eval-sets/{eval_set_id}")
-    def eval_set_detail(eval_set_id: str, service: ArtifactService = Depends(artifact_service_dependency)):
+    def eval_set_detail(eval_set_id: str, service: EvaluationReadService = Depends(evaluation_read_service_dependency)):
         return result_payload(service.eval_set_detail(eval_set_id=eval_set_id))
 
     @app.get("/api/eval-runs/compare")
     def compare_eval_runs(
         baseline_run_id: str,
         candidate_run_id: str,
-        service: ArtifactService = Depends(artifact_service_dependency),
+        service: EvaluationReadService = Depends(evaluation_read_service_dependency),
     ):
         return result_payload(service.compare_eval_runs(baseline_run_id=baseline_run_id, candidate_run_id=candidate_run_id))
 
     @app.get("/api/eval-runs/{eval_run_id}")
-    def eval_run_detail(eval_run_id: str, service: ArtifactService = Depends(artifact_service_dependency)):
+    def eval_run_detail(eval_run_id: str, service: EvaluationReadService = Depends(evaluation_read_service_dependency)):
         return result_payload(service.eval_run_detail(eval_run_id=eval_run_id))
 
     @app.get("/api/eval-cases/{case_id}/versions")
-    def eval_case_history(case_id: str, service: ArtifactService = Depends(artifact_service_dependency)):
+    def eval_case_history(case_id: str, service: EvaluationReadService = Depends(evaluation_read_service_dependency)):
         return result_payload(service.eval_case_history(case_id=case_id))
 
     @app.get("/api/skills/{skill_id}/eval-runs")
@@ -36,7 +36,7 @@ def register_artifact_routes(app: FastAPI) -> None:
         eval_set_id: str | None = None,
         status: str | None = None,
         limit: int = 50,
-        service: ArtifactService = Depends(artifact_service_dependency),
+        service: EvaluationReadService = Depends(evaluation_read_service_dependency),
     ):
         return result_payload(
             service.list_eval_runs_for_skill(
@@ -55,7 +55,7 @@ def register_artifact_routes(app: FastAPI) -> None:
         eval_set_id: str | None = None,
         status: str | None = None,
         limit: int = 50,
-        service: ArtifactService = Depends(artifact_service_dependency),
+        service: EvaluationReadService = Depends(evaluation_read_service_dependency),
     ):
         return result_payload(
             service.eval_run_matrix_for_skill(

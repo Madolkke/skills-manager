@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import delete, insert, select, update
 
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class EvalSetCaseHelperMixin:
@@ -24,8 +24,8 @@ class EvalSetCaseHelperMixin:
             case_ids=case_ids,
         )
         connection.execute(
-            update(tables.eval_sets)
-            .where(tables.eval_sets.c.id == eval_set_id)
+            update(orm.EvalSet)
+            .where(orm.EvalSet.id == eval_set_id)
             .values(updated_at=updated_at)
         )
         return eval_set_id
@@ -33,9 +33,9 @@ class EvalSetCaseHelperMixin:
     def _eval_set_case_ids(self, connection, eval_set_id: str) -> list[str]:
         return list(
             connection.execute(
-                select(tables.eval_set_cases.c.case_id)
-                .where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
-                .order_by(tables.eval_set_cases.c.position)
+                select(orm.EvalSetCase.case_id)
+                .where(orm.EvalSetCase.eval_set_id == eval_set_id)
+                .order_by(orm.EvalSetCase.position)
             ).scalars()
         )
 
@@ -45,8 +45,8 @@ class EvalSetCaseHelperMixin:
             return []
         rows = (
             connection.execute(
-                select(tables.eval_cases.c.id, tables.eval_cases.c.current_version_id)
-                .where(tables.eval_cases.c.id.in_(case_ids))
+                select(orm.EvalCase.id, orm.EvalCase.current_version_id)
+                .where(orm.EvalCase.id.in_(case_ids))
             )
             .mappings()
             .all()
@@ -57,9 +57,9 @@ class EvalSetCaseHelperMixin:
     def _require_eval_set_contains_case(self, connection, *, eval_set_id: str, case_id: str) -> None:
         membership = (
             connection.execute(
-                select(tables.eval_set_cases.c.case_id)
-                .where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
-                .where(tables.eval_set_cases.c.case_id == case_id)
+                select(orm.EvalSetCase.case_id)
+                .where(orm.EvalSetCase.eval_set_id == eval_set_id)
+                .where(orm.EvalSetCase.case_id == case_id)
             )
             .scalars()
             .one_or_none()
@@ -78,12 +78,12 @@ class EvalSetCaseHelperMixin:
         case_ids: list[str],
     ) -> None:
         connection.execute(
-            delete(tables.eval_set_cases).where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
+            delete(orm.EvalSetCase).where(orm.EvalSetCase.eval_set_id == eval_set_id)
         )
         if not case_ids:
             return
         connection.execute(
-            insert(tables.eval_set_cases),
+            insert(orm.EvalSetCase),
             [
                 {
                     "eval_set_id": eval_set_id,

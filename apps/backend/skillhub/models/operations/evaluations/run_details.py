@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc
 
 from skillhub.models.rules.eval_runs import normalize_run_environment
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class EvalCaseRunDetailMixin:
     def eval_case_run_detail(self, eval_case_run_id: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             return self._eval_case_run_detail_from_row(connection, self._eval_case_run_row(connection, eval_case_run_id))
 
     def latest_eval_case_run_details(
@@ -24,17 +24,17 @@ class EvalCaseRunDetailMixin:
         context_hash = None
         if environment_tags is not None or run_context is not None:
             _tags, _context, context_hash = normalize_run_environment(environment_tags, run_context)
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             case_version_ids = self._eval_set_case_version_ids(connection, eval_set_id)
             statement = (
-                select(tables.eval_case_runs)
-                .where(tables.eval_case_runs.c.skill_version_id == skill_version_id)
-                .where(tables.eval_case_runs.c.eval_set_id == eval_set_id)
-                .where(tables.eval_case_runs.c.case_version_id.in_(case_version_ids))
-                .order_by(desc(tables.eval_case_runs.c.created_at), desc(tables.eval_case_runs.c.id))
+                orm.select_entity(orm.EvalCaseRun)
+                .where(orm.EvalCaseRun.skill_version_id == skill_version_id)
+                .where(orm.EvalCaseRun.eval_set_id == eval_set_id)
+                .where(orm.EvalCaseRun.case_version_id.in_(case_version_ids))
+                .order_by(desc(orm.EvalCaseRun.created_at), desc(orm.EvalCaseRun.id))
             )
             if context_hash is not None:
-                statement = statement.where(tables.eval_case_runs.c.run_context_hash == context_hash)
+                statement = statement.where(orm.EvalCaseRun.run_context_hash == context_hash)
             rows = connection.execute(statement).mappings().all()
             latest: dict[str, Any] = {}
             for row in rows:
@@ -51,13 +51,13 @@ class EvalCaseRunDetailMixin:
         result_artifact = None
         if case_run["result_artifact_id"] is not None:
             result_artifact = (
-                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_run["result_artifact_id"]))
+                connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == case_run["result_artifact_id"]))
                 .mappings()
                 .one_or_none()
             )
         job = None
         if case_run["job_id"] is not None:
-            job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == case_run["job_id"])).mappings().one_or_none()
+            job = connection.execute(orm.select_entity(orm.Job).where(orm.Job.id == case_run["job_id"])).mappings().one_or_none()
         return {
             "eval_case_run": self._row_dict(case_run),
             "job": self._row_dict(job) if job is not None else None,

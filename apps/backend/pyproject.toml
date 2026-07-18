@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "SkillHub API"
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.14",
   "fastapi>=0.115",
   "httpx>=0.28.1",
   "lmnr>=0.7.54",
@@ -18,13 +19,17 @@ dependencies = [
 [dependency-groups]
 dev = [
   "httpx>=0.28.1",
+  "mypy>=1.15",
   "pytest>=8.3",
+  "ruff>=0.11",
 ]
 
 [project.optional-dependencies]
 dev = [
   "httpx>=0.28.1",
+  "mypy>=1.15",
   "pytest>=8.3",
+  "ruff>=0.11",
 ]
 
 [build-system]
@@ -33,3 +38,26 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["skillhub*", "skillhub_worker*"]
+
+[tool.pytest.ini_options]
+markers = [
+  "postgres: requires the PostgreSQL integration database",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 160
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["skillhub.models.schema.*"]
+disallow_untyped_defs = true

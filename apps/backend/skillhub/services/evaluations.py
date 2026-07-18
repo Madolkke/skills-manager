@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from skillhub.models.errors import InvariantError
+from skillhub.models.rules.eval_assertion_templates import list_assertion_templates
 from skillhub.models.rules.eval_cases import (
     legacy_eval_case_steps,
     normalize_eval_case_runner_config,
     normalize_eval_case_steps,
     normalize_eval_case_title,
 )
-from skillhub.models.errors import InvariantError
 from skillhub.models.rules.eval_runs import decide_eval_run_aggregation, normalize_run_environment
 from skillhub.models.rules.eval_sets import normalize_eval_set_description, normalize_eval_set_name
-from skillhub.models.rules.eval_assertion_templates import list_assertion_templates
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 
@@ -20,7 +20,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
     def list_assertion_templates(self) -> list[dict[str, Any]]:
         return list_assertion_templates()
 
-    def create_eval_set(self, *, skill_id: str, name: str, description: str | None, actor: str) -> Any:
+    def create_eval_set(self, *, skill_id: str, name: str, description: str | None, actor: str) -> object:
         return self.store.insert_eval_set(
             skill_id=skill_id,
             name=normalize_eval_set_name(name),
@@ -28,7 +28,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
             actor=actor,
         )
 
-    def update_eval_set(self, *, eval_set_id: str, name: str | None, description: str | None, actor: str) -> Any:
+    def update_eval_set(self, *, eval_set_id: str, name: str | None, description: str | None, actor: str) -> object:
         return self.store.rename_eval_set(
             eval_set_id=eval_set_id,
             name=normalize_eval_set_name(name),
@@ -36,16 +36,16 @@ class EvaluationService(ServiceBase[SkillHubStore]):
             actor=actor,
         )
 
-    def list_eval_cases_for_skill(self, *, skill_id: str, exclude_eval_set_id: str | None) -> Any:
+    def list_eval_cases_for_skill(self, *, skill_id: str, exclude_eval_set_id: str | None) -> object:
         return self.store.list_eval_cases_for_skill(skill_id=skill_id, exclude_eval_set_id=exclude_eval_set_id)
 
-    def add_eval_case_to_set(self, *, eval_set_id: str, case_id: str, position: int | None, actor: str) -> Any:
+    def add_eval_case_to_set(self, *, eval_set_id: str, case_id: str, position: int | None, actor: str) -> object:
         return self.store.add_eval_case_to_set(eval_set_id=eval_set_id, case_id=case_id, position=position, actor=actor)
 
-    def remove_eval_case_from_set(self, *, eval_set_id: str, case_id: str, actor: str) -> Any:
+    def remove_eval_case_from_set(self, *, eval_set_id: str, case_id: str, actor: str) -> object:
         return self.store.remove_eval_case_from_set(eval_set_id=eval_set_id, case_id=case_id, actor=actor)
 
-    def reorder_eval_set_cases(self, *, eval_set_id: str, case_ids: list[str], actor: str) -> Any:
+    def reorder_eval_set_cases(self, *, eval_set_id: str, case_ids: list[str], actor: str) -> object:
         return self.store.reorder_eval_set_cases(eval_set_id=eval_set_id, case_ids=case_ids, actor=actor)
 
     def create_eval_case(
@@ -60,7 +60,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
         runner_config: dict[str, Any],
         actor: str,
         notes: str | None,
-    ) -> Any:
+    ) -> object:
         clean_steps = normalize_eval_case_steps(steps or legacy_eval_case_steps(None, None))
         clean_title = normalize_eval_case_title(title)
         clean_runner_config = normalize_eval_case_runner_config(runner_config)
@@ -77,7 +77,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
             notes=notes,
         )
 
-    def create_eval_cases_batch(self, *, skill_id: str, eval_set_id: str, cases: list[dict[str, Any]], actor: str) -> Any:
+    def create_eval_cases_batch(self, *, skill_id: str, eval_set_id: str, cases: list[dict[str, Any]], actor: str) -> object:
         if not cases:
             raise InvariantError("At least one eval case is required.")
         clean_cases = []
@@ -107,7 +107,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
         actor: str,
         notes: str | None,
         make_current: bool,
-    ) -> Any:
+    ) -> object:
         clean_steps = normalize_eval_case_steps(steps or legacy_eval_case_steps(None, None))
         clean_title = normalize_eval_case_title(title)
         clean_runner_config = normalize_eval_case_runner_config(runner_config)
@@ -128,7 +128,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
             make_current=make_current,
         )
 
-    def restore_eval_case_version(self, *, case_id: str, eval_set_id: str, source_case_version_id: str, actor: str, notes: str | None) -> Any:
+    def restore_eval_case_version(self, *, case_id: str, eval_set_id: str, source_case_version_id: str, actor: str, notes: str | None) -> object:
         return self.store.restore_eval_case_version(
             case_id=case_id,
             eval_set_id=eval_set_id,
@@ -146,7 +146,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
         actor: str,
         environment_tags: list[str],
         run_context: dict[str, Any],
-    ) -> Any:
+    ) -> object:
         tags, context, context_hash = normalize_run_environment(environment_tags, run_context)
         snapshot = self.store.eval_case_run_enqueue_snapshot(
             skill_version_id=skill_version_id,
@@ -174,7 +174,7 @@ class EvaluationService(ServiceBase[SkillHubStore]):
         eval_set_id: str,
         environment_tags: list[str],
         run_context: dict[str, Any],
-    ) -> Any:
+    ) -> object:
         tags, context, _context_hash = normalize_run_environment(environment_tags, run_context)
         return self.store.latest_eval_case_run_details(
             skill_version_id=skill_version_id,
@@ -183,10 +183,10 @@ class EvaluationService(ServiceBase[SkillHubStore]):
             run_context=context,
         )
 
-    def eval_case_run_detail(self, *, eval_case_run_id: str) -> Any:
+    def eval_case_run_detail(self, *, eval_case_run_id: str) -> object:
         return self.store.eval_case_run_detail(eval_case_run_id)
 
-    def aggregate_eval_run(self, *, skill_version_id: str, eval_set_id: str, actor: str, environment_tags: list[str], run_context: dict[str, Any]) -> Any:
+    def aggregate_eval_run(self, *, skill_version_id: str, eval_set_id: str, actor: str, environment_tags: list[str], run_context: dict[str, Any]) -> object:
         tags, context, context_hash = normalize_run_environment(environment_tags, run_context)
         snapshot = self.store.eval_run_aggregation_snapshot(
             skill_version_id=skill_version_id,
@@ -210,5 +210,5 @@ class EvaluationService(ServiceBase[SkillHubStore]):
             case_results=decision["case_results"],
         )
 
-    def accept_eval_run_verification(self, *, eval_run_id: str, note: str | None, actor: str) -> Any:
+    def accept_eval_run_verification(self, *, eval_run_id: str, note: str | None, actor: str) -> object:
         return self.store.accept_eval_run_verification(eval_run_id=eval_run_id, note=note, actor=actor)

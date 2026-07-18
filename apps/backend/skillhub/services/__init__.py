@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from .admin import AdminService
+from .admin_access import AdminAccessService
+from .admin_catalog import AdminCatalogService
+from .admin_runtime import AdminRuntimeService
 from .artifacts import ArtifactDownload, ArtifactService
+from .evaluation_reads import EvaluationReadService
 from .evaluations import EvaluationService
 from .external import ExternalSkillService
 from .opencode import OpencodeService
@@ -14,9 +18,13 @@ from .workflows import WorkflowService
 
 __all__ = [
     "AdminService",
+    "AdminAccessService",
+    "AdminCatalogService",
+    "AdminRuntimeService",
     "ArtifactDownload",
     "ArtifactService",
     "EvaluationService",
+    "EvaluationReadService",
     "ExternalSkillService",
     "OpencodeService",
     "ReviewService",

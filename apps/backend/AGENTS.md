@@ -4,13 +4,13 @@
 
 ## 目录语义
 
-- `skillhub/bootstrap/`：创建 FastAPI app、注册中间件、异常处理和启动期 schema 初始化。
+- `skillhub/bootstrap/`：创建 FastAPI app、注册中间件、异常处理和启动期 Alembic revision 校验。
 - `skillhub/views/`：HTTP View 层，只处理请求解析、依赖注入、响应组织和路由注册。
 - `skillhub/services/`：Service 层，承载业务流程、权限校验、状态流转和跨 store 编排。
 - `skillhub/models/`：Model 层，包含实体、错误、纯业务规则、数据库结构和数据访问入口。
-- `skillhub_worker/`：后台 worker，消费测评任务并调用 Opencode、Laminar 等执行侧能力。
+- `skillhub_worker/`：后台 worker，消费测评和发布任务并调用 Opencode、Laminar 等执行侧能力；Agent 配置生成位于 `agent_workspace.py`，路径与压缩包安全处理位于 `workspace_files.py`。
 - `tests/`：后端单元测试、API 测试、架构约束测试和 worker 测试。
-- `migrations/`：保留迁移相关目录；当前项目仍以 schema sync 为主。
+- `migrations/`：Alembic revision，是数据库结构演进的唯一入口。
 
 ## 依赖方向
 
@@ -22,7 +22,7 @@ views -> services
 services -> models.store
 services -> models.rules
 models.store -> models.operations
-models.operations -> models.schema
+models.operations -> models.schema ORM entities
 worker -> models.store / models.rules
 ```
 
@@ -32,6 +32,8 @@ worker -> models.store / models.rules
 - Service 层不 import FastAPI，不直接访问 `models.operations` 或 `models.schema`。
 - Model 层不 import `views`、`services` 或 `bootstrap`。
 - Worker 可以复用 Model 层和执行侧客户端，但不要调用 View 层。
+- HTTP 请求共享一个同步 SQLAlchemy `Session`；Service 不提交事务，外层依赖负责提交或回滚。
+- API 和 Worker 启动前必须确认数据库已升级到 Alembic head，不在启动期执行 DDL。
 - 新增或调整子目录职责时，同步更新对应子目录的 `AGENTS.md`。
 
 ## 修改规则

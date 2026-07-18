@@ -5,7 +5,6 @@ from typing import Any
 from skillhub.models.entities import utc_now
 from skillhub.models.store import SkillHubStore
 
-
 WORKER_STARTED_AT = utc_now()
 
 
@@ -44,6 +43,19 @@ def record_builder_running(store: SkillHubStore, detail: dict[str, Any], *, conf
         current_job_id=str(job["id"]),
         current_job_type=str(job.get("type") or "skill_builder_message"),
         current_session_id=str(session["id"]),
+        metadata=_metadata(config),
+        started_at=WORKER_STARTED_AT,
+    )
+
+
+def record_publish_running(store: SkillHubStore, detail: dict[str, Any], *, config) -> None:
+    """Record the publish release job currently owned by a worker."""
+    job = detail["job"]
+    store.record_worker_heartbeat(
+        worker_id=config.worker_id,
+        status="running",
+        current_job_id=str(job["id"]),
+        current_job_type=str(job.get("type") or "publish_release"),
         metadata=_metadata(config),
         started_at=WORKER_STARTED_AT,
     )

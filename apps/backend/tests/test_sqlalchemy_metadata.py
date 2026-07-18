@@ -52,7 +52,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         )
 
     def test_metadata_can_create_postgresql_test_schema(self):
-        from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
+        from skillhub.models.schema.database import create_postgres_engine, resolve_database_url
 
         ensure_postgres_test_database()
         engine = create_postgres_engine(resolve_database_url())

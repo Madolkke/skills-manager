@@ -4,14 +4,14 @@ from typing import Any
 
 from sqlalchemy import select
 
-from skillhub.models.schema import tables
 from skillhub.models.operations.workflows.helpers import WorkflowHelperMixin
 from skillhub.models.rules.workflows import migrate_workflow_document
+from skillhub.models.schema import orm
 
 
 class WorkflowQueryMixin(WorkflowHelperMixin):
     def workflow_detail(self, *, skill_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             skill = self._skill_row(connection, skill_id)
             workflow = self._workflow_row(connection, skill_id=skill_id)
             document = migrate_workflow_document(workflow["document_schema_version"], dict(workflow["document"]))
@@ -31,19 +31,19 @@ class WorkflowQueryMixin(WorkflowHelperMixin):
             }
 
     def list_workflow_collections(self, *, skill_id: str, actor: str) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             self._workflow_row(connection, skill_id=skill_id)
             self._skill_capabilities(connection, skill_id=skill_id, actor=actor)
             rows = (
                 connection.execute(
-                    select(tables.workflow_collection_revisions.c.definition)
+                    select(orm.WorkflowCollectionRevision.definition)
                     .join(
-                        tables.workflow_collection_definitions,
-                        (tables.workflow_collection_definitions.c.id == tables.workflow_collection_revisions.c.definition_id)
-                        & (tables.workflow_collection_definitions.c.latest_revision == tables.workflow_collection_revisions.c.revision),
+                        orm.WorkflowCollectionDefinition,
+                        (orm.WorkflowCollectionDefinition.id == orm.WorkflowCollectionRevision.definition_id)
+                        & (orm.WorkflowCollectionDefinition.latest_revision == orm.WorkflowCollectionRevision.revision),
                     )
-                    .order_by(tables.workflow_collection_definitions.c.id)
+                    .order_by(orm.WorkflowCollectionDefinition.id)
                 )
                 .scalars()
                 .all()
@@ -51,6 +51,6 @@ class WorkflowQueryMixin(WorkflowHelperMixin):
             return [dict(item) for item in rows]
 
     def workflow_sync_source(self, *, skill_version_id: str) -> dict[str, Any] | None:
-        with self.engine.connect() as connection:
-            sync = connection.execute(select(tables.workflow_syncs).where(tables.workflow_syncs.c.skill_version_id == skill_version_id)).mappings().one_or_none()
+        with self._read_session() as connection:
+            sync = connection.execute(orm.select_entity(orm.WorkflowSync).where(orm.WorkflowSync.skill_version_id == skill_version_id)).mappings().one_or_none()
             return self._row_dict(sync) if sync is not None else None

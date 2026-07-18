@@ -1,14 +1,16 @@
-from tests.api_command_test_case import ApiCommandTestCase
 import base64
-from datetime import timedelta
-import httpx
-from io import BytesIO
 import json
-from sqlalchemy import insert, select, update
+from datetime import timedelta
+from io import BytesIO
 from zipfile import ZipFile
+
+import httpx
+from sqlalchemy import insert, select, update
+
 from skillhub.models.entities import utc_now
 from skillhub.models.schema import tables
 from skillhub.services import opencode as opencode_service
+from tests.api_command_test_case import ApiCommandTestCase
 
 
 class ApiSkillManagementTest(ApiCommandTestCase):
@@ -1093,6 +1095,10 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(response.status_code, 422)
 
     def test_admin_publish_target_auto_publish_closes_review_to_released_record(self):
+        from types import SimpleNamespace
+
+        from skillhub_worker.publish_runner import run_publish_once
+
         skill = self.create_skill("auto-publish-api")
         targets = self.client.get("/api/admin/publish-targets", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
         target = next(item for item in targets if item["target_key"] == "yunxi")
@@ -1118,16 +1124,25 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         )
 
         closed = self.client.post(f"/api/reviews/{review['id']}/close", headers={"X-SkillHub-Actor": "product-operator"})
+        processed = run_publish_once(
+            self.store,
+            config=SimpleNamespace(
+                worker_id="publish-worker",
+                opencode_base_url="http://opencode.test",
+                workdir_host="/tmp",
+                max_attempts=1,
+            ),
+        )
         records = self.client.get("/api/admin/publish-records", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
 
         self.assertEqual(updated_target.status_code, 200)
         self.assertTrue(updated_target.json()["auto_publish_enabled"])
         self.assertEqual(closed.status_code, 200)
-        self.assertEqual(closed.json()["publish_records"][0]["status"], "released")
-        self.assertEqual(closed.json()["publish_records"][0]["confirmed_by"], "system:auto_publish")
+        self.assertEqual(closed.json()["publish_records"][0]["status"], "pending_confirmation")
+        self.assertTrue(processed)
         self.assertEqual(records[0]["status"], "released")
+        self.assertEqual(records[0]["confirmed_by"], "publish-worker")
         self.assertEqual(records[0]["metadata"]["auto_publish"], True)
-        self.assertEqual(records[0]["metadata"]["release_result"]["metadata"]["auto_publish"], True)
 
     def test_review_can_snapshot_explicit_group_and_user_reviewers(self):
         skill = self.create_skill("explicit-review-groups")

@@ -8,15 +8,14 @@ from sqlalchemy import delete, insert, select
 
 from skillhub.models.entities import utc_now
 from skillhub.models.errors import InvariantError, NotFoundError
-from skillhub.models.schema import tables
-
+from skillhub.models.schema import orm
 
 logger = logging.getLogger(__name__)
 
 
 class TagCascadeMixin:
     def tag_cascade_overview(self) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             relations = self._tag_group_relations(connection)
             diagnostics = self._tag_cascade_diagnostics(connection, relations=relations)
         return {"relations": relations, "diagnostics": diagnostics}
@@ -31,7 +30,7 @@ class TagCascadeMixin:
     ) -> dict[str, Any]:
         now = utc_now()
         clean_parent_value = self._clean_tag_value(parent_value)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             parent_group = self._tag_group_row(connection, parent_group_id)
             self._tag_value_row(connection, parent_group_id, clean_parent_value)
             self._tag_group_row(connection, child_group_id)
@@ -48,7 +47,7 @@ class TagCascadeMixin:
                 logger.warning("tag cascade create rejected reason=cycle parent_group_id=%s child_group_id=%s", parent_group_id, child_group_id)
                 raise InvariantError("Tag 级联不能形成循环。")
             connection.execute(
-                insert(tables.tag_group_cascades).values(
+                insert(orm.TagGroupCascade).values(
                     child_tag_group_id=child_group_id,
                     parent_tag_group_id=parent_group_id,
                     parent_tag_value=clean_parent_value,
@@ -75,7 +74,7 @@ class TagCascadeMixin:
 
     def delete_tag_cascade(self, *, child_group_id: str, actor: str) -> dict[str, Any]:
         now = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             relation = self._tag_group_parent_row(connection, group_id=child_group_id)
             if relation is None:
                 raise NotFoundError(f"Tag cascade not found for child group: {child_group_id}")
@@ -83,7 +82,7 @@ class TagCascadeMixin:
             if child_group["required"]:
                 logger.warning("tag cascade delete rejected reason=required_child child_group_id=%s", child_group_id)
                 raise InvariantError("required 子 Tag Group 必须先改为可选，才能解除级联。")
-            connection.execute(delete(tables.tag_group_cascades).where(tables.tag_group_cascades.c.child_tag_group_id == child_group_id))
+            connection.execute(delete(orm.TagGroupCascade).where(orm.TagGroupCascade.child_tag_group_id == child_group_id))
             self._insert_tag_audit(
                 connection,
                 actor=actor,
@@ -102,10 +101,10 @@ class TagCascadeMixin:
     def _tag_group_relations(self, connection) -> list[dict[str, Any]]:
         rows = (
             connection.execute(
-                select(tables.tag_group_cascades).order_by(
-                    tables.tag_group_cascades.c.parent_tag_group_id,
-                    tables.tag_group_cascades.c.parent_tag_value,
-                    tables.tag_group_cascades.c.child_tag_group_id,
+                orm.select_entity(orm.TagGroupCascade).order_by(
+                    orm.TagGroupCascade.parent_tag_group_id,
+                    orm.TagGroupCascade.parent_tag_value,
+                    orm.TagGroupCascade.child_tag_group_id,
                 )
             )
             .mappings()
@@ -122,7 +121,7 @@ class TagCascadeMixin:
     def _tag_group_parent_row(self, connection, *, group_id: str):
         return (
             connection.execute(
-                select(tables.tag_group_cascades).where(tables.tag_group_cascades.c.child_tag_group_id == group_id)
+                orm.select_entity(orm.TagGroupCascade).where(orm.TagGroupCascade.child_tag_group_id == group_id)
             )
             .mappings()
             .one_or_none()
@@ -130,8 +129,8 @@ class TagCascadeMixin:
 
     def _tag_group_has_children(self, connection, *, group_id: str) -> bool:
         return connection.execute(
-            select(tables.tag_group_cascades.c.child_tag_group_id)
-            .where(tables.tag_group_cascades.c.parent_tag_group_id == group_id)
+            select(orm.TagGroupCascade.child_tag_group_id)
+            .where(orm.TagGroupCascade.parent_tag_group_id == group_id)
             .limit(1)
         ).scalar_one_or_none() is not None
 
@@ -190,16 +189,16 @@ class TagCascadeMixin:
     def _tag_cascade_diagnostics(self, connection, *, relations: list[dict[str, Any]]) -> list[dict[str, Any]]:
         groups = self._tag_group_map(connection)
         skill_rows = connection.execute(
-            select(tables.skill_tags.c.skill_id, tables.skill_tags.c.tag_group_id, tables.skill_tags.c.tag_value)
-            .join(tables.skills, tables.skills.c.id == tables.skill_tags.c.skill_id)
-            .where(tables.skills.c.lifecycle_status == "active")
+            select(orm.SkillTag.skill_id, orm.SkillTag.tag_group_id, orm.SkillTag.tag_value)
+            .join(orm.Skill, orm.Skill.id == orm.SkillTag.skill_id)
+            .where(orm.Skill.lifecycle_status == "active")
         ).all()
         tags_by_skill: dict[str, set[tuple[str, str]]] = defaultdict(set)
         for skill_id, group_id, value in skill_rows:
             tags_by_skill[str(skill_id)].add((str(group_id), str(value)))
         active_skill_ids = set(
             str(item)
-            for item in connection.execute(select(tables.skills.c.id).where(tables.skills.c.lifecycle_status == "active")).scalars()
+            for item in connection.execute(select(orm.Skill.id).where(orm.Skill.lifecycle_status == "active")).scalars()
         )
         orphaned: dict[str, set[str]] = defaultdict(set)
         missing_required: dict[str, set[str]] = defaultdict(set)
@@ -223,7 +222,7 @@ class TagCascadeMixin:
         ]
 
     def _tag_group_map(self, connection) -> dict[str, dict[str, Any]]:
-        rows = connection.execute(select(tables.tag_groups)).mappings().all()
+        rows = connection.execute(orm.select_entity(orm.TagGroup)).mappings().all()
         return {str(row["id"]): self._row_dict(row) for row in rows}
 
     def _tag_cascade_payload(self, row) -> dict[str, Any]:

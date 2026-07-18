@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from difflib import SequenceMatcher
 import json
+from difflib import SequenceMatcher
 from typing import Any
 
-from sqlalchemy import select
-
 from skillhub.models.errors import InvariantError, NotFoundError
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class BundleDiffMixin:
@@ -62,7 +60,7 @@ class BundleDiffMixin:
         if content_ref.get("kind") != "artifact" or not isinstance(locator, str) or not locator.startswith("artifact:"):
             raise InvariantError(f"SkillVersion has no skill_bundle artifact to diff: {version['id']}")
         artifact_id = locator.split(":", 1)[1]
-        artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id)).mappings().one_or_none()
+        artifact = connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == artifact_id)).mappings().one_or_none()
         if artifact is None:
             raise NotFoundError(f"Artifact not found: {artifact_id}")
         artifact_detail = self._row_dict(artifact)

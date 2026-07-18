@@ -17,6 +17,7 @@ from skillhub.models.schema.tables import (
     groups,
     jobs,
     notifications,
+    opencode_agents,
     publish_records,
     publish_targets,
     review_check_results,
@@ -30,15 +31,14 @@ from skillhub.models.schema.tables import (
     skill_builder_sessions,
     skill_tags,
     skill_versions,
-    tag_groups,
     tag_group_cascades,
+    tag_groups,
     tag_values,
     worker_heartbeats,
     workflow_collection_revisions,
     workflow_syncs,
     workflows,
 )
-
 
 Index("artifacts_namespace_idx", artifacts.c.namespace)
 Index("skill_versions_skill_id_idx", skill_versions.c.skill_id)
@@ -77,6 +77,7 @@ Index("publish_targets_enabled_idx", publish_targets.c.enabled, publish_targets.
 Index("publish_records_skill_version_idx", publish_records.c.skill_version_id)
 Index("publish_records_target_status_idx", publish_records.c.publish_target_id, publish_records.c.status)
 Index("notifications_recipient_idx", notifications.c.recipient_actor_id, notifications.c.created_at.desc())
+Index("opencode_agents_enabled_idx", opencode_agents.c.enabled, opencode_agents.c.deleted_at, opencode_agents.c.name)
 Index("skill_builder_sessions_actor_idx", skill_builder_sessions.c.actor_ref, skill_builder_sessions.c.created_at.desc())
 Index("skill_builder_sessions_status_idx", skill_builder_sessions.c.status, skill_builder_sessions.c.updated_at.desc())
 Index("skill_builder_messages_session_idx", skill_builder_messages.c.session_id, skill_builder_messages.c.created_at)

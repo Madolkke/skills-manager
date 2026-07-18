@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from skillhub.models.rules.eval_assertion_templates import AssertionContext, assertion_template, list_assertion_templates, safe_workdir_path
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.eval_assertion_templates import AssertionContext, assertion_template, list_assertion_templates, safe_workdir_path
 
 
 def context(tmp_path: Path, *, output: str = "", before: set[str] | None = None, after: set[str] | None = None) -> AssertionContext:

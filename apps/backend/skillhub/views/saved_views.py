@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
+from skillhub.services import SavedViewService
 from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import saved_view_service_dependency
 from skillhub.views.responses import result_payload
 from skillhub.views.schemas import CreateSavedViewPayload
-from skillhub.services import SavedViewService
 
 
 def register_saved_view_routes(app: FastAPI) -> None:

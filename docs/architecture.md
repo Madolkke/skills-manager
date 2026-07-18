@@ -141,7 +141,7 @@ GitAdapter 只做内容协作：
 ```text
 apps/backend/skillhub/
   bootstrap/
-    # app 创建、中间件、异常处理和启动期 schema 初始化
+    # app 创建、中间件、异常处理和 Alembic revision 校验
   views/
     auth.py
     dependencies.py
@@ -152,8 +152,13 @@ apps/backend/skillhub/
     skills.py
     versions.py
     evaluations.py
+    evaluation_reads.py
     reviews.py
     admin.py
+    admin_catalog.py
+    admin_access.py
+    admin_runtime.py
+    artifacts.py
     external.py
     workflows.py
   models/
@@ -167,9 +172,15 @@ apps/backend/skillhub/
       ...
     schema/
       tables.py
-      indexes.py
-      sync.py
-      schema.sql
+      base.py
+      skills.py
+      evaluations.py
+      reviews.py
+      workflows.py
+      access.py
+      runtime.py
+      artifacts.py
+      migrations.py
     operations/
       skills/
       evaluations/
@@ -184,15 +195,17 @@ apps/backend/skillhub/
 
 | 模块 | 职责 |
 | --- | --- |
-| `bootstrap` | 装配 FastAPI app、注册中间件和异常处理、执行 schema 初始化 |
+| `bootstrap` | 装配 FastAPI app、注册中间件和异常处理、校验数据库 revision |
 | `views` | HTTP 边界，负责依赖注入、请求解析和响应返回；除 `views.dependencies` 外不直接创建 SQL store |
 | `services` | 应用服务层，承载业务流程、权限校验、状态流转和跨 store 编排 |
 | `models.rules` | 纯业务规则，不访问数据库，例如权限合成、评审门禁、版本号、断言模板规则 |
-| `models.schema` | SQLAlchemy Core 表、索引、schema sync 和 `schema.sql` |
-| `models.operations` | 按业务域组织的事务内 SQL 读写操作 |
-| `models.store.SkillHubStore` | 统一数据访问入口，组合各业务域 operations；service 直接依赖它 |
+| `models.schema` | SQLAlchemy 2.x Declarative ORM 实体、relationship、Session 与 revision 工具 |
+| `models.operations` | 按业务域组织的 Session + ORM 事务内读写操作 |
+| `models.store.SkillHubStore` | Session 绑定的组合根；service 通过它访问领域 operations |
 | `views.schemas` | HTTP request/response schema，保持对外 API contract 稳定 |
 | `services.workflows` | 编排 Workflow Skill 创建、显式保存、元信息更新和同步生成 SkillVersion |
+| `services.admin_*` | 分别承载目录、权限和运行态后台管理用例；`services.admin` 仅保留兼容 facade |
+| `services.evaluation_reads` | 测评详情、历史、对比和矩阵等只读用例 |
 | `models.rules.workflows` | Workflow 严格结构、领域校验和确定性 SKILL.md 转换器 |
 | `models.operations.workflows` | Workflow、WorkflowSync 和 Collection Catalog 的事务内读写 |
 
@@ -314,7 +327,7 @@ sequenceDiagram
 
 ## 10. 存储
 
-当前本地和部署环境统一使用 PostgreSQL，数据库连接通过 `SKILLHUB_DATABASE_URL` 注入。数据库在启动时通过 SQLAlchemy metadata 初始化：
+当前本地和部署环境统一使用 PostgreSQL，数据库连接通过 `SKILLHUB_DATABASE_URL` 注入。数据库结构由 Declarative metadata 定义，并通过 Alembic revision 演进：
 
 - `skills.current_version_id`
 - `skill_versions`
@@ -325,7 +338,7 @@ sequenceDiagram
 - `accepted_verifications.skill_version_id`
 - `accepted_verifications.run_context_hash`
 
-当前项目仍处于开发阶段，不启用独立 Alembic migration 流程。schema 初始化由启动代码处理。
+部署和本地启动前执行 `uv run python -m skillhub.models.schema.cli upgrade`。API 与 Worker 只校验当前 revision，不执行建表或补丁 SQL。
 
 ## 11. 读模型
 

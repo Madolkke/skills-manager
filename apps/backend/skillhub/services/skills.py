@@ -4,17 +4,17 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from skillhub.models.entities import ContentRef
-from skillhub.models.rules.skills import initial_skill_version, skill_change_summary
 from skillhub.models.rules.skill_imports import parse_skill_import_source
+from skillhub.models.rules.skills import initial_skill_version, skill_change_summary
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 
 
 class SkillService(ServiceBase[SkillHubStore]):
-    def list_skills(self) -> Any:
+    def list_skills(self) -> object:
         return self.store.list_skills()
 
-    def list_tag_groups(self) -> Any:
+    def list_tag_groups(self) -> object:
         return self.store.list_tag_groups()
 
     def create_skill(
@@ -27,7 +27,7 @@ class SkillService(ServiceBase[SkillHubStore]):
         version: str | None,
         tags: list[Any],
         actor: str,
-    ) -> Any:
+    ) -> object:
         return self.store.insert_skill_with_initial_version(
             slug=slug,
             owner_ref=owner_ref,
@@ -77,10 +77,10 @@ class SkillService(ServiceBase[SkillHubStore]):
             "bundle_digest": bundle.digest,
         }
 
-    def skill_detail(self, *, skill_id: str, actor: str) -> Any:
+    def skill_detail(self, *, skill_id: str, actor: str) -> object:
         return self.store.skill_detail(skill_id, actor=actor)
 
-    def update_skill(self, *, skill_id: str, slug: str | None, owner_ref: str | None, tags: list[Any] | None, actor: str) -> Any:
+    def update_skill(self, *, skill_id: str, slug: str | None, owner_ref: str | None, tags: list[Any] | None, actor: str) -> object:
         snapshot = self.store.skill_update_snapshot(skill_id=skill_id, actor=actor)
         return self.store.apply_skill_update(
             skill_id=skill_id,
@@ -94,22 +94,22 @@ class SkillService(ServiceBase[SkillHubStore]):
     def archive_skill(self, *, skill_id: str, actor: str) -> None:
         self.store.archive_skill(skill_id=skill_id, actor=actor)
 
-    def list_skill_role_assignments(self, *, skill_id: str) -> Any:
+    def list_skill_role_assignments(self, *, skill_id: str) -> object:
         return self.store.list_skill_role_assignments(skill_id=skill_id)
 
-    def list_skill_groups(self, *, skill_id: str, actor: str) -> Any:
+    def list_skill_groups(self, *, skill_id: str, actor: str) -> object:
         return self.store.list_skill_groups(skill_id=skill_id, actor=actor)
 
-    def create_skill_group(self, *, skill_id: str, name: str, description: str | None, actor: str) -> Any:
+    def create_skill_group(self, *, skill_id: str, name: str, description: str | None, actor: str) -> object:
         return self.store.create_skill_group(skill_id=skill_id, name=name, description=description, actor=actor)
 
-    def update_skill_group(self, *, skill_id: str, group_id: str, name: str, description: str | None, actor: str) -> Any:
+    def update_skill_group(self, *, skill_id: str, group_id: str, name: str, description: str | None, actor: str) -> object:
         return self.store.update_skill_group(skill_id=skill_id, group_id=group_id, name=name, description=description, actor=actor)
 
-    def delete_skill_group(self, *, skill_id: str, group_id: str, actor: str) -> Any:
+    def delete_skill_group(self, *, skill_id: str, group_id: str, actor: str) -> object:
         return self.store.delete_skill_group(skill_id=skill_id, group_id=group_id, actor=actor)
 
-    def add_skill_group_member(self, *, skill_id: str, group_id: str, subject_id: str, subject_type: str, actor: str) -> Any:
+    def add_skill_group_member(self, *, skill_id: str, group_id: str, subject_id: str, subject_type: str, actor: str) -> object:
         return self.store.add_skill_group_member(
             skill_id=skill_id,
             group_id=group_id,
@@ -118,7 +118,7 @@ class SkillService(ServiceBase[SkillHubStore]):
             actor=actor,
         )
 
-    def remove_skill_group_member(self, *, skill_id: str, group_id: str, subject_id: str, subject_type: str, actor: str) -> Any:
+    def remove_skill_group_member(self, *, skill_id: str, group_id: str, subject_id: str, subject_type: str, actor: str) -> object:
         return self.store.remove_skill_group_member(
             skill_id=skill_id,
             group_id=group_id,
@@ -127,7 +127,7 @@ class SkillService(ServiceBase[SkillHubStore]):
             actor=actor,
         )
 
-    def skill_capabilities(self, *, skill_id: str, actor: str, subject_type: str) -> Any:
+    def skill_capabilities(self, *, skill_id: str, actor: str, subject_type: str) -> object:
         return self.store.skill_capabilities(skill_id=skill_id, actor=actor, subject_type=subject_type)
 
     def list_skill_audit_events(
@@ -138,11 +138,11 @@ class SkillService(ServiceBase[SkillHubStore]):
         actor: str | None,
         action: str | None,
         resource_type: str | None,
-    ) -> Any:
+    ) -> object:
         return self.store.list_skill_audit_events(skill_id=skill_id, limit=max(1, min(limit, 200)), actor=actor, action=action, resource_type=resource_type)
 
-    def assign_skill_role(self, *, skill_id: str, subject_id: str, role: str, subject_type: str, actor: str) -> Any:
+    def assign_skill_role(self, *, skill_id: str, subject_id: str, role: str, subject_type: str, actor: str) -> object:
         return self.store.assign_skill_role(skill_id=skill_id, subject_id=subject_id, role=role, subject_type=subject_type, actor=actor)
 
-    def revoke_role_assignment(self, *, role_assignment_id: str, actor: str) -> Any:
+    def revoke_role_assignment(self, *, role_assignment_id: str, actor: str) -> object:
         return self.store.revoke_role_assignment(role_assignment_id=role_assignment_id, actor=actor)

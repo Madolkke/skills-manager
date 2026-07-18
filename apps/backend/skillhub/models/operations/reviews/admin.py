@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import desc, insert, select, update
+from sqlalchemy import desc, insert, update
 
-from skillhub.models.errors import InvariantError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
-from skillhub.models.rules.review_checks import FIXED_PUBLISH_TARGET_KEYS, normalize_gate_expression, publish_gate_check_definitions
+from skillhub.models.errors import InvariantError
+from skillhub.models.rules.review_check_definitions import FIXED_PUBLISH_TARGET_KEYS, publish_gate_check_definitions
+from skillhub.models.rules.review_checks import normalize_gate_expression
+from skillhub.models.schema import orm
 
 
 class ReviewAdminMixin:
     def list_publish_targets(self) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
-            rows = connection.execute(select(tables.publish_targets).order_by(tables.publish_targets.c.target_key)).mappings().all()
+        with self._read_session() as connection:
+            rows = connection.execute(orm.select_entity(orm.PublishTarget).order_by(orm.PublishTarget.target_key)).mappings().all()
             return [self._row_dict(row) for row in rows]
 
     def list_publish_gate_checks(self) -> list[dict[str, Any]]:
@@ -29,13 +30,13 @@ class ReviewAdminMixin:
     ) -> dict[str, Any]:
         updated_at = utc_now()
         normalized_expression = normalize_gate_expression(gate_expression)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             target = self._publish_target_row(connection, publish_target_id)
             if target["target_key"] not in FIXED_PUBLISH_TARGET_KEYS:
                 raise InvariantError("Only fixed publish targets can be updated.")
             connection.execute(
-                update(tables.publish_targets)
-                .where(tables.publish_targets.c.id == publish_target_id)
+                update(orm.PublishTarget)
+                .where(orm.PublishTarget.id == publish_target_id)
                 .values(
                     enabled=enabled,
                     auto_publish_enabled=auto_publish_enabled,
@@ -47,11 +48,11 @@ class ReviewAdminMixin:
             return self._row_dict(self._publish_target_row(connection, publish_target_id))
 
     def list_publish_records(self) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             rows = (
                 connection.execute(
-                    select(tables.publish_records)
-                    .order_by(desc(tables.publish_records.c.created_at), desc(tables.publish_records.c.id))
+                    orm.select_entity(orm.PublishRecord)
+                    .order_by(desc(orm.PublishRecord.created_at), desc(orm.PublishRecord.id))
                     .limit(200)
                 )
                 .mappings()
@@ -76,7 +77,7 @@ class ReviewAdminMixin:
         return self.apply_publish_confirmation(publish_record_id=publish_record_id, actor=actor, release_result=result)
 
     def publish_confirmation_snapshot(self, *, publish_record_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             record = self._publish_record_row(connection, publish_record_id)
             return {
                 "record": self._row_dict(record),
@@ -85,7 +86,7 @@ class ReviewAdminMixin:
 
     def apply_publish_confirmation(self, *, publish_record_id: str, actor: str, release_result: dict[str, Any]) -> dict[str, Any]:
         confirmed_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             record = self._publish_record_row(connection, publish_record_id)
             if record["status"] != "pending_confirmation":
                 raise InvariantError("Only pending publish records can be confirmed.")
@@ -93,12 +94,12 @@ class ReviewAdminMixin:
             if actor == "system:auto_publish":
                 metadata["auto_publish"] = True
             connection.execute(
-                update(tables.publish_records)
-                .where(tables.publish_records.c.id == publish_record_id)
-                .values(status="released", metadata=metadata, confirmed_at=confirmed_at, confirmed_by=actor)
+                update(orm.PublishRecord)
+                .where(orm.PublishRecord.id == publish_record_id)
+                .values(status="released", metadata_payload=metadata, confirmed_at=confirmed_at, confirmed_by=actor)
             )
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="publish.released",
@@ -112,7 +113,7 @@ class ReviewAdminMixin:
 
     def apply_publish_failure(self, *, publish_record_id: str, actor: str, error_message: str, release_result: dict[str, Any] | None = None) -> dict[str, Any]:
         failed_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             record = self._publish_record_row(connection, publish_record_id)
             metadata = {
                 **(record["metadata"] or {}),
@@ -122,12 +123,12 @@ class ReviewAdminMixin:
             if release_result is not None:
                 metadata["release_result"] = release_result
             connection.execute(
-                update(tables.publish_records)
-                .where(tables.publish_records.c.id == publish_record_id)
-                .values(status="failed", metadata=metadata, confirmed_at=failed_at, confirmed_by=actor)
+                update(orm.PublishRecord)
+                .where(orm.PublishRecord.id == publish_record_id)
+                .values(status="failed", metadata_payload=metadata, confirmed_at=failed_at, confirmed_by=actor)
             )
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="publish.failed",
@@ -147,22 +148,22 @@ class ReviewAdminMixin:
         return self.apply_publish_cancellation(publish_record_id=publish_record_id, actor=actor)
 
     def publish_cancellation_snapshot(self, *, publish_record_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             return {"record": self._row_dict(self._publish_record_row(connection, publish_record_id)), "actor": actor}
 
     def apply_publish_cancellation(self, *, publish_record_id: str, actor: str) -> dict[str, Any]:
         cancelled_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             record = self._publish_record_row(connection, publish_record_id)
             if record["status"] not in {"pending_confirmation", "failed"}:
                 raise InvariantError("Only pending or failed publish records can be cancelled.")
             connection.execute(
-                update(tables.publish_records)
-                .where(tables.publish_records.c.id == publish_record_id)
-                .values(status="cancelled", metadata={**(record["metadata"] or {}), "cancelled_by": actor})
+                update(orm.PublishRecord)
+                .where(orm.PublishRecord.id == publish_record_id)
+                .values(metadata_payload={**(record["metadata"] or {}), "cancelled_by": actor}, status="cancelled")
             )
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="publish.cancelled",

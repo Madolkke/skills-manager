@@ -4,39 +4,20 @@ from typing import Any
 
 from sqlalchemy import desc, select
 
+from skillhub.models.operations.skills.list_read_models import ListReadModelMixin
 from skillhub.models.rules.eval_assertion_templates import normalize_assertion_step
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
-class ReadModelMixin:
-    def list_skills(self) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
-            rows = (
-                connection.execute(
-                    select(tables.skills)
-                    .where(tables.skills.c.lifecycle_status == "active")
-                    .order_by(tables.skills.c.slug)
-                )
-                .mappings()
-                .all()
-            )
-            return [
-                {
-                    "skill": self._skill_record(connection, row),
-                    "summary": self._skill_summary(connection, row),
-                    "workflow": self._workflow_summary(connection, row),
-                }
-                for row in rows
-            ]
-
+class ReadModelMixin(ListReadModelMixin):
     def skill_detail(self, skill_id: str, actor: str | None = None) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             skill = self._skill_row(connection, skill_id)
             version_rows = (
                 connection.execute(
-                    select(tables.skill_versions)
-                    .where(tables.skill_versions.c.skill_id == skill_id)
-                    .order_by(desc(tables.skill_versions.c.version_number))
+                    orm.select_entity(orm.SkillVersion)
+                    .where(orm.SkillVersion.skill_id == skill_id)
+                    .order_by(desc(orm.SkillVersion.version_number))
                 )
                 .mappings()
                 .all()
@@ -45,7 +26,7 @@ class ReadModelMixin:
             eval_sets = [
                 self._eval_set_summary(connection, row)
                 for row in connection.execute(
-                    select(tables.eval_sets).where(tables.eval_sets.c.skill_id == skill_id).order_by(tables.eval_sets.c.name)
+                    orm.select_entity(orm.EvalSet).where(orm.EvalSet.skill_id == skill_id).order_by(orm.EvalSet.name)
                 )
                 .mappings()
                 .all()
@@ -53,9 +34,9 @@ class ReadModelMixin:
             latest_runs = [
                 self._row_dict(row)
                 for row in connection.execute(
-                    select(tables.eval_runs)
-                    .where(tables.eval_runs.c.skill_id == skill_id)
-                    .order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id))
+                    orm.select_entity(orm.EvalRun)
+                    .where(orm.EvalRun.skill_id == skill_id)
+                    .order_by(desc(orm.EvalRun.created_at), desc(orm.EvalRun.id))
                     .limit(10)
                 )
                 .mappings()
@@ -85,7 +66,7 @@ class ReadModelMixin:
         current_eval_set = None
         primary_row = (
             connection.execute(
-                select(tables.eval_sets).where(tables.eval_sets.c.skill_id == skill["id"]).where(tables.eval_sets.c.name == "Primary")
+                orm.select_entity(orm.EvalSet).where(orm.EvalSet.skill_id == skill["id"]).where(orm.EvalSet.name == "Primary")
             )
             .mappings()
             .one_or_none()
@@ -97,11 +78,11 @@ class ReadModelMixin:
         if current_version is not None and current_eval_set is not None:
             latest_row = (
                 connection.execute(
-                    select(tables.eval_runs)
-                    .where(tables.eval_runs.c.skill_version_id == current_version["id"])
-                    .where(tables.eval_runs.c.eval_set_id == current_eval_set["id"])
-                    .where(tables.eval_runs.c.status == "finished")
-                    .order_by(desc(tables.eval_runs.c.created_at), desc(tables.eval_runs.c.id))
+                    orm.select_entity(orm.EvalRun)
+                    .where(orm.EvalRun.skill_version_id == current_version["id"])
+                    .where(orm.EvalRun.eval_set_id == current_eval_set["id"])
+                    .where(orm.EvalRun.status == "finished")
+                    .order_by(desc(orm.EvalRun.created_at), desc(orm.EvalRun.id))
                     .limit(1)
                 )
                 .mappings()
@@ -122,11 +103,11 @@ class ReadModelMixin:
         detail = self._row_dict(version)
         workflow_sync = connection.execute(
             select(
-                tables.workflow_syncs.c.workflow_id,
-                tables.workflow_syncs.c.workflow_revision,
-                tables.workflow_syncs.c.generator_version,
-                tables.workflow_syncs.c.created_at,
-            ).where(tables.workflow_syncs.c.skill_version_id == version["id"])
+                orm.WorkflowSync.workflow_id,
+                orm.WorkflowSync.workflow_revision,
+                orm.WorkflowSync.generator_version,
+                orm.WorkflowSync.created_at,
+            ).where(orm.WorkflowSync.skill_version_id == version["id"])
         ).mappings().one_or_none()
         detail["workflow_sync"] = self._row_dict(workflow_sync) if workflow_sync is not None else None
         content_ref = detail.get("content_ref") or {}
@@ -135,7 +116,7 @@ class ReadModelMixin:
         locator = content_ref.get("locator")
         if content_ref.get("kind") == "artifact" and isinstance(locator, str) and locator.startswith("artifact:"):
             artifact_id = locator.split(":", 1)[1]
-            artifact = connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == artifact_id)).mappings().one_or_none()
+            artifact = connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == artifact_id)).mappings().one_or_none()
             if artifact is not None:
                 artifact_detail = self._row_dict(artifact)
                 detail["bundle_artifact"] = artifact_detail
@@ -148,9 +129,9 @@ class ReadModelMixin:
     def _eval_set_cases(self, connection, eval_set_id: str) -> list[dict[str, Any]]:
         memberships = (
             connection.execute(
-                select(tables.eval_set_cases)
-                .where(tables.eval_set_cases.c.eval_set_id == eval_set_id)
-                .order_by(tables.eval_set_cases.c.position)
+                orm.select_entity(orm.EvalSetCase)
+                .where(orm.EvalSetCase.eval_set_id == eval_set_id)
+                .order_by(orm.EvalSetCase.position)
             )
             .mappings()
             .all()
@@ -174,7 +155,7 @@ class ReadModelMixin:
         workspace_artifact = None
         if case_version.get("workspace_artifact_id"):
             workspace_artifact = (
-                connection.execute(select(tables.artifacts).where(tables.artifacts.c.id == case_version["workspace_artifact_id"]))
+                connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == case_version["workspace_artifact_id"]))
                 .mappings()
                 .one()
             )

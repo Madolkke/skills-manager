@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
-from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.entities import ContentRef, new_id, utc_now
-from skillhub.models.rules.semver import normalize_semver
-from skillhub.models.schema import tables
+from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.operations.shared.errors import skill_slug_conflict
+from skillhub.models.rules.semver import normalize_semver
+from skillhub.models.schema import orm
 
 
 class ExternalSkillUpsertCommandMixin:
@@ -54,14 +54,14 @@ class ExternalSkillUpsertCommandMixin:
 
     def external_skill_upsert_snapshot(self, *, owner_ref: str, slug: str, actor: str, tags: list[dict[str, Any]]) -> dict[str, Any]:
         clean_tags = self._clean_skill_tags(tags)
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._require_tag_values_exist(connection, clean_tags)
             self._require_required_tag_groups_present(connection, clean_tags)
             skill = (
                 connection.execute(
-                    select(tables.skills)
-                    .where(tables.skills.c.slug == slug)
-                    .where(tables.skills.c.lifecycle_status == "active")
+                    orm.select_entity(orm.Skill)
+                    .where(orm.Skill.slug == slug)
+                    .where(orm.Skill.lifecycle_status == "active")
                 )
                 .mappings()
                 .one_or_none()
@@ -115,7 +115,7 @@ class ExternalSkillUpsertCommandMixin:
         skill_version_id = new_id("skillver")
         semver = normalize_semver(version)
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 self._require_tag_values_exist(connection, clean_tags)
                 is_created = operation == "created"
                 if is_created:
@@ -141,7 +141,7 @@ class ExternalSkillUpsertCommandMixin:
                     if eval_set_id is None:
                         eval_set_id = new_id("evalset")
                     connection.execute(
-                        insert(tables.skills).values(
+                        insert(orm.Skill).values(
                             id=skill_id,
                             slug=slug,
                             owner_ref=owner_ref,
@@ -152,7 +152,7 @@ class ExternalSkillUpsertCommandMixin:
                         )
                     )
                     connection.execute(
-                        insert(tables.eval_sets).values(
+                        insert(orm.EvalSet).values(
                             id=eval_set_id,
                             skill_id=skill_id,
                             name="Primary",
@@ -163,7 +163,7 @@ class ExternalSkillUpsertCommandMixin:
                     )
                     self._grant_skill_role(connection, skill_id=skill_id, subject_id=actor, role="admin", actor=actor, created_at=created_at)
                     connection.execute(
-                        insert(tables.audit_events).values(
+                        insert(orm.AuditEvent).values(
                             id=new_id("audit"),
                             actor_ref=actor,
                             action="role.assigned",
@@ -177,7 +177,7 @@ class ExternalSkillUpsertCommandMixin:
                     eval_set_id = self._primary_eval_set_row(connection, skill_id)["id"]
 
                 connection.execute(
-                    insert(tables.skill_versions).values(
+                    insert(orm.SkillVersion).values(
                         id=skill_version_id,
                         skill_id=skill_id,
                         version_number=version_number,
@@ -192,8 +192,8 @@ class ExternalSkillUpsertCommandMixin:
                 )
                 if is_created or make_current:
                     connection.execute(
-                        update(tables.skills)
-                        .where(tables.skills.c.id == skill_id)
+                        update(orm.Skill)
+                        .where(orm.Skill.id == skill_id)
                         .values(current_version_id=skill_version_id, updated_at=created_at)
                     )
                     current_version_id = skill_version_id

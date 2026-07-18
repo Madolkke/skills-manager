@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from skillhub.models.errors import InvariantError
 from skillhub.models.entities import ContentRef
+from skillhub.models.errors import InvariantError
 from skillhub.models.rules.semver import normalize_semver
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.models.store import SkillHubStore
@@ -22,7 +22,7 @@ class VersionService(ServiceBase[SkillHubStore]):
         version: str | None,
         make_current: bool,
         actor: str,
-    ) -> Any:
+    ) -> object:
         bundle = None
         if source is not None:
             bundle = parse_skill_import_source(source)
@@ -50,5 +50,5 @@ class VersionService(ServiceBase[SkillHubStore]):
             make_current=make_current,
         )
 
-    def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None, actor: str) -> Any:
+    def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None, actor: str) -> object:
         return self.store.update_skill_version_name(skill_version_id=skill_version_id, display_name=display_name, actor=actor)

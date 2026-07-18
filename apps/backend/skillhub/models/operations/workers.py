@@ -9,8 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 from skillhub.models.entities import utc_now
 from skillhub.models.errors import InvariantError
 from skillhub.models.operations.skill_builder.constants import BUILDER_JOB_TYPE
-from skillhub.models.schema import tables
-
+from skillhub.models.schema import orm
 
 ONLINE_THRESHOLD_SECONDS = 30
 ACTIVE_WINDOW_HOURS = 24
@@ -47,14 +46,19 @@ class WorkerStatusMixin:
             "current_session_id": current_session_id,
             "last_seen_at": now,
             "started_at": started_at or now,
-            "metadata": self._canonical_json_object(metadata or {}),
+            "metadata_payload": self._canonical_json_object(metadata or {}),
         }
-        statement = insert(tables.worker_heartbeats).values(**values)
-        with self.engine.begin() as connection:
+        statement = insert(orm.WorkerHeartbeat).values(**values)
+        update_values = {
+            getattr(orm.WorkerHeartbeat, key): value
+            for key, value in values.items()
+            if key != "worker_id"
+        }
+        with self._write_session() as connection:
             connection.execute(
                 statement.on_conflict_do_update(
-                    index_elements=[tables.worker_heartbeats.c.worker_id],
-                    set_={key: value for key, value in values.items() if key != "worker_id"},
+                    index_elements=[orm.WorkerHeartbeat.worker_id],
+                    set_=update_values,
                 )
             )
 
@@ -63,12 +67,12 @@ class WorkerStatusMixin:
         now = utc_now()
         active_cutoff = now - timedelta(hours=ACTIVE_WINDOW_HOURS)
         online_cutoff = now - timedelta(seconds=ONLINE_THRESHOLD_SECONDS)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             heartbeat_rows = (
                 connection.execute(
-                    select(tables.worker_heartbeats)
-                    .where(tables.worker_heartbeats.c.last_seen_at >= active_cutoff)
-                    .order_by(tables.worker_heartbeats.c.last_seen_at.desc(), tables.worker_heartbeats.c.worker_id)
+                    orm.select_entity(orm.WorkerHeartbeat)
+                    .where(orm.WorkerHeartbeat.last_seen_at >= active_cutoff)
+                    .order_by(orm.WorkerHeartbeat.last_seen_at.desc(), orm.WorkerHeartbeat.worker_id)
                 )
                 .mappings()
                 .all()
@@ -96,7 +100,7 @@ class WorkerStatusMixin:
         job_ids = [row["current_job_id"] for row in heartbeat_rows if row["current_job_id"]]
         if not job_ids:
             return {}
-        rows = connection.execute(select(tables.jobs).where(tables.jobs.c.id.in_(job_ids))).mappings().all()
+        rows = connection.execute(orm.select_entity(orm.Job).where(orm.Job.id.in_(job_ids))).mappings().all()
         return {row["id"]: self._row_dict(row) for row in rows}
 
     def _worker_eval_runs(self, connection, heartbeat_rows, job_rows: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -107,15 +111,15 @@ class WorkerStatusMixin:
                 run_ids.add(str(payload["eval_case_run_id"]))
         if not run_ids:
             return {}
-        rows = connection.execute(select(tables.eval_case_runs).where(tables.eval_case_runs.c.id.in_(run_ids))).mappings().all()
+        rows = connection.execute(orm.select_entity(orm.EvalCaseRun).where(orm.EvalCaseRun.id.in_(run_ids))).mappings().all()
         return {row["id"]: self._row_dict(row) for row in rows}
 
     def _worker_queue_summary(self, connection) -> dict[str, int]:
         rows = connection.execute(
-            select(tables.jobs.c.type, tables.jobs.c.status, func.count().label("count"))
-            .where(tables.jobs.c.type.in_(["eval_case_run", BUILDER_JOB_TYPE]))
-            .where(tables.jobs.c.status.in_(["queued", "running"]))
-            .group_by(tables.jobs.c.type, tables.jobs.c.status)
+            select(orm.Job.type, orm.Job.status, func.count().label("count"))
+            .where(orm.Job.type.in_(["eval_case_run", BUILDER_JOB_TYPE]))
+            .where(orm.Job.status.in_(["queued", "running"]))
+            .group_by(orm.Job.type, orm.Job.status)
         ).mappings().all()
         counts = {(row["type"], row["status"]): int(row["count"]) for row in rows}
         return {

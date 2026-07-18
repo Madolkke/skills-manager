@@ -7,7 +7,7 @@ from sqlalchemy import func, insert, select
 from skillhub.models.entities import new_id
 from skillhub.models.errors import InvariantError, NotFoundError
 from skillhub.models.rules.tag_resources import decode_skill_tag_resource_id, encode_skill_tag_resource_id
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class TagCatalogHelperMixin:
@@ -19,7 +19,7 @@ class TagCatalogHelperMixin:
         }
 
     def _tag_group_row(self, connection, group_id: str):
-        row = connection.execute(select(tables.tag_groups).where(tables.tag_groups.c.id == group_id)).mappings().one_or_none()
+        row = connection.execute(orm.select_entity(orm.TagGroup).where(orm.TagGroup.id == group_id)).mappings().one_or_none()
         if row is None:
             raise NotFoundError(f"TagGroup not found: {group_id}")
         return row
@@ -27,9 +27,9 @@ class TagCatalogHelperMixin:
     def _tag_value_row(self, connection, group_id: str, value: str):
         row = (
             connection.execute(
-                select(tables.tag_values)
-                .where(tables.tag_values.c.tag_group_id == group_id)
-                .where(tables.tag_values.c.value == value)
+                orm.select_entity(orm.TagValue)
+                .where(orm.TagValue.tag_group_id == group_id)
+                .where(orm.TagValue.value == value)
             )
             .mappings()
             .one_or_none()
@@ -48,9 +48,9 @@ class TagCatalogHelperMixin:
     def _tag_values(self, connection, group_id: str) -> list[dict[str, Any]]:
         rows = (
             connection.execute(
-                select(tables.tag_values)
-                .where(tables.tag_values.c.tag_group_id == group_id)
-                .order_by(tables.tag_values.c.sort_order, tables.tag_values.c.value)
+                orm.select_entity(orm.TagValue)
+                .where(orm.TagValue.tag_group_id == group_id)
+                .order_by(orm.TagValue.sort_order, orm.TagValue.value)
             )
             .mappings()
             .all()
@@ -62,31 +62,31 @@ class TagCatalogHelperMixin:
 
     def _tag_value_count(self, connection, *, group_id: str) -> int:
         return int(connection.execute(
-            select(func.count()).select_from(tables.tag_values).where(tables.tag_values.c.tag_group_id == group_id)
+            select(func.count()).select_from(orm.TagValue).where(orm.TagValue.tag_group_id == group_id)
         ).scalar_one())
 
     def _tag_value_exists(self, connection, *, group_id: str, value: str) -> bool:
         return connection.execute(
-            select(tables.tag_values.c.value)
-            .where(tables.tag_values.c.tag_group_id == group_id)
-            .where(tables.tag_values.c.value == value)
+            select(orm.TagValue.value)
+            .where(orm.TagValue.tag_group_id == group_id)
+            .where(orm.TagValue.value == value)
         ).scalar_one_or_none() is not None
 
     def _tag_group_reference_counts(self, connection, *, group_id: str) -> dict[str, int]:
         escaped_group_id = group_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         return {
-            "skill_tags": int(connection.execute(select(func.count()).select_from(tables.skill_tags).where(tables.skill_tags.c.tag_group_id == group_id)).scalar_one()),
-            "roles": int(connection.execute(select(func.count()).select_from(tables.role_assignments).where(tables.role_assignments.c.resource_type == "skill_tag").where(tables.role_assignments.c.resource_id.like(f"{escaped_group_id}:%", escape="\\"))).scalar_one()),
-            "parent_relation": int(connection.execute(select(func.count()).select_from(tables.tag_group_cascades).where(tables.tag_group_cascades.c.child_tag_group_id == group_id)).scalar_one()),
-            "child_relations": int(connection.execute(select(func.count()).select_from(tables.tag_group_cascades).where(tables.tag_group_cascades.c.parent_tag_group_id == group_id)).scalar_one()),
+            "skill_tags": int(connection.execute(select(func.count()).select_from(orm.SkillTag).where(orm.SkillTag.tag_group_id == group_id)).scalar_one()),
+            "roles": int(connection.execute(select(func.count()).select_from(orm.RoleAssignment).where(orm.RoleAssignment.resource_type == "skill_tag").where(orm.RoleAssignment.resource_id.like(f"{escaped_group_id}:%", escape="\\"))).scalar_one()),
+            "parent_relation": int(connection.execute(select(func.count()).select_from(orm.TagGroupCascade).where(orm.TagGroupCascade.child_tag_group_id == group_id)).scalar_one()),
+            "child_relations": int(connection.execute(select(func.count()).select_from(orm.TagGroupCascade).where(orm.TagGroupCascade.parent_tag_group_id == group_id)).scalar_one()),
         }
 
     def _tag_value_reference_counts(self, connection, *, group_id: str, value: str) -> dict[str, int]:
         resource_id = encode_skill_tag_resource_id(group_id, value)
         return {
-            "skill_tags": int(connection.execute(select(func.count()).select_from(tables.skill_tags).where(tables.skill_tags.c.tag_group_id == group_id).where(tables.skill_tags.c.tag_value == value)).scalar_one()),
-            "roles": int(connection.execute(select(func.count()).select_from(tables.role_assignments).where(tables.role_assignments.c.resource_type == "skill_tag").where(tables.role_assignments.c.resource_id == resource_id)).scalar_one()),
-            "child_relations": int(connection.execute(select(func.count()).select_from(tables.tag_group_cascades).where(tables.tag_group_cascades.c.parent_tag_group_id == group_id).where(tables.tag_group_cascades.c.parent_tag_value == value)).scalar_one()),
+            "skill_tags": int(connection.execute(select(func.count()).select_from(orm.SkillTag).where(orm.SkillTag.tag_group_id == group_id).where(orm.SkillTag.tag_value == value)).scalar_one()),
+            "roles": int(connection.execute(select(func.count()).select_from(orm.RoleAssignment).where(orm.RoleAssignment.resource_type == "skill_tag").where(orm.RoleAssignment.resource_id == resource_id)).scalar_one()),
+            "child_relations": int(connection.execute(select(func.count()).select_from(orm.TagGroupCascade).where(orm.TagGroupCascade.parent_tag_group_id == group_id).where(orm.TagGroupCascade.parent_tag_value == value)).scalar_one()),
         }
 
     def _clean_tag_group_id(self, value: str) -> str:
@@ -135,7 +135,7 @@ class TagCatalogHelperMixin:
         created_at,
     ) -> None:
         connection.execute(
-            insert(tables.audit_events).values(
+            insert(orm.AuditEvent).values(
                 id=new_id("audit"),
                 actor_ref=actor,
                 action=action,

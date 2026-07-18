@@ -6,14 +6,12 @@ from os import environ
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
-from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
 from skillhub.bootstrap.exceptions import register_exception_handlers
 from skillhub.bootstrap.logging_config import configure_logging
 from skillhub.bootstrap.middleware import register_middleware
-from skillhub.models.schema.sync import ensure_current_schema
-from skillhub.models.schema.tables import metadata
+from skillhub.models.schema.database import create_postgres_engine, create_session_factory, resolve_database_url
+from skillhub.models.schema.migrations import verify_database_revision
 from skillhub.views import register_views
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +27,10 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     else:
         logger.info("using injected database engine")
         app.state.engine = engine
-    logger.info("syncing database schema")
-    metadata.create_all(app.state.engine)
-    ensure_current_schema(app.state.engine)
-    logger.info("database schema ready")
+    app.state.session_factory = create_session_factory(app.state.engine)
+    logger.info("checking database schema revision")
+    verify_database_revision(app.state.engine)
+    logger.info("database schema revision ready")
     register_exception_handlers(app)
     register_views(app)
     logger.info("skillhub api ready")

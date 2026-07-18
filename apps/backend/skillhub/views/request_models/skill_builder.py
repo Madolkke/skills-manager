@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from skillhub.views.request_models.common import SkillTagPayload, SkillVersionSemVer
 
-
 SKILL_BUILDER_MESSAGE_MAX_LENGTH = 20_000
 SKILL_BUILDER_FILE_CONTENT_MAX_LENGTH = 200_000
 SkillBuilderMessageText = Annotated[str, Field(min_length=1, max_length=SKILL_BUILDER_MESSAGE_MAX_LENGTH)]

@@ -3,17 +3,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.models.entities import ContentRef, digest_text, new_id, utc_now
 from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
-from skillhub.models.rules.semver import normalize_semver
-from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, normalize_workflow_document
-from skillhub.models.schema import tables
 from skillhub.models.operations.workflows.catalog import WorkflowCatalogMixin
 from skillhub.models.operations.workflows.helpers import WorkflowHelperMixin
-
+from skillhub.models.rules.semver import normalize_semver
+from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, normalize_workflow_document
+from skillhub.models.schema import orm
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
         created_at = utc_now()
         normalized = normalize_workflow_document(document)
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 artifact_id = self._insert_text_artifact(
                     connection,
                     kind="skill_bundle",
@@ -45,7 +44,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 )
                 workflow_id = normalized["workflow"]["id"]
                 connection.execute(
-                    insert(tables.workflows).values(
+                    insert(orm.Workflow).values(
                         id=workflow_id,
                         skill_id=result.skill_id,
                         revision=1,
@@ -66,7 +65,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
 
     def save_workflow(self, *, skill_id: str, document: dict[str, Any], collection_changes: list[dict[str, Any]], actor: str) -> dict[str, Any]:
         saved_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._skill_row(connection, skill_id)
             self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.edit")
             workflow = self._workflow_row(connection, skill_id=skill_id)
@@ -84,8 +83,8 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 candidate["workflow"]["revision"] = revision
                 candidate_digest = self._document_digest(candidate)
                 connection.execute(
-                    update(tables.workflows)
-                    .where(tables.workflows.c.id == workflow["id"])
+                    update(orm.Workflow)
+                    .where(orm.Workflow.id == workflow["id"])
                     .values(revision=revision, document=candidate, document_digest=candidate_digest, updated_at=saved_at, last_saved_by=actor)
                 )
                 self._audit_workflow(
@@ -124,15 +123,15 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
     def sync_workflow(self, *, skill_id: str, version: str, display_name: str | None, change_summary: str, manifest_text: str, source_text: str, generator_version: str, actor: str) -> dict[str, Any]:
         created_at = utc_now()
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 skill = self._skill_row(connection, skill_id)
                 self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.version.create")
                 workflow = self._workflow_row(connection, skill_id=skill_id)
                 existing = (
                     connection.execute(
-                        select(tables.workflow_syncs)
-                        .where(tables.workflow_syncs.c.workflow_id == workflow["id"])
-                        .where(tables.workflow_syncs.c.workflow_revision == workflow["revision"])
+                        orm.select_entity(orm.WorkflowSync)
+                        .where(orm.WorkflowSync.workflow_id == workflow["id"])
+                        .where(orm.WorkflowSync.workflow_revision == workflow["revision"])
                     )
                     .mappings()
                     .one_or_none()
@@ -140,7 +139,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 if existing is not None:
                     current = skill["current_version_id"] == existing["skill_version_id"]
                     if not current:
-                        connection.execute(update(tables.skills).where(tables.skills.c.id == skill_id).values(current_version_id=existing["skill_version_id"], updated_at=created_at))
+                        connection.execute(update(orm.Skill).where(orm.Skill.id == skill_id).values(current_version_id=existing["skill_version_id"], updated_at=created_at))
                         self._audit_workflow(connection, skill_id=skill_id, actor=actor, action="workflow.sync_reactivated", payload={"workflow_id": workflow["id"], "revision": workflow["revision"], "skill_version_id": existing["skill_version_id"]}, created_at=created_at)
                     logger.info(
                         "workflow sync reused skill_id=%s workflow_id=%s revision=%s skill_version_id=%s actor=%s mode=%s",
@@ -159,7 +158,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 skill_version_id = new_id("skillver")
                 version_number = self._next_skill_version_number(connection, skill_id)
                 connection.execute(
-                    insert(tables.skill_versions).values(
+                    insert(orm.SkillVersion).values(
                         id=skill_version_id,
                         skill_id=skill_id,
                         version_number=version_number,
@@ -174,7 +173,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 )
                 sync_id = new_id("workflowsync")
                 connection.execute(
-                    insert(tables.workflow_syncs).values(
+                    insert(orm.WorkflowSync).values(
                         id=sync_id,
                         workflow_id=workflow["id"],
                         workflow_revision=workflow["revision"],
@@ -186,7 +185,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                         created_by=actor,
                     )
                 )
-                connection.execute(update(tables.skills).where(tables.skills.c.id == skill_id).values(current_version_id=skill_version_id, updated_at=created_at))
+                connection.execute(update(orm.Skill).where(orm.Skill.id == skill_id).values(current_version_id=skill_version_id, updated_at=created_at))
                 self._audit_workflow(connection, skill_id=skill_id, actor=actor, action="workflow.synced", payload={"workflow_id": workflow["id"], "revision": workflow["revision"], "skill_version_id": skill_version_id, "generator_version": generator_version}, created_at=created_at)
         except IntegrityError as exc:
             raise FieldInvariantError(
@@ -198,7 +197,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
 
     def _audit_workflow(self, connection, *, skill_id: str, actor: str, action: str, payload: dict[str, Any], created_at) -> None:
         connection.execute(
-            insert(tables.audit_events).values(
+            insert(orm.AuditEvent).values(
                 id=new_id("audit"),
                 actor_ref=actor,
                 action=action,

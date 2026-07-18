@@ -6,9 +6,13 @@
 
 - `__init__.py`：统一导出对 View 层开放的 service 类。
 - `base.py`：提供 service 基类和共享 store 持有逻辑。
-- `admin.py`：封装后台管理能力，包括用户组、Tag Catalog、Tag 级联、授权、Opencode Agent、Worker 状态、发布源和发布确认。
-- `artifacts.py`：封装 artifact 下载和差异查询。
+- `admin.py`：后台管理兼容 facade，仅组合下列三个小型 service。
+- `admin_catalog.py`：封装 Skill、Tag Catalog 和 Tag 级联管理。
+- `admin_access.py`：封装用户组、成员和角色授权管理。
+- `admin_runtime.py`：封装发布目标、发布记录、Worker 状态和 Opencode Agent 管理。
+- `artifacts.py`：封装 artifact 下载和 bundle 差异查询。
 - `evaluations.py`：封装测评集、测试例、运行测评和聚合结果相关流程。
+- `evaluation_reads.py`：封装测评详情、历史和矩阵等只读用例。
 - `external.py`：封装外部 Skill zip upsert API 的创建和更新流程。
 - `opencode.py`：封装读取和脱敏 Opencode provider/model 配置，以及测评页可用 Opencode Agent 列表。
 - `publish_release.py`：封装后台确认发布时调用的发布 hook。
@@ -33,6 +37,8 @@ views -> services -> models.rules
 - service 可以依赖 `models.store`、`models.rules`、`models.entities` 和 `models.errors`。
 - service 不 import FastAPI，不处理 HTTP request/response 对象。
 - service 不直接 import `models.operations` 或 `models.schema`；需要数据能力时通过 `SkillHubStore` 暴露。
+- service 不持有或提交 SQLAlchemy `Session`；请求级事务由 View dependency 管理。
+- service 方法不得使用直接 `Any` 返回标注；复杂写操作优先返回 dataclass/DTO。
 - 权限、状态流转和跨资源编排应放在 service，不放在 view。
 - 纯计算规则优先放入 `models.rules`，service 只负责调用和编排。
 

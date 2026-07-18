@@ -5,11 +5,11 @@ from typing import Any
 from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
-from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.entities import ContentRef, new_id, utc_now
-from skillhub.models.rules.semver import normalize_semver
-from skillhub.models.schema import tables
+from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.operations.shared.results import CreateSkillVersionResult
+from skillhub.models.rules.semver import normalize_semver
+from skillhub.models.schema import orm
 
 
 class SkillVersionCommandMixin:
@@ -38,7 +38,7 @@ class SkillVersionCommandMixin:
         )
 
     def skill_version_create_snapshot(self, *, skill_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.version.create")
             return {
@@ -63,11 +63,11 @@ class SkillVersionCommandMixin:
         skill_version_id = new_id("skillver")
         semver = normalize_semver(version)
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 self._skill_row(connection, skill_id)
                 self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.version.create")
                 connection.execute(
-                    insert(tables.skill_versions).values(
+                    insert(orm.SkillVersion).values(
                         id=skill_version_id,
                         skill_id=skill_id,
                         version_number=version_number,
@@ -82,8 +82,8 @@ class SkillVersionCommandMixin:
                 )
                 if make_current:
                     connection.execute(
-                        update(tables.skills)
-                        .where(tables.skills.c.id == skill_id)
+                        update(orm.Skill)
+                        .where(orm.Skill.id == skill_id)
                         .values(current_version_id=skill_version_id, updated_at=created_at)
                     )
         except IntegrityError as exc:
@@ -105,13 +105,13 @@ class SkillVersionCommandMixin:
         )
 
     def update_skill_version_name(self, *, skill_version_id: str, display_name: str | None, actor: str | None = None) -> dict[str, Any]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             version = self._skill_version_row(connection, skill_version_id)
             if actor is not None:
                 self._require_skill_permission(connection, skill_id=version["skill_id"], actor=actor, permission="skill.version.create")
             connection.execute(
-                update(tables.skill_versions)
-                .where(tables.skill_versions.c.id == skill_version_id)
+                update(orm.SkillVersion)
+                .where(orm.SkillVersion.id == skill_version_id)
                 .values(display_name=clean_display_name(display_name))
             )
             return self._row_dict(self._skill_version_row(connection, skill_version_id))

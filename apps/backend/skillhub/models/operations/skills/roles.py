@@ -3,33 +3,33 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, delete, desc, insert, or_, select, update
+from sqlalchemy import and_, delete, desc, insert, or_, select
 
-from skillhub.models.errors import InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.models.entities import new_id, utc_now
+from skillhub.models.errors import InvariantError, NotFoundError, PermissionDeniedError
 from skillhub.models.rules.permissions import ROLE_PERMISSIONS, VALID_ROLES, permission_label, role_allows
 from skillhub.models.rules.tag_resources import encode_skill_tag_resource_id
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class RoleMixin:
     def list_skill_role_assignments(self, *, skill_id: str) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             return self._skill_role_assignments(connection, skill_id)
 
     def list_all_role_assignments(self) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
-            rows = connection.execute(select(tables.role_assignments).order_by(tables.role_assignments.c.resource_type, tables.role_assignments.c.resource_id)).mappings().all()
+        with self._read_session() as connection:
+            rows = connection.execute(orm.select_entity(orm.RoleAssignment).order_by(orm.RoleAssignment.resource_type, orm.RoleAssignment.resource_id)).mappings().all()
             return [self._row_dict(row) for row in rows]
 
     def skill_capabilities(self, *, skill_id: str, actor: str, subject_type: str = "user") -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             return self._skill_capabilities(connection, skill_id=skill_id, actor=actor, subject_type=subject_type)
 
     def assign_skill_role(self, *, skill_id: str, subject_id: str, role: str, actor: str, subject_type: str = "user") -> dict[str, Any]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._skill_row(connection, skill_id)
             self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="role.manage")
             if subject_type == "group":
@@ -48,7 +48,7 @@ class RoleMixin:
         subject_type: str = "user",
         require_permission: bool = True,
     ) -> dict[str, Any]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             clean_resource_type = self._clean_resource_type(resource_type)
             if clean_resource_type == "skill":
                 self._skill_row(connection, resource_id)
@@ -60,7 +60,7 @@ class RoleMixin:
 
     def revoke_role_assignment(self, *, role_assignment_id: str, actor: str) -> dict[str, bool]:
         revoked_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             assignment = self._role_assignment_row(connection, role_assignment_id)
             if assignment["resource_type"] == "skill":
                 self._skill_row(connection, assignment["resource_id"])
@@ -73,11 +73,11 @@ class RoleMixin:
         return {"ok": True}
 
     def revoke_role_assignment_admin(self, *, role_assignment_id: str) -> dict[str, bool]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             assignment = self._role_assignment_row(connection, role_assignment_id)
-            connection.execute(delete(tables.role_assignments).where(tables.role_assignments.c.id == role_assignment_id))
+            connection.execute(delete(orm.RoleAssignment).where(orm.RoleAssignment.id == role_assignment_id))
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref="admin-console",
                     action="role.revoked",
@@ -90,7 +90,7 @@ class RoleMixin:
         return {"ok": True}
 
     def list_skill_audit_events(self, *, skill_id: str, limit: int = 50, actor: str | None = None, action: str | None = None, resource_type: str | None = None) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             return self._skill_audit_events(connection, skill_id, limit=limit, actor=actor, action=action, resource_type=resource_type)
 
@@ -107,7 +107,7 @@ class RoleMixin:
             subject_type=subject_type,
         )
         connection.execute(
-            insert(tables.audit_events).values(
+            insert(orm.AuditEvent).values(
                 id=new_id("audit"),
                 actor_ref=actor,
                 action="role.assigned",
@@ -120,9 +120,9 @@ class RoleMixin:
         return assignment
 
     def _delete_role_assignment(self, connection, assignment, *, actor: str, created_at: datetime) -> None:
-        connection.execute(delete(tables.role_assignments).where(tables.role_assignments.c.id == assignment["id"]))
+        connection.execute(delete(orm.RoleAssignment).where(orm.RoleAssignment.id == assignment["id"]))
         connection.execute(
-            insert(tables.audit_events).values(
+            insert(orm.AuditEvent).values(
                 id=new_id("audit"),
                 actor_ref=actor,
                 action="role.revoked",
@@ -134,7 +134,7 @@ class RoleMixin:
         )
 
     def _role_assignment_row(self, connection, role_assignment_id: str):
-        row = connection.execute(select(tables.role_assignments).where(tables.role_assignments.c.id == role_assignment_id)).mappings().one_or_none()
+        row = connection.execute(orm.select_entity(orm.RoleAssignment).where(orm.RoleAssignment.id == role_assignment_id)).mappings().one_or_none()
         if row is None:
             raise NotFoundError(f"RoleAssignment not found: {role_assignment_id}")
         return row
@@ -142,10 +142,10 @@ class RoleMixin:
     def _skill_role_assignments(self, connection, skill_id: str) -> list[dict[str, Any]]:
         rows = (
             connection.execute(
-                select(tables.role_assignments)
-                .where(tables.role_assignments.c.resource_type == "skill")
-                .where(tables.role_assignments.c.resource_id == skill_id)
-                .order_by(tables.role_assignments.c.role, tables.role_assignments.c.subject_type, tables.role_assignments.c.subject_id)
+                orm.select_entity(orm.RoleAssignment)
+                .where(orm.RoleAssignment.resource_type == "skill")
+                .where(orm.RoleAssignment.resource_id == skill_id)
+                .order_by(orm.RoleAssignment.role, orm.RoleAssignment.subject_type, orm.RoleAssignment.subject_id)
             )
             .mappings()
             .all()
@@ -153,22 +153,22 @@ class RoleMixin:
         return [self._row_dict(row) for row in rows]
 
     def _skill_audit_events(self, connection, skill_id: str, *, limit: int, actor: str | None = None, action: str | None = None, resource_type: str | None = None) -> list[dict[str, Any]]:
-        skill_version_ids = select(tables.skill_versions.c.id).where(tables.skill_versions.c.skill_id == skill_id)
-        eval_run_ids = select(tables.eval_runs.c.id).where(tables.eval_runs.c.skill_id == skill_id)
+        skill_version_ids = select(orm.SkillVersion.id).where(orm.SkillVersion.skill_id == skill_id)
+        eval_run_ids = select(orm.EvalRun.id).where(orm.EvalRun.skill_id == skill_id)
         conditions = [
             or_(
-                and_(tables.audit_events.c.resource_type == "skill", tables.audit_events.c.resource_id == skill_id),
-                and_(tables.audit_events.c.resource_type == "skill_version", tables.audit_events.c.resource_id.in_(skill_version_ids)),
-                and_(tables.audit_events.c.resource_type == "eval_run", tables.audit_events.c.resource_id.in_(eval_run_ids)),
+                and_(orm.AuditEvent.resource_type == "skill", orm.AuditEvent.resource_id == skill_id),
+                and_(orm.AuditEvent.resource_type == "skill_version", orm.AuditEvent.resource_id.in_(skill_version_ids)),
+                and_(orm.AuditEvent.resource_type == "eval_run", orm.AuditEvent.resource_id.in_(eval_run_ids)),
             )
         ]
         if actor:
-            conditions.append(tables.audit_events.c.actor_ref == actor)
+            conditions.append(orm.AuditEvent.actor_ref == actor)
         if action:
-            conditions.append(tables.audit_events.c.action == action)
+            conditions.append(orm.AuditEvent.action == action)
         if resource_type:
-            conditions.append(tables.audit_events.c.resource_type == resource_type)
-        rows = connection.execute(select(tables.audit_events).where(*conditions).order_by(desc(tables.audit_events.c.created_at), desc(tables.audit_events.c.id)).limit(max(1, min(limit, 200)))).mappings().all()
+            conditions.append(orm.AuditEvent.resource_type == resource_type)
+        rows = connection.execute(orm.select_entity(orm.AuditEvent).where(*conditions).order_by(desc(orm.AuditEvent.created_at), desc(orm.AuditEvent.id)).limit(max(1, min(limit, 200)))).mappings().all()
         return [self._row_dict(row) for row in rows]
 
     def _grant_skill_role(self, connection, skill_id: str, subject_id: str, role: str, actor: str, created_at: datetime, subject_type: str = "user") -> dict[str, Any]:
@@ -189,12 +189,12 @@ class RoleMixin:
                 raise InvariantError("Skill-scoped groups can only be assigned to their own skill.")
         existing = (
             connection.execute(
-                select(tables.role_assignments)
-                .where(tables.role_assignments.c.subject_type == clean_subject_type)
-                .where(tables.role_assignments.c.subject_id == clean_subject_id)
-                .where(tables.role_assignments.c.resource_type == clean_resource_type)
-                .where(tables.role_assignments.c.resource_id == clean_resource_id)
-                .where(tables.role_assignments.c.role == role)
+                orm.select_entity(orm.RoleAssignment)
+                .where(orm.RoleAssignment.subject_type == clean_subject_type)
+                .where(orm.RoleAssignment.subject_id == clean_subject_id)
+                .where(orm.RoleAssignment.resource_type == clean_resource_type)
+                .where(orm.RoleAssignment.resource_id == clean_resource_id)
+                .where(orm.RoleAssignment.role == role)
             )
             .mappings()
             .one_or_none()
@@ -211,7 +211,7 @@ class RoleMixin:
             "created_at": created_at,
             "created_by": actor,
         }
-        connection.execute(insert(tables.role_assignments).values(**row))
+        connection.execute(insert(orm.RoleAssignment).values(**row))
         return row
 
     def _actor_skill_roles(self, connection, *, skill_id: str, actor: str) -> set[str]:
@@ -219,12 +219,12 @@ class RoleMixin:
 
     def _actor_role_sources(self, connection, *, skill_id: str, actor: str) -> list[dict[str, Any]]:
         subjects = [("user", actor), *[("group", group_id) for group_id in self._actor_group_ids(connection, actor)]]
-        subject_filters = [and_(tables.role_assignments.c.subject_type == subject_type, tables.role_assignments.c.subject_id == subject_id) for subject_type, subject_id in subjects]
-        resource_filters = [and_(tables.role_assignments.c.resource_type == "skill", tables.role_assignments.c.resource_id == skill_id)]
+        subject_filters = [and_(orm.RoleAssignment.subject_type == subject_type, orm.RoleAssignment.subject_id == subject_id) for subject_type, subject_id in subjects]
+        resource_filters = [and_(orm.RoleAssignment.resource_type == "skill", orm.RoleAssignment.resource_id == skill_id)]
         tag_resource_ids = self._skill_tag_resource_ids(connection, skill_id)
         if tag_resource_ids:
-            resource_filters.append(and_(tables.role_assignments.c.resource_type == "skill_tag", tables.role_assignments.c.resource_id.in_(tag_resource_ids)))
-        rows = connection.execute(select(tables.role_assignments).where(or_(*subject_filters)).where(or_(*resource_filters))).mappings().all()
+            resource_filters.append(and_(orm.RoleAssignment.resource_type == "skill_tag", orm.RoleAssignment.resource_id.in_(tag_resource_ids)))
+        rows = connection.execute(orm.select_entity(orm.RoleAssignment).where(or_(*subject_filters)).where(or_(*resource_filters))).mappings().all()
         return [self._row_dict(row) for row in rows]
 
     def _actor_tag_role_sources(self, connection, *, actor: str, tags: set[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -232,13 +232,13 @@ class RoleMixin:
             return []
         resource_ids = [encode_skill_tag_resource_id(group_id, value) for group_id, value in tags]
         subjects = [("user", actor), *[("group", group_id) for group_id in self._actor_group_ids(connection, actor)]]
-        subject_filters = [and_(tables.role_assignments.c.subject_type == subject_type, tables.role_assignments.c.subject_id == subject_id) for subject_type, subject_id in subjects]
+        subject_filters = [and_(orm.RoleAssignment.subject_type == subject_type, orm.RoleAssignment.subject_id == subject_id) for subject_type, subject_id in subjects]
         rows = (
             connection.execute(
-                select(tables.role_assignments)
+                orm.select_entity(orm.RoleAssignment)
                 .where(or_(*subject_filters))
-                .where(tables.role_assignments.c.resource_type == "skill_tag")
-                .where(tables.role_assignments.c.resource_id.in_(resource_ids))
+                .where(orm.RoleAssignment.resource_type == "skill_tag")
+                .where(orm.RoleAssignment.resource_id.in_(resource_ids))
             )
             .mappings()
             .all()
@@ -275,10 +275,10 @@ class RoleMixin:
         return len(
             list(
                 connection.execute(
-                    select(tables.role_assignments.c.id)
-                    .where(tables.role_assignments.c.resource_type == "skill")
-                    .where(tables.role_assignments.c.resource_id == skill_id)
-                    .where(tables.role_assignments.c.role.in_(["admin", "owner"]))
+                    select(orm.RoleAssignment.id)
+                    .where(orm.RoleAssignment.resource_type == "skill")
+                    .where(orm.RoleAssignment.resource_id == skill_id)
+                    .where(orm.RoleAssignment.role.in_(["admin", "owner"]))
                 ).scalars()
             )
         )

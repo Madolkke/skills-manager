@@ -1,9 +1,8 @@
 from sqlalchemy import select
 
-from skillhub.models.errors import NotFoundError
 from skillhub.models.entities import ContentRef
+from skillhub.models.errors import NotFoundError
 from skillhub.models.schema.tables import eval_sets, skill_versions, skills
-
 from tests.store_test_case import SqlStoreTestCase
 
 

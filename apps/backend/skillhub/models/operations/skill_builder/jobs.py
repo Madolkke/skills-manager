@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 
 from skillhub.models.entities import new_id, utc_now
 from skillhub.models.errors import NotFoundError
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 from .constants import BUILDER_JOB_TYPE, BUILDER_RUNNER, clean_builder_progress_stage
-
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +17,14 @@ logger = logging.getLogger(__name__)
 class SkillBuilderJobMixin:
     def claim_next_skill_builder_job(self, *, worker_id: str, runner: str = BUILDER_RUNNER) -> dict[str, Any] | None:
         now = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             job = (
                 connection.execute(
-                    select(tables.jobs)
-                    .where(tables.jobs.c.type == BUILDER_JOB_TYPE)
-                    .where(tables.jobs.c.status == "queued")
-                    .where(tables.jobs.c.payload["runner"].as_string() == runner)
-                    .order_by(tables.jobs.c.created_at, tables.jobs.c.id)
+                    orm.select_entity(orm.Job)
+                    .where(orm.Job.type == BUILDER_JOB_TYPE)
+                    .where(orm.Job.status == "queued")
+                    .where(orm.Job.payload["runner"].as_string() == runner)
+                    .order_by(orm.Job.created_at, orm.Job.id)
                     .limit(1)
                     .with_for_update(skip_locked=True)
                 )
@@ -39,8 +38,8 @@ class SkillBuilderJobMixin:
             message_id = str(payload["message_id"])
             session = (
                 connection.execute(
-                    select(tables.skill_builder_sessions)
-                    .where(tables.skill_builder_sessions.c.id == session_id)
+                    orm.select_entity(orm.SkillBuilderSession)
+                    .where(orm.SkillBuilderSession.id == session_id)
                     .with_for_update()
                 )
                 .mappings()
@@ -59,8 +58,8 @@ class SkillBuilderJobMixin:
                 )
                 return None
             connection.execute(
-                update(tables.jobs)
-                .where(tables.jobs.c.id == job["id"])
+                update(orm.Job)
+                .where(orm.Job.id == job["id"])
                 .values(
                     status="running",
                     payload={**payload, "progress_stage": "claimed", "progress_updated_at": now.isoformat()},
@@ -72,21 +71,21 @@ class SkillBuilderJobMixin:
                 )
             )
             connection.execute(
-                update(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                update(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .values(status="running", last_error=None, updated_at=now)
             )
         return self.skill_builder_job_detail(session_id=session_id, message_id=message_id, job_id=str(job["id"]))
 
     def skill_builder_job_detail(self, *, session_id: str, message_id: str, job_id: str) -> dict[str, Any]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             session = self._builder_session_row(connection, session_id=session_id, actor=None)
             message = (
-                connection.execute(select(tables.skill_builder_messages).where(tables.skill_builder_messages.c.id == message_id))
+                connection.execute(orm.select_entity(orm.SkillBuilderMessage).where(orm.SkillBuilderMessage.id == message_id))
                 .mappings()
                 .one_or_none()
             )
-            job = connection.execute(select(tables.jobs).where(tables.jobs.c.id == job_id)).mappings().one_or_none()
+            job = connection.execute(orm.select_entity(orm.Job).where(orm.Job.id == job_id)).mappings().one_or_none()
             if message is None or job is None:
                 raise NotFoundError(f"Skill builder job not found: {job_id}")
             messages = self._builder_messages(connection, session_id=session_id)
@@ -110,20 +109,20 @@ class SkillBuilderJobMixin:
     ) -> dict[str, Any]:
         now = utc_now()
         message_intent = intent if intent in {"chat", "generate_draft"} else "chat"
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             session = self._builder_session_row_or_none(connection, session_id=session_id)
             job = self._builder_job_row_or_none(connection, job_id=job_id)
             if not self._builder_job_can_finish(session=session, job=job, session_id=session_id, job_id=job_id):
                 return {}
             clean_workspace = self._clean_builder_workspace_files(draft_files or [], require_entry=False) if draft_files is not None else None
             connection.execute(
-                insert(tables.skill_builder_messages).values(
+                insert(orm.SkillBuilderMessage).values(
                     id=new_id("buildermsg"),
                     session_id=session_id,
                     role="assistant",
                     intent=message_intent,
                     content=assistant_content,
-                    metadata=self._canonical_json_object(metadata or {}),
+                    metadata_payload=self._canonical_json_object(metadata or {}),
                     job_id=job_id,
                     created_at=now,
                 )
@@ -139,21 +138,21 @@ class SkillBuilderJobMixin:
                 values["opencode_session_id"] = opencode_session_id
             if workdir:
                 values["workdir"] = workdir
-            connection.execute(update(tables.skill_builder_sessions).where(tables.skill_builder_sessions.c.id == session_id).values(**values))
+            connection.execute(update(orm.SkillBuilderSession).where(orm.SkillBuilderSession.id == session_id).values(**values))
             self._finish_job(connection, job_id=job_id, result_ref=session_id, finished_at=now)
         return {}
 
     def fail_skill_builder_job(self, *, session_id: str, job_id: str, error: str) -> None:
         now = utc_now()
         message = error.strip() or "Skill 创建 Agent 执行失败。"
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             session = self._builder_session_row_or_none(connection, session_id=session_id)
             job = self._builder_job_row_or_none(connection, job_id=job_id)
             if not self._builder_job_can_finish(session=session, job=job, session_id=session_id, job_id=job_id):
                 return
             connection.execute(
-                update(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                update(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .values(status="failed", last_error=message, updated_at=now)
             )
             self._fail_job(connection, job_id=job_id, error=message, finished_at=now)
@@ -161,7 +160,7 @@ class SkillBuilderJobMixin:
     def update_skill_builder_job_progress(self, *, session_id: str, job_id: str, stage: str) -> None:
         now = utc_now()
         clean_stage = clean_builder_progress_stage(stage)
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             session = self._builder_session_row_or_none(connection, session_id=session_id)
             job = self._builder_job_row_or_none(connection, job_id=job_id)
             if session is None or job is None or session["status"] != "running" or job["status"] != "running":
@@ -178,21 +177,21 @@ class SkillBuilderJobMixin:
             payload["progress_stage"] = clean_stage
             payload["progress_updated_at"] = now.isoformat()
             connection.execute(
-                update(tables.jobs)
-                .where(tables.jobs.c.id == job_id)
+                update(orm.Job)
+                .where(orm.Job.id == job_id)
                 .values(payload=payload, last_heartbeat_at=now)
             )
             connection.execute(
-                update(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                update(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .values(updated_at=now)
             )
 
     def _builder_session_row_or_none(self, connection, *, session_id: str):
         return (
             connection.execute(
-                select(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                orm.select_entity(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .with_for_update()
             )
             .mappings()
@@ -200,7 +199,7 @@ class SkillBuilderJobMixin:
         )
 
     def _builder_job_row_or_none(self, connection, *, job_id: str):
-        return connection.execute(select(tables.jobs).where(tables.jobs.c.id == job_id).with_for_update()).mappings().one_or_none()
+        return connection.execute(orm.select_entity(orm.Job).where(orm.Job.id == job_id).with_for_update()).mappings().one_or_none()
 
     def _builder_job_can_finish(self, *, session, job, session_id: str, job_id: str) -> bool:
         if session is not None and job is not None and session["status"] == "running" and job["status"] == "running":
@@ -216,9 +215,9 @@ class SkillBuilderJobMixin:
 
     def _cancel_orphaned_builder_job(self, connection, *, job, now, reason: str) -> None:
         connection.execute(
-            update(tables.jobs)
-            .where(tables.jobs.c.id == job["id"])
-            .where(tables.jobs.c.status == "queued")
+            update(orm.Job)
+            .where(orm.Job.id == job["id"])
+            .where(orm.Job.status == "queued")
             .values(status="canceled", error=reason, finished_at=now, locked_by=None)
         )
         logger.warning("orphaned skill builder job canceled job_id=%s reason=%s", job["id"], reason)

@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, update
 
 from skillhub.models.errors import FieldError, FieldInvariantError, NotFoundError
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 from .constants import BUILDER_JOB_TYPE
 
 
 class SkillBuilderHelperMixin:
     def _builder_session_row(self, connection, *, session_id: str, actor: str | None):
-        query = select(tables.skill_builder_sessions).where(tables.skill_builder_sessions.c.id == session_id)
+        query = orm.select_entity(orm.SkillBuilderSession).where(orm.SkillBuilderSession.id == session_id)
         if actor is not None:
-            query = query.where(tables.skill_builder_sessions.c.actor_ref == actor)
+            query = query.where(orm.SkillBuilderSession.actor_ref == actor)
         row = connection.execute(query).mappings().one_or_none()
         if row is None:
             raise NotFoundError(f"SkillBuilderSession not found: {session_id}")
@@ -23,9 +23,9 @@ class SkillBuilderHelperMixin:
     def _builder_messages(self, connection, *, session_id: str) -> list[dict[str, Any]]:
         rows = (
             connection.execute(
-                select(tables.skill_builder_messages)
-                .where(tables.skill_builder_messages.c.session_id == session_id)
-                .order_by(tables.skill_builder_messages.c.created_at, tables.skill_builder_messages.c.id)
+                orm.select_entity(orm.SkillBuilderMessage)
+                .where(orm.SkillBuilderMessage.session_id == session_id)
+                .order_by(orm.SkillBuilderMessage.created_at, orm.SkillBuilderMessage.id)
             )
             .mappings()
             .all()
@@ -36,10 +36,10 @@ class SkillBuilderHelperMixin:
         if not session_ids:
             return
         connection.execute(
-            update(tables.jobs)
-            .where(tables.jobs.c.type == BUILDER_JOB_TYPE)
-            .where(tables.jobs.c.status.in_(["queued", "running"]))
-            .where(tables.jobs.c.payload["session_id"].as_string().in_(session_ids))
+            update(orm.Job)
+            .where(orm.Job.type == BUILDER_JOB_TYPE)
+            .where(orm.Job.status.in_(["queued", "running"]))
+            .where(orm.Job.payload["session_id"].as_string().in_(session_ids))
             .values(
                 status="canceled",
                 error="Skill Builder session was replaced by a new session.",
@@ -47,11 +47,11 @@ class SkillBuilderHelperMixin:
                 locked_by=None,
             )
         )
-        connection.execute(delete(tables.skill_builder_messages).where(tables.skill_builder_messages.c.session_id.in_(session_ids)))
+        connection.execute(delete(orm.SkillBuilderMessage).where(orm.SkillBuilderMessage.session_id.in_(session_ids)))
         connection.execute(
-            delete(tables.skill_builder_sessions)
-            .where(tables.skill_builder_sessions.c.actor_ref == actor)
-            .where(tables.skill_builder_sessions.c.id.in_(session_ids))
+            delete(orm.SkillBuilderSession)
+            .where(orm.SkillBuilderSession.actor_ref == actor)
+            .where(orm.SkillBuilderSession.id.in_(session_ids))
         )
 
     def _builder_session_payload(self, row, *, messages: list[dict[str, Any]]) -> dict[str, Any]:
@@ -71,12 +71,12 @@ class SkillBuilderHelperMixin:
     def _builder_run_progress(self, connection, *, session_id: str) -> dict[str, Any] | None:
         row = (
             connection.execute(
-                select(tables.jobs)
-                .join(tables.skill_builder_messages, tables.skill_builder_messages.c.job_id == tables.jobs.c.id)
-                .where(tables.skill_builder_messages.c.session_id == session_id)
-                .where(tables.jobs.c.type == BUILDER_JOB_TYPE)
-                .where(tables.jobs.c.status.in_(["queued", "running"]))
-                .order_by(tables.jobs.c.created_at.desc(), tables.skill_builder_messages.c.created_at.desc())
+                orm.select_entity(orm.Job)
+                .join(orm.SkillBuilderMessage, orm.SkillBuilderMessage.job_id == orm.Job.id)
+                .where(orm.SkillBuilderMessage.session_id == session_id)
+                .where(orm.Job.type == BUILDER_JOB_TYPE)
+                .where(orm.Job.status.in_(["queued", "running"]))
+                .order_by(orm.Job.created_at.desc(), orm.SkillBuilderMessage.created_at.desc())
                 .limit(1)
             )
             .mappings()

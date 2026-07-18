@@ -7,13 +7,13 @@ from skillhub.services.base import ServiceBase
 
 
 class SkillBuilderService(ServiceBase[SkillHubStore]):
-    def list_sessions(self, *, actor: str) -> Any:
+    def list_sessions(self, *, actor: str) -> object:
         return self.store.list_skill_builder_sessions(actor=actor)
 
-    def create_session(self, *, actor: str, title: str | None = None, replace_running: bool = False) -> Any:
+    def create_session(self, *, actor: str, title: str | None = None, replace_running: bool = False) -> object:
         return self.store.create_skill_builder_session(actor=actor, title=title, replace_running=replace_running)
 
-    def session_detail(self, *, session_id: str, actor: str) -> Any:
+    def session_detail(self, *, session_id: str, actor: str) -> object:
         return self.store.skill_builder_session_detail(session_id=session_id, actor=actor)
 
     def send_message(
@@ -25,7 +25,7 @@ class SkillBuilderService(ServiceBase[SkillHubStore]):
         intent: str,
         provider_id: str | None,
         model_id: str | None,
-    ) -> Any:
+    ) -> object:
         return self.store.enqueue_skill_builder_message(
             session_id=session_id,
             actor=actor,
@@ -34,14 +34,14 @@ class SkillBuilderService(ServiceBase[SkillHubStore]):
             run_selection={"provider_id": provider_id or "", "model_id": model_id or ""},
         )
 
-    def update_workspace(self, *, session_id: str, actor: str, files: list[dict[str, Any]]) -> Any:
+    def update_workspace(self, *, session_id: str, actor: str, files: list[dict[str, Any]]) -> object:
         return self.store.update_skill_builder_workspace(session_id=session_id, actor=actor, files=files)
 
-    def update_draft(self, *, session_id: str, actor: str, files: list[dict[str, Any]]) -> Any:
+    def update_draft(self, *, session_id: str, actor: str, files: list[dict[str, Any]]) -> object:
         return self.update_workspace(session_id=session_id, actor=actor, files=files)
 
-    def cancel_session(self, *, session_id: str, actor: str) -> Any:
+    def cancel_session(self, *, session_id: str, actor: str) -> object:
         return self.store.cancel_skill_builder_session(session_id=session_id, actor=actor)
 
-    def create_skill(self, *, session_id: str, actor: str, version: str | None, tags: list[Any], files: list[dict[str, Any]] | None = None) -> Any:
+    def create_skill(self, *, session_id: str, actor: str, version: str | None, tags: list[Any], files: list[dict[str, Any]] | None = None) -> object:
         return self.store.create_skill_from_builder_session(session_id=session_id, actor=actor, version=version, tags=tags, files=files)

@@ -42,6 +42,13 @@ $apiDir = Join-Path $root "apps/backend"
 $webDir = Join-Path $root "apps/frontend"
 $workerScript = Join-Path $root "scripts/worker.ps1"
 
+Push-Location $apiDir
+try {
+  uv run python -m skillhub.models.schema.cli upgrade
+} finally {
+  Pop-Location
+}
+
 Start-SkillHubProcess -Name "api" -WorkingDirectory $apiDir -Command "uv run uvicorn skillhub.bootstrap.app:create_app --factory --host $hostName --port $apiPort"
 Start-SkillHubProcess -Name "web" -WorkingDirectory $webDir -Command "`$env:VITE_SKILLHUB_API_PORT='$apiPort'; if (-not `$env:VITE_OPENCODE_RUN_POLL_INTERVAL_MS) { `$env:VITE_OPENCODE_RUN_POLL_INTERVAL_MS='5000' }; npm run dev -- --host $hostName --port $webPort"
 Start-SkillHubProcess -Name "worker" -WorkingDirectory $root -Command "& '$workerScript'"

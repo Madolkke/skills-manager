@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
-from skillhub.models.rules.eval_sets import eval_set_name_conflict, normalize_eval_set_description, normalize_eval_set_name
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
+from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
+from skillhub.models.rules.eval_sets import eval_set_name_conflict, normalize_eval_set_description, normalize_eval_set_name
+from skillhub.models.schema import orm
 
 
 class EvalSetCommandMixin:
@@ -25,12 +25,12 @@ class EvalSetCommandMixin:
         created_at = utc_now()
         eval_set_id = new_id("evalset")
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 self._skill_row(connection, skill_id)
                 if actor is not None:
                     self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.manage")
                 connection.execute(
-                    insert(tables.eval_sets).values(
+                    insert(orm.EvalSet).values(
                         id=eval_set_id,
                         skill_id=skill_id,
                         name=name,
@@ -55,13 +55,13 @@ class EvalSetCommandMixin:
     def rename_eval_set(self, *, eval_set_id: str, name: str, description: str, actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 eval_set = self._eval_set_row(connection, eval_set_id)
                 if actor is not None:
                     self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
                 connection.execute(
-                    update(tables.eval_sets)
-                    .where(tables.eval_sets.c.id == eval_set_id)
+                    update(orm.EvalSet)
+                    .where(orm.EvalSet.id == eval_set_id)
                     .values(name=name, description=description, updated_at=updated_at)
                 )
                 return self._row_dict(self._eval_set_row(connection, eval_set_id))
@@ -69,7 +69,7 @@ class EvalSetCommandMixin:
             raise eval_set_name_conflict(name) from exc
 
     def list_eval_cases_for_skill(self, *, skill_id: str, exclude_eval_set_id: str | None = None) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             excluded: set[str] = set()
             if exclude_eval_set_id:
@@ -79,9 +79,9 @@ class EvalSetCommandMixin:
                 excluded = set(self._eval_set_case_ids(connection, exclude_eval_set_id))
             rows = (
                 connection.execute(
-                    select(tables.eval_cases)
-                    .where(tables.eval_cases.c.skill_id == skill_id)
-                    .order_by(tables.eval_cases.c.updated_at.desc(), tables.eval_cases.c.title)
+                    orm.select_entity(orm.EvalCase)
+                    .where(orm.EvalCase.skill_id == skill_id)
+                    .order_by(orm.EvalCase.updated_at.desc(), orm.EvalCase.title)
                 )
                 .mappings()
                 .all()
@@ -96,7 +96,7 @@ class EvalSetCommandMixin:
 
     def add_eval_case_to_set(self, *, eval_set_id: str, case_id: str, position: int | None = None, actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
             if actor is not None:
                 self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
@@ -121,7 +121,7 @@ class EvalSetCommandMixin:
 
     def remove_eval_case_from_set(self, *, eval_set_id: str, case_id: str, actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
             if actor is not None:
                 self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")
@@ -139,7 +139,7 @@ class EvalSetCommandMixin:
 
     def reorder_eval_set_cases(self, *, eval_set_id: str, case_ids: list[str], actor: str | None = None) -> dict[str, Any]:
         updated_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             eval_set = self._eval_set_row(connection, eval_set_id)
             if actor is not None:
                 self._require_skill_permission(connection, skill_id=eval_set["skill_id"], actor=actor, permission="eval.manage")

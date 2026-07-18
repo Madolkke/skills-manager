@@ -4,10 +4,19 @@ from dataclasses import dataclass
 
 import pytest
 
-from skillhub.models.errors import FieldInvariantError, InvariantError, PermissionDeniedError
 from skillhub.models.entities import ContentRef
+from skillhub.models.errors import FieldInvariantError, InvariantError, PermissionDeniedError
 from skillhub.models.operations.shared.results import CreateSkillResult, CreateSkillVersionResult
-from skillhub.services import AdminService, EvaluationService, ExternalSkillService, ReviewService, SavedViewService, SkillService, VersionService, WorkflowService
+from skillhub.services import (
+    AdminService,
+    EvaluationService,
+    ExternalSkillService,
+    ReviewService,
+    SavedViewService,
+    SkillService,
+    VersionService,
+    WorkflowService,
+)
 from skillhub.services.opencode import sanitize_opencode_providers
 
 
@@ -578,27 +587,21 @@ def test_review_service_closes_review_with_domain_policy_decision() -> None:
 
     closed = service.close_review(review_id="review_1", actor="maintainer")
 
-    assert closed == {"id": "review_1"}
-    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure", "publish_confirmation_snapshot", "apply_publish_confirmation", "review_detail"]
+    assert closed["id"] == "review_1"
+    assert closed["publish_records"][0]["status"] == "pending_confirmation"
+    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure"]
     assert store.calls[1][1]["summary"]["checks_passed"] is True
     assert store.calls[1][1]["auto_publish_target_ids"] == ["target_auto"]
-    assert store.calls[3][1]["actor"] == "system:auto_publish"
 
 
-def test_review_service_records_auto_publish_failure_without_reopening_review(monkeypatch) -> None:
-    def fail_publish_release(_payload):
-        raise RuntimeError("publish hook failed")
-
-    monkeypatch.setattr("skillhub.services.reviews.perform_publish_release", fail_publish_release)
+def test_review_service_does_not_execute_publish_hook_inside_request() -> None:
     store = FakeStore()
     service = ReviewService(store)
 
     closed = service.close_review(review_id="review_1", actor="maintainer")
 
-    assert closed == {"id": "review_1"}
-    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure", "publish_confirmation_snapshot", "apply_publish_failure", "review_detail"]
-    assert store.calls[3][1]["actor"] == "system:auto_publish"
-    assert store.calls[3][1]["error_message"] == "publish hook failed"
+    assert closed["status"] == "closed"
+    assert [name for name, _ in store.calls] == ["review_closure_snapshot", "apply_review_closure"]
 
 
 def test_review_service_submits_response_after_snapshot_validation() -> None:

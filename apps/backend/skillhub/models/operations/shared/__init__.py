@@ -4,8 +4,9 @@ from skillhub.models.operations.evaluations.eval_set_cases import EvalSetCaseHel
 from skillhub.models.operations.shared.artifacts import ArtifactQueryMixin
 from skillhub.models.operations.shared.base import StoreBase
 from skillhub.models.operations.shared.helpers import CoreHelperMixin
+from skillhub.models.operations.shared.jobs import JobHelperMixin
 from skillhub.models.operations.shared.tagging import TaggingHelperMixin
 
 
-class SharedStoreMixin(ArtifactQueryMixin, EvalSetCaseHelperMixin, TaggingHelperMixin, CoreHelperMixin, StoreBase):
+class SharedStoreMixin(ArtifactQueryMixin, EvalSetCaseHelperMixin, TaggingHelperMixin, JobHelperMixin, CoreHelperMixin, StoreBase):
     pass

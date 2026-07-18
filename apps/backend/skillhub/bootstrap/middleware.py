@@ -10,7 +10,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-
 DEFAULT_CORS_ALLOW_ORIGIN_REGEX = (
     r"https?://(?:"
     r"localhost|"

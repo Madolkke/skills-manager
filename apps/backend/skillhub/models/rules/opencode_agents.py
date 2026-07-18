@@ -5,7 +5,6 @@ from typing import Any
 
 from skillhub.models.errors import InvariantError
 
-
 AGENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 SUPPORTED_AGENT_TOOLS = ("bash", "edit", "glob", "grep", "list", "read", "write")
 

@@ -12,6 +12,7 @@ class FakeStore:
     def __init__(self, detail: dict[str, Any] | None) -> None:
         self.detail = detail
         self.builder_detail: dict[str, Any] | None = None
+        self.publish_detail: dict[str, Any] | None = None
         self.agents: dict[str, dict[str, Any]] = {}
         self.metadata_updates: list[dict[str, Any]] = []
         self.finalized: dict[str, Any] | None = None
@@ -19,11 +20,16 @@ class FakeStore:
         self.retried: str | None = None
         self.completed_builder: dict[str, Any] | None = None
         self.failed_builder: dict[str, Any] | None = None
+        self.completed_publish: dict[str, Any] | None = None
+        self.failed_publish: dict[str, Any] | None = None
         self.builder_progress: list[dict[str, Any]] = []
         self.heartbeats: list[dict[str, Any]] = []
 
     def claim_next_eval_case_run_job(self, *, worker_id: str) -> dict[str, Any] | None:
         return self.detail
+
+    def claim_next_publish_release_job(self, *, worker_id: str) -> dict[str, Any] | None:
+        return self.publish_detail
 
     def claim_next_skill_builder_job(self, *, worker_id: str) -> dict[str, Any] | None:
         return self.builder_detail
@@ -57,6 +63,12 @@ class FakeStore:
 
     def record_worker_heartbeat(self, **kwargs: Any) -> None:
         self.heartbeats.append(kwargs)
+
+    def complete_publish_release_job(self, **kwargs: Any) -> None:
+        self.completed_publish = kwargs
+
+    def fail_publish_release_job(self, **kwargs: Any) -> None:
+        self.failed_publish = kwargs
 
 
 class FakeOpencodeClient:
@@ -330,6 +342,39 @@ def test_run_once_fails_when_another_skill_is_used(tmp_path: Path):
     assert store.finalized["passed"] is False
     assert step_result["assertions"][0]["status"] == "failed"
     assert step_result["assertions"][0]["details"]["used_other_skill"] is True
+
+
+def test_run_once_processes_publish_release_before_other_jobs(tmp_path: Path):
+    store = FakeStore(_case_detail())
+    store.publish_detail = {
+        "job": {"id": "job_publish_1", "type": "publish_release"},
+        "record": {"id": "publish_1"},
+        "release_payload": {
+            "publish_record_id": "publish_1",
+            "publish_target_id": "target_1",
+            "publish_target_key": "yunxi",
+            "publish_target_name": "云析",
+            "publish_target_config": {},
+            "skill_id": "skill_1",
+            "skill_slug": "demo",
+            "skill_version_id": "version_1",
+            "version": "1.0.0",
+            "content_digest": "digest",
+            "bundle_artifact_id": None,
+            "content_ref": {},
+            "review_request_id": "review_1",
+            "review_check_results": [],
+            "requested_by": "maintainer",
+            "confirmed_by": "test-worker",
+        },
+    }
+
+    did_work = _run_worker(tmp_path, store=store, client=FakeOpencodeClient(), laminar=FakeLaminarClient())
+
+    assert did_work is True
+    assert store.completed_publish is not None
+    assert store.completed_publish["publish_record_id"] == "publish_1"
+    assert store.finalized is None
 
 
 def _run_worker(tmp_path: Path, *, store: FakeStore, client: FakeOpencodeClient, laminar: FakeLaminarClient) -> bool:

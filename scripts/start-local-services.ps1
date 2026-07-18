@@ -148,6 +148,13 @@ Write-Host "External dependencies are expected to be running already:"
 Write-Host "  PostgreSQL: configured by SKILLHUB_DATABASE_URL"
 Write-Host "  Opencode:   $env:OPENCODE_BASE_URL"
 
+Push-Location $apiDir
+try {
+  uv run python -m skillhub.models.schema.cli upgrade
+} finally {
+  Pop-Location
+}
+
 if (Test-LocalPortListening -Port $apiPort -HostName $hostName) {
   Write-Host "api already listening on ${hostName}:${apiPort}; skipped."
 } else {

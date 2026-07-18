@@ -21,7 +21,6 @@ from skillhub_worker.results import (
 )
 from skillhub_worker.workspace import render_step_prompt, workspace_snapshot
 
-
 logger = logging.getLogger(__name__)
 
 

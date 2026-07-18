@@ -11,7 +11,6 @@ from zipfile import BadZipFile, ZipFile
 
 from skillhub.models.errors import InvariantError
 
-
 MAX_BUNDLE_FILES = 100
 MAX_BUNDLE_BYTES = 5 * 1024 * 1024
 

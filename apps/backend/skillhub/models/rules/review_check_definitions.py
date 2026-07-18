@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 DEFAULT_GATE_EXPRESSION = {
     "type": "group",
     "op": "and",

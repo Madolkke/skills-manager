@@ -16,8 +16,7 @@ from skillhub.models.rules.workflows import (
     normalize_workflow_import_bundle,
     validate_workflow_import_references,
 )
-from skillhub.models.schema import tables
-
+from skillhub.models.schema import orm
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class WorkflowImportMixin:
         imported_at = utc_now()
         normalized = normalize_workflow_import_bundle(bundle)
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 self._skill_row(connection, skill_id)
                 self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.edit")
                 workflow = self._workflow_row(connection, skill_id=skill_id)
@@ -48,8 +47,8 @@ class WorkflowImportMixin:
                 candidate = normalize_workflow_document(candidate)
                 candidate = self._canonicalize_collection_snapshots(connection, candidate, {})
                 connection.execute(
-                    update(tables.workflows)
-                    .where(tables.workflows.c.id == workflow["id"])
+                    update(orm.Workflow)
+                    .where(orm.Workflow.id == workflow["id"])
                     .values(
                         revision=revision,
                         document=candidate,
@@ -104,7 +103,7 @@ class WorkflowImportMixin:
                 }
             )
             connection.execute(
-                insert(tables.workflow_collection_definitions).values(
+                insert(orm.WorkflowCollectionDefinition).values(
                     id=definition_id,
                     latest_revision=revision,
                     created_at=created_at,
@@ -113,7 +112,7 @@ class WorkflowImportMixin:
                 )
             )
             connection.execute(
-                insert(tables.workflow_collection_revisions).values(
+                insert(orm.WorkflowCollectionRevision).values(
                     definition_id=definition_id,
                     revision=revision,
                     document_schema_version=DOCUMENT_SCHEMA_VERSION,

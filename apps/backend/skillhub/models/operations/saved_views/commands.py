@@ -2,26 +2,26 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import desc, insert, select
+from sqlalchemy import delete, desc, insert
 from sqlalchemy.exc import IntegrityError
 
-from skillhub.models.rules.saved_views import normalize_saved_view_config, validate_saved_view_type
-from skillhub.models.errors import FieldError, FieldInvariantError, NotFoundError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
+from skillhub.models.errors import FieldError, FieldInvariantError, NotFoundError
+from skillhub.models.rules.saved_views import normalize_saved_view_config, validate_saved_view_type
+from skillhub.models.schema import orm
 
 
 class SavedViewCommandMixin:
     def list_saved_views(self, *, skill_id: str, view_type: str = "run_history") -> list[dict[str, Any]]:
         validate_saved_view_type(view_type)
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             self._skill_row(connection, skill_id)
             rows = (
                 connection.execute(
-                    select(tables.saved_views)
-                    .where(tables.saved_views.c.skill_id == skill_id)
-                    .where(tables.saved_views.c.view_type == view_type)
-                    .order_by(tables.saved_views.c.name, desc(tables.saved_views.c.created_at))
+                    orm.select_entity(orm.SavedView)
+                    .where(orm.SavedView.skill_id == skill_id)
+                    .where(orm.SavedView.view_type == view_type)
+                    .order_by(orm.SavedView.name, desc(orm.SavedView.created_at))
                 )
                 .mappings()
                 .all()
@@ -69,11 +69,11 @@ class SavedViewCommandMixin:
             "created_by": actor,
         }
         try:
-            with self.engine.begin() as connection:
+            with self._write_session() as connection:
                 self._skill_row(connection, skill_id)
                 self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="saved_view.manage")
-                connection.execute(insert(tables.saved_views).values(**values))
-                row = connection.execute(select(tables.saved_views).where(tables.saved_views.c.id == values["id"])).mappings().one()
+                connection.execute(insert(orm.SavedView).values(**values))
+                row = connection.execute(orm.select_entity(orm.SavedView).where(orm.SavedView.id == values["id"])).mappings().one()
         except IntegrityError as exc:
             raise FieldInvariantError(
                 f"Saved view name already exists: {name}",
@@ -86,13 +86,13 @@ class SavedViewCommandMixin:
         return self.delete_saved_view_record(saved_view_id=saved_view_id, actor=actor)
 
     def delete_saved_view_record(self, *, saved_view_id: str, actor: str | None = None) -> dict[str, bool]:
-        with self.engine.begin() as connection:
-            row = connection.execute(select(tables.saved_views).where(tables.saved_views.c.id == saved_view_id)).mappings().one_or_none()
+        with self._write_session() as connection:
+            row = connection.execute(orm.select_entity(orm.SavedView).where(orm.SavedView.id == saved_view_id)).mappings().one_or_none()
             if row is None:
                 raise NotFoundError(f"SavedView not found: {saved_view_id}")
             if actor is not None:
                 self._require_skill_permission(connection, skill_id=row["skill_id"], actor=actor, permission="saved_view.manage")
-            result = connection.execute(tables.saved_views.delete().where(tables.saved_views.c.id == saved_view_id))
+            result = connection.execute(delete(orm.SavedView).where(orm.SavedView.id == saved_view_id))
             if result.rowcount == 0:
                 raise NotFoundError(f"SavedView not found: {saved_view_id}")
         return {"ok": True}

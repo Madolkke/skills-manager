@@ -4,9 +4,9 @@ import os
 from urllib.parse import urlsplit
 
 import psycopg
+import pytest
 from psycopg import sql
 from psycopg.errors import OperationalError
-import pytest
 
 DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://postgres@127.0.0.1:5432/skillhub_test"
 
@@ -36,6 +36,8 @@ def ensure_postgres_test_database() -> str:
     try:
         _ensure_database(test_database_url)
     except OperationalError as error:
+        if os.environ.get("SKILLHUB_REQUIRE_POSTGRES_TESTS") == "1":
+            pytest.fail(f"PostgreSQL test database is required but unavailable: {error}", pytrace=False)
         pytest.skip(f"PostgreSQL test database is unavailable: {error}", allow_module_level=True)
     os.environ.setdefault("SKILLHUB_TEST_DATABASE_URL", test_database_url)
     os.environ["SKILLHUB_DATABASE_URL"] = test_database_url

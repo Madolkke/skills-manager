@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "skillhub"
 
 
@@ -63,6 +62,42 @@ def test_services_use_store_not_repository_attribute() -> None:
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "repository":
                 violations.append(f"{path.relative_to(PACKAGE_ROOT)} uses .repository")
+    assert violations == []
+
+
+def test_operations_use_orm_session_boundary() -> None:
+    operations_root = PACKAGE_ROOT / "models" / "operations"
+    assert _imports_under(operations_root, {"skillhub.models.schema.tables"}) == []
+    violations: list[str] = []
+    for path in operations_root.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        if ".engine.begin(" in source or ".engine.connect(" in source:
+            violations.append(str(path.relative_to(PACKAGE_ROOT)))
+    assert violations == []
+
+
+def test_upper_layers_do_not_import_orm_entities_or_session() -> None:
+    assert _imports_under(PACKAGE_ROOT / "services", {"skillhub.models.schema.orm", "sqlalchemy.orm"}) == []
+    violations = _imports_under(PACKAGE_ROOT / "views", {"skillhub.models.schema.orm", "sqlalchemy.orm"})
+    assert violations == ["views\\dependencies.py imports sqlalchemy.orm"] or violations == [
+        "views/dependencies.py imports sqlalchemy.orm"
+    ]
+
+
+def test_skillhub_store_is_a_composition_root() -> None:
+    path = PACKAGE_ROOT / "models" / "store.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    store_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "SkillHubStore")
+    assert store_class.bases == []
+
+
+def test_services_do_not_return_unbounded_any() -> None:
+    violations: list[str] = []
+    for path in (PACKAGE_ROOT / "services").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and isinstance(node.returns, ast.Name) and node.returns.id == "Any":
+                violations.append(f"{path.relative_to(PACKAGE_ROOT)}:{node.lineno}")
     assert violations == []
 
 

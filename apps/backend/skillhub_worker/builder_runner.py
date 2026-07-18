@@ -5,19 +5,17 @@ from pathlib import Path
 from typing import Any
 
 from skillhub.models.store import SkillHubStore
+from skillhub_worker.agent_workspace import BUILDER_AGENT_ID, BUILDER_TOOLS
 from skillhub_worker.heartbeat import record_builder_running, record_idle
 from skillhub_worker.opencode_client import OpencodeClient
 from skillhub_worker.opencode_trace import compact_message_output, extract_opencode_trace, new_opencode_messages, opencode_message_ids
 from skillhub_worker.results import compact_message_response, payload_text, public_opencode_trace
 from skillhub_worker.workspace import (
-    BUILDER_AGENT_ID,
-    BUILDER_TOOLS,
     materialize_builder_workspace,
     render_builder_prompt,
     scan_builder_draft_files,
     sync_builder_workspace_files,
 )
-
 
 logger = logging.getLogger(__name__)
 

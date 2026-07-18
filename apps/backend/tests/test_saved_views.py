@@ -1,7 +1,7 @@
 import unittest
 
-from skillhub.models.rules.saved_views import normalize_saved_view_config, validate_saved_view_type
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.saved_views import normalize_saved_view_config, validate_saved_view_type
 
 
 class SavedViewConfigTest(unittest.TestCase):

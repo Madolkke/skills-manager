@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-
 MAX_TOOL_OUTPUT_PREVIEW = 2_000
 
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
 import re
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
+from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
+from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.views.schemas import (
     ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH,
     EVAL_CASE_INPUT_MAX_LENGTH,
@@ -12,8 +14,6 @@ from skillhub.views.schemas import (
     SAVED_VIEW_NAME_MAX_LENGTH,
     VERSION_CHANGE_SUMMARY_MAX_LENGTH,
 )
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
-from skillhub.models.rules.skill_imports import parse_skill_import_source
 
 
 def result_payload(result: Any) -> Any:

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from skillhub.models.errors import FieldError, FieldInvariantError
 
-
 SEMVER_PATTERN = r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 _SEMVER_RE = re.compile(SEMVER_PATTERN)
 

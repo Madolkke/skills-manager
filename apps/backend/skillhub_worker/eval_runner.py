@@ -18,7 +18,6 @@ from skillhub_worker.results import (
 )
 from skillhub_worker.workspace import materialize_case_workspace, materialize_opencode_agent
 
-
 logger = logging.getLogger(__name__)
 
 

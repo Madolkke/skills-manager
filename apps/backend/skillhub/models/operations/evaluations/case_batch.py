@@ -4,11 +4,11 @@ from typing import Any
 
 from sqlalchemy import insert, update
 
-from skillhub.models.rules.eval_cases import normalize_eval_case_title
-from skillhub.models.errors import InvariantError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
-from skillhub.models.operations.shared.results import CreateEvalCasesBatchResult, CreatedEvalCaseResult
+from skillhub.models.errors import InvariantError
+from skillhub.models.operations.shared.results import CreatedEvalCaseResult, CreateEvalCasesBatchResult
+from skillhub.models.rules.eval_cases import normalize_eval_case_title
+from skillhub.models.schema import orm
 
 
 class EvalCaseBatchCommandMixin:
@@ -31,7 +31,7 @@ class EvalCaseBatchCommandMixin:
     def insert_eval_cases_batch(self, *, skill_id: str, cases: list[dict[str, Any]], actor: str, eval_set_id: str) -> CreateEvalCasesBatchResult:
         created_at = utc_now()
         created_cases: list[CreatedEvalCaseResult] = []
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             eval_set = self._eval_set_for_case_write(connection, skill_id=skill_id, eval_set_id=eval_set_id)
             self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.manage")
             for item in cases:
@@ -46,7 +46,7 @@ class EvalCaseBatchCommandMixin:
                     created_at=created_at,
                 )
                 connection.execute(
-                    insert(tables.eval_cases).values(
+                    insert(orm.EvalCase).values(
                         id=eval_case_id,
                         skill_id=skill_id,
                         title=item["title"],
@@ -56,7 +56,7 @@ class EvalCaseBatchCommandMixin:
                     )
                 )
                 connection.execute(
-                    insert(tables.eval_case_versions).values(
+                    insert(orm.EvalCaseVersion).values(
                         id=eval_case_version_id,
                         skill_id=skill_id,
                         case_id=eval_case_id,
@@ -70,8 +70,8 @@ class EvalCaseBatchCommandMixin:
                     )
                 )
                 connection.execute(
-                    update(tables.eval_cases)
-                    .where(tables.eval_cases.c.id == eval_case_id)
+                    update(orm.EvalCase)
+                    .where(orm.EvalCase.id == eval_case_id)
                     .values(current_version_id=eval_case_version_id, updated_at=created_at)
                 )
                 created_cases.append(CreatedEvalCaseResult(eval_case_id, eval_case_version_id, workspace_artifact_id))

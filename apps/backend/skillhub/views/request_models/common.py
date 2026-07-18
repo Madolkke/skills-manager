@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from skillhub.models.entities import ContentRef
 from skillhub.models.rules.semver import SEMVER_PATTERN
 
-
 SLUG_PATTERN = r"^[a-z0-9][a-z0-9-]{0,63}$"
 TAG_GROUP_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
 ENV_TAG_PATTERN = r"^[A-Za-z0-9._-]+$"

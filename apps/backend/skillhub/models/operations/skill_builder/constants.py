@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from os import environ
 
-
 BUILDER_JOB_TYPE = "skill_builder_message"
 BUILDER_RUNNER = "opencode_skill_builder"
 DEFAULT_BUILDER_STALE_AFTER_SECONDS = 600

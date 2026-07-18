@@ -31,6 +31,10 @@ if [[ -z "${SKILLHUB_DATABASE_URL:-}" ]]; then
 fi
 (
   cd "$ROOT_DIR/apps/backend"
+  uv run python -m skillhub.models.schema.cli upgrade
+)
+(
+  cd "$ROOT_DIR/apps/backend"
   SKILLHUB_DATABASE_URL="$SKILLHUB_DATABASE_URL" uv run uvicorn skillhub.bootstrap.app:create_app --factory --host "$HOST" --port "$API_PORT"
 ) &
 API_PID=$!

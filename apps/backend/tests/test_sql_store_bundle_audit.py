@@ -1,7 +1,6 @@
 from sqlalchemy import select
 
 from skillhub.models.schema.tables import audit_events
-
 from tests.store_test_case import SqlStoreTestCase
 
 

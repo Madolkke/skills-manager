@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.models.entities import digest_text, normalize_tags
+from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
 
 
 def canonical_run_context(value: dict[str, Any] | None) -> dict[str, Any]:

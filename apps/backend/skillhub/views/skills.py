@@ -2,11 +2,19 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
+from skillhub.services import SkillService
 from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import skill_service_dependency
 from skillhub.views.responses import result_payload
-from skillhub.views.schemas import AssignSkillRolePayload, CreateSkillPayload, ImportSkillPayload, SkillGroupMemberPayload, SkillGroupPayload, UpdateSkillPayload, content_ref
-from skillhub.services import SkillService
+from skillhub.views.schemas import (
+    AssignSkillRolePayload,
+    CreateSkillPayload,
+    ImportSkillPayload,
+    SkillGroupMemberPayload,
+    SkillGroupPayload,
+    UpdateSkillPayload,
+    content_ref,
+)
 
 
 def register_skill_routes(app: FastAPI) -> None:

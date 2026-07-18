@@ -1,7 +1,8 @@
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 from skillhub.bootstrap.app import create_app, create_postgres_engine, resolve_database_url
+from skillhub.models.schema.migrations import stamp_database
 from skillhub.models.schema.tables import metadata
 from tests.conftest import ensure_postgres_test_database
 
@@ -26,6 +27,7 @@ def test_postgres_engine_persists_skill_between_app_instances():
     first_engine = create_postgres_engine(database_url)
     metadata.drop_all(first_engine)
     metadata.create_all(first_engine)
+    stamp_database(first_engine)
     first_client = TestClient(create_app(first_engine))
     response = first_client.post(
         "/api/skills",

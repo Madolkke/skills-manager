@@ -4,7 +4,6 @@ from typing import Mapping
 
 from skillhub.models.errors import InvariantError
 
-
 SUPPORTED_SAVED_VIEW_TYPES = frozenset({"run_history"})
 
 SAVED_VIEW_CONFIG_KEYS = frozenset(

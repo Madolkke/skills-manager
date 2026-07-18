@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import desc, insert, select
+from sqlalchemy import desc, insert
 
-from skillhub.models.rules.eval_runs import decide_eval_run_aggregation, normalize_run_environment
-from skillhub.models.errors import InvariantError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
+from skillhub.models.errors import InvariantError
 from skillhub.models.operations.shared.results import RecordEvalRunResult
+from skillhub.models.rules.eval_runs import decide_eval_run_aggregation, normalize_run_environment
+from skillhub.models.schema import orm
 
 
 class EvalRunAggregationMixin:
@@ -51,7 +51,7 @@ class EvalRunAggregationMixin:
         run_context: dict[str, Any],
     ) -> dict[str, Any]:
         tags, context, context_hash = normalize_run_environment(environment_tags, run_context)
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             skill_version = self._skill_version_row(connection, skill_version_id)
             eval_set = self._eval_set_row(connection, eval_set_id)
             if skill_version["skill_id"] != eval_set["skill_id"]:
@@ -95,7 +95,7 @@ class EvalRunAggregationMixin:
         passed_count = int(summary.get("passed", 0))
         failed_count = int(summary.get("failed", 0))
         total_count = int(summary.get("total", len(case_results)))
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             skill_version = self._skill_version_row(connection, skill_version_id)
             eval_set = self._eval_set_row(connection, eval_set_id)
             if skill_version["skill_id"] != eval_set["skill_id"]:
@@ -103,7 +103,7 @@ class EvalRunAggregationMixin:
             skill_id = skill_version["skill_id"]
             self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="eval.run")
             connection.execute(
-                insert(tables.eval_runs).values(
+                insert(orm.EvalRun).values(
                     id=eval_run_id,
                     skill_id=skill_id,
                     skill_version_id=skill_version_id,
@@ -119,7 +119,7 @@ class EvalRunAggregationMixin:
                 )
             )
             connection.execute(
-                insert(tables.case_results),
+                insert(orm.CaseResult),
                 [
                     {
                         "run_id": eval_run_id,
@@ -146,13 +146,13 @@ class EvalRunAggregationMixin:
     ) -> dict[str, Any]:
         rows = (
             connection.execute(
-                select(tables.eval_case_runs)
-                .where(tables.eval_case_runs.c.skill_version_id == skill_version_id)
-                .where(tables.eval_case_runs.c.eval_set_id == eval_set_id)
-                .where(tables.eval_case_runs.c.case_version_id.in_(case_version_ids))
-                .where(tables.eval_case_runs.c.run_context_hash == context_hash)
-                .where(tables.eval_case_runs.c.status == "succeeded")
-                .order_by(desc(tables.eval_case_runs.c.finished_at), desc(tables.eval_case_runs.c.id))
+                orm.select_entity(orm.EvalCaseRun)
+                .where(orm.EvalCaseRun.skill_version_id == skill_version_id)
+                .where(orm.EvalCaseRun.eval_set_id == eval_set_id)
+                .where(orm.EvalCaseRun.case_version_id.in_(case_version_ids))
+                .where(orm.EvalCaseRun.run_context_hash == context_hash)
+                .where(orm.EvalCaseRun.status == "succeeded")
+                .order_by(desc(orm.EvalCaseRun.finished_at), desc(orm.EvalCaseRun.id))
             )
             .mappings()
             .all()

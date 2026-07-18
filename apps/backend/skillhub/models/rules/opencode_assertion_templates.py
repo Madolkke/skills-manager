@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from skillhub.models.rules.assertion_base import AssertionContext, AssertionParam, AssertionResult, AssertionTemplate
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.assertion_base import AssertionContext, AssertionParam, AssertionResult, AssertionTemplate
 from skillhub.models.rules.opencode_skill_usage import other_skill_usage_evidence, skill_usage_evidence
-
 
 OPENCODE_CATEGORY = "Opencode 过程"
 

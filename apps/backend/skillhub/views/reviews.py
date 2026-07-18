@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI
 
+from skillhub.services import ReviewService
 from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import review_service_dependency
 from skillhub.views.responses import result_payload
 from skillhub.views.schemas import CreatePublishRecordPayload, CreateReviewRequestPayload, NotificationUpdatePayload, SubmitReviewResponsePayload
-from skillhub.services import ReviewService
 
 
 def register_review_routes(app: FastAPI) -> None:

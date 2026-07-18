@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from skillhub.views.request_models.common import IdentityRef, SkillSlug, SkillTagPayload, SkillVersionSemVer, VersionChangeSummary, VersionDisplayName
 
-
 WorkflowDescription = Annotated[str, Field(max_length=1024)]
 WorkflowMetadataText = Annotated[str, Field(max_length=1000)]
 

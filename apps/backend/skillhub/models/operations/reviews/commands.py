@@ -4,10 +4,10 @@ from typing import Any
 
 from sqlalchemy import delete, insert, update
 
-from skillhub.models.errors import InvariantError, PermissionDeniedError
 from skillhub.models.entities import new_id, utc_now
+from skillhub.models.errors import InvariantError, PermissionDeniedError
 from skillhub.models.rules.review_policy import decide_review_closure
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class ReviewCommandMixin:
@@ -47,7 +47,7 @@ class ReviewCommandMixin:
         reviewer_sources: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         created_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             skill = self._skill_row(connection, skill_id)
             version = self._skill_version_row(connection, skill_version_id)
             if version["skill_id"] != skill_id:
@@ -57,7 +57,7 @@ class ReviewCommandMixin:
                 raise InvariantError("This skill version already has an open review.")
             review_id = new_id("review")
             connection.execute(
-                insert(tables.review_requests).values(
+                insert(orm.ReviewRequest).values(
                     id=review_id,
                     skill_id=skill_id,
                     skill_version_id=skill_version_id,
@@ -86,7 +86,7 @@ class ReviewCommandMixin:
 
     def attach_review_publish_targets(self, *, review_id: str, skill_id: str, publish_targets: list[dict[str, Any]]) -> None:
         created_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._review_row(connection, review_id)
             for target in publish_targets:
                 publish_target_id = str(target.get("publish_target_id", "")).strip()
@@ -94,7 +94,7 @@ class ReviewCommandMixin:
                     continue
                 self._publish_target_row(connection, publish_target_id)
                 connection.execute(
-                    insert(tables.review_request_publish_targets).values(
+                    insert(orm.ReviewRequestPublishTarget).values(
                         review_request_id=review_id,
                         skill_id=skill_id,
                         publish_target_id=publish_target_id,
@@ -105,15 +105,15 @@ class ReviewCommandMixin:
 
     def create_review_notifications(self, *, review_id: str, skill_slug: str, reviewers: list[str], actor: str) -> None:
         created_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._review_row(connection, review_id)
             self._insert_review_notifications(connection, review_id=review_id, skill_slug=skill_slug, reviewers=reviewers, actor=actor, created_at=created_at)
 
     def record_review_created_audit(self, *, skill_id: str, skill_version_id: str, review_id: str, reviewer_count: int, actor: str) -> None:
         created_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="review.created",
@@ -125,7 +125,7 @@ class ReviewCommandMixin:
             )
 
     def review_detail(self, *, review_id: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             review = self._review_row(connection, review_id)
             return self._review_detail(connection, review)
 
@@ -148,7 +148,7 @@ class ReviewCommandMixin:
         )
 
     def review_response_snapshot(self, *, review_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             review = self._review_row(connection, review_id)
             return {
                 "review": self._row_dict(review),
@@ -167,20 +167,20 @@ class ReviewCommandMixin:
         exists: bool,
     ) -> dict[str, Any]:
         updated_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             review = self._review_row(connection, review_id)
             if review["skill_id"] != skill_id:
                 raise InvariantError("Review does not match the requested skill.")
             if exists:
                 connection.execute(
-                    update(tables.review_responses)
-                    .where(tables.review_responses.c.review_request_id == review_id)
-                    .where(tables.review_responses.c.reviewer_actor == actor)
+                    update(orm.ReviewResponse)
+                    .where(orm.ReviewResponse.review_request_id == review_id)
+                    .where(orm.ReviewResponse.reviewer_actor == actor)
                     .values(score=score, comment=comment, updated_at=updated_at)
                 )
             else:
                 connection.execute(
-                    insert(tables.review_responses).values(
+                    insert(orm.ReviewResponse).values(
                         review_request_id=review_id,
                         skill_id=review["skill_id"],
                         reviewer_actor=actor,
@@ -209,7 +209,7 @@ class ReviewCommandMixin:
         )
 
     def review_closure_snapshot(self, *, review_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             review = self._review_row(connection, review_id)
             self._require_skill_permission(connection, skill_id=review["skill_id"], actor=actor, permission="review.manage")
             if review["status"] != "open":
@@ -234,15 +234,15 @@ class ReviewCommandMixin:
         auto_publish_target_ids: list[str],
     ) -> dict[str, Any]:
         closed_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             review = self._review_row(connection, review_id)
             self._require_skill_permission(connection, skill_id=review["skill_id"], actor=actor, permission="review.manage")
             if review["status"] != "open":
                 raise InvariantError("Review is already closed.")
-            connection.execute(delete(tables.review_check_results).where(tables.review_check_results.c.review_request_id == review_id))
+            connection.execute(delete(orm.ReviewCheckResult).where(orm.ReviewCheckResult.review_request_id == review_id))
             for check in checks:
                 connection.execute(
-                    insert(tables.review_check_results).values(
+                    insert(orm.ReviewCheckResult).values(
                         review_request_id=review_id,
                         skill_id=review["skill_id"],
                         check_id=check["check_id"],
@@ -252,14 +252,14 @@ class ReviewCommandMixin:
                     )
                 )
             connection.execute(
-                update(tables.review_requests)
-                .where(tables.review_requests.c.id == review_id)
+                update(orm.ReviewRequest)
+                .where(orm.ReviewRequest.id == review_id)
                 .values(status="closed", summary=summary, closed_at=closed_at, closed_by=actor)
             )
             closed_review = self._review_row(connection, review_id)
             for publish_target_id in auto_publish_target_ids:
                 try:
-                    self._ensure_publish_record(
+                    record = self._ensure_publish_record(
                         connection,
                         skill_id=review["skill_id"],
                         skill_version_id=review["skill_version_id"],
@@ -268,10 +268,16 @@ class ReviewCommandMixin:
                         actor=actor,
                         created_at=closed_at,
                     )
+                    self._enqueue_publish_release_job(
+                        connection,
+                        publish_record_id=record["id"],
+                        actor=actor,
+                        created_at=closed_at,
+                    )
                 except InvariantError:
                     continue
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="review.closed",

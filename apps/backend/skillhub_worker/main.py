@@ -4,15 +4,16 @@ import logging
 import time
 
 from skillhub.bootstrap.logging_config import configure_logging
+from skillhub.models.schema.database import create_postgres_engine, resolve_database_url
+from skillhub.models.schema.migrations import verify_database_revision
 from skillhub.models.store import SkillHubStore
-from skillhub.views.dependencies import create_postgres_engine, resolve_database_url
 from skillhub_worker.builder_runner import run_builder_once
 from skillhub_worker.config import load_config
 from skillhub_worker.eval_runner import run_eval_once
 from skillhub_worker.heartbeat import record_idle
 from skillhub_worker.laminar_client import LaminarClient
 from skillhub_worker.opencode_client import OpencodeClient
-
+from skillhub_worker.publish_runner import run_publish_once
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ logger = logging.getLogger(__name__)
 def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
     """Claim and execute one eval or skill builder job."""
     record_idle(store, config=config)
+    if run_publish_once(store, config=config):
+        return True
     detail = store.claim_next_eval_case_run_job(worker_id=config.worker_id)
     if detail is not None:
         return run_eval_once(detail, store, client, laminar, config=config)
@@ -44,7 +47,9 @@ def main() -> None:
         config.max_attempts,
     )
     config.workdir_host.mkdir(parents=True, exist_ok=True)
-    store = SkillHubStore(create_postgres_engine(resolve_database_url()))
+    engine = create_postgres_engine(resolve_database_url())
+    verify_database_revision(engine)
+    store = SkillHubStore(engine)
     client = OpencodeClient(base_url=config.opencode_base_url, timeout_seconds=config.timeout_seconds)
     laminar = LaminarClient(
         base_url=config.laminar_base_url,

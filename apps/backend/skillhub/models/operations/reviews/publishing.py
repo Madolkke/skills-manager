@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 
 from skillhub.models.entities import new_id
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.publish_policy import decide_publish_request
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class ReviewPublishingMixin:
@@ -68,9 +68,9 @@ class ReviewPublishingMixin:
     ) -> dict[str, Any]:
         existing = (
             connection.execute(
-                select(tables.publish_records)
-                .where(tables.publish_records.c.skill_version_id == skill_version_id)
-                .where(tables.publish_records.c.publish_target_id == publish_target_id)
+                orm.select_entity(orm.PublishRecord)
+                .where(orm.PublishRecord.skill_version_id == skill_version_id)
+                .where(orm.PublishRecord.publish_target_id == publish_target_id)
             )
             .mappings()
             .one_or_none()
@@ -78,13 +78,13 @@ class ReviewPublishingMixin:
         if existing is not None:
             if existing["status"] in {"cancelled", "failed"}:
                 connection.execute(
-                    update(tables.publish_records)
-                    .where(tables.publish_records.c.id == existing["id"])
+                    update(orm.PublishRecord)
+                    .where(orm.PublishRecord.id == existing["id"])
                     .values(
                         status="pending_confirmation",
                         review_request_id=review_id,
                         check_snapshot=check_snapshot,
-                        metadata={},
+                        metadata_payload={},
                         confirmed_at=None,
                         confirmed_by=None,
                         created_by=actor,
@@ -107,5 +107,10 @@ class ReviewPublishingMixin:
             "created_at": created_at,
             "created_by": actor,
         }
-        connection.execute(insert(tables.publish_records).values(**record))
+        connection.execute(
+            insert(orm.PublishRecord).values(
+                **{key: value for key, value in record.items() if key != "metadata"},
+                metadata_payload=record["metadata"],
+            )
+        )
         return record

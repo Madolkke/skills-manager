@@ -4,8 +4,8 @@ from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from skillhub.models.rules.assertion_base import AssertionContext, AssertionParam, AssertionResult, AssertionTemplate
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.assertion_base import AssertionContext, AssertionParam, AssertionResult, AssertionTemplate
 
 
 class AgentOutputExactTemplate(AssertionTemplate):

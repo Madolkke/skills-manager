@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.models.rules.tag_resources import encode_skill_tag_resource_id
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class TaggingHelperMixin:
@@ -17,25 +17,25 @@ class TaggingHelperMixin:
         rows = (
             connection.execute(
                 select(
-                    tables.skill_tags.c.tag_group_id,
-                    tables.tag_groups.c.display_name.label("group_display_name"),
-                    tables.skill_tags.c.tag_value,
-                    tables.tag_values.c.display_name.label("value_display_name"),
-                    tables.tag_groups.c.sort_order.label("group_sort_order"),
-                    tables.tag_values.c.sort_order.label("value_sort_order"),
+                    orm.SkillTag.tag_group_id,
+                    orm.TagGroup.display_name.label("group_display_name"),
+                    orm.SkillTag.tag_value,
+                    orm.TagValue.display_name.label("value_display_name"),
+                    orm.TagGroup.sort_order.label("group_sort_order"),
+                    orm.TagValue.sort_order.label("value_sort_order"),
                 )
-                .join(tables.tag_groups, tables.tag_groups.c.id == tables.skill_tags.c.tag_group_id)
+                .join(orm.TagGroup, orm.TagGroup.id == orm.SkillTag.tag_group_id)
                 .join(
-                    tables.tag_values,
-                    (tables.tag_values.c.tag_group_id == tables.skill_tags.c.tag_group_id)
-                    & (tables.tag_values.c.value == tables.skill_tags.c.tag_value),
+                    orm.TagValue,
+                    (orm.TagValue.tag_group_id == orm.SkillTag.tag_group_id)
+                    & (orm.TagValue.value == orm.SkillTag.tag_value),
                 )
-                .where(tables.skill_tags.c.skill_id == skill_id)
+                .where(orm.SkillTag.skill_id == skill_id)
                 .order_by(
-                    tables.tag_groups.c.sort_order,
-                    tables.skill_tags.c.tag_group_id,
-                    tables.tag_values.c.sort_order,
-                    tables.skill_tags.c.tag_value,
+                    orm.TagGroup.sort_order,
+                    orm.SkillTag.tag_group_id,
+                    orm.TagValue.sort_order,
+                    orm.SkillTag.tag_value,
                 )
             )
             .mappings()
@@ -93,8 +93,8 @@ class TaggingHelperMixin:
         keys = [(tag["group_id"], tag["value"]) for tag in tags]
         existing = set(
             connection.execute(
-                select(tables.tag_values.c.tag_group_id, tables.tag_values.c.value).where(
-                    tuple_(tables.tag_values.c.tag_group_id, tables.tag_values.c.value).in_(keys)
+                select(orm.TagValue.tag_group_id, orm.TagValue.value).where(
+                    tuple_(orm.TagValue.tag_group_id, orm.TagValue.value).in_(keys)
                 )
             ).all()
         )
@@ -151,23 +151,23 @@ class TaggingHelperMixin:
             if group and group["free_form"]:
                 free_values[tag["group_id"]].add(tag["value"])
         for group_id in sorted(free_values):
-            connection.execute(select(tables.tag_groups.c.id).where(tables.tag_groups.c.id == group_id).with_for_update())
+            connection.execute(select(orm.TagGroup.id).where(orm.TagGroup.id == group_id).with_for_update())
             existing = set(
                 connection.execute(
-                    select(tables.tag_values.c.value)
-                    .where(tables.tag_values.c.tag_group_id == group_id)
-                    .where(tables.tag_values.c.value.in_(sorted(free_values[group_id])))
+                    select(orm.TagValue.value)
+                    .where(orm.TagValue.tag_group_id == group_id)
+                    .where(orm.TagValue.value.in_(sorted(free_values[group_id])))
                 ).scalars()
             )
             missing = sorted(free_values[group_id] - existing)
             next_order = int(
                 connection.execute(
-                    select(func.coalesce(func.max(tables.tag_values.c.sort_order), -1) + 1)
-                    .where(tables.tag_values.c.tag_group_id == group_id)
+                    select(func.coalesce(func.max(orm.TagValue.sort_order), -1) + 1)
+                    .where(orm.TagValue.tag_group_id == group_id)
                 ).scalar_one()
             )
             for offset, value in enumerate(missing):
-                statement = pg_insert(tables.tag_values).values(
+                statement = pg_insert(orm.TagValue).values(
                     tag_group_id=group_id,
                     value=value,
                     display_name=None,
@@ -179,7 +179,7 @@ class TaggingHelperMixin:
                 )
                 connection.execute(
                     statement.on_conflict_do_nothing(
-                        index_elements=[tables.tag_values.c.tag_group_id, tables.tag_values.c.value]
+                        index_elements=[orm.TagValue.tag_group_id, orm.TagValue.value]
                     )
                 )
 
@@ -189,9 +189,9 @@ class TaggingHelperMixin:
         resource_ids = [encode_skill_tag_resource_id(group_id, value) for group_id, value in tags]
         protected_ids = set(
             connection.execute(
-                select(tables.role_assignments.c.resource_id)
-                .where(tables.role_assignments.c.resource_type == "skill_tag")
-                .where(tables.role_assignments.c.resource_id.in_(resource_ids))
+                select(orm.RoleAssignment.resource_id)
+                .where(orm.RoleAssignment.resource_type == "skill_tag")
+                .where(orm.RoleAssignment.resource_id.in_(resource_ids))
             ).scalars()
         )
         return {tag for tag in tags if encode_skill_tag_resource_id(tag[0], tag[1]) in protected_ids}
@@ -215,10 +215,10 @@ class TaggingHelperMixin:
         protected_changes = self._protected_skill_tags(connection, current_tags.symmetric_difference(next_tags))
         if enforce_protected and protected_changes:
             self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="tag.protected.manage")
-        connection.execute(delete(tables.skill_tags).where(tables.skill_tags.c.skill_id == skill_id))
+        connection.execute(delete(orm.SkillTag).where(orm.SkillTag.skill_id == skill_id))
         for tag in clean_tags:
             connection.execute(
-                insert(tables.skill_tags).values(
+                insert(orm.SkillTag).values(
                     skill_id=skill_id,
                     tag_group_id=tag["group_id"],
                     tag_value=tag["value"],

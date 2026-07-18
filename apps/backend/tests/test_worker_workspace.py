@@ -3,13 +3,21 @@ from __future__ import annotations
 import base64
 import io
 import json
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 import pytest
 
 from skillhub_worker.opencode_trace import extract_opencode_trace, new_opencode_messages, opencode_message_ids
-from skillhub_worker.workspace import compact_message_output, materialize_case_workspace, materialize_opencode_agent, render_step_prompt, scan_builder_draft_files, sync_builder_workspace_files, _extract_zip_to_workdir
+from skillhub_worker.workspace import (
+    _extract_zip_to_workdir,
+    compact_message_output,
+    materialize_case_workspace,
+    materialize_opencode_agent,
+    render_step_prompt,
+    scan_builder_draft_files,
+    sync_builder_workspace_files,
+)
 
 
 def zip_payload(files: dict[str, str]) -> str:

@@ -4,13 +4,13 @@ from typing import Any
 
 from sqlalchemy import insert
 
-from skillhub.models.rules.eval_runner import OPENCODE_RUNNER
-from skillhub.models.rules.eval_runs import normalize_run_environment
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.schema import tables
+from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
 from skillhub.models.operations.evaluations.run_jobs import EvalCaseRunJobMixin
 from skillhub.models.operations.shared.results import RecordEvalCaseRunResult
+from skillhub.models.rules.eval_runner import OPENCODE_RUNNER
+from skillhub.models.rules.eval_runs import normalize_run_environment
+from skillhub.models.schema import orm
 
 
 class EvalRunCommandMixin(EvalCaseRunJobMixin):
@@ -55,7 +55,7 @@ class EvalRunCommandMixin(EvalCaseRunJobMixin):
         run_context: dict[str, Any],
     ) -> dict[str, Any]:
         tags, context, context_hash = normalize_run_environment(environment_tags, run_context)
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             skill_version = self._skill_version_row(connection, skill_version_id)
             eval_set = self._eval_set_row(connection, eval_set_id)
             case_version = self._eval_case_version_row(connection, case_version_id)
@@ -85,7 +85,7 @@ class EvalRunCommandMixin(EvalCaseRunJobMixin):
         tags, context, context_hash = normalize_run_environment(environment_tags, run_context)
         if context_hash != run_context_hash:
             raise InvariantError("EvalCaseRun context hash does not match normalized run context.")
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             skill_version = self._skill_version_row(connection, skill_version_id)
             eval_set = self._eval_set_row(connection, eval_set_id)
             case_version = self._eval_case_version_row(connection, case_version_id)
@@ -138,7 +138,7 @@ class EvalRunCommandMixin(EvalCaseRunJobMixin):
             created_at=created_at,
         )
         connection.execute(
-            insert(tables.eval_case_runs).values(
+            insert(orm.EvalCaseRun).values(
                 id=eval_case_run_id,
                 job_id=job_id,
                 skill_id=skill_id,

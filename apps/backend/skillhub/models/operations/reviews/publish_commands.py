@@ -7,7 +7,7 @@ from sqlalchemy import insert
 from skillhub.models.entities import new_id, utc_now
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.publish_policy import decide_publish_request
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 
 class ReviewPublishCommandMixin:
@@ -52,7 +52,7 @@ class ReviewPublishCommandMixin:
         publish_target_id: str,
         actor: str,
     ) -> dict[str, Any]:
-        with self.engine.connect() as connection:
+        with self._read_session() as connection:
             review = self._review_row(connection, review_request_id)
             if review["skill_id"] != skill_id or review["skill_version_id"] != skill_version_id:
                 raise InvariantError("Review does not match the requested skill version.")
@@ -78,7 +78,7 @@ class ReviewPublishCommandMixin:
         check_snapshot: list[dict[str, Any]],
     ) -> dict[str, Any]:
         created_at = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             review = self._review_row(connection, review_request_id)
             if review["skill_id"] != skill_id or review["skill_version_id"] != skill_version_id:
                 raise InvariantError("Review does not match the requested skill version.")
@@ -94,7 +94,7 @@ class ReviewPublishCommandMixin:
                 check_snapshot=check_snapshot,
             )
             connection.execute(
-                insert(tables.audit_events).values(
+                insert(orm.AuditEvent).values(
                     id=new_id("audit"),
                     actor_ref=actor,
                     action="publish.requested",

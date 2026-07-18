@@ -4,7 +4,6 @@ import logging
 from os import environ
 from typing import Mapping
 
-
 DEFAULT_LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 SUPPORTED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}

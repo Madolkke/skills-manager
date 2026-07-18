@@ -2,26 +2,26 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, update
 
 from skillhub.models.entities import ContentRef, new_id, utc_now
 from skillhub.models.errors import ConflictError, FieldError, FieldInvariantError, InvariantError
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.models.rules.skills import initial_skill_version
-from skillhub.models.schema import tables
+from skillhub.models.schema import orm
 
 from .constants import BUILDER_JOB_TYPE, BUILDER_RUNNER
 
 
 class SkillBuilderSessionMixin:
     def list_skill_builder_sessions(self, *, actor: str) -> list[dict[str, Any]]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._recover_stale_builder_sessions(connection, actor=actor, now=utc_now())
             rows = (
                 connection.execute(
-                    select(tables.skill_builder_sessions)
-                    .where(tables.skill_builder_sessions.c.actor_ref == actor)
-                    .order_by(tables.skill_builder_sessions.c.updated_at.desc(), tables.skill_builder_sessions.c.created_at.desc())
+                    orm.select_entity(orm.SkillBuilderSession)
+                    .where(orm.SkillBuilderSession.actor_ref == actor)
+                    .order_by(orm.SkillBuilderSession.updated_at.desc(), orm.SkillBuilderSession.created_at.desc())
                     .limit(1)
                 )
                 .mappings()
@@ -34,12 +34,12 @@ class SkillBuilderSessionMixin:
         now = utc_now()
         session_id = new_id("builder")
         clean_title = (title or "").strip()[:160]
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._recover_stale_builder_sessions(connection, actor=actor, now=now)
             existing = (
                 connection.execute(
-                    select(tables.skill_builder_sessions)
-                    .where(tables.skill_builder_sessions.c.actor_ref == actor)
+                    orm.select_entity(orm.SkillBuilderSession)
+                    .where(orm.SkillBuilderSession.actor_ref == actor)
                     .with_for_update()
                 )
                 .mappings()
@@ -63,7 +63,7 @@ class SkillBuilderSessionMixin:
                 now=now,
             )
             connection.execute(
-                insert(tables.skill_builder_sessions).values(
+                insert(orm.SkillBuilderSession).values(
                     id=session_id,
                     actor_ref=actor,
                     title=clean_title,
@@ -83,7 +83,7 @@ class SkillBuilderSessionMixin:
         return self._builder_session_payload(row, messages=[])
 
     def skill_builder_session_detail(self, *, session_id: str, actor: str) -> dict[str, Any]:
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=utc_now())
             row = self._builder_session_row(connection, session_id=session_id, actor=actor)
             messages = self._builder_messages(connection, session_id=session_id)
@@ -110,7 +110,7 @@ class SkillBuilderSessionMixin:
         clean_selection = self._clean_builder_run_selection(run_selection)
         now = utc_now()
         message_id = new_id("buildermsg")
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
@@ -118,13 +118,13 @@ class SkillBuilderSessionMixin:
             if session["status"] == "created":
                 raise InvariantError("该创建会话已经完成，不能继续发送消息。")
             connection.execute(
-                insert(tables.skill_builder_messages).values(
+                insert(orm.SkillBuilderMessage).values(
                     id=message_id,
                     session_id=session_id,
                     role="user",
                     intent=intent,
                     content=clean_content,
-                    metadata={"run_selection": clean_selection},
+                    metadata_payload={"run_selection": clean_selection},
                     job_id=None,
                     created_at=now,
                 )
@@ -146,13 +146,13 @@ class SkillBuilderSessionMixin:
                 created_at=now,
             )
             connection.execute(
-                update(tables.skill_builder_messages)
-                .where(tables.skill_builder_messages.c.id == message_id)
+                update(orm.SkillBuilderMessage)
+                .where(orm.SkillBuilderMessage.id == message_id)
                 .values(job_id=job_id)
             )
             connection.execute(
-                update(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                update(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .values(status="running", run_selection=clean_selection, last_error=None, updated_at=now)
             )
         return self.skill_builder_session_detail(session_id=session_id, actor=actor)
@@ -160,7 +160,7 @@ class SkillBuilderSessionMixin:
     def update_skill_builder_workspace(self, *, session_id: str, actor: str, files: list[dict[str, Any]]) -> dict[str, Any]:
         workspace_files = self._clean_builder_workspace_files(files, require_entry=False)
         now = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
@@ -168,8 +168,8 @@ class SkillBuilderSessionMixin:
             if session["status"] == "created":
                 raise InvariantError("该创建会话已经完成，不能继续编辑工作区文件。")
             connection.execute(
-                update(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                update(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .values(status="active", draft_files=workspace_files, last_error=None, updated_at=now)
             )
         return self.skill_builder_session_detail(session_id=session_id, actor=actor)
@@ -187,7 +187,7 @@ class SkillBuilderSessionMixin:
         files: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
-        with self.engine.begin() as connection:
+        with self._write_session() as connection:
             self._recover_stale_builder_sessions(connection, actor=actor, session_id=session_id, now=now)
             session = self._builder_session_row(connection, session_id=session_id, actor=actor)
             if session["status"] == "running":
@@ -219,8 +219,8 @@ class SkillBuilderSessionMixin:
                 connection=connection,
             )
             connection.execute(
-                update(tables.skill_builder_sessions)
-                .where(tables.skill_builder_sessions.c.id == session_id)
+                update(orm.SkillBuilderSession)
+                .where(orm.SkillBuilderSession.id == session_id)
                 .values(
                     status="created",
                     created_skill_id=result.skill_id,
