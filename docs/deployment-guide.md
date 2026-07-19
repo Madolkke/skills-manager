@@ -2,6 +2,8 @@
 
 本文档说明如何把 SkillHub 部署到一台或多台服务器上。当前项目不保留 compose 部署方式，推荐由运维系统分别管理 PostgreSQL、后端 API、前端静态站点、Worker、Opencode 和可选的 Laminar。
 
+后端最小上线顺序为：准备 PostgreSQL 和环境变量、安装锁定依赖、执行一次数据库 migration、启动 API、检查 `/health`、使用唯一 ID 启动 Worker、完成数据库读写和异步任务冒烟测试。数据库 migration 成功前不得启动 API 或 Worker。
+
 ## 1. 部署组件
 
 SkillHub 由以下组件组成：
@@ -11,8 +13,8 @@ SkillHub 由以下组件组成：
 | 后端 API | `apps/backend` | 是 | FastAPI 服务，启动入口为 `skillhub.bootstrap.app:create_app`。 |
 | 前端 | `apps/frontend` | 是 | Vue + Vite 构建出的静态站点。 |
 | PostgreSQL | 外部数据库 | 是 | Skill、版本、测评、评审、发布、权限和 artifact 元数据的事实源。 |
-| Worker | `apps/backend/skillhub_worker` | 测评需要 | 消费测评任务，调用 Opencode 执行测试例。 |
-| Opencode | 外部服务 | 测评需要 | SkillHub 不管理 provider key，只读取其 provider/model 配置并调用运行接口。 |
+| Worker | `apps/backend/skillhub_worker` | 异步任务需要 | 消费测评、AI 创建和发布任务；确认发布接口本身只负责入队。 |
+| Opencode | 外部服务 | 测评和 AI 创建需要 | SkillHub 不管理 provider key，只读取其 provider/model 配置并调用运行接口。 |
 | Laminar | 外部服务 | 可选 | 用于记录测评 trace。未配置时不阻断测评。 |
 
 ## 2. 前置要求
@@ -21,7 +23,7 @@ SkillHub 由以下组件组成：
 
 - Python `3.12+`
 - `uv`
-- Node.js `24+`
+- Node.js `24+`，仅构建前端时需要
 - PostgreSQL `14+`
 - 一个进程管理器，例如 `systemd`、Supervisor、PM2 或平台自带服务管理
 - 一个反向代理，例如 Nginx、Caddy、Traefik 或云负载均衡
@@ -49,7 +51,7 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
   worker.log
 ```
 
-部署用户需要对 `/var/lib/skillhub/eval-runs` 有读写权限。
+部署用户需要对 `/var/lib/skillhub/eval-runs` 有读写权限。API 与 Worker 可以使用不同系统用户，但必须读取同一份非公开环境配置，并连接同一个 PostgreSQL 数据库。
 
 ## 4. 环境变量
 
@@ -60,16 +62,19 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `SKILLHUB_DATABASE_URL` | PostgreSQL 连接串 | `postgresql+psycopg://skillhub:***@db:5432/skillhub` |
 | `SKILLHUB_SESSION_SECRET` | 签名本地 actor cookie | 使用 32 字节以上随机值 |
 | `SKILLHUB_ADMIN_CONSOLE_KEY` | `/skills/admin` 和 `/api/admin/*` 后台密钥 | 使用高强度随机值 |
+| `SKILLHUB_LOCAL_SESSION_CODE` | 前端切换本地身份时使用的访问码 | 生产环境必须显式设置，禁止使用默认值 |
 
 ### 常用配置
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `SKILLHUB_LOCAL_SESSION_CODE` | `skillhub-dev` | 前端切换本地身份时使用的访问码，生产环境必须修改。 |
 | `SKILLHUB_SESSION_COOKIE_SECURE` | 未启用 | HTTPS 部署时设为 `1`。 |
 | `SKILLHUB_CORS_ALLOW_ORIGINS` | 空 | 明确允许的前端 Origin，多个值用逗号分隔。 |
 | `SKILLHUB_CORS_ALLOW_ORIGIN_REGEX` | 允许 localhost、IP 和常见主机名 | 自定义跨域匹配规则。 |
 | `SKILLHUB_LOG_LEVEL` | `INFO` | 后端 API 和 Worker 日志级别；排查问题时可临时设为 `DEBUG`。 |
+| `SKILLHUB_DATABASE_CONNECT_TIMEOUT_SECONDS` | `10` | API、Worker 和 migration 建立 PostgreSQL 连接的最长等待秒数。 |
+| `SKILLHUB_DATABASE_STATEMENT_TIMEOUT_MS` | `30000` | PostgreSQL 单条语句最长执行时间，单位毫秒。 |
+| `SKILLHUB_DATABASE_LOCK_TIMEOUT_MS` | `5000` | PostgreSQL 锁等待上限，单位毫秒。 |
 | `OPENCODE_BASE_URL` | 后端默认 `http://127.0.0.1:4096`，Worker 默认 `http://opencode:4096` | Opencode 服务地址。 |
 | `EVAL_WORKDIR_HOST` | Worker 默认 `/var/lib/skillhub/eval-runs` | Worker 在宿主机上的测评工作目录。 |
 | `EVAL_WORKDIR_CONTAINER` | `/workspace/eval-runs` | 传给容器化 Opencode 时使用的容器内路径。 |
@@ -77,6 +82,8 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `EVAL_RUNNER_TIMEOUT_SECONDS` | `300` | Worker 默认运行超时。 |
 | `EVAL_RUNNER_MAX_ATTEMPTS` | `2` | 测评任务最大尝试次数。 |
 | `EVAL_RUNNER_WORKER_ID` | `opencode-worker` | Worker 实例标识；多实例部署时必须为每个 Worker 设置不同值，后台 Worker 状态页依赖该值聚合心跳。 |
+| `WORKER_JOB_STALE_AFTER_SECONDS` | `max(EVAL_RUNNER_TIMEOUT_SECONDS + 60, 360)` | Eval 和 Publish Job 的租约过期阈值。Worker 重启后会立即回收过期任务。 |
+| `PUBLISH_RELEASE_TIMEOUT_SECONDS` | `120` | 发布适配器执行外部 release 的截止时间；适配器必须把该值传递给实际 I/O。 |
 | `SKILL_BUILDER_STALE_AFTER_SECONDS` | `600` | AI 创建 Skill 会话超过该秒数无进展时，后端会自动释放为可恢复失败态，避免一直占用新会话入口。 |
 | `LMNR_PROJECT_API_KEY` | 空 | 配置后启用 Laminar trace。 |
 | `LMNR_BASE_URL` | `https://api.lmnr.ai` | Laminar API 地址。 |
@@ -106,16 +113,19 @@ CREATE DATABASE skillhub OWNER skillhub;
 GRANT ALL PRIVILEGES ON DATABASE skillhub TO skillhub;
 ```
 
-安装后先执行数据库迁移：
+首次部署前先执行数据库初始化和结构检查。迁移命令必须作为独立的一次性任务运行，不能由每个 API 或 Worker 副本并发执行：
 
 ```bash
 cd /opt/skillhub/repo/apps/backend
 export SKILLHUB_DATABASE_URL='postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub'
 uv run python -m skillhub.models.schema.cli upgrade
 uv run python -m skillhub.models.schema.cli check
+uv run alembic check
 ```
 
-空数据库会升级到 Alembic head。已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时才会自动 stamp；存在差异时命令会中止且不会删除数据。
+当前仓库只保留 `0001_initial_schema`，它是首个正式数据库版本，不包含任何正式版之前的迁移链。空数据库会直接创建当前完整结构并写入固定发布目标。已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时才会自动 stamp；存在差异时命令会中止且不会删除数据。
+
+正式版之前的 revision 不再受支持。仍带有旧 revision 标记的环境应先备份，通过 SQLAlchemy metadata reflection 确认结构完全一致，再执行 `alembic stamp --purge head`；无法确认一致时应使用空库重新初始化，禁止直接伪造 revision。`stamp` 只改 revision 标记，不会补建表、约束或索引。
 
 ## 6. 后端 API 部署
 
@@ -142,17 +152,17 @@ uv run uvicorn skillhub.bootstrap.app:create_app \
   --port 8000
 ```
 
-健康检查可以使用：
+进程健康检查使用专用接口：
 
 ```bash
-curl -f http://127.0.0.1:8000/api/skills
+curl -f http://127.0.0.1:8000/health
 ```
 
-该接口公开可读，正常情况下应返回 JSON 数组。
+正常响应为 `{"ok":true}`。API 在开始监听端口前会校验数据库 revision；revision 不是 Alembic head 时进程会直接启动失败。部署后的数据库读路径可再使用 `GET /api/skills` 验证。
 
 ## 7. Worker 部署
 
-Worker 与 API 使用同一个后端代码目录和同一个数据库连接串。
+Worker 与 API 使用同一个后端代码目录和同一个数据库连接串。每个 Worker 必须设置唯一且稳定的 `EVAL_RUNNER_WORKER_ID`，禁止多个进程复用同一个 ID。
 
 ```bash
 cd /opt/skillhub/repo/apps/backend
@@ -162,9 +172,20 @@ export OPENCODE_BASE_URL='http://127.0.0.1:4096'
 export EVAL_WORKDIR_HOST='/var/lib/skillhub/eval-runs'
 export EVAL_WORKDIR_CONTAINER='/workspace/eval-runs'
 export EVAL_RUNNER_WORKER_ID='skillhub-worker-1'
+export WORKER_JOB_STALE_AFTER_SECONDS=360
+export PUBLISH_RELEASE_TIMEOUT_SECONDS=120
 
 uv run python -m skillhub_worker.main
 ```
+
+需要多个 Worker 时，复制同一服务配置并分别使用 `skillhub-worker-1`、`skillhub-worker-2` 等 ID。Worker 应由进程管理器自动重启；进程异常退出后，重启实例会回收超过租约的 Eval/Publish Job。
+
+当前 `skillhub.services.publish_release.perform_publish_release()` 是默认 noop hook，只验证发布状态机，不会把内容真正发布到外部系统。生产环境接入真实发布适配器时必须：
+
+- 使用 payload 中稳定的 `idempotency_key=publish_release:{record_id}` 去重。
+- 将 `PUBLISH_RELEASE_TIMEOUT_SECONDS` 传递给所有外部 I/O。
+- 发生结果不确定时抛出错误，让记录进入 `failed`，由管理员核对外部状态后人工重试。
+- 不在 API 确认请求内执行外部发布；所有副作用只允许在 Worker 中发生。
 
 如果 Opencode 和 Worker 分别运行在不同容器或不同机器上，需要确保：
 
@@ -250,6 +271,12 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   }
+
+  location = /health {
+    proxy_pass http://127.0.0.1:8000/health;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
 }
 ```
 
@@ -280,7 +307,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Worker 服务：
+Worker 使用 systemd 模板服务，实例名直接作为唯一 Worker ID。文件保存为 `/etc/systemd/system/skillhub-worker@.service`：
 
 ```ini
 [Unit]
@@ -291,6 +318,7 @@ After=network.target skillhub-api.service
 User=skillhub
 WorkingDirectory=/opt/skillhub/repo/apps/backend
 EnvironmentFile=/opt/skillhub/env/skillhub.env
+Environment=EVAL_RUNNER_WORKER_ID=%i
 ExecStart=/usr/bin/env uv run python -m skillhub_worker.main
 Restart=always
 RestartSec=5
@@ -304,19 +332,22 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now skillhub-api
-sudo systemctl enable --now skillhub-worker
+sudo systemctl enable --now skillhub-worker@skillhub-worker-1
+sudo systemctl enable --now skillhub-worker@skillhub-worker-2
 ```
 
 查看日志：
 
 ```bash
 journalctl -u skillhub-api -f
-journalctl -u skillhub-worker -f
+journalctl -u skillhub-worker@skillhub-worker-1 -f
 ```
 
 API 每个响应都会带 `X-Request-ID`，日志中也会输出同名 `request_id`。临时排查时可在 `skillhub.env` 中设置 `SKILLHUB_LOG_LEVEL=DEBUG`，重启 API 和 Worker 后查看更详细的外部调用、任务认领和执行阶段日志。
 
-后台管理的 “Worker 状态” 页读取 Worker 心跳：Worker 每轮轮询会写入空闲心跳，认领测评或 AI 创建任务后写入运行中心跳。最近 30 秒内有心跳的实例显示为在线，最近 24 小时内活跃但超过 30 秒无心跳的实例显示为离线。
+后台管理的 “Worker 状态” 页读取 Worker 心跳和 Job 租约：Worker 每轮轮询会写入空闲心跳，认领任务后写入运行中心跳。最近 30 秒内有心跳的实例显示为在线，最近 24 小时内活跃但超过 30 秒无心跳的实例显示为离线。运行中 Job 超过租约阈值未续租时显示为“已阻塞”，管理员应重启对应 Worker；新进程启动后会立即回收过期任务。
+
+Eval Job 过期后会在最大尝试次数内重新排队，达到上限后失败。Publish Job 过期后不会自动重试，发布记录会进入失败态并标记 `external_state=unknown`；管理员必须先核对外部发布目标，再在发布确认页执行“核对后重试”。确认发布接口只负责事务内入队，真实 release 始终由 Worker 执行。
 
 后台的 “Tag Group” 页支持枚举组和自由组。自由组允许用户输入新值，新值会在 Skill 保存事务中写入全局候选；枚举组只接受后台已经维护的值。“Tag 级联” 页可把无父级 Group 挂到某个枚举值下，并显示因重配产生的路径失效或条件必填缺失。相关结构变更由 Alembic revision 应用，已有 Group 保持为非自由顶层组。
 
@@ -332,30 +363,46 @@ API 每个响应都会带 `X-Request-ID`，日志中也会输出同名 `request_
 docker build -t skillhub-backend:latest apps/backend
 ```
 
-运行 API：
+先用同一镜像执行一次数据库初始化；多个 API/Worker 容器不得各自执行 migration：
 
 ```bash
 docker run --rm \
+  --env-file /opt/skillhub/env/skillhub.env \
+  skillhub-backend:latest \
+  python -m skillhub.models.schema.cli upgrade
+
+docker run --rm \
+  --env-file /opt/skillhub/env/skillhub.env \
+  skillhub-backend:latest \
+  python -m skillhub.models.schema.cli check
+```
+
+运行 API：
+
+```bash
+docker run -d \
+  --name skillhub-api \
+  --restart unless-stopped \
   -p 8000:8000 \
-  -e SKILLHUB_DATABASE_URL='postgresql+psycopg://skillhub:change-me@db:5432/skillhub' \
-  -e SKILLHUB_SESSION_SECRET='replace-with-random-secret' \
-  -e SKILLHUB_ADMIN_CONSOLE_KEY='replace-with-random-admin-key' \
-  -e SKILLHUB_LOCAL_SESSION_CODE='replace-with-random-session-code' \
-  -e OPENCODE_BASE_URL='http://opencode:4096' \
+  --env-file /opt/skillhub/env/skillhub.env \
   skillhub-backend:latest
 ```
 
 运行 Worker 可复用同一个镜像并覆盖命令：
 
 ```bash
-docker run --rm \
-  -e SKILLHUB_DATABASE_URL='postgresql+psycopg://skillhub:change-me@db:5432/skillhub' \
-  -e OPENCODE_BASE_URL='http://opencode:4096' \
+docker run -d \
+  --name skillhub-worker-1 \
+  --restart unless-stopped \
+  --env-file /opt/skillhub/env/skillhub.env \
+  -e EVAL_RUNNER_WORKER_ID='skillhub-worker-1' \
   -e EVAL_WORKDIR_HOST='/var/lib/skillhub/eval-runs' \
   -v /var/lib/skillhub/eval-runs:/var/lib/skillhub/eval-runs \
   skillhub-backend:latest \
   python -m skillhub_worker.main
 ```
+
+增加 Worker 时复制该容器并修改容器名与 `EVAL_RUNNER_WORKER_ID`。如果 `OPENCODE_BASE_URL` 使用 `http://opencode:4096`，API、Worker 和 Opencode 必须加入同一个 Docker network；执行测评时 Opencode 容器还必须以一致路径挂载 Worker 工作目录。
 
 构建前端镜像：
 
@@ -367,18 +414,17 @@ docker build -t skillhub-frontend:latest apps/frontend
 
 ## 12. 发布和升级流程
 
-推荐升级步骤：
+API、Worker 和 Web 必须协调发布，不支持新旧版本混跑。推荐升级步骤：
 
 1. 记录当前 Git commit。
-2. 停止 Worker，避免升级过程中继续消费测评任务。
-3. 备份 PostgreSQL。
-4. 拉取新代码并安装依赖。
-5. 构建前端。
-6. 在后端目录执行 `uv run python -m skillhub.models.schema.cli upgrade`。
-7. 执行 `uv run python -m skillhub.models.schema.cli check`，确认 revision 为 head。
-8. 重启 API 并验证核心接口。
-9. 重启 Worker。
-10. 打开前端做一次冒烟检查。
+2. 从负载均衡摘除并停止所有旧 API，停止全部 Worker，避免升级时继续写入或消费任务。
+3. 备份 PostgreSQL，并验证备份文件可读取。
+4. 拉取同一个 Git commit 的代码或镜像，安装后端依赖并构建前端。
+5. 只运行一次 `uv run python -m skillhub.models.schema.cli upgrade`。
+6. 执行 `uv run python -m skillhub.models.schema.cli check` 和 `uv run alembic check`。
+7. 启动新版 API，确认 `/health` 和 `/api/skills` 正常后再恢复流量。
+8. 启动所有新版 Worker，在后台确认每个唯一 Worker ID 在线。
+9. 部署前端，执行 Skill 创建、测评入队和后台查询冒烟检查。
 
 备份示例：
 
@@ -398,16 +444,21 @@ pg_restore --dbname=skillhub_restore skillhub-20260101010101.dump
 基础检查：
 
 ```bash
+curl -f https://skillhub.example.com/health
 curl -f https://skillhub.example.com/api/skills
 curl -f https://skillhub.example.com/api/tag-groups
+cd /opt/skillhub/repo/apps/backend
+uv run python -m skillhub.models.schema.cli check
 ```
 
 前端检查：
 
 - 打开 `/skills`，确认 Skill 列表能加载。
 - 进入 `/skills/admin`，输入 `SKILLHUB_ADMIN_CONSOLE_KEY`，确认后台可访问。
+- 在后台 Worker 状态页确认所有预期实例在线、ID 不重复且没有 `stalled` 告警。
 - 创建或导入一个 Skill，确认数据库写入正常。
 - 如果启用测评，创建测试例并运行一次，确认 Worker 和 Opencode 能完成任务。
+- 确认发布后应先看到 `queued/releasing`，再由 Worker 进入 `released/failed`；HTTP 请求本身不执行外部发布。
 - 如果配置 Laminar，检查运行详情中是否出现 trace 信息。
 
 ## 14. 安全建议
@@ -443,7 +494,7 @@ curl -f https://skillhub.example.com/api/tag-groups
 通常是 Worker 未运行或无法连接数据库。检查：
 
 ```bash
-journalctl -u skillhub-worker -f
+journalctl -u skillhub-worker@skillhub-worker-1 -f
 ```
 
 并确认 `SKILLHUB_DATABASE_URL` 与 API 使用同一个数据库。
@@ -456,6 +507,15 @@ journalctl -u skillhub-worker -f
 - Opencode provider/model 是否已在 Opencode 侧配置。
 - `EVAL_WORKDIR_HOST` 是否可写。
 - Opencode 是否能访问 Worker 物化出的测试工作目录。
+
+如果后台 Worker 状态页显示 `stalled`，记录 `worker_id`、Job ID、attempt 和租约年龄后重启对应 Worker。新进程会在启动时回收过期 Eval Job；不要直接在数据库中手工修改 Job 状态。
+
+### 发布长时间处于 queued 或 releasing
+
+- `queued` 通常表示没有可用 Worker，检查所有 Worker 是否在线以及 ID 是否重复。
+- `releasing` 且 Worker 显示 `stalled` 时，重启对应 Worker 触发租约回收。
+- Publish 租约过期会进入 `failed` 并标记 `external_state=unknown`，系统不会自动重试。
+- 管理员必须先核对外部发布目标，再使用“核对后重试”；不要在外部状态未知时连续点击重试。
 
 ### AI 创建 Skill 长时间处于 running
 
@@ -498,7 +558,9 @@ Linux 或 macOS：
 
 ```bash
 bash scripts/dev.sh
-bash scripts/worker.sh
+bash scripts/worker.sh local-worker-1
 ```
+
+使用 `just` 时必须显式传入 Worker ID：`just worker local-worker-1`。
 
 这些脚本面向本地联调，不替代生产进程管理。生产部署应使用 systemd、容器平台或其他运维系统托管进程。
