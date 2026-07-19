@@ -153,7 +153,10 @@ class ReviewCheckResult(CreatedAtMixin, Base):
 class PublishRecord(CreatedAtMixin, Base):
     __tablename__ = "publish_records"
     __table_args__ = (
-        CheckConstraint("status in ('pending_confirmation', 'released', 'cancelled', 'failed')", name="publish_records_status_check"),
+        CheckConstraint(
+            "status in ('pending_confirmation', 'queued', 'releasing', 'released', 'cancelled', 'failed')",
+            name="publish_records_status_check",
+        ),
         UniqueConstraint("skill_version_id", "publish_target_id", name="publish_records_version_target_unique"),
         UniqueConstraint("id", "skill_id", name="publish_records_id_skill_unique"),
         ForeignKeyConstraint(["skill_version_id", "skill_id"], ["skill_versions.id", "skill_versions.skill_id"], name="publish_records_skill_version_skill_fkey"),

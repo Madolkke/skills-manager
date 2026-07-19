@@ -1,18 +1,62 @@
-"""declarative ORM baseline
+"""SkillHub initial production schema.
 
-Revision ID: 0001_orm_baseline
+Revision ID: 0001_initial_schema
 Revises:
-Create Date: 2026-07-18 03:19:24.886527
 """
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = '0001_orm_baseline'
+revision = '0001_initial_schema'
 down_revision = None
 branch_labels = None
 depends_on = None
+
+
+def _seed_publish_targets() -> None:
+    targets = sa.table(
+        'publish_targets',
+        sa.column('id', sa.Text()),
+        sa.column('target_key', sa.Text()),
+        sa.column('name', sa.Text()),
+        sa.column('description', sa.Text()),
+        sa.column('enabled', sa.Boolean()),
+        sa.column('auto_publish_enabled', sa.Boolean()),
+        sa.column('gate_expression', postgresql.JSONB()),
+        sa.column('config', postgresql.JSONB()),
+        sa.column('created_by', sa.Text()),
+    )
+    default_gate = {
+        'type': 'group',
+        'op': 'and',
+        'children': [
+            {'type': 'check', 'check_id': 'min_responses', 'params': {'min': 1}},
+            {'type': 'check', 'check_id': 'no_negative_score', 'params': {}},
+        ],
+    }
+    op.bulk_insert(
+        targets,
+        [
+            {
+                'id': target_id,
+                'target_key': key,
+                'name': name,
+                'description': description,
+                'enabled': True,
+                'auto_publish_enabled': False,
+                'gate_expression': default_gate,
+                'config': {},
+                'created_by': 'system',
+            }
+            for target_id, key, name, description in (
+                ('target_yunxi', 'yunxi', '云析', '云析发布源'),
+                ('target_agentcenter', 'agentcenter', 'AgentCenter', 'AgentCenter 发布源'),
+                ('target_custom1', 'custom1', '自定义1', '预留自定义发布源 1'),
+                ('target_custom2', 'custom2', '自定义2', '预留自定义发布源 2'),
+            )
+        ],
+    )
 
 
 def upgrade() -> None:
@@ -545,7 +589,7 @@ def upgrade() -> None:
     sa.Column('confirmed_by', sa.Text(), nullable=True),
     sa.Column('created_by', sa.Text(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint("status in ('pending_confirmation', 'released', 'cancelled', 'failed')", name='publish_records_status_check'),
+    sa.CheckConstraint("status in ('pending_confirmation', 'queued', 'releasing', 'released', 'cancelled', 'failed')", name='publish_records_status_check'),
     sa.ForeignKeyConstraint(['publish_target_id'], ['publish_targets.id'], ),
     sa.ForeignKeyConstraint(['review_request_id', 'skill_id'], ['review_requests.id', 'review_requests.skill_id'], name='publish_records_review_skill_fkey'),
     sa.ForeignKeyConstraint(['skill_version_id', 'skill_id'], ['skill_versions.id', 'skill_versions.skill_id'], name='publish_records_skill_version_skill_fkey'),
@@ -635,6 +679,7 @@ def upgrade() -> None:
         ['current_version_id', 'skill_id'],
         ['id', 'skill_id'],
     )
+    _seed_publish_targets()
     # ### end Alembic commands ###
 
 

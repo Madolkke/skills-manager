@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from os import environ
 from typing import Any
 
 from sqlalchemy import func, select
@@ -15,6 +16,7 @@ ONLINE_THRESHOLD_SECONDS = 30
 ACTIVE_WINDOW_HOURS = 24
 WORKER_STATUSES = {"idle", "running"}
 SAFE_WORKER_METADATA_KEYS = {"opencode_base_url", "workdir_host", "max_attempts"}
+PUBLISH_JOB_TYPE = "publish_release"
 
 
 class WorkerStatusMixin:
@@ -67,6 +69,7 @@ class WorkerStatusMixin:
         now = utc_now()
         active_cutoff = now - timedelta(hours=ACTIVE_WINDOW_HOURS)
         online_cutoff = now - timedelta(seconds=ONLINE_THRESHOLD_SECONDS)
+        stale_after_seconds = _stale_after_seconds()
         with self._write_session() as connection:
             heartbeat_rows = (
                 connection.execute(
@@ -80,7 +83,10 @@ class WorkerStatusMixin:
             job_rows = self._worker_current_jobs(connection, heartbeat_rows)
             eval_rows = self._worker_eval_runs(connection, heartbeat_rows, job_rows)
             summary = self._worker_queue_summary(connection)
-        workers = [self._worker_status(row, job_rows, eval_rows, online_cutoff) for row in heartbeat_rows]
+        workers = [
+            self._worker_status(row, job_rows, eval_rows, online_cutoff, now, stale_after_seconds)
+            for row in heartbeat_rows
+        ]
         return {
             "generated_at": now,
             "online_threshold_seconds": ONLINE_THRESHOLD_SECONDS,
@@ -91,6 +97,7 @@ class WorkerStatusMixin:
                 "running": sum(1 for worker in workers if worker["status"] == "running"),
                 "idle": sum(1 for worker in workers if worker["status"] == "idle"),
                 "offline": sum(1 for worker in workers if worker["status"] == "offline"),
+                "stalled": sum(1 for worker in workers if worker["stalled"]),
                 **summary,
             },
             "workers": workers,
@@ -117,7 +124,7 @@ class WorkerStatusMixin:
     def _worker_queue_summary(self, connection) -> dict[str, int]:
         rows = connection.execute(
             select(orm.Job.type, orm.Job.status, func.count().label("count"))
-            .where(orm.Job.type.in_(["eval_case_run", BUILDER_JOB_TYPE]))
+            .where(orm.Job.type.in_(["eval_case_run", BUILDER_JOB_TYPE, PUBLISH_JOB_TYPE]))
             .where(orm.Job.status.in_(["queued", "running"]))
             .group_by(orm.Job.type, orm.Job.status)
         ).mappings().all()
@@ -125,13 +132,25 @@ class WorkerStatusMixin:
         return {
             "queued_eval_jobs": counts.get(("eval_case_run", "queued"), 0),
             "queued_builder_jobs": counts.get((BUILDER_JOB_TYPE, "queued"), 0),
+            "queued_publish_jobs": counts.get((PUBLISH_JOB_TYPE, "queued"), 0),
             "running_jobs": sum(count for (job_type, status), count in counts.items() if status == "running"),
         }
 
-    def _worker_status(self, row, job_rows: dict[str, dict[str, Any]], eval_rows: dict[str, dict[str, Any]], online_cutoff) -> dict[str, Any]:
+    def _worker_status(
+        self,
+        row,
+        job_rows: dict[str, dict[str, Any]],
+        eval_rows: dict[str, dict[str, Any]],
+        online_cutoff,
+        now,
+        stale_after_seconds: int,
+    ) -> dict[str, Any]:
         online = row["last_seen_at"] >= online_cutoff
         status = str(row["status"]) if online else "offline"
         job = self._worker_current_job(row, job_rows, eval_rows)
+        heartbeat_at = job.get("last_heartbeat_at") if job else None
+        lease_age_seconds = max(0, int((now - heartbeat_at).total_seconds())) if heartbeat_at else None
+        stalled = bool(job and job.get("status") == "running" and (lease_age_seconds is None or lease_age_seconds >= stale_after_seconds))
         return {
             "worker_id": row["worker_id"],
             "status": status,
@@ -139,6 +158,9 @@ class WorkerStatusMixin:
             "last_seen_at": row["last_seen_at"],
             "started_at": row["started_at"],
             "current_job": job,
+            "stalled": stalled,
+            "lease_age_seconds": lease_age_seconds,
+            "recovery_hint": "重启 Worker 以触发过期任务回收。" if stalled else None,
             "metadata": self._worker_metadata(row["metadata"]),
         }
 
@@ -164,8 +186,15 @@ class WorkerStatusMixin:
             "run_id": run_id,
             "session_id": session_id,
             "error": job.get("error"),
+            "status": job.get("status"),
+            "last_heartbeat_at": job.get("last_heartbeat_at"),
         }
         if eval_run:
             result["skill_id"] = eval_run.get("skill_id")
             result["skill_version_id"] = eval_run.get("skill_version_id")
         return result
+
+
+def _stale_after_seconds() -> int:
+    timeout = float(environ.get("EVAL_RUNNER_TIMEOUT_SECONDS", "300"))
+    return max(1, int(environ.get("WORKER_JOB_STALE_AFTER_SECONDS", str(max(int(timeout + 60), 360)))))

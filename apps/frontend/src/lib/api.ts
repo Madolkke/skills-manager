@@ -314,6 +314,8 @@ function adminApi() {
       apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/confirm`, "POST", {}, { admin: true }),
     adminCancelPublishRecord: (recordId: string) =>
       apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/cancel`, "POST", {}, { admin: true }),
+    adminRetryPublishRecord: (recordId: string) =>
+      apiSend<PublishRecord>(`/api/admin/publish-records/${encodeURIComponent(recordId)}/retry`, "POST", {}, { admin: true }),
     adminListOpencodeAgents: () => apiGet<OpencodeAgent[]>("/api/admin/opencode-agents", { admin: true }),
     adminCreateOpencodeAgent: (payload: OpencodeAgentPayload) =>
       apiSend<OpencodeAgent>("/api/admin/opencode-agents", "POST", payload, { admin: true }),

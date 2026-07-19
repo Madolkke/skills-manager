@@ -268,11 +268,11 @@ class ReviewCommandMixin:
                         actor=actor,
                         created_at=closed_at,
                     )
-                    self._enqueue_publish_release_job(
+                    self._queue_publish_record(
                         connection,
-                        publish_record_id=record["id"],
-                        actor=actor,
-                        created_at=closed_at,
+                        record=record,
+                        actor="system:auto_publish",
+                        queued_at=closed_at,
                     )
                 except InvariantError:
                     continue

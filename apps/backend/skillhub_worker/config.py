@@ -17,9 +17,12 @@ class WorkerConfig:
     timeout_seconds: float
     max_attempts: int
     worker_id: str
+    stale_after_seconds: int = 360
+    publish_release_timeout_seconds: float = 120
 
 
 def load_config() -> WorkerConfig:
+    timeout_seconds = float(os.environ.get("EVAL_RUNNER_TIMEOUT_SECONDS", "300"))
     return WorkerConfig(
         opencode_base_url=os.environ.get("OPENCODE_BASE_URL", "http://opencode:4096").rstrip("/"),
         laminar_base_url=_laminar_base_url(),
@@ -28,9 +31,17 @@ def load_config() -> WorkerConfig:
         workdir_host=Path(os.environ.get("EVAL_WORKDIR_HOST", "/var/lib/skillhub/eval-runs")).resolve(),
         workdir_container=os.environ.get("EVAL_WORKDIR_CONTAINER", "/workspace/eval-runs").rstrip("/"),
         poll_interval_seconds=float(os.environ.get("EVAL_RUNNER_POLL_SECONDS", "2")),
-        timeout_seconds=float(os.environ.get("EVAL_RUNNER_TIMEOUT_SECONDS", "300")),
+        timeout_seconds=timeout_seconds,
         max_attempts=max(1, int(os.environ.get("EVAL_RUNNER_MAX_ATTEMPTS", "2"))),
         worker_id=os.environ.get("EVAL_RUNNER_WORKER_ID", "opencode-worker"),
+        stale_after_seconds=max(
+            1,
+            int(os.environ.get("WORKER_JOB_STALE_AFTER_SECONDS", str(max(int(timeout_seconds + 60), 360)))),
+        ),
+        publish_release_timeout_seconds=max(
+            1,
+            float(os.environ.get("PUBLISH_RELEASE_TIMEOUT_SECONDS", "120")),
+        ),
     )
 
 

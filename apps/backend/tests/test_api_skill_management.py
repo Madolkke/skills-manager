@@ -1138,7 +1138,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(updated_target.status_code, 200)
         self.assertTrue(updated_target.json()["auto_publish_enabled"])
         self.assertEqual(closed.status_code, 200)
-        self.assertEqual(closed.json()["publish_records"][0]["status"], "pending_confirmation")
+        self.assertEqual(closed.json()["publish_records"][0]["status"], "queued")
         self.assertTrue(processed)
         self.assertEqual(records[0]["status"], "released")
         self.assertEqual(records[0]["confirmed_by"], "publish-worker")

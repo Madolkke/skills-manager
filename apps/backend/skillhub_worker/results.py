@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from skillhub.models.rules.eval_assertion_templates import AssertionContext, assertion_template
 from skillhub.models.store import SkillHubStore
 from skillhub_worker.laminar_client import LaminarEvalRefs
+
+logger = logging.getLogger(__name__)
 
 
 def record_laminar_refs(metadata: dict[str, Any], refs: LaminarEvalRefs) -> None:
@@ -145,9 +148,18 @@ def current_step_metadata(step: dict[str, Any], index: int, total: int, stage: s
     }
 
 
-def persist_metadata(store: SkillHubStore, eval_case_run_id: str, metadata: dict[str, Any]) -> None:
+def persist_metadata(
+    store: SkillHubStore,
+    eval_case_run_id: str,
+    metadata: dict[str, Any],
+    execution: dict[str, Any] | None = None,
+) -> None:
     """Best-effort metadata persistence while a runner is progressing."""
     try:
-        store.update_eval_case_run_metadata(eval_case_run_id=eval_case_run_id, runner_metadata=metadata)
+        store.update_eval_case_run_metadata(
+            eval_case_run_id=eval_case_run_id,
+            runner_metadata=metadata,
+            **(execution or {}),
+        )
     except Exception:
-        pass
+        logger.exception("eval metadata persistence failed eval_case_run_id=%s", eval_case_run_id)

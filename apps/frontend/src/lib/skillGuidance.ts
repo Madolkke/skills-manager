@@ -136,8 +136,8 @@ function reviewStage(review: ReviewRequest | null): VersionFlowStage {
 
 function publishStage(records: PublishRecord[]): VersionFlowStage {
   if (!records.length) return { id: "publish", label: "发布", status: "pending", description: "暂无发布记录。", tab: "publish" };
-  if (records.some((record) => record.status === "pending_confirmation")) {
-    return { id: "publish", label: "发布", status: "active", description: "存在待后台确认发布单。", tab: "publish" };
+  if (records.some((record) => ["pending_confirmation", "queued", "releasing"].includes(record.status))) {
+    return { id: "publish", label: "发布", status: "active", description: "存在正在确认或执行的发布单。", tab: "publish" };
   }
   if (records.some((record) => record.status === "released")) {
     return { id: "publish", label: "发布", status: "done", description: `${records.filter((record) => record.status === "released").length} 条已发布。`, tab: "publish" };

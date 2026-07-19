@@ -1,7 +1,7 @@
 import type { SkillRecord, SkillVersion } from "./skill";
 
 export type ReviewStatus = "open" | "closed" | "cancelled";
-export type PublishRecordStatus = "pending_confirmation" | "released" | "cancelled" | "failed";
+export type PublishRecordStatus = "pending_confirmation" | "queued" | "releasing" | "released" | "cancelled" | "failed";
 export type PublishGateCheckId =
   | "no_negative_score"
   | "no_neutral_score"

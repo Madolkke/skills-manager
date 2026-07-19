@@ -87,3 +87,11 @@ def register_admin_runtime_routes(app: FastAPI, admin_auth) -> None:
         service: AdminService = Depends(admin_service_dependency),
     ):
         return result_payload(service.cancel_publish_record(publish_record_id=publish_record_id))
+
+    @app.post("/api/admin/publish-records/{publish_record_id}/retry")
+    def retry_publish_record(
+        publish_record_id: str,
+        _: None = admin_auth,
+        service: AdminService = Depends(admin_service_dependency),
+    ):
+        return result_payload(service.retry_publish_record(publish_record_id=publish_record_id))

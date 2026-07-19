@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from skillhub.models.errors import InvariantError
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
-from skillhub.services.publish_release import perform_publish_release
 
 
 class AdminRuntimeService(ServiceBase[SkillHubStore]):
@@ -30,21 +28,13 @@ class AdminRuntimeService(ServiceBase[SkillHubStore]):
         return self.store.admin_worker_status_overview()
 
     def confirm_publish_record(self, *, publish_record_id: str) -> object:
-        snapshot = self.store.publish_confirmation_snapshot(publish_record_id=publish_record_id, actor="admin-console")
-        if snapshot["record"]["status"] != "pending_confirmation":
-            raise InvariantError("Only pending publish records can be confirmed.")
-        result = perform_publish_release(snapshot["release_payload"])
-        return self.store.apply_publish_confirmation(
-            publish_record_id=publish_record_id,
-            actor="admin-console",
-            release_result=result,
-        )
+        return self.store.confirm_publish_record(publish_record_id=publish_record_id, actor="admin-console")
+
+    def retry_publish_record(self, *, publish_record_id: str) -> object:
+        return self.store.retry_publish_record(publish_record_id=publish_record_id, actor="admin-console")
 
     def cancel_publish_record(self, *, publish_record_id: str) -> object:
-        snapshot = self.store.publish_cancellation_snapshot(publish_record_id=publish_record_id, actor="admin-console")
-        if snapshot["record"]["status"] not in {"pending_confirmation", "failed"}:
-            raise InvariantError("Only pending or failed publish records can be cancelled.")
-        return self.store.apply_publish_cancellation(publish_record_id=publish_record_id, actor="admin-console")
+        return self.store.cancel_publish_record(publish_record_id=publish_record_id, actor="admin-console")
 
     def list_opencode_agents(self) -> object:
         return self.store.list_opencode_agents_admin()

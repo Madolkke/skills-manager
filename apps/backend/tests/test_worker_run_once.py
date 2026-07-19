@@ -64,6 +64,9 @@ class FakeStore:
     def record_worker_heartbeat(self, **kwargs: Any) -> None:
         self.heartbeats.append(kwargs)
 
+    def renew_job_lease(self, **kwargs: Any) -> bool:
+        return True
+
     def complete_publish_release_job(self, **kwargs: Any) -> None:
         self.completed_publish = kwargs
 
@@ -347,8 +350,9 @@ def test_run_once_fails_when_another_skill_is_used(tmp_path: Path):
 def test_run_once_processes_publish_release_before_other_jobs(tmp_path: Path):
     store = FakeStore(_case_detail())
     store.publish_detail = {
-        "job": {"id": "job_publish_1", "type": "publish_release"},
+        "job": {"id": "job_publish_1", "type": "publish_release", "attempts": 1},
         "record": {"id": "publish_1"},
+        "execution": {"job_id": "job_publish_1", "worker_id": "test-worker", "attempt": 1},
         "release_payload": {
             "publish_record_id": "publish_1",
             "publish_target_id": "target_1",
@@ -366,6 +370,7 @@ def test_run_once_processes_publish_release_before_other_jobs(tmp_path: Path):
             "review_check_results": [],
             "requested_by": "maintainer",
             "confirmed_by": "test-worker",
+            "idempotency_key": "publish_release:publish_1",
         },
     }
 

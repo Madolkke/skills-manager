@@ -17,9 +17,19 @@ def resolve_database_url(environment: Mapping[str, str] = environ) -> str:
     return database_url
 
 
-def create_postgres_engine(database_url: str) -> Engine:
+def create_postgres_engine(database_url: str, environment: Mapping[str, str] = environ) -> Engine:
     validate_postgres_url(database_url)
-    return create_engine(database_url, pool_pre_ping=True)
+    connect_timeout = _positive_int(environment, "SKILLHUB_DATABASE_CONNECT_TIMEOUT_SECONDS", 10)
+    statement_timeout = _positive_int(environment, "SKILLHUB_DATABASE_STATEMENT_TIMEOUT_MS", 30_000)
+    lock_timeout = _positive_int(environment, "SKILLHUB_DATABASE_LOCK_TIMEOUT_MS", 5_000)
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        connect_args={
+            "connect_timeout": connect_timeout,
+            "options": f"-c statement_timeout={statement_timeout} -c lock_timeout={lock_timeout}",
+        },
+    )
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
@@ -29,3 +39,14 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 def validate_postgres_url(database_url: str) -> None:
     if not database_url.startswith(POSTGRESQL_SCHEMES):
         raise ValueError("SKILLHUB_DATABASE_URL must use postgresql:// or postgresql+psycopg://.")
+
+
+def _positive_int(environment: Mapping[str, str], name: str, default: int) -> int:
+    raw_value = environment.get(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer.") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be greater than zero.")
+    return value

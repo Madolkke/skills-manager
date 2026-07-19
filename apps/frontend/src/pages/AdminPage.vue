@@ -65,13 +65,22 @@ const adminActions = useAdminActions({
   emitToast: (toast) => emit("toast", toast),
 });
 let workerRefreshTimer: number | undefined;
+let publishRefreshTimer: number | undefined;
 
 watch(activeTab, (tab) => {
   if (tab === "workers") startWorkerRefresh();
   else stopWorkerRefresh();
 });
 
-onBeforeUnmount(stopWorkerRefresh);
+watch([activeTab, publishRecords], ([tab, records]) => {
+  if (tab === "publish" && records.some((record) => record.status === "queued" || record.status === "releasing")) startPublishRefresh();
+  else stopPublishRefresh();
+});
+
+onBeforeUnmount(() => {
+  stopWorkerRefresh();
+  stopPublishRefresh();
+});
 
 async function unlock(): Promise<void> {
   sessionStorage.setItem("skillhub.admin.key", key.value.trim());
@@ -137,6 +146,14 @@ async function refreshWorkers(): Promise<void> {
   }
 }
 
+async function refreshPublishRecords(): Promise<void> {
+  try {
+    publishRecords.value = await api.adminListPublishRecords();
+  } catch (error) {
+    showError(error);
+  }
+}
+
 async function refreshOpencodeProviders(): Promise<void> {
   try {
     opencodeProviderCatalog.value = await api.listOpencodeProviders();
@@ -163,6 +180,19 @@ function stopWorkerRefresh(): void {
   if (workerRefreshTimer === undefined) return;
   window.clearInterval(workerRefreshTimer);
   workerRefreshTimer = undefined;
+}
+
+function startPublishRefresh(): void {
+  if (publishRefreshTimer !== undefined) return;
+  publishRefreshTimer = window.setInterval(() => {
+    void refreshPublishRecords();
+  }, 3000);
+}
+
+function stopPublishRefresh(): void {
+  if (publishRefreshTimer === undefined) return;
+  window.clearInterval(publishRefreshTimer);
+  publishRefreshTimer = undefined;
 }
 
 function showError(error: unknown): void {
@@ -288,6 +318,7 @@ function showError(error: unknown): void {
           :records="publishRecords"
           @confirm-record="adminActions.confirmPublishRecord"
           @cancel-record="adminActions.cancelPublishRecord"
+          @retry-record="adminActions.retryPublishRecord"
           @batch-confirm="adminActions.batchConfirmPublishRecords"
           @batch-cancel="adminActions.batchCancelPublishRecords"
         />

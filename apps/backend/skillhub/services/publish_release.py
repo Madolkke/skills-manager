@@ -20,6 +20,7 @@ class PublishReleasePayload(TypedDict):
     review_check_results: list[dict[str, Any]]
     requested_by: str
     confirmed_by: str
+    idempotency_key: str
 
 
 class PublishReleaseResult(TypedDict, total=False):
@@ -29,7 +30,7 @@ class PublishReleaseResult(TypedDict, total=False):
     metadata: dict[str, Any]
 
 
-def perform_publish_release(payload: PublishReleasePayload) -> PublishReleaseResult:
+def perform_publish_release(payload: PublishReleasePayload, *, timeout_seconds: float = 120) -> PublishReleaseResult:
     """Hook for integrating real publish behavior."""
 
     return {
@@ -39,5 +40,7 @@ def perform_publish_release(payload: PublishReleasePayload) -> PublishReleaseRes
             "publish_record_id": payload["publish_record_id"],
             "publish_target_key": payload["publish_target_key"],
             "skill_version_id": payload["skill_version_id"],
+            "idempotency_key": payload["idempotency_key"],
+            "timeout_seconds": timeout_seconds,
         },
     }

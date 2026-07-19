@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from sqlalchemy import update
@@ -9,6 +10,8 @@ from skillhub.models.errors import InvariantError
 from skillhub.models.operations.shared.results import RecordEvalCaseRunResult
 from skillhub.models.rules.eval_runner import OPENCODE_RUNNER
 from skillhub.models.schema import orm
+
+logger = logging.getLogger(__name__)
 
 
 class EvalCaseRunJobMixin:
@@ -20,10 +23,21 @@ class EvalCaseRunJobMixin:
         actual_output: str = "",
         actor: str,
         runner_metadata: dict[str, Any] | None = None,
+        job_id: str | None = None,
+        worker_id: str | None = None,
+        attempt: int | None = None,
     ) -> RecordEvalCaseRunResult:
         finished_at = utc_now()
         with self._write_session() as connection:
             case_run = self._eval_case_run_row(connection, eval_case_run_id)
+            if not self._eval_execution_owned(
+                connection,
+                case_run=case_run,
+                job_id=job_id,
+                worker_id=worker_id,
+                attempt=attempt,
+            ):
+                return self._case_run_result(case_run)
             if case_run["status"] not in {"queued", "running"}:
                 raise InvariantError("EvalCaseRun is not pending.")
             if case_run["status"] == "queued":
@@ -47,11 +61,27 @@ class EvalCaseRunJobMixin:
             finished = self._eval_case_run_row(connection, eval_case_run_id)
         return self._case_run_result(finished)
 
-    def fail_eval_case_run(self, *, eval_case_run_id: str, error: str) -> RecordEvalCaseRunResult:
+    def fail_eval_case_run(
+        self,
+        *,
+        eval_case_run_id: str,
+        error: str,
+        job_id: str | None = None,
+        worker_id: str | None = None,
+        attempt: int | None = None,
+    ) -> RecordEvalCaseRunResult:
         finished_at = utc_now()
         message = error.strip() or "Eval case run failed."
         with self._write_session() as connection:
             case_run = self._eval_case_run_row(connection, eval_case_run_id)
+            if not self._eval_execution_owned(
+                connection,
+                case_run=case_run,
+                job_id=job_id,
+                worker_id=worker_id,
+                attempt=attempt,
+            ):
+                return self._case_run_result(case_run)
             if case_run["status"] not in {"queued", "running"}:
                 raise InvariantError("EvalCaseRun is not pending.")
             connection.execute(
@@ -63,9 +93,31 @@ class EvalCaseRunJobMixin:
             failed = self._eval_case_run_row(connection, eval_case_run_id)
         return self._case_run_result(failed)
 
-    def update_eval_case_run_metadata(self, *, eval_case_run_id: str, runner_metadata: dict[str, Any]) -> None:
+    def update_eval_case_run_metadata(
+        self,
+        *,
+        eval_case_run_id: str,
+        runner_metadata: dict[str, Any],
+        job_id: str | None = None,
+        worker_id: str | None = None,
+        attempt: int | None = None,
+    ) -> None:
         with self._write_session() as connection:
-            self._eval_case_run_row(connection, eval_case_run_id)
+            case_run = self._eval_case_run_row(connection, eval_case_run_id)
+            if not self._eval_execution_owned(
+                connection,
+                case_run=case_run,
+                job_id=job_id,
+                worker_id=worker_id,
+                attempt=attempt,
+            ):
+                return
+            if job_id is not None:
+                connection.execute(
+                    update(orm.Job)
+                    .where(orm.Job.id == job_id)
+                    .values(last_heartbeat_at=utc_now())
+                )
             connection.execute(
                 update(orm.EvalCaseRun)
                 .where(orm.EvalCaseRun.id == eval_case_run_id)
@@ -109,13 +161,32 @@ class EvalCaseRunJobMixin:
                 .where(orm.EvalCaseRun.id == eval_case_run_id)
                 .values(status="running", started_at=now, error=None)
             )
-        return self.eval_case_run_detail(eval_case_run_id)
+            attempt = int(job["attempts"]) + 1
+        detail = self.eval_case_run_detail(eval_case_run_id)
+        detail["execution"] = {"job_id": str(job["id"]), "worker_id": worker_id, "attempt": attempt}
+        return detail
 
-    def retry_eval_case_run_job(self, *, eval_case_run_id: str, error: str) -> RecordEvalCaseRunResult:
+    def retry_eval_case_run_job(
+        self,
+        *,
+        eval_case_run_id: str,
+        error: str,
+        job_id: str | None = None,
+        worker_id: str | None = None,
+        attempt: int | None = None,
+    ) -> RecordEvalCaseRunResult:
         now = utc_now()
         message = error.strip() or "Eval case run will be retried."
         with self._write_session() as connection:
             case_run = self._eval_case_run_row(connection, eval_case_run_id)
+            if not self._eval_execution_owned(
+                connection,
+                case_run=case_run,
+                job_id=job_id,
+                worker_id=worker_id,
+                attempt=attempt,
+            ):
+                return self._case_run_result(case_run)
             if case_run["status"] != "running":
                 raise InvariantError("EvalCaseRun is not running.")
             connection.execute(
@@ -130,3 +201,26 @@ class EvalCaseRunJobMixin:
             )
             retried = self._eval_case_run_row(connection, eval_case_run_id)
         return self._case_run_result(retried)
+
+    def _eval_execution_owned(
+        self,
+        connection,
+        *,
+        case_run,
+        job_id: str | None,
+        worker_id: str | None,
+        attempt: int | None,
+    ) -> bool:
+        supplied = job_id is not None or worker_id is not None or attempt is not None
+        if not supplied:
+            return True
+        if not job_id or not worker_id or attempt is None or str(case_run["job_id"]) != job_id:
+            logger.warning(
+                "job.late_result_ignored eval_case_run_id=%s job_id=%s worker_id=%s attempt=%s",
+                case_run["id"],
+                job_id,
+                worker_id,
+                attempt,
+            )
+            return False
+        return self._lock_owned_job(connection, job_id=job_id, worker_id=worker_id, attempt=attempt) is not None

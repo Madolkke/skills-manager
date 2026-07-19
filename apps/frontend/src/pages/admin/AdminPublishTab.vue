@@ -8,6 +8,7 @@ const props = defineProps<{ records: PublishRecord[] }>();
 const emit = defineEmits<{
   confirmRecord: [record: PublishRecord];
   cancelRecord: [record: PublishRecord];
+  retryRecord: [record: PublishRecord];
   batchConfirm: [records: PublishRecord[]];
   batchCancel: [records: PublishRecord[]];
 }>();
@@ -30,6 +31,8 @@ type PublishRecordGroup = {
 const statusOptions = [
   { value: "all", label: "全部" },
   { value: "pending_confirmation", label: "待确认" },
+  { value: "queued", label: "排队中" },
+  { value: "releasing", label: "发布中" },
   { value: "released", label: "已发布" },
   { value: "cancelled", label: "已取消" },
   { value: "failed", label: "失败" },
@@ -112,6 +115,8 @@ function searchText(record: PublishRecord): string {
 
 function statusText(record: PublishRecord): string {
   if (record.status === "pending_confirmation") return "待确认";
+  if (record.status === "queued") return "排队中";
+  if (record.status === "releasing") return "发布中";
   if (record.status === "released") return "已发布";
   if (record.status === "cancelled") return "已取消";
   return "失败";
@@ -119,7 +124,7 @@ function statusText(record: PublishRecord): string {
 
 function statusTone(record: PublishRecord): string {
   if (record.status === "released") return "positive";
-  if (record.status === "pending_confirmation") return "neutral";
+  if (["pending_confirmation", "queued", "releasing"].includes(record.status)) return "neutral";
   if (record.status === "failed") return "negative";
   return "muted";
 }
@@ -154,18 +159,26 @@ function failureText(record: PublishRecord): string {
   return typeof error === "string" && error ? error : "发布执行失败，请查看发布 hook 日志。";
 }
 
+function externalStateUnknown(record: PublishRecord): boolean {
+  return record.metadata?.external_state === "unknown";
+}
+
 function groupStatusText(group: PublishRecordGroup): string {
   const pending = group.records.filter((record) => record.status === "pending_confirmation").length;
+  const queued = group.records.filter((record) => record.status === "queued").length;
+  const releasing = group.records.filter((record) => record.status === "releasing").length;
   const released = group.records.filter((record) => record.status === "released").length;
   const failed = group.records.filter((record) => record.status === "failed").length;
   if (pending) return `${pending} 待确认`;
+  if (releasing) return `${releasing} 发布中`;
+  if (queued) return `${queued} 排队中`;
   if (failed) return `${failed} 失败`;
   if (released === group.records.length) return "全部已发布";
   return `${released} 已发布`;
 }
 
 function groupStatusTone(group: PublishRecordGroup): string {
-  if (group.records.some((record) => record.status === "pending_confirmation")) return "neutral";
+  if (group.records.some((record) => ["pending_confirmation", "queued", "releasing"].includes(record.status))) return "neutral";
   if (group.records.some((record) => record.status === "failed")) return "negative";
   if (group.records.every((record) => record.status === "released")) return "positive";
   return "muted";
@@ -332,12 +345,16 @@ function emitBatchCancel(): void {
                   <span>{{ versionText(record) }}</span>
                   <small>提交 {{ humanDate(record.created_at) }} · {{ record.created_by }} · {{ publishModeText(record) }}</small>
                   <small v-if="record.status === 'failed'" class="admin-publish-error">{{ failureText(record) }}</small>
+                  <small v-if="record.status === 'failed' && externalStateUnknown(record)" class="admin-publish-error">
+                    外部状态未知，请核对发布目标后再重试。
+                  </small>
                 </div>
                 <span :class="['admin-publish-status', statusTone(record)]">{{ statusText(record) }}</span>
                 <span class="admin-publish-confirm">{{ confirmText(record) }}</span>
                 <div class="button-row admin-publish-actions">
-                  <button v-if="record.status === 'pending_confirmation'" class="secondary-button" type="button" @click="emit('cancelRecord', record)">取消</button>
+                  <button v-if="record.status === 'pending_confirmation' || record.status === 'queued'" class="secondary-button" type="button" @click="emit('cancelRecord', record)">取消</button>
                   <button v-if="record.status === 'pending_confirmation'" class="primary-button" type="button" @click="emit('confirmRecord', record)">确认发布</button>
+                  <button v-if="record.status === 'failed'" class="primary-button" type="button" @click="emit('retryRecord', record)">核对后重试</button>
                 </div>
               </div>
             </TransitionGroup>
