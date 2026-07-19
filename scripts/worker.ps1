@@ -1,3 +1,9 @@
+param(
+  [Parameter(Position = 0)]
+  [ValidateNotNullOrEmpty()]
+  [string] $WorkerId
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
@@ -12,6 +18,14 @@ if (Test-Path $envPath) {
     $parts = $line -split "=", 2
     [Environment]::SetEnvironmentVariable($parts[0], $parts[1], "Process")
   }
+}
+
+if ($PSBoundParameters.ContainsKey("WorkerId")) {
+  $WorkerId = $WorkerId.Trim()
+  if (-not $WorkerId) {
+    throw "WorkerId must not be empty."
+  }
+  $env:EVAL_RUNNER_WORKER_ID = $WorkerId
 }
 
 if (-not $env:SKILLHUB_DATABASE_URL) {
