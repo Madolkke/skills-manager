@@ -163,6 +163,18 @@ class FakeStore:
         self.calls.append(("apply_publish_request", kwargs))
         return {"id": "publish_record_1", "check_snapshot": kwargs["check_snapshot"]}
 
+    def confirm_publish_record(self, **kwargs):
+        self.calls.append(("confirm_publish_record", kwargs))
+        return {"id": kwargs["publish_record_id"], "status": "queued"}
+
+    def retry_publish_record(self, **kwargs):
+        self.calls.append(("retry_publish_record", kwargs))
+        return {"id": kwargs["publish_record_id"], "status": "queued"}
+
+    def cancel_publish_record(self, **kwargs):
+        self.calls.append(("cancel_publish_record", kwargs))
+        return {"id": kwargs["publish_record_id"], "status": "cancelled"}
+
     def review_response_snapshot(self, **kwargs):
         self.calls.append(("review_response_snapshot", kwargs))
         return {
@@ -187,6 +199,7 @@ class FakeStore:
                 "publish_target_config": {},
                 "skill_id": "skill_1",
                 "skill_slug": "demo",
+                "skill_tags": [],
                 "skill_version_id": "version_1",
                 "version": "0.0.1",
                 "content_digest": "digest",
@@ -663,24 +676,22 @@ def test_review_service_creates_publish_record() -> None:
     assert store.calls[1][1]["check_snapshot"][0]["passed"] is True
 
 
-def test_admin_service_confirms_publish_record_with_release_hook_result() -> None:
+def test_admin_service_queues_publish_record_without_calling_release_hook() -> None:
     store = FakeStore()
     service = AdminService(store)
 
     result = service.confirm_publish_record(publish_record_id="publish_1")
 
-    assert result["status"] == "released"
-    assert [name for name, _ in store.calls] == ["publish_confirmation_snapshot", "apply_publish_confirmation"]
-    release_result = store.calls[1][1]["release_result"]
-    assert release_result["mode"] == "noop"
-    assert release_result["metadata"]["publish_target_key"] == "yunxi"
+    assert result["status"] == "queued"
+    assert [name for name, _ in store.calls] == ["confirm_publish_record"]
+    assert store.calls[0][1]["actor"] == "admin-console"
 
 
 def test_admin_service_rejects_non_pending_publish_confirmation() -> None:
     class ReleasedPublishStore(FakeStore):
-        def publish_confirmation_snapshot(self, **kwargs):
-            self.calls.append(("publish_confirmation_snapshot", kwargs))
-            return {"record": {"id": kwargs["publish_record_id"], "status": "released"}, "release_payload": {}}
+        def confirm_publish_record(self, **kwargs):
+            self.calls.append(("confirm_publish_record", kwargs))
+            raise InvariantError("Only pending publish records can be confirmed.")
 
     store = ReleasedPublishStore()
     service = AdminService(store)
@@ -688,7 +699,7 @@ def test_admin_service_rejects_non_pending_publish_confirmation() -> None:
     with pytest.raises(InvariantError):
         service.confirm_publish_record(publish_record_id="publish_1")
 
-    assert [name for name, _ in store.calls] == ["publish_confirmation_snapshot"]
+    assert [name for name, _ in store.calls] == ["confirm_publish_record"]
 
 
 def test_admin_service_cancels_publish_record_after_status_check() -> None:
@@ -698,7 +709,17 @@ def test_admin_service_cancels_publish_record_after_status_check() -> None:
     result = service.cancel_publish_record(publish_record_id="publish_1")
 
     assert result["status"] == "cancelled"
-    assert [name for name, _ in store.calls] == ["publish_cancellation_snapshot", "apply_publish_cancellation"]
+    assert [name for name, _ in store.calls] == ["cancel_publish_record"]
+
+
+def test_admin_service_retries_failed_publish_record() -> None:
+    store = FakeStore()
+    service = AdminService(store)
+
+    result = service.retry_publish_record(publish_record_id="publish_1")
+
+    assert result["status"] == "queued"
+    assert [name for name, _ in store.calls] == ["retry_publish_record"]
 
 
 def test_saved_view_service_normalizes_config_before_insert() -> None:

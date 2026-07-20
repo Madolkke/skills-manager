@@ -22,6 +22,12 @@ def test_alembic_upgrade_builds_schema_without_metadata_drift() -> None:
         assert set(metadata.tables) <= set(inspect(engine).get_table_names())
         with engine.connect() as connection:
             assert compare_metadata(MigrationContext.configure(connection), metadata) == []
+            assert connection.execute(text("select target_key from publish_targets order by target_key")).scalars().all() == [
+                "agentcenter",
+                "custom1",
+                "custom2",
+                "yunxi",
+            ]
     finally:
         metadata.drop_all(engine)
         with engine.begin() as connection:
@@ -43,6 +49,7 @@ def test_prepare_database_adopts_exact_unversioned_schema_without_data_loss() ->
         assert current_revision(engine) == expected_revision()
         with engine.connect() as connection:
             assert connection.scalar(text("select name from groups where id = 'existing'")) == "Existing"
+            assert connection.scalar(text("select count(*) from publish_targets")) == 4
     finally:
         _reset_database(engine)
         engine.dispose()

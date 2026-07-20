@@ -63,7 +63,9 @@ function notificationTask(item: NotificationItem): TaskCenterItem {
 function buildSkillContextTasks(skill: SkillDetail | null, publishOverview: SkillPublishOverview | null): TaskCenterItem[] {
   if (!skill) return [];
   const runningRuns = skill.latest_eval_runs.filter((run) => ["queued", "running"].includes(run.status));
-  const pendingPublish = (publishOverview?.publish_records ?? []).filter((record) => record.status === "pending_confirmation");
+  const pendingPublish = (publishOverview?.publish_records ?? []).filter((record) =>
+    ["pending_confirmation", "queued", "releasing"].includes(record.status),
+  );
   const items: TaskCenterItem[] = [];
   if (runningRuns.length) {
     items.push({
@@ -79,8 +81,8 @@ function buildSkillContextTasks(skill: SkillDetail | null, publishOverview: Skil
   if (pendingPublish.length) {
     items.push({
       id: `skill-publish:${skill.skill.id}`,
-      title: "发布记录待确认",
-      description: `${pendingPublish.length} 条发布记录正在等待后台确认。`,
+      title: "发布记录处理中",
+      description: `${pendingPublish.length} 条发布记录正在确认或执行。`,
       tone: "info",
       actionLabel: "查看发布",
       target: "publish",

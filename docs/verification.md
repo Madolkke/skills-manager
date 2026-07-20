@@ -2,12 +2,45 @@
 
 本文档记录当前主分支的提交前验证和仓库卫生约定。
 
-## 必跑验证
+## 推荐入口
+
+本地需要安装 `just`、`uv`、Python 3.12、Node.js 22、npm 和 PostgreSQL。所有命令均从仓库根目录执行，并自动读取根目录 `.env`：
+
+```bash
+just setup
+just dev
+just check
+```
+
+单独启动 Worker 时必须指定唯一实例 ID；多个终端使用不同 ID：
+
+```bash
+just worker opencode-worker-1
+just worker opencode-worker-2
+```
+
+`just check` 会在 PostgreSQL 测试数据库不可用时失败，不会静默跳过数据库用例。提交前执行完整 CI 等价检查：
+
+```bash
+just ci
+```
+
+`just ci` 会先将 `SKILLHUB_DATABASE_URL` 指向的数据库升级到 Alembic head，再检查 revision、migration drift 和全部前后端质量门禁。可通过 `just --list` 查看数据库、单项检查和独立服务命令。
+
+## 底层验证命令
+
+以下命令与 `justfile` 保持一致，适合未安装 `just` 或需要单独排障时使用。
 
 API：
 
 ```bash
 cd apps/backend
+uv run python -m skillhub.models.schema.cli upgrade
+uv run python -m skillhub.models.schema.cli check
+uv run alembic check
+uv run python -m compileall -q skillhub skillhub_worker
+uv run ruff check skillhub skillhub_worker tests
+uv run mypy skillhub/models/schema
 uv run pytest
 ```
 

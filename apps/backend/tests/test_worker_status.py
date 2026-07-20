@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy import insert, update
 
@@ -98,8 +100,15 @@ class WorkerStatusStoreTest(SqlStoreTestCase):
             current_job_type=claimed["job"]["type"],
             current_run_id=claimed["eval_case_run"]["id"],
         )
+        with self.engine.begin() as connection:
+            connection.execute(
+                update(tables.jobs)
+                .where(tables.jobs.c.id == claimed["job"]["id"])
+                .values(last_heartbeat_at=utc_now() - timedelta(seconds=5))
+            )
 
-        overview = self.store.admin_worker_status_overview()
+        with patch.dict(os.environ, {"WORKER_JOB_STALE_AFTER_SECONDS": "1"}):
+            overview = self.store.admin_worker_status_overview()
         payload = json.dumps(overview, default=str)
         worker = overview["workers"][0]
 
@@ -109,6 +118,9 @@ class WorkerStatusStoreTest(SqlStoreTestCase):
         self.assertEqual(worker["status"], "running")
         self.assertEqual(worker["current_job"]["skill_id"], skill.skill_id)
         self.assertEqual(worker["current_job"]["skill_version_id"], skill.skill_version_id)
+        self.assertTrue(worker["stalled"])
+        self.assertGreaterEqual(worker["lease_age_seconds"], 5)
+        self.assertIn("重启 Worker", worker["recovery_hint"])
         self.assertNotIn("do not leak prompt", payload)
         self.assertNotIn("message_content", payload)
 

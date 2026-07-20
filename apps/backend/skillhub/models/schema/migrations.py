@@ -8,8 +8,10 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, inspect
+from sqlalchemy.orm import Session
 
 from skillhub.models.schema import metadata
+from skillhub.models.schema.reference_data import seed_reference_data
 
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
 
@@ -67,5 +69,7 @@ def prepare_database(engine: Engine) -> None:
                     "Existing unversioned database does not match the ORM metadata. "
                     "No destructive automatic cleanup was attempted; migrate it explicitly before stamping Alembic."
                 )
-            stamp_database(engine, "0001_orm_baseline")
+            with Session(engine) as session, session.begin():
+                seed_reference_data(session)
+            stamp_database(engine, "head")
     upgrade_database(engine)

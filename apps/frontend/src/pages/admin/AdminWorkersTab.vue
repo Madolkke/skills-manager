@@ -57,8 +57,10 @@ function jobRuntimeText(worker: WorkerStatus): string {
       <div class="admin-worker-queue">
         <span>测评排队 <strong>{{ summary?.queued_eval_jobs ?? 0 }}</strong></span>
         <span>AI 创建排队 <strong>{{ summary?.queued_builder_jobs ?? 0 }}</strong></span>
+        <span>发布排队 <strong>{{ summary?.queued_publish_jobs ?? 0 }}</strong></span>
         <span>Job 运行中 <strong>{{ summary?.running_jobs ?? 0 }}</strong></span>
         <span>离线 <strong>{{ summary?.offline ?? 0 }}</strong></span>
+        <span>阻塞 <strong>{{ summary?.stalled ?? 0 }}</strong></span>
       </div>
 
       <div class="admin-worker-table">
@@ -81,6 +83,9 @@ function jobRuntimeText(worker: WorkerStatus): string {
             <span>{{ workerCurrentJobText(worker) }}</span>
             <small v-if="worker.current_job">Job {{ worker.current_job.id }} · 尝试 {{ worker.current_job.attempts }} · {{ jobRuntimeText(worker) }}</small>
             <small v-if="worker.current_job?.error" class="admin-worker-error">{{ worker.current_job.error }}</small>
+            <small v-if="worker.stalled" class="admin-worker-error">
+              租约已 {{ worker.lease_age_seconds ?? "-" }} 秒未更新。{{ worker.recovery_hint }}
+            </small>
           </div>
           <span>{{ humanDate(worker.last_seen_at) }}</span>
           <span>{{ runtimeText(worker) }}</span>

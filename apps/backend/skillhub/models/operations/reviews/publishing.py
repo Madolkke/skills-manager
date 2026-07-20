@@ -76,7 +76,7 @@ class ReviewPublishingMixin:
             .one_or_none()
         )
         if existing is not None:
-            if existing["status"] in {"cancelled", "failed"}:
+            if existing["status"] == "cancelled":
                 connection.execute(
                     update(orm.PublishRecord)
                     .where(orm.PublishRecord.id == existing["id"])

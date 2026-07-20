@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import desc, insert, update
 
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.errors import InvariantError
+from skillhub.models.errors import ConflictError, InvariantError
 from skillhub.models.rules.review_check_definitions import FIXED_PUBLISH_TARGET_KEYS, publish_gate_check_definitions
 from skillhub.models.rules.review_checks import normalize_gate_expression
 from skillhub.models.schema import orm
@@ -61,102 +61,53 @@ class ReviewAdminMixin:
             return [self._publish_record_detail(connection, row) for row in rows]
 
     def confirm_publish_record(self, *, publish_record_id: str, actor: str = "admin-console") -> dict[str, Any]:
-        """Legacy store facade; AdminService owns normal confirmation orchestration."""
-        snapshot = self.publish_confirmation_snapshot(publish_record_id=publish_record_id, actor=actor)
-        if snapshot["record"]["status"] != "pending_confirmation":
-            raise InvariantError("Only pending publish records can be confirmed.")
-        result = {
-            "mode": "noop",
-            "message": "Release hook is not configured.",
-            "metadata": {
-                "publish_record_id": publish_record_id,
-                "publish_target_key": snapshot["release_payload"]["publish_target_key"],
-                "skill_version_id": snapshot["release_payload"]["skill_version_id"],
-            },
-        }
-        return self.apply_publish_confirmation(publish_record_id=publish_record_id, actor=actor, release_result=result)
-
-    def publish_confirmation_snapshot(self, *, publish_record_id: str, actor: str) -> dict[str, Any]:
-        with self._read_session() as connection:
-            record = self._publish_record_row(connection, publish_record_id)
-            return {
-                "record": self._row_dict(record),
-                "release_payload": self._publish_release_payload(connection, record, confirmed_by=actor),
-            }
-
-    def apply_publish_confirmation(self, *, publish_record_id: str, actor: str, release_result: dict[str, Any]) -> dict[str, Any]:
-        confirmed_at = utc_now()
+        queued_at = utc_now()
         with self._write_session() as connection:
-            record = self._publish_record_row(connection, publish_record_id)
+            record = self._locked_publish_record(connection, publish_record_id)
             if record["status"] != "pending_confirmation":
                 raise InvariantError("Only pending publish records can be confirmed.")
-            metadata = {"release_result": release_result}
-            if actor == "system:auto_publish":
-                metadata["auto_publish"] = True
-            connection.execute(
-                update(orm.PublishRecord)
-                .where(orm.PublishRecord.id == publish_record_id)
-                .values(status="released", metadata_payload=metadata, confirmed_at=confirmed_at, confirmed_by=actor)
-            )
-            connection.execute(
-                insert(orm.AuditEvent).values(
-                    id=new_id("audit"),
-                    actor_ref=actor,
-                    action="publish.released",
-                    resource_type="publish_record",
-                    resource_id=publish_record_id,
-                    payload={"publish_target_id": record["publish_target_id"], "skill_version_id": record["skill_version_id"]},
-                    created_at=confirmed_at,
-                )
-            )
+            self._queue_publish_record(connection, record=record, actor=actor, queued_at=queued_at)
             return self._publish_record_detail(connection, self._publish_record_row(connection, publish_record_id))
 
-    def apply_publish_failure(self, *, publish_record_id: str, actor: str, error_message: str, release_result: dict[str, Any] | None = None) -> dict[str, Any]:
-        failed_at = utc_now()
+    def retry_publish_record(self, *, publish_record_id: str, actor: str = "admin-console") -> dict[str, Any]:
+        queued_at = utc_now()
         with self._write_session() as connection:
-            record = self._publish_record_row(connection, publish_record_id)
-            metadata = {
-                **(record["metadata"] or {}),
-                "auto_publish": actor == "system:auto_publish",
-                "release_error": error_message,
-            }
-            if release_result is not None:
-                metadata["release_result"] = release_result
-            connection.execute(
-                update(orm.PublishRecord)
-                .where(orm.PublishRecord.id == publish_record_id)
-                .values(status="failed", metadata_payload=metadata, confirmed_at=failed_at, confirmed_by=actor)
-            )
-            connection.execute(
-                insert(orm.AuditEvent).values(
-                    id=new_id("audit"),
-                    actor_ref=actor,
-                    action="publish.failed",
-                    resource_type="publish_record",
-                    resource_id=publish_record_id,
-                    payload={"publish_target_id": record["publish_target_id"], "skill_version_id": record["skill_version_id"], "error": error_message},
-                    created_at=failed_at,
-                )
-            )
+            record = self._locked_publish_record(connection, publish_record_id)
+            if record["status"] != "failed":
+                raise InvariantError("Only failed publish records can be retried.")
+            self._queue_publish_record(connection, record=record, actor=actor, queued_at=queued_at)
             return self._publish_record_detail(connection, self._publish_record_row(connection, publish_record_id))
 
     def cancel_publish_record(self, *, publish_record_id: str, actor: str = "admin-console") -> dict[str, Any]:
-        """Legacy store facade; AdminService owns normal cancellation orchestration."""
-        snapshot = self.publish_cancellation_snapshot(publish_record_id=publish_record_id, actor=actor)
-        if snapshot["record"]["status"] not in {"pending_confirmation", "failed"}:
-            raise InvariantError("Only pending or failed publish records can be cancelled.")
-        return self.apply_publish_cancellation(publish_record_id=publish_record_id, actor=actor)
-
-    def publish_cancellation_snapshot(self, *, publish_record_id: str, actor: str) -> dict[str, Any]:
-        with self._read_session() as connection:
-            return {"record": self._row_dict(self._publish_record_row(connection, publish_record_id)), "actor": actor}
-
-    def apply_publish_cancellation(self, *, publish_record_id: str, actor: str) -> dict[str, Any]:
         cancelled_at = utc_now()
         with self._write_session() as connection:
-            record = self._publish_record_row(connection, publish_record_id)
-            if record["status"] not in {"pending_confirmation", "failed"}:
-                raise InvariantError("Only pending or failed publish records can be cancelled.")
+            snapshot = self._publish_record_row(connection, publish_record_id)
+            queued_job = None
+            if snapshot["status"] == "queued":
+                queued_job = (
+                    connection.execute(
+                        orm.select_entity(orm.Job)
+                        .where(orm.Job.type == "publish_release")
+                        .where(orm.Job.status == "queued")
+                        .where(orm.Job.payload["publish_record_id"].as_string() == publish_record_id)
+                        .with_for_update()
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+            record = self._locked_publish_record(connection, publish_record_id)
+            if record["status"] == "releasing":
+                raise ConflictError("A release in progress cannot be cancelled.")
+            if record["status"] not in {"pending_confirmation", "queued"}:
+                raise InvariantError("Only pending or queued publish records can be cancelled.")
+            if record["status"] == "queued":
+                if queued_job is None:
+                    raise ConflictError("The queued publish job is already being claimed.")
+                connection.execute(
+                    update(orm.Job)
+                    .where(orm.Job.id == queued_job["id"])
+                    .values(status="canceled", finished_at=cancelled_at, error="Publish record was cancelled.")
+                )
             connection.execute(
                 update(orm.PublishRecord)
                 .where(orm.PublishRecord.id == publish_record_id)
@@ -174,6 +125,20 @@ class ReviewAdminMixin:
                 )
             )
             return self._publish_record_detail(connection, self._publish_record_row(connection, publish_record_id))
+
+    def _locked_publish_record(self, connection, publish_record_id: str):
+        row = (
+            connection.execute(
+                orm.select_entity(orm.PublishRecord)
+                .where(orm.PublishRecord.id == publish_record_id)
+                .with_for_update()
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return self._publish_record_row(connection, publish_record_id)
+        return row
 
     def _publish_record_detail(self, connection, record) -> dict[str, Any]:
         skill = self._skill_row(connection, record["skill_id"])
@@ -204,6 +169,10 @@ class ReviewAdminMixin:
             "publish_target_config": target["config"] or {},
             "skill_id": skill["id"],
             "skill_slug": skill["slug"],
+            "skill_tags": [
+                {"group_id": str(tag["group_id"]), "value": str(tag["value"])}
+                for tag in self._skill_tags(connection, skill["id"])
+            ],
             "skill_version_id": version["id"],
             "version": version["version"],
             "content_digest": version["content_digest"],
@@ -213,4 +182,5 @@ class ReviewAdminMixin:
             "review_check_results": record["check_snapshot"] or [],
             "requested_by": record["created_by"],
             "confirmed_by": confirmed_by,
+            "idempotency_key": f"publish_release:{record['id']}",
         }

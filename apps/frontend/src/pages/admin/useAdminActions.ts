@@ -179,14 +179,21 @@ export function useAdminActions(options: AdminActionsOptions) {
     if (!confirm(`确认发布 ${record.skill?.slug ?? record.skill_id} 到 ${record.publish_target?.name ?? record.publish_target_id}？`)) return;
     await runLocalAdminAction(async () => {
       syncAdminState.upsertPublishRecord(await api.adminConfirmPublishRecord(record.id));
-    }, "发布单已确认。");
+    }, "发布单已进入队列。");
   }
 
   async function cancelPublishRecord(record: PublishRecord): Promise<void> {
-    if (!confirm("将取消该待确认发布单。是否继续？")) return;
+    if (!confirm("将取消该发布单及尚未执行的任务。是否继续？")) return;
     await runLocalAdminAction(async () => {
       syncAdminState.upsertPublishRecord(await api.adminCancelPublishRecord(record.id));
     }, "发布单已取消。");
+  }
+
+  async function retryPublishRecord(record: PublishRecord): Promise<void> {
+    if (!confirm("请先核对外部发布状态。确认需要重新执行该发布单？")) return;
+    await runLocalAdminAction(async () => {
+      syncAdminState.upsertPublishRecord(await api.adminRetryPublishRecord(record.id));
+    }, "发布单已重新进入队列。");
   }
 
   async function batchConfirmPublishRecords(records: PublishRecord[]): Promise<void> {
@@ -263,6 +270,7 @@ export function useAdminActions(options: AdminActionsOptions) {
     deleteOpencodeAgent,
     confirmPublishRecord,
     cancelPublishRecord,
+    retryPublishRecord,
     batchConfirmPublishRecords,
     batchCancelPublishRecords,
     saveSkillTags,

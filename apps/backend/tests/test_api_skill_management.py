@@ -1099,7 +1099,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         from skillhub_worker.publish_runner import run_publish_once
 
-        skill = self.create_skill("auto-publish-api")
+        skill = self.import_standard_skill_bundle("auto-publish-api")
         targets = self.client.get("/api/admin/publish-targets", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
         target = next(item for item in targets if item["target_key"] == "yunxi")
         updated_target = self.client.patch(
@@ -1138,7 +1138,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(updated_target.status_code, 200)
         self.assertTrue(updated_target.json()["auto_publish_enabled"])
         self.assertEqual(closed.status_code, 200)
-        self.assertEqual(closed.json()["publish_records"][0]["status"], "pending_confirmation")
+        self.assertEqual(closed.json()["publish_records"][0]["status"], "queued")
         self.assertTrue(processed)
         self.assertEqual(records[0]["status"], "released")
         self.assertEqual(records[0]["confirmed_by"], "publish-worker")

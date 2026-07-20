@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 def run_once(store: SkillHubStore, client: OpencodeClient, laminar: LaminarClient, *, config) -> bool:
     """Claim and execute one eval or skill builder job."""
+    _recover_stale_jobs(store, config=config)
     record_idle(store, config=config)
     if run_publish_once(store, config=config):
         return True
@@ -35,7 +36,7 @@ def main() -> None:
     configure_logging()
     config = load_config()
     logger.info(
-        "starting skillhub worker worker_id=%s workdir_host=%s workdir_container=%s opencode_base_url=%s laminar_base_url=%s laminar_configured=%s poll_seconds=%s timeout_seconds=%s max_attempts=%s",
+        "starting skillhub worker worker_id=%s workdir_host=%s workdir_container=%s opencode_base_url=%s laminar_base_url=%s laminar_configured=%s poll_seconds=%s timeout_seconds=%s max_attempts=%s stale_after_seconds=%s publish_timeout_seconds=%s",
         config.worker_id,
         config.workdir_host,
         config.workdir_container,
@@ -45,6 +46,8 @@ def main() -> None:
         config.poll_interval_seconds,
         config.timeout_seconds,
         config.max_attempts,
+        config.stale_after_seconds,
+        config.publish_release_timeout_seconds,
     )
     config.workdir_host.mkdir(parents=True, exist_ok=True)
     engine = create_postgres_engine(resolve_database_url())
@@ -58,10 +61,30 @@ def main() -> None:
         timeout_seconds=config.timeout_seconds,
     )
     while True:
-        did_work = run_once(store, client, laminar, config=config)
+        try:
+            did_work = run_once(store, client, laminar, config=config)
+        except Exception:
+            logger.exception("worker loop failed worker_id=%s; retrying", config.worker_id)
+            time.sleep(min(max(config.poll_interval_seconds, 0.1), 5.0))
+            continue
         if not did_work:
             logger.debug("worker sleeping worker_id=%s seconds=%s", config.worker_id, config.poll_interval_seconds)
             time.sleep(config.poll_interval_seconds)
+
+
+def _recover_stale_jobs(store: SkillHubStore, *, config) -> None:
+    recover = getattr(store, "recover_stale_jobs", None)
+    if recover is None:
+        return
+    try:
+        recovered = recover(
+            stale_after_seconds=config.stale_after_seconds,
+            max_eval_attempts=config.max_attempts,
+        )
+        if any(recovered.values()):
+            logger.warning("stale jobs recovered worker_id=%s recovered=%s", config.worker_id, recovered)
+    except Exception:
+        logger.exception("stale job recovery failed worker_id=%s", config.worker_id)
 
 
 if __name__ == "__main__":

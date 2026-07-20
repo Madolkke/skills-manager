@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
 import { publishRequestReason } from "../lib/disabledReasons";
@@ -27,7 +27,7 @@ const targets = computed(() => (overview.value?.publish_targets ?? []).filter((t
 const records = computed(() => overview.value?.publish_records ?? []);
 const selectedRecordId = ref("");
 const closedReviewCount = computed(() => versions.value.filter((item) => item.review?.status === "closed").length);
-const pendingRecordCount = computed(() => records.value.filter((record) => record.status === "pending_confirmation").length);
+const activeRecordCount = computed(() => records.value.filter((record) => ["pending_confirmation", "queued", "releasing"].includes(record.status)).length);
 const releasedRecordCount = computed(() => records.value.filter((record) => record.status === "released").length);
 const orderedRecords = computed(() => [...records.value].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")));
 const groupedRecords = computed(() => groupRecords(orderedRecords.value));
@@ -48,6 +48,9 @@ const publishCandidates = computed(() =>
 );
 
 onMounted(() => void load());
+onBeforeUnmount(stopRefresh);
+
+let refreshTimer: number | undefined;
 
 async function load(): Promise<void> {
   const previousSelection = selectedRecordId.value;
@@ -59,7 +62,32 @@ async function load(): Promise<void> {
     showError(error);
   } finally {
     loading.value = false;
+    syncRefresh();
   }
+}
+
+async function refreshRecords(): Promise<void> {
+  try {
+    overview.value = await api.getSkillPublishOverview(props.skill.skill.id);
+    syncRefresh();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function syncRefresh(): void {
+  const active = records.value.some((record) => record.status === "queued" || record.status === "releasing");
+  if (active && refreshTimer === undefined) {
+    refreshTimer = window.setInterval(() => void refreshRecords(), 3000);
+  } else if (!active) {
+    stopRefresh();
+  }
+}
+
+function stopRefresh(): void {
+  if (refreshTimer === undefined) return;
+  window.clearInterval(refreshTimer);
+  refreshTimer = undefined;
 }
 
 async function requestPublish(review: ReviewRequest, target: PublishTarget): Promise<void> {
@@ -83,6 +111,8 @@ async function requestPublish(review: ReviewRequest, target: PublishTarget): Pro
 
 function recordStatusText(record: PublishRecord): string {
   if (record.status === "pending_confirmation") return "待后台确认";
+  if (record.status === "queued") return "排队中";
+  if (record.status === "releasing") return "发布中";
   if (record.status === "released") return "已发布";
   if (record.status === "cancelled") return "已取消";
   return "发布失败";
@@ -91,7 +121,7 @@ function recordStatusText(record: PublishRecord): string {
 function recordStatusTone(record?: PublishRecord): string {
   if (!record) return "muted";
   if (record.status === "released") return "positive";
-  if (record.status === "pending_confirmation") return "neutral";
+  if (["pending_confirmation", "queued", "releasing"].includes(record.status)) return "neutral";
   if (record.status === "failed") return "negative";
   return "muted";
 }
@@ -155,7 +185,9 @@ function recordPublishModeText(record: PublishRecord): string {
 
 function recordFailureText(record: PublishRecord): string {
   const error = record.metadata?.release_error;
-  return typeof error === "string" && error ? error : "发布执行失败，请联系后台管理员。";
+  const detail = typeof error === "string" && error ? error : "发布执行失败，请联系后台管理员。";
+  if (record.metadata?.external_state === "unknown") return `外部状态未知，请联系管理员核对后重试。${detail}`;
+  return detail;
 }
 
 function recordTargetText(record: PublishRecord): string {
@@ -164,16 +196,20 @@ function recordTargetText(record: PublishRecord): string {
 
 function groupStatusText(group: PublishRecordGroup): string {
   const pending = group.records.filter((record) => record.status === "pending_confirmation").length;
+  const queued = group.records.filter((record) => record.status === "queued").length;
+  const releasing = group.records.filter((record) => record.status === "releasing").length;
   const released = group.records.filter((record) => record.status === "released").length;
   const failed = group.records.filter((record) => record.status === "failed").length;
   if (pending) return `${pending} 待确认`;
+  if (releasing) return `${releasing} 发布中`;
+  if (queued) return `${queued} 排队中`;
   if (failed) return `${failed} 失败`;
   if (released === group.records.length) return "全部已发布";
   return `${released} 已发布`;
 }
 
 function groupStatusTone(group: PublishRecordGroup): string {
-  if (group.records.some((record) => record.status === "pending_confirmation")) return "neutral";
+  if (group.records.some((record) => ["pending_confirmation", "queued", "releasing"].includes(record.status))) return "neutral";
   if (group.records.some((record) => record.status === "failed")) return "negative";
   if (group.records.every((record) => record.status === "released")) return "positive";
   return "muted";
@@ -252,8 +288,8 @@ function showError(error: unknown): void {
         <strong>{{ closedReviewCount }}</strong>
       </div>
       <div class="primary-panel publish-stat">
-        <span>待后台确认</span>
-        <strong>{{ pendingRecordCount }}</strong>
+        <span>处理中</span>
+        <strong>{{ activeRecordCount }}</strong>
       </div>
       <div class="primary-panel publish-stat wide">
         <span>发布记录</span>
@@ -402,7 +438,7 @@ function showError(error: unknown): void {
                 </div>
                 <div>
                   <span>发布结果</span>
-                  <strong>{{ selectedRecord.status === "released" ? "后台已确认发布" : selectedRecord.status === "pending_confirmation" ? "等待后台确认" : recordStatusText(selectedRecord) }}</strong>
+                  <strong>{{ selectedRecord.status === "released" ? "后台已确认发布" : recordStatusText(selectedRecord) }}</strong>
                 </div>
                 <div v-if="selectedRecord.status === 'failed'">
                   <span>失败原因</span>

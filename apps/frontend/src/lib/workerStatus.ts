@@ -1,12 +1,14 @@
 import type { WorkerStatus, WorkerStatusOverview } from "../types";
 
 export function workerStatusText(worker: WorkerStatus): string {
+  if (worker.stalled) return "已阻塞";
   if (worker.status === "running") return "运行中";
   if (worker.status === "idle") return "空闲";
   return "离线";
 }
 
 export function workerStatusTone(worker: WorkerStatus): string {
+  if (worker.stalled) return "negative";
   if (worker.status === "running") return "neutral";
   if (worker.status === "idle") return "positive";
   return "negative";
@@ -15,6 +17,7 @@ export function workerStatusTone(worker: WorkerStatus): string {
 export function workerJobTypeText(type?: string | null): string {
   if (type === "eval_case_run") return "测评任务";
   if (type === "skill_builder_message") return "AI 创建任务";
+  if (type === "publish_release") return "发布任务";
   return type || "-";
 }
 
@@ -26,7 +29,7 @@ export function workerCurrentJobText(worker: WorkerStatus): string {
 }
 
 export function queuedWorkerJobs(overview: WorkerStatusOverview | null): number {
-  return (overview?.summary.queued_eval_jobs ?? 0) + (overview?.summary.queued_builder_jobs ?? 0);
+  return (overview?.summary.queued_eval_jobs ?? 0) + (overview?.summary.queued_builder_jobs ?? 0) + (overview?.summary.queued_publish_jobs ?? 0);
 }
 
 export function durationText(start?: string | null, end?: string): string {

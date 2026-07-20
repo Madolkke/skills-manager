@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import json
 from difflib import SequenceMatcher
 from typing import Any
-
-from skillhub.models.errors import InvariantError, NotFoundError
-from skillhub.models.schema import orm
 
 
 class BundleDiffMixin:
@@ -53,36 +49,6 @@ class BundleDiffMixin:
             "summary": summary,
             "files": files,
         }
-
-    def _bundle_artifact_for_version(self, connection, version) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        content_ref = version["content_ref"] or {}
-        locator = content_ref.get("locator") if isinstance(content_ref, dict) else None
-        if content_ref.get("kind") != "artifact" or not isinstance(locator, str) or not locator.startswith("artifact:"):
-            raise InvariantError(f"SkillVersion has no skill_bundle artifact to diff: {version['id']}")
-        artifact_id = locator.split(":", 1)[1]
-        artifact = connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == artifact_id)).mappings().one_or_none()
-        if artifact is None:
-            raise NotFoundError(f"Artifact not found: {artifact_id}")
-        artifact_detail = self._row_dict(artifact)
-        if artifact_detail["kind"] != "skill_bundle":
-            raise InvariantError(f"SkillVersion artifact is not a skill_bundle: {version['id']}")
-        files = self._bundle_files_from_artifact(artifact_detail)
-        if not files:
-            raise InvariantError(f"SkillVersion skill_bundle has no readable files: {version['id']}")
-        return artifact_detail, files
-
-    def _bundle_files_from_artifact(self, artifact: dict[str, Any]) -> list[dict[str, Any]]:
-        content_text = artifact.get("content_text")
-        if not isinstance(content_text, str):
-            return []
-        try:
-            manifest = json.loads(content_text)
-        except json.JSONDecodeError:
-            return []
-        files = manifest.get("files") if isinstance(manifest, dict) else None
-        if not isinstance(files, list):
-            return []
-        return sorted([file for file in files if isinstance(file, dict) and isinstance(file.get("path"), str)], key=lambda file: file["path"])
 
     def _diff_version_summary(self, version) -> dict[str, Any]:
         return {

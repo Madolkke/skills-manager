@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -35,18 +36,23 @@ def run_steps(
     metadata: dict[str, Any],
     opencode_model: dict[str, str],
     agent_id: str,
+    heartbeat: Callable[[], object] = lambda: None,
+    execution: dict[str, Any] | None = None,
 ) -> tuple[bool, str, str]:
     """Run Opencode steps and evaluate assertions."""
     passed = True
     actual_output = ""
     failure_reason = ""
     for index, step in enumerate(steps):
+        heartbeat()
         step_id = str(step.get("id") or "")
-        _mark_step_running(store, eval_case_run_id, metadata, step, index, len(steps))
+        _mark_step_running(store, eval_case_run_id, metadata, step, index, len(steps), execution)
         logger.info("eval step started eval_case_run_id=%s step_id=%s step_index=%s step_total=%s", eval_case_run_id, step_id, index + 1, len(steps))
         before = workspace_snapshot(Path(paths["host_workdir"]))
         prompt = render_step_prompt(step=step, paths=paths, step_number=index + 1, total_steps=len(steps))
+        heartbeat()
         messages_before_step = client.list_messages(session_id=session_id, directory=paths["workdir"])
+        heartbeat()
         seen_message_ids = opencode_message_ids(messages_before_step)
         message_response, opencode_trace, step_messages = _send_step_message(
             client=client,
@@ -59,6 +65,7 @@ def run_steps(
             agent_id=agent_id,
             seen_message_ids=seen_message_ids,
             seen_count=len(messages_before_step),
+            heartbeat=heartbeat,
         )
         tool_calls = list(opencode_trace.get("tool_calls") or [])
         step_skill_usage = skill_usage_evidence(tool_calls, str(metadata["skill_installation"].get("skill_slug") or ""))
@@ -66,7 +73,7 @@ def run_steps(
         trace_source: object = step_messages or message_response
         agent_output = compact_message_output(trace_source)
         after = workspace_snapshot(Path(paths["host_workdir"]))
-        _mark_step_asserting(store, eval_case_run_id, metadata, step, index, len(steps))
+        _mark_step_asserting(store, eval_case_run_id, metadata, step, index, len(steps), execution)
         assertion_results = _evaluate_step(step, metadata, agent_output, before, after, opencode_trace, paths)
         step_passed = all(item["passed"] for item in assertion_results)
         failed_count = sum(1 for item in assertion_results if not item["passed"])
@@ -75,7 +82,8 @@ def run_steps(
             _step_result(step, step_passed, step_reason, assertion_results, agent_output, message_response, opencode_trace, step_skill_usage)
         )
         actual_output = agent_output
-        persist_metadata(store, eval_case_run_id, metadata)
+        persist_metadata(store, eval_case_run_id, metadata, execution)
+        heartbeat()
         logger.info(
             "eval step completed eval_case_run_id=%s step_id=%s status=%s assertion_count=%s failed_count=%s skill_used=%s",
             eval_case_run_id,
@@ -93,18 +101,34 @@ def run_steps(
     return passed, actual_output, failure_reason
 
 
-def _mark_step_running(store: SkillHubStore, eval_case_run_id: str, metadata: dict[str, Any], step: dict[str, Any], index: int, total: int) -> None:
+def _mark_step_running(
+    store: SkillHubStore,
+    eval_case_run_id: str,
+    metadata: dict[str, Any],
+    step: dict[str, Any],
+    index: int,
+    total: int,
+    execution: dict[str, Any] | None,
+) -> None:
     metadata["current_stage"] = "running_step"
     metadata["current_stage_label"] = f"第 {index + 1}/{total} 步运行中"
     metadata["current_step"] = current_step_metadata(step, index, total, "running")
-    persist_metadata(store, eval_case_run_id, metadata)
+    persist_metadata(store, eval_case_run_id, metadata, execution)
 
 
-def _mark_step_asserting(store: SkillHubStore, eval_case_run_id: str, metadata: dict[str, Any], step: dict[str, Any], index: int, total: int) -> None:
+def _mark_step_asserting(
+    store: SkillHubStore,
+    eval_case_run_id: str,
+    metadata: dict[str, Any],
+    step: dict[str, Any],
+    index: int,
+    total: int,
+    execution: dict[str, Any] | None,
+) -> None:
     metadata["current_stage"] = "asserting_step"
     metadata["current_stage_label"] = f"第 {index + 1}/{total} 步判定中"
     metadata["current_step"] = current_step_metadata(step, index, total, "asserting")
-    persist_metadata(store, eval_case_run_id, metadata)
+    persist_metadata(store, eval_case_run_id, metadata, execution)
 
 
 def _send_step_message(
@@ -119,6 +143,7 @@ def _send_step_message(
     agent_id: str,
     seen_message_ids: set[str],
     seen_count: int,
+    heartbeat: Callable[[], object],
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     logger.debug(
         "opencode message sending eval_case_run_id=%s step_id=%s provider_id=%s model_id=%s agent_id=%s",
@@ -128,6 +153,7 @@ def _send_step_message(
         opencode_model.get("model_id") or "",
         agent_id,
     )
+    heartbeat()
     message_response = client.send_message(
         session_id=session_id,
         prompt=prompt,
@@ -136,7 +162,9 @@ def _send_step_message(
         model_id=opencode_model.get("model_id") or None,
         agent_id=agent_id or None,
     )
+    heartbeat()
     message_history = client.list_messages(session_id=session_id, directory=paths["workdir"])
+    heartbeat()
     step_messages = new_opencode_messages(message_history, seen_message_ids, seen_count=seen_count)
     trace_source: object = step_messages or message_response
     opencode_trace = extract_opencode_trace(trace_source)

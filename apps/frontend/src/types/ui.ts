@@ -4,6 +4,9 @@ export type WorkerStatus = {
   worker_id: string;
   status: "running" | "idle" | "offline";
   online: boolean;
+  stalled?: boolean;
+  lease_age_seconds?: number | null;
+  recovery_hint?: string | null;
   last_seen_at: string;
   started_at: string;
   current_job?: {
@@ -16,6 +19,8 @@ export type WorkerStatus = {
     skill_id?: string | null;
     skill_version_id?: string | null;
     error?: string | null;
+    status?: string | null;
+    last_heartbeat_at?: string | null;
   } | null;
   metadata?: {
     opencode_base_url?: string;
@@ -34,8 +39,10 @@ export type WorkerStatusOverview = {
     running: number;
     idle: number;
     offline: number;
+    stalled?: number;
     queued_eval_jobs: number;
     queued_builder_jobs: number;
+    queued_publish_jobs?: number;
     running_jobs: number;
   };
   workers: WorkerStatus[];
