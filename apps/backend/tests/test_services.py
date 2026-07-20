@@ -199,6 +199,7 @@ class FakeStore:
                 "publish_target_config": {},
                 "skill_id": "skill_1",
                 "skill_slug": "demo",
+                "skill_tags": [],
                 "skill_version_id": "version_1",
                 "version": "0.0.1",
                 "content_digest": "digest",

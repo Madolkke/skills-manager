@@ -145,6 +145,35 @@ class JobLeaseRecoveryTest(ApiCommandTestCase):
         self.assertEqual(job_status, "canceled")
         self.assertEqual(conflict.status_code, 409)
 
+    def test_publish_claim_snapshots_current_tags_even_when_cascade_path_is_invalid(self):
+        tag = self.create_tag_value("A", "a")
+        self.create_tag_value("parent", "p")
+        created = self.client.post(
+            "/api/skill-imports",
+            json={
+                "owner_ref": "skillhub-lab",
+                "source": self.bundle_source("publish-tag-snapshot"),
+                "tags": [tag],
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        skill = created.json()
+        cascade = self.client.post(
+            "/api/admin/tag-cascades",
+            headers=self.admin_headers,
+            json={"parent_group_id": "parent", "parent_value": "p", "child_group_id": "A"},
+        )
+        self.assertEqual(cascade.status_code, 200, cascade.text)
+        detail = self.client.get(f"/api/skills/{skill['skill_id']}").json()
+        matching_tag = next(item for item in detail["skill"]["tags"] if item["group_id"] == "A")
+        record = self._create_pending_publish("publish-tag-snapshot", skill=skill)
+        self.client.post(f"/api/admin/publish-records/{record['id']}/confirm", headers=self.admin_headers)
+
+        claimed = self.store.claim_next_publish_release_job(worker_id="publish-worker")
+
+        self.assertFalse(matching_tag["path_valid"])
+        self.assertIn({"group_id": "A", "value": "a"}, claimed["release_payload"]["skill_tags"])
+
     def _enqueue_eval(self, slug: str) -> dict:
         skill = self.create_skill(slug)
         case = self.create_eval_case(skill["skill_id"])
@@ -155,8 +184,8 @@ class JobLeaseRecoveryTest(ApiCommandTestCase):
             case["eval_case_version_id"],
         )
 
-    def _create_pending_publish(self, slug: str) -> dict:
-        skill = self.create_skill(slug)
+    def _create_pending_publish(self, slug: str, *, skill: dict | None = None) -> dict:
+        skill = skill or self.create_skill(slug)
         target = self.client.get("/api/admin/publish-targets", headers=self.admin_headers).json()[0]
         self.client.post(
             f"/api/skills/{skill['skill_id']}/role-assignments",

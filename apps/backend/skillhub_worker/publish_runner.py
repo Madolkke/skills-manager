@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from skillhub.models.store import SkillHubStore
-from skillhub.services.publish_release import perform_publish_release
+from skillhub.services.publish_release import perform_publish_release, publish_artifact_from_read_model
 from skillhub_worker.heartbeat import record_idle, record_publish_running, renew_execution_lease
 
 logger = logging.getLogger(__name__)
@@ -29,8 +29,12 @@ def run_publish_once(store: SkillHubStore, *, config) -> bool:
     record_publish_running(store, detail, config=config)
     try:
         renew_execution_lease(store, execution)
+        artifact = publish_artifact_from_read_model(
+            store.publish_release_artifact(skill_version_id=detail["release_payload"]["skill_version_id"])
+        )
         release_result = perform_publish_release(
             detail["release_payload"],
+            artifact,
             timeout_seconds=getattr(config, "publish_release_timeout_seconds", 120),
         )
         renew_execution_lease(store, execution)

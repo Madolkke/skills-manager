@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,28 @@ class FakeStore:
         self.detail = detail
         self.builder_detail: dict[str, Any] | None = None
         self.publish_detail: dict[str, Any] | None = None
+        self.publish_artifact = {
+            "id": "artifact_1",
+            "kind": "skill_bundle",
+            "namespace": "test:demo",
+            "locator": "inline:digest",
+            "digest": "digest",
+            "media_type": "text/plain",
+            "size_bytes": 2,
+            "content_text": "{}",
+            "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            "created_by": "maintainer",
+            "files": [
+                {
+                    "path": "SKILL.md",
+                    "sha256": "file-digest",
+                    "size_bytes": 1,
+                    "binary": False,
+                    "content_text": "x",
+                    "content_base64": None,
+                }
+            ],
+        }
         self.agents: dict[str, dict[str, Any]] = {}
         self.metadata_updates: list[dict[str, Any]] = []
         self.finalized: dict[str, Any] | None = None
@@ -30,6 +53,9 @@ class FakeStore:
 
     def claim_next_publish_release_job(self, *, worker_id: str) -> dict[str, Any] | None:
         return self.publish_detail
+
+    def publish_release_artifact(self, *, skill_version_id: str) -> dict[str, Any]:
+        return self.publish_artifact
 
     def claim_next_skill_builder_job(self, *, worker_id: str) -> dict[str, Any] | None:
         return self.builder_detail
@@ -361,11 +387,12 @@ def test_run_once_processes_publish_release_before_other_jobs(tmp_path: Path):
             "publish_target_config": {},
             "skill_id": "skill_1",
             "skill_slug": "demo",
+            "skill_tags": [],
             "skill_version_id": "version_1",
             "version": "1.0.0",
             "content_digest": "digest",
-            "bundle_artifact_id": None,
-            "content_ref": {},
+            "bundle_artifact_id": "artifact_1",
+            "content_ref": {"kind": "artifact", "locator": "artifact:artifact_1", "digest": "digest"},
             "review_request_id": "review_1",
             "review_check_results": [],
             "requested_by": "maintainer",

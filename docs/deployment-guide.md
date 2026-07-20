@@ -180,12 +180,67 @@ uv run python -m skillhub_worker.main
 
 需要多个 Worker 时，复制同一服务配置并分别使用 `skillhub-worker-1`、`skillhub-worker-2` 等 ID。Worker 应由进程管理器自动重启；进程异常退出后，重启实例会回收超过租约的 Eval/Publish Job。
 
-当前 `skillhub.services.publish_release.perform_publish_release()` 是默认 noop hook，只验证发布状态机，不会把内容真正发布到外部系统。生产环境接入真实发布适配器时必须：
+当前 `skillhub.services.publish_release.perform_publish_release()` 已为固定目标 `target_key="yunxi"` 提供文件系统发布适配器。Skill 当前标签中存在精确、区分大小写的 `group_id="A"`、`value="a"` 时，Worker 会把完整 Bundle 写入：
 
+```text
+/var/lib/skillhub/publish/yunxi/{skill_slug}
+```
+
+部署时需要修改发布目录时，只修改 `apps/backend/skillhub/services/publish_release.py` 中这一行：
+
+```python
+root = Path("/var/lib/skillhub/publish/yunxi")
+```
+
+云析发布会先在相邻的 `.yunxi-control/staging` 中落盘并校验，再整体替换目标 Skill 目录；锁和幂等状态分别保存在 `.yunxi-control/locks` 与 `.yunxi-control/state`。因此 Worker 服务账号必须对以下两个位置具备创建、写入、替换和删除权限：
+
+- `/var/lib/skillhub/publish/yunxi`
+- `/var/lib/skillhub/publish/.yunxi-control`
+
+缺少 `A=a` 标签时不会创建目录，适配器返回 `mode="skipped"`，现有状态机会将 PublishRecord 标记为 `released`，并在 release metadata 中记录 `reason="required_tag_missing"`。`path_valid=false` 不影响底层标签匹配。除 `yunxi` 外的发布目标仍使用 noop 行为。
+
+扩展或替换发布适配器时必须：
+
+- 实现新的 `perform_publish_release(payload, artifact, *, timeout_seconds)` 签名；`artifact` 是脱离数据库 Session 的不可变 `PublishArtifact` DTO，不得在适配器中持有或查询 ORM 实体。
+- 从 `artifact.files` 读取已按路径排序的 Bundle 文件；文本文件使用 `content_text`，二进制文件使用 `content_base64`。`artifact.content_text` 保留原始 Bundle manifest，供需要原始表示的适配器使用。
 - 使用 payload 中稳定的 `idempotency_key=publish_release:{record_id}` 去重。
 - 将 `PUBLISH_RELEASE_TIMEOUT_SECONDS` 传递给所有外部 I/O。
 - 发生结果不确定时抛出错误，让记录进入 `failed`，由管理员核对外部状态后人工重试。
 - 不在 API 确认请求内执行外部发布；所有副作用只允许在 Worker 中发生。
+
+适配器入口示例：
+
+```python
+from skillhub.services.publish_release import (
+    PublishArtifact,
+    PublishReleasePayload,
+    PublishReleaseResult,
+)
+
+
+def perform_publish_release(
+    payload: PublishReleasePayload,
+    artifact: PublishArtifact,
+    *,
+    timeout_seconds: float = 120,
+) -> PublishReleaseResult:
+    files = {file.path: file for file in artifact.files}
+    skill_markdown = files["SKILL.md"].content_text
+    if skill_markdown is None:
+        raise RuntimeError("SKILL.md is not a text file.")
+
+    external_id = release_to_target(
+        target=payload["publish_target_key"],
+        slug=payload["skill_slug"],
+        version=payload["version"],
+        files=artifact.files,
+        idempotency_key=payload["idempotency_key"],
+        timeout_seconds=timeout_seconds,
+    )
+    return {"mode": "released", "external_id": external_id}
+```
+
+Worker 在调用适配器前会校验 SkillVersion 的 Artifact 引用、类型、digest 和 Bundle manifest。缺失、损坏或不匹配时不会调用外部适配器，PublishRecord 会进入 `failed` 并记录 `metadata.release_error`。历史 `memory`、`git` 或 `external_repo` ContentRef 不提供回退发布能力。
 
 如果 Opencode 和 Worker 分别运行在不同容器或不同机器上，需要确保：
 

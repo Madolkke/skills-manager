@@ -169,6 +169,10 @@ class ReviewAdminMixin:
             "publish_target_config": target["config"] or {},
             "skill_id": skill["id"],
             "skill_slug": skill["slug"],
+            "skill_tags": [
+                {"group_id": str(tag["group_id"]), "value": str(tag["value"])}
+                for tag in self._skill_tags(connection, skill["id"])
+            ],
             "skill_version_id": version["id"],
             "version": version["version"],
             "content_digest": version["content_digest"],

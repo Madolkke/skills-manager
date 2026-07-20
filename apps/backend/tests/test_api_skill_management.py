@@ -1099,7 +1099,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         from skillhub_worker.publish_runner import run_publish_once
 
-        skill = self.create_skill("auto-publish-api")
+        skill = self.import_standard_skill_bundle("auto-publish-api")
         targets = self.client.get("/api/admin/publish-targets", headers={"X-SkillHub-Admin-Key": "test-admin-key"}).json()
         target = next(item for item in targets if item["target_key"] == "yunxi")
         updated_target = self.client.patch(
