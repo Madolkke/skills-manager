@@ -11,6 +11,7 @@ from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.models.rules.workflows import (
     GENERATOR_VERSION,
+    format_workflow_document,
     normalize_workflow_document,
     normalize_workflow_import_bundle,
     render_skill_markdown,
@@ -69,6 +70,10 @@ class WorkflowService(ServiceBase[SkillHubStore]):
 
     def workflow_detail(self, *, skill_id: str, actor: str) -> dict[str, Any]:
         return self.store.workflow_detail(skill_id=skill_id, actor=actor)
+
+    def formatted_workflow(self, *, skill_id: str, actor: str) -> dict[str, Any]:
+        detail = self.store.workflow_detail(skill_id=skill_id, actor=actor)
+        return format_workflow_document(detail["document"])
 
     def list_collections(self, *, skill_id: str, actor: str) -> dict[str, Any]:
         return {"definitions": self.store.list_workflow_collections(skill_id=skill_id, actor=actor)}

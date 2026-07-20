@@ -1,3 +1,4 @@
+from .formatter import format_workflow_document
 from .import_schema import (
     WorkflowImportBundle,
     materialize_workflow_import,
@@ -12,6 +13,7 @@ __all__ = [
     "GENERATOR_VERSION",
     "DOCUMENT_SCHEMA_VERSION",
     "WorkflowImportBundle",
+    "format_workflow_document",
     "materialize_workflow_import",
     "migrate_workflow_document",
     "normalize_workflow_import_bundle",

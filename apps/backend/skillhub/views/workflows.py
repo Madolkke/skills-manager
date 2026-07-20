@@ -41,6 +41,14 @@ def register_workflow_routes(app: FastAPI) -> None:
     ):
         return result_payload(service.workflow_detail(skill_id=skill_id, actor=actor.id))
 
+    @app.get("/api/skills/{skill_id}/workflow/formatted")
+    def formatted_workflow(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ) -> dict[str, Any]:
+        return result_payload(service.formatted_workflow(skill_id=skill_id, actor=actor.id))
+
     @app.put("/api/skills/{skill_id}/workflow")
     def save_workflow(
         skill_id: str,

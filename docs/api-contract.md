@@ -122,6 +122,7 @@
 | `GET /api/artifacts/diff` | 两个 SkillVersion bundle 的真实 diff。 |
 | `GET /api/skills/{skill_id}/saved-views` | Saved view 列表。 |
 | `GET /api/skills/{skill_id}/workflow` | Workflow 当前文档、revision、校验、同步状态、保存信息和 capabilities。 |
+| `GET /api/skills/{skill_id}/workflow/formatted` | 返回当前 Workflow document 的特定格式表示；当前转换为原样透传。 |
 | `GET /api/skills/{skill_id}/workflow/collections` | 全局 Collection Catalog 最新 revisions。 |
 
 ## 写入接口
@@ -154,6 +155,8 @@
 | `POST /api/skills/{skill_id}/workflow/sync` | 将当前 Workflow revision 完整转换为新的 SkillVersion，或重新激活已生成版本。 |
 
 ## Workflow 接口约束
+
+`GET /api/skills/{skill_id}/workflow/formatted` 与普通 Workflow 获取接口使用相同的 Skill、Workflow 和 actor 校验，但响应体只包含转换后的 JSON object。当前转换函数为深拷贝透传，因此响应等于普通接口的 `document` 字段；后续自定义格式只修改该转换函数，不改变接口路径。
 
 `POST /api/workflows`：
 
