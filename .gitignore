@@ -28,6 +28,10 @@ ops/opencode/config/
 coverage/
 .logs/
 
+# Local Workflow examples
+/examples/workflow-bgp-session-troubleshooting-bundle.json
+/examples/workflow-bgp-session-troubleshooting-import.json
+
 .env
 .env.*
 !.env.example
