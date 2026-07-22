@@ -141,6 +141,12 @@ function skillApi() {
       apiSend<unknown>(`/api/skill-versions/${versionId}`, "PATCH", { display_name: displayName }),
     updateSkill: (skillId: string, payload: { slug: string; owner_ref: string; tags?: SkillTagPayload[] }) =>
       apiSend<SkillDetail["skill"]>(`/api/skills/${encodeURIComponent(skillId)}`, "PATCH", payload),
+    deleteSkill: (skillId: string, confirmationSlug: string) =>
+      apiDelete<{ ok: boolean }>(
+        `/api/skills/${encodeURIComponent(skillId)}`,
+        {},
+        { confirmation_slug: confirmationSlug },
+      ),
     getSkillCapabilities: (skillId: string) => apiGet<SkillCapabilities>(`/api/skills/${encodeURIComponent(skillId)}/capabilities`),
     listSkillGroups: (skillId: string) => apiGet<AdminGroup[]>(`/api/skills/${encodeURIComponent(skillId)}/groups`),
     createSkillGroup: (skillId: string, payload: { name: string; description?: string }) =>
@@ -360,11 +366,12 @@ async function apiSend<T>(path: string, method: "POST" | "PATCH" | "PUT", body: 
   return response.json() as Promise<T>;
 }
 
-async function apiDelete<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function apiDelete<T>(path: string, options: RequestOptions = {}, body?: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "DELETE",
     credentials: "include",
-    headers: requestHeaders(options),
+    headers: requestHeaders({ ...options, json: body !== undefined }),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;

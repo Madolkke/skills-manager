@@ -9,6 +9,7 @@ from skillhub.views.responses import result_payload
 from skillhub.views.schemas import (
     AssignSkillRolePayload,
     CreateSkillPayload,
+    DeleteSkillPayload,
     ImportSkillPayload,
     SkillGroupMemberPayload,
     SkillGroupPayload,
@@ -78,12 +79,13 @@ def register_skill_routes(app: FastAPI) -> None:
         return result_payload(service.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref, tags=payload.tags, actor=actor.id))
 
     @app.delete("/api/skills/{skill_id}")
-    def archive_skill(
+    def delete_skill(
         skill_id: str,
+        payload: DeleteSkillPayload,
         actor: ActorContext = Depends(actor_dependency),
         service: SkillService = Depends(skill_service_dependency),
     ):
-        service.archive_skill(skill_id=skill_id, actor=actor.id)
+        service.delete_skill(skill_id=skill_id, confirmation_slug=payload.confirmation_slug, actor=actor.id)
         return {"ok": True}
 
     @app.get("/api/skills/{skill_id}/role-assignments")

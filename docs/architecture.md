@@ -247,7 +247,7 @@ bootstrap -> models.schema
 | `POST /api/skills` | 创建 Skill、初始 SkillVersion、主 EvalSet |
 | `POST /api/skill-imports` | 从标准 Skill bundle 导入 Skill |
 | `PATCH /api/skills/{skill_id}` | 更新 Skill 元数据或当前版本指针 |
-| `DELETE /api/skills/{skill_id}` | 归档 Skill |
+| `DELETE /api/skills/{skill_id}` | 经 slug 确认后永久删除 Skill 及从属数据 |
 | `POST /api/skill-versions` | 创建不可变 SkillVersion，可选择是否 make current |
 | `POST /api/eval-cases` | 创建 case 和 case version；当前 EvalSetVersion 未运行时原地更新，已运行时生成新快照 |
 | `POST /api/eval-cases/batch` | 批量创建 case；同样遵循工作版/已锁定规则 |
@@ -321,9 +321,11 @@ sequenceDiagram
 | 记录 EvalRun | owner / maintainer / evaluator |
 | 接受验证 | owner / maintainer |
 | 管理角色 | owner |
-| 归档 Skill | owner |
+| 永久删除 Skill | owner / admin |
 
 前端只能根据 `SkillCapabilities` 展示或禁用动作；后端 mutation endpoint 必须重新校验权限。
+
+永久删除会锁定 Skill 行，并在单一事务内重新校验 `skill.delete`、当前 slug 和活动任务。终态 Job 与无剩余引用的 Artifact 随从属数据清理；Skill Builder 会话保留但解除 Skill 引用，最终只保留一条 `skill.deleted` 墓碑审计。已发布到外部系统的副本不属于数据库删除事务。
 
 ## 10. 存储
 

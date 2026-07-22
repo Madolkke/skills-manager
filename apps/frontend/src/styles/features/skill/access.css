@@ -186,6 +186,89 @@
   background: #ffe4e6;
 }
 
+.access-panel .danger-button:disabled {
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.danger-zone {
+  border: 1px solid #e11d48;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.danger-zone-copy {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.danger-zone-copy h3,
+.danger-zone-copy p,
+.delete-skill-warning p {
+  margin: 0;
+}
+
+.danger-zone-copy h3 {
+  font-size: 16px;
+}
+
+.danger-zone-copy p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.danger-zone-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.delete-skill-form {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+
+.danger-zone .danger-button,
+.delete-skill-form .danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.delete-skill-warning {
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #9f1239;
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.5;
+}
+
+.delete-skill-warning strong {
+  overflow-wrap: anywhere;
+}
+
 .tag-chip.muted {
   background: #f1f5f9;
   color: #64748b;
@@ -222,5 +305,10 @@
 
   .settings-row-actions {
     justify-content: flex-start;
+  }
+
+  .danger-zone {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

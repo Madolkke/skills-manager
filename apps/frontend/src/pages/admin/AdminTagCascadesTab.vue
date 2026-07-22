@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { AlertTriangle, Link2, Unlink } from "lucide-vue-next";
-import { computed, ref, watch } from "vue";
-import { buildTagCascadeTreeRows, sortGroups, withCascadeParents, type TagDiagnosticFocus } from "../../lib/tagCascades";
+import { AlertTriangle, ChevronDown, ChevronRight, GitBranch, Link2, Tags, Unlink } from "lucide-vue-next";
+import { toRef } from "vue";
+import type { TagDiagnosticFocus } from "../../lib/tagCascades";
 import type { TagCascadeOverview, TagGroup } from "../../types";
+import { useTagCascadeTree } from "./useTagCascadeTree";
 
 const props = defineProps<{ tagGroups: TagGroup[]; overview: TagCascadeOverview | null }>();
 const emit = defineEmits<{
@@ -11,34 +12,11 @@ const emit = defineEmits<{
   inspect: [focus: TagDiagnosticFocus];
 }>();
 
-const selectedParent = ref<{ groupId: string; value: string } | null>(null);
-const childGroupId = ref("");
-const groups = computed(() => withCascadeParents(props.tagGroups, props.overview?.relations ?? []));
-const rows = computed(() => buildTagCascadeTreeRows(groups.value));
-const diagnostics = computed(() => new Map((props.overview?.diagnostics ?? []).map((item) => [item.group_id, item])));
-const selectedParentGroup = computed(() => groups.value.find((group) => group.id === selectedParent.value?.groupId) ?? null);
-const availableChildren = computed(() => {
-  if (!selectedParent.value) return [];
-  const excluded = ancestorIds(selectedParent.value.groupId);
-  excluded.add(selectedParent.value.groupId);
-  return sortGroups(groups.value.filter((group) => !group.parent && !excluded.has(group.id)));
-});
-const issueTotals = computed(() => {
-  const items = props.overview?.diagnostics ?? [];
-  return {
-    orphaned: items.reduce((total, item) => total + item.orphaned_skill_ids.length, 0),
-    missing: items.reduce((total, item) => total + item.missing_required_skill_ids.length, 0),
-  };
-});
-
-watch(availableChildren, (children) => {
-  if (!children.some((group) => group.id === childGroupId.value)) childGroupId.value = children[0]?.id ?? "";
-}, { immediate: true });
-
-function selectParent(group: TagGroup, value: string): void {
-  if (group.free_form) return;
-  selectedParent.value = { groupId: group.id, value };
-}
+const {
+  allExpanded, availableChildren, childCount, childGroupId, collapseAll, diagnostics, expandAll, expandedGroups,
+  issueTotals, parentLabel, parentTitle, rows, selectParent, selectedParent, selectedParentGroup,
+  selectedParentValueLabel, summary, toggleGroup, visibleRows,
+} = useTagCascadeTree(toRef(props, "tagGroups"), toRef(props, "overview"));
 
 function attach(): void {
   if (!selectedParent.value || !childGroupId.value) return;
@@ -57,15 +35,6 @@ function inspect(groupId: string, kind: TagDiagnosticFocus["kind"]): void {
   emit("inspect", { groupId, kind, skillIds });
 }
 
-function ancestorIds(groupId: string): Set<string> {
-  const result = new Set<string>();
-  let group = groups.value.find((item) => item.id === groupId);
-  while (group?.parent && !result.has(group.parent.group_id)) {
-    result.add(group.parent.group_id);
-    group = groups.value.find((item) => item.id === group?.parent?.group_id);
-  }
-  return result;
-}
 </script>
 
 <template>
@@ -81,16 +50,39 @@ function ancestorIds(groupId: string): Set<string> {
       </div>
     </div>
 
-    <div v-if="selectedParent && selectedParentGroup" class="cascade-link-editor">
-      <div>
-        <strong>{{ selectedParentGroup.display_name }}: {{ selectedParent.value }}</strong>
-        <p>选择一个当前没有父级的 Group 挂到这个值下。</p>
+    <div class="admin-metric-grid cascade-metric-grid" aria-label="Tag 级联概览">
+      <div class="admin-metric-card">
+        <span>Group 总数</span>
+        <strong>{{ summary.groups }}</strong>
       </div>
-      <select v-model="childGroupId" aria-label="选择子 Tag Group">
-        <option v-for="group in availableChildren" :key="group.id" :value="group.id">
-          {{ group.display_name }}（{{ group.id }}）
-        </option>
-      </select>
+      <div class="admin-metric-card">
+        <span>根级 Group</span>
+        <strong>{{ summary.roots }}</strong>
+      </div>
+      <div class="admin-metric-card">
+        <span>级联关系</span>
+        <strong>{{ summary.relations }}</strong>
+      </div>
+      <div :class="['admin-metric-card', 'cascade-issue-metric', { warning: issueTotals.orphaned + issueTotals.missing }]">
+        <span>异常项</span>
+        <strong>{{ issueTotals.orphaned + issueTotals.missing }}</strong>
+      </div>
+    </div>
+
+    <div v-if="selectedParent && selectedParentGroup" class="cascade-link-editor">
+      <div class="cascade-link-context">
+        <span>挂载到父 Tag 值</span>
+        <strong>{{ selectedParentGroup.display_name }} / {{ selectedParentValueLabel }}</strong>
+        <small>{{ selectedParentGroup.id }} / {{ selectedParent.value }}</small>
+      </div>
+      <div class="cascade-link-selection">
+        <select v-if="availableChildren.length" v-model="childGroupId" aria-label="选择子 Tag Group">
+          <option v-for="group in availableChildren" :key="group.id" :value="group.id">
+            {{ group.display_name }}（{{ group.id }}）
+          </option>
+        </select>
+        <p v-else>没有可挂载的根级 Group。请先解绑已有关系或创建新的 Group。</p>
+      </div>
       <button class="primary-button" type="button" :disabled="!childGroupId" @click="attach">
         <Link2 :size="16" />
         挂载
@@ -98,20 +90,58 @@ function ancestorIds(groupId: string): Set<string> {
       <button class="secondary-button" type="button" @click="selectedParent = null">取消</button>
     </div>
 
+    <div class="cascade-tree-toolbar">
+      <div>
+        <strong>级联结构</strong>
+        <span>点击枚举值右侧的“挂载子组”建立关系。</span>
+      </div>
+      <button class="secondary-button compact" type="button" @click="allExpanded ? collapseAll() : expandAll()">
+        {{ allExpanded ? "全部折叠" : "全部展开" }}
+      </button>
+    </div>
+
     <div class="cascade-tree" role="tree" aria-label="Tag 级联树">
       <div
-        v-for="row in rows"
+        v-for="row in visibleRows"
         :key="row.key"
-        :class="['cascade-tree-row', row.kind]"
+        :class="[
+          'cascade-tree-row',
+          row.kind,
+          { selected: row.kind === 'value' && selectedParent?.groupId === row.group.id && selectedParent.value === row.value.value },
+        ]"
         :style="{ paddingLeft: `${8 + row.depth * 22}px` }"
         role="treeitem"
+        :aria-level="row.depth + 1"
+        :data-group-id="row.group.id"
+        :data-value="row.kind === 'value' ? row.value.value : undefined"
       >
         <template v-if="row.kind === 'group'">
           <div class="cascade-node-main">
-            <strong>{{ row.group.display_name }}</strong>
-            <small>{{ row.group.id }}</small>
-            <span class="tag-chip muted">{{ row.group.free_form ? "自由" : "枚举" }}</span>
-            <span v-if="row.group.required" class="tag-chip warning">必填</span>
+            <button
+              v-if="row.group.values.length"
+              class="cascade-expand-button"
+              type="button"
+              :aria-expanded="expandedGroups.has(row.group.id)"
+              :aria-label="`${expandedGroups.has(row.group.id) ? '折叠' : '展开'} ${row.group.display_name}`"
+              @click="toggleGroup(row.group.id)"
+            >
+              <ChevronDown v-if="expandedGroups.has(row.group.id)" :size="17" />
+              <ChevronRight v-else :size="17" />
+            </button>
+            <span v-else class="cascade-expand-placeholder"><Tags :size="15" /></span>
+            <div class="cascade-node-copy">
+              <div class="cascade-node-title">
+                <strong>{{ row.group.display_name }}</strong>
+                <small>{{ row.group.id }}</small>
+              </div>
+              <div class="cascade-node-meta">
+                <span class="cascade-parent-label" :title="parentTitle(row.group)">
+                  <GitBranch :size="13" /> {{ parentLabel(row.group) }}
+                </span>
+                <span class="tag-chip muted">{{ row.group.free_form ? "自由输入" : `枚举 · ${row.group.values.length} 项` }}</span>
+                <span v-if="row.group.required" class="tag-chip warning">必填</span>
+              </div>
+            </div>
           </div>
           <div class="cascade-node-actions">
             <button
@@ -145,22 +175,34 @@ function ancestorIds(groupId: string): Set<string> {
         </template>
         <template v-else>
           <div class="cascade-value-label" :title="row.value.value">
-            <span class="tag-chip-label">{{ row.value.display_name || row.value.value }}</span>
-            <small v-if="row.value.display_name">{{ row.value.value }}</small>
+            <span class="cascade-tree-branch" aria-hidden="true"></span>
+            <div>
+              <span class="tag-chip-label">{{ row.value.display_name || row.value.value }}</span>
+              <small v-if="row.value.display_name">{{ row.value.value }}</small>
+            </div>
           </div>
-          <button
-            v-if="!row.group.free_form"
-            class="icon-button"
-            type="button"
-            title="在此 Tag 值下挂载子 Group"
-            :aria-label="`在 ${row.value.value} 下挂载子 Group`"
-            @click="selectParent(row.group, row.value.value)"
-          >
-            <Link2 :size="16" />
-          </button>
+          <div class="cascade-value-actions">
+            <span v-if="childCount(row.group.id, row.value.value)" class="tag-chip muted">
+              {{ childCount(row.group.id, row.value.value) }} 个子 Group
+            </span>
+            <button
+              v-if="!row.group.free_form"
+              class="secondary-button compact cascade-attach-button"
+              type="button"
+              :aria-label="`在 ${row.value.value} 下挂载子 Group`"
+              @click="selectParent(row.group, row.value.value)"
+            >
+              <Link2 :size="15" />
+              挂载子组
+            </button>
+          </div>
         </template>
       </div>
-      <p v-if="!rows.length" class="field-help">还没有 Tag Group。请先在 Tag Group Tab 中创建。</p>
+      <div v-if="!rows.length" class="cascade-empty-state">
+        <Tags :size="22" />
+        <strong>还没有 Tag Group</strong>
+        <p>请先在 Tag Group Tab 中创建 Group，再回来配置级联关系。</p>
+      </div>
     </div>
   </section>
 </template>

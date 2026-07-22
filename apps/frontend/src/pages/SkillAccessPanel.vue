@@ -5,12 +5,13 @@ import { toTagPayloads } from "../lib/skillTags";
 import AdminGroupFormModal from "./admin/AdminGroupFormModal.vue";
 import AdminGroupMemberModal from "./admin/AdminGroupMemberModal.vue";
 import SkillGroupsSettingsSection from "./settings/SkillGroupsSettingsSection.vue";
+import SkillDangerSettingsSection from "./settings/SkillDangerSettingsSection.vue";
 import SkillRolesSettingsSection from "./settings/SkillRolesSettingsSection.vue";
 import SkillTagsSettingsSection from "./settings/SkillTagsSettingsSection.vue";
 import type { SkillDetail, SkillTagPayload, TagGroup, ToastState } from "../types";
 
 const props = defineProps<{ skill: SkillDetail }>();
-const emit = defineEmits<{ refresh: []; toast: [toast: ToastState] }>();
+const emit = defineEmits<{ refresh: []; toast: [toast: ToastState]; deleted: [] }>();
 
 const tags = ref<SkillTagPayload[]>(toTagPayloads(props.skill.skill.tags ?? []));
 const tagGroups = ref<TagGroup[]>([]);
@@ -22,17 +23,19 @@ const busy = ref(false);
 const groupModalMode = ref<"create" | "edit" | null>(null);
 const editingGroup = ref<AdminGroup | null>(null);
 const memberGroup = ref<AdminGroup | null>(null);
-const activeSection = ref<"tags" | "groups" | "roles">("tags");
+const activeSection = ref<"tags" | "groups" | "roles" | "danger">("tags");
 
 const permissions = computed(() => props.skill.capabilities?.permissions ?? {});
 const canEditSkill = computed(() => Boolean(permissions.value["skill.edit"]));
 const canManageRoles = computed(() => Boolean(permissions.value["role.manage"]));
+const canDeleteSkill = computed(() => Boolean(permissions.value["skill.delete"]));
 const effectiveRoles = computed(() => props.skill.capabilities?.effective_roles ?? []);
 
 const sections = computed(() => [
   { id: "tags" as const, label: "Skill Tags", meta: `${tags.value.length} 个 Tag` },
   { id: "groups" as const, label: "用户组", meta: `${skillGroups.value.length} 个用户组` },
   { id: "roles" as const, label: "角色授权", meta: `${props.skill.role_assignments.length} 条授权` },
+  { id: "danger" as const, label: "危险操作", meta: "永久删除" },
 ]);
 
 watch(() => props.skill.skill.id, () => {
@@ -226,7 +229,7 @@ function showError(error: unknown): void {
           @remove-member="removeMember"
         />
         <SkillRolesSettingsSection
-          v-else
+          v-else-if="activeSection === 'roles'"
           :assignments="skill.role_assignments"
           :groups="skillGroups"
           :busy="busy"
@@ -238,6 +241,13 @@ function showError(error: unknown): void {
           @update:subject-id="subjectId = $event"
           @update:role="role = $event"
           @assign="assignRole"
+        />
+        <SkillDangerSettingsSection
+          v-else
+          :skill-id="skill.skill.id"
+          :slug="skill.skill.slug"
+          :can-delete="canDeleteSkill"
+          @deleted="emit('deleted')"
         />
       </div>
     </div>

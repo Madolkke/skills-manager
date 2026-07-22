@@ -8,6 +8,7 @@ VALID_ROLES: set[Role] = {"admin", "owner", "maintainer", "evaluator", "reviewer
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
     "admin": {
         "role.manage",
+        "skill.delete",
         "skill.edit",
         "skill.version.create",
         "eval.manage",
@@ -19,7 +20,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         "review.respond",
         "publish.request",
     },
-    "owner": {"role.manage", "skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage", "review.manage", "publish.request"},
+    "owner": {"role.manage", "skill.delete", "skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage", "review.manage", "publish.request"},
     "maintainer": {"skill.edit", "skill.version.create", "eval.manage", "eval.run", "verification.accept", "saved_view.manage", "review.manage", "publish.request"},
     "evaluator": {"eval.run"},
     "reviewer": {"review.respond"},
@@ -28,6 +29,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
 
 PERMISSION_LABELS: dict[Permission, str] = {
     "role.manage": "owner or admin",
+    "skill.delete": "owner or admin",
     "skill.edit": "maintainer, owner, or admin",
     "skill.version.create": "maintainer, owner, or admin",
     "eval.manage": "maintainer, owner, or admin",

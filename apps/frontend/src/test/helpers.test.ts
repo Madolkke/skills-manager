@@ -497,6 +497,27 @@ describe("skill evidence helpers", () => {
     fetchMock.mockRestore();
   });
 
+  it("sends the confirmation slug as a JSON DELETE body", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await api.deleteSkill("skill/one", "example-skill");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/skills/skill%2Fone"),
+      expect.objectContaining({
+        method: "DELETE",
+        body: JSON.stringify({ confirmation_slug: "example-skill" }),
+        headers: expect.objectContaining({ "content-type": "application/json" }),
+      }),
+    );
+    fetchMock.mockRestore();
+  });
+
   it("only sends preserve_workspace when updating an existing eval case", () => {
     const form = {
       title: "新增文件测试",

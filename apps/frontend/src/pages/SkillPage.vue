@@ -22,6 +22,7 @@ const emit = defineEmits<{
   navigate: [next: Partial<RouteState>];
   dirty: [dirty: boolean];
   toast: [toast: ToastState];
+  deleted: [];
 }>();
 
 const uploadOpen = ref(false);
@@ -71,6 +72,7 @@ function finishUpload(): void {
         @uploaded="finishUpload"
         @refresh="emit('refresh')"
         @toast="emit('toast', $event)"
+        @deleted="emit('deleted')"
       />
       <EvalSetsPage
         v-else-if="tab === 'evalsets'"

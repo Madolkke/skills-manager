@@ -10,7 +10,7 @@ from skillhub.bootstrap.exceptions import register_exception_handlers
 from skillhub.models.errors import ConflictError, FieldError, FieldInvariantError, NotFoundError, PermissionDeniedError
 from skillhub.views import register_views
 
-OPENAPI_SHA256 = "ac7230405ba706ac5f9417ebe62162423cf5dd9dbaf949d902ae8f6584ccd67a"
+OPENAPI_SHA256 = "46a38645ebc06155855bc7d0a3188a4a188adc1dadf06905cd1d7a95a8eb1a3b"
 
 
 def test_openapi_contract_snapshot() -> None:

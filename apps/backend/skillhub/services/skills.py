@@ -91,8 +91,8 @@ class SkillService(ServiceBase[SkillHubStore]):
             require_permission=True,
         )
 
-    def archive_skill(self, *, skill_id: str, actor: str) -> None:
-        self.store.archive_skill(skill_id=skill_id, actor=actor)
+    def delete_skill(self, *, skill_id: str, confirmation_slug: str, actor: str) -> None:
+        self.store.delete_skill(skill_id=skill_id, confirmation_slug=confirmation_slug, actor=actor)
 
     def list_skill_role_assignments(self, *, skill_id: str) -> object:
         return self.store.list_skill_role_assignments(skill_id=skill_id)

@@ -196,6 +196,17 @@ function handleSkillCreated(skillId: string): void {
   navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
 }
 
+function handleSkillDeleted(): void {
+  const deletedSkillId = skill.value?.skill.id;
+  skill.value = null;
+  if (deletedSkillId) skills.value = skills.value.filter((item) => item.skill.id !== deletedSkillId);
+  taskCenterOpen.value = false;
+  taskCenterGroups.value = [];
+  workflowDirty.value = false;
+  toast.value = { tone: "success", message: "Skill 已永久删除。" };
+  goHome();
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
@@ -241,6 +252,7 @@ function isMissingSkillError(error: unknown): boolean {
           @refresh="load"
           @dirty="workflowDirty = $event"
           @toast="toast = $event"
+          @deleted="handleSkillDeleted"
         />
         <SkillBuilderPage
           v-else-if="route.section === 'skill-builder'"

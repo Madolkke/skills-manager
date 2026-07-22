@@ -135,7 +135,7 @@
 | `POST /api/skill-imports` | 从标准 Skill bundle 导入 Skill。 |
 | `POST /api/skill-versions` | 创建不可变 SkillVersion，可选择 `make_current`。 |
 | `PATCH /api/skills/{skill_id}` | 更新 slug 和 owner。 |
-| `DELETE /api/skills/{skill_id}` | 归档 Skill。 |
+| `DELETE /api/skills/{skill_id}` | 永久删除 Skill 及其从属数据；请求体必须提供精确匹配的 `confirmation_slug`。 |
 | `POST /api/skills/{skill_id}/role-assignments` | 添加 role assignment。 |
 | `DELETE /api/role-assignments/{id}` | 撤销 role assignment。 |
 | `POST /api/eval-cases` | 创建 case 和 case version；当前 EvalSetVersion 无运行记录时原地更新，有运行记录时创建新快照。 |
@@ -153,6 +153,16 @@
 | `POST /api/skills/{skill_id}/workflow/import` | 使用专用 Import Bundle 覆盖 Workflow，并为全部导入 Collection 创建独立身份。 |
 | `PATCH /api/skills/{skill_id}/workflow/metadata` | 显式保存 Workflow 元信息。 |
 | `POST /api/skills/{skill_id}/workflow/sync` | 将当前 Workflow revision 完整转换为新的 SkillVersion，或重新激活已生成版本。 |
+
+`DELETE /api/skills/{skill_id}` 是破坏性接口，已替换旧版归档语义。仅 owner 或 admin 可调用：
+
+```json
+{
+  "confirmation_slug": "example-skill"
+}
+```
+
+确认 slug 区分大小写且不会自动修正。缺少请求体返回 `422`，确认不匹配返回 `400` 和 `skill.delete_confirmation_mismatch`，权限不足返回 `403`；存在排队中或运行中的测评、发布或关联 Job 时返回 `409`。成功返回 `{"ok": true}`。
 
 ## Workflow 接口约束
 

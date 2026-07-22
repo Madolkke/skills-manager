@@ -55,6 +55,10 @@ class UpdateSkillPayload(BaseModel):
     tags: list[SkillTagPayload] | None = None
 
 
+class DeleteSkillPayload(BaseModel):
+    confirmation_slug: str
+
+
 class AssignSkillRolePayload(BaseModel):
     subject_id: str
     role: str

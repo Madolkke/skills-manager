@@ -93,25 +93,3 @@ class SkillUpdateCommandMixin:
                 return {**self._row_dict(self._skill_row(connection, skill_id)), "tags": self._skill_tags(connection, skill_id)}
         except IntegrityError as exc:
             raise skill_slug_conflict(target_slug, target_owner_ref) from exc
-
-    def archive_skill(self, *, skill_id: str, actor: str) -> None:
-        updated_at = utc_now()
-        with self._write_session() as connection:
-            self._skill_row(connection, skill_id)
-            self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="role.manage")
-            connection.execute(
-                update(orm.Skill)
-                .where(orm.Skill.id == skill_id)
-                .values(lifecycle_status="archived", updated_at=updated_at)
-            )
-            connection.execute(
-                insert(orm.AuditEvent).values(
-                    id=new_id("audit"),
-                    actor_ref=actor,
-                    action="skill.archived",
-                    resource_type="skill",
-                    resource_id=skill_id,
-                    payload={"skill_id": skill_id},
-                    created_at=updated_at,
-                )
-            )
