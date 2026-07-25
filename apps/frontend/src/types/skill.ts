@@ -10,6 +10,7 @@ export type SkillVersion = {
   display_name?: string | null;
   content_ref: ContentRef;
   content_digest: string;
+  description?: string | null;
   change_summary: string;
   created_at?: string;
   created_by: string;

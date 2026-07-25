@@ -39,6 +39,7 @@
 - `version_number`
 - `content_ref`
 - `content_digest`
+- `description`：从该版本 Skill 内容 Artifact manifest 的 `metadata.description` 派生；无法读取时为 `null`。
 - `change_summary`
 - `bundle_artifact`
 - `bundle_files`

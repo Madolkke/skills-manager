@@ -65,7 +65,7 @@ function skillLifecycleLabel(status: string): string {
       <div class="skill-summary-main">
         <div class="skill-title-copy">
           <h1>{{ skill.skill.slug }}</h1>
-          <p>{{ compactText(version?.change_summary, "这个 Skill 还没有说明。") }}</p>
+          <p>{{ compactText(version?.description, "尚未填写 Skill 描述。") }}</p>
         </div>
         <dl class="skill-identity-card" aria-label="Skill 身份信息">
           <div>
@@ -105,7 +105,7 @@ function skillLifecycleLabel(status: string): string {
     </section>
     <section class="primary-panel bundle-panel">
       <div class="panel-title-row">
-        <h2>Skill bundle</h2>
+        <h2>Skill内容</h2>
         <div class="button-row">
           <button v-if="skill.workflow" class="secondary-button" type="button" @click="emit('navigate', { section: 'workflows', skillId: skill.skill.id, tab: 'workflow' })">
             编辑工作流
@@ -116,7 +116,7 @@ function skillLifecycleLabel(status: string): string {
             <GitCompareArrows :size="16" />
           </button>
           <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'history' })">
-            打开历史
+            打开测评历史
             <ExternalLink :size="16" />
           </button>
         </div>
@@ -141,7 +141,7 @@ function skillLifecycleLabel(status: string): string {
           <button class="secondary-button compact-button" type="button" @click="emit('navigate', { tab: item.tab })">{{ item.actionLabel }}</button>
         </article>
       </div>
-      <div v-else class="skill-suggestion-done">当前没有明确阻塞项，可以继续维护版本、补充测评或查看历史结果。</div>
+      <div v-else class="skill-suggestion-done">当前没有明确阻塞项，可以继续维护版本、补充测评或查看测评历史。</div>
     </section>
 
     <section class="primary-panel version-flow-panel">

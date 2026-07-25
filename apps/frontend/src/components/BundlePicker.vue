@@ -6,18 +6,18 @@ const emit = defineEmits<{ files: [folderFiles: File[], zipFile: File | null] }>
 
 const folderRef = ref<HTMLInputElement | null>(null);
 const zipRef = ref<HTMLInputElement | null>(null);
-const label = ref("尚未选择 bundle");
+const label = ref("尚未选择 Skill内容");
 
 function acceptFolder(files: FileList | null): void {
   const folderFiles = files ? Array.from(files) : [];
   const root = (folderFiles[0] as (File & { webkitRelativePath?: string }) | undefined)?.webkitRelativePath?.split("/")[0] ?? "bundle";
-  label.value = folderFiles.length ? `${root} · ${folderFiles.length} files` : "尚未选择 bundle";
+  label.value = folderFiles.length ? `${root} · ${folderFiles.length} 个文件` : "尚未选择 Skill内容";
   emit("files", folderFiles, null);
 }
 
 function acceptZip(files: FileList | null): void {
   const zip = files?.[0] ?? null;
-  label.value = zip ? `${zip.name} · zip` : "尚未选择 bundle";
+  label.value = zip ? `${zip.name} · zip` : "尚未选择 Skill内容";
   emit("files", [], zip);
 }
 </script>

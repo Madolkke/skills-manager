@@ -105,10 +105,10 @@ function treeDepthStyle(depth: number) {
 </script>
 
 <template>
-  <div v-if="files.length === 0" class="quiet-panel">当前版本没有可预览的 bundle 文件。</div>
+  <div v-if="files.length === 0" class="quiet-panel">当前版本没有可预览的 Skill内容文件。</div>
   <section v-else class="bundle-browser">
     <aside class="bundle-tree">
-      <div class="bundle-tree-list" role="tree" aria-label="Skill bundle 文件树">
+      <div class="bundle-tree-list" role="tree" aria-label="Skill内容文件树">
         <TreeNode
           :node="tree"
           :depth="0"

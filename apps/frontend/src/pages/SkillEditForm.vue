@@ -87,7 +87,7 @@ function updateContent(id: string, content: string): void {
   <div class="form-stack skill-edit-form">
     <div v-if="error" class="form-error">{{ error }}</div>
     <div class="hint-strip">保存后会追加新的 Skill 版本，并设置为当前版本。</div>
-    <div v-if="!entryFile" class="form-error">当前 bundle 找不到根目录 SKILL.md，无法使用页面编辑。</div>
+    <div v-if="!entryFile" class="form-error">当前 Skill内容找不到根目录 SKILL.md，无法使用页面编辑。</div>
     <div v-if="entryFile?.binary" class="form-error">SKILL.md 不是可编辑文本文件。</div>
     <div v-for="globalError in validation.globalErrors" :key="globalError" class="form-error">{{ globalError }}</div>
     <VersionSelector v-model="version" :versions="skill.versions" />

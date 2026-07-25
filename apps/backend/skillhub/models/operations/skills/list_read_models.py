@@ -112,11 +112,13 @@ class ListReadModelMixin:
         result: dict[str, dict[str, Any]] = {}
         for row in version_rows:
             detail = self._row_dict(row)
+            detail["description"] = None
             detail["workflow_sync"] = syncs.get(str(row["id"]))
             content_ref = detail.get("content_ref")
             if isinstance(content_ref, dict) and str(content_ref.get("locator", "")).startswith("artifact:"):
                 artifact = artifacts.get(str(content_ref["locator"]).split(":", 1)[1])
                 if artifact is not None:
+                    detail["description"] = self._bundle_description_from_artifact(artifact)
                     detail["bundle_artifact"] = artifact
                     detail["bundle_files"] = self._bundle_files_from_artifact(artifact)
             result[str(row["id"])] = detail

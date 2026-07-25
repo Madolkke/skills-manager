@@ -58,14 +58,14 @@ function submit(): void {
 </script>
 
 <template>
-  <Modal title="提交 Skill" description="选择工作区文件并映射到正式 Skill bundle 路径。" size="wide" @close="emit('close')">
+  <Modal title="提交 Skill" description="选择工作区文件并映射到正式 Skill内容路径。" size="wide" @close="emit('close')">
     <div class="builder-submit-modal">
       <div class="builder-submit-layout">
         <section class="builder-submit-files">
           <header>
             <div>
               <strong>提交文件</strong>
-              <p class="field-hint">选择工作区文件，并映射到正式 Skill bundle 路径。</p>
+              <p class="field-hint">选择工作区文件，并映射到正式 Skill内容路径。</p>
             </div>
             <span class="builder-submit-count">已选择 {{ selectedCount }}/{{ mappings.length }}</span>
           </header>

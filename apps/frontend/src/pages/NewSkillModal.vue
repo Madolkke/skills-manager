@@ -28,7 +28,7 @@ const tagValidationError = computed(() => requiredTagMissingMessage(tags.value, 
 const modalDescription = computed(() => {
   if (mode.value === "workflow") return "创建与 Workflow 永久绑定的 Skill，并生成 0.0.1 空白版本。";
   if (mode.value === "blank") return "创建只包含 SKILL.md 的空白 Skill，之后可在平台中继续添加文件。";
-  return "上传标准 Skill bundle，名称和说明会从 SKILL.md frontmatter 读取。";
+  return "上传标准 Skill内容，名称和说明会从 SKILL.md frontmatter 读取。";
 });
 const canSubmit = computed(() => {
   if (busy.value || tagValidationError.value) return false;
@@ -82,7 +82,7 @@ async function submit(): Promise<void> {
       <div v-if="error" class="form-error">{{ error }}</div>
       <div class="new-skill-mode-switch" role="tablist" aria-label="新建 Skill 方式">
         <button :class="['new-skill-mode-button', mode === 'upload' && 'active']" type="button" role="tab" :aria-selected="mode === 'upload'" @click="mode = 'upload'">
-          上传 bundle
+          上传 Skill内容
         </button>
         <button :class="['new-skill-mode-button', mode === 'blank' && 'active']" type="button" role="tab" :aria-selected="mode === 'blank'" @click="mode = 'blank'">
           空白创建

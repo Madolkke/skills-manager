@@ -65,10 +65,10 @@ function errorMessage(caught: unknown): string {
 </script>
 
 <template>
-  <section class="commit-diff-panel" aria-label="Bundle 差异">
+  <section class="commit-diff-panel" aria-label="Skill内容差异">
     <header class="commit-diff-head">
       <div>
-        <span>Bundle 差异</span>
+        <span>Skill内容差异</span>
         <h2>{{ baseVersion ? `${versionName(current)} 对比 ${versionName(baseVersion)}` : "初始版本" }}</h2>
       </div>
       <div class="commit-diff-tools">
@@ -84,8 +84,8 @@ function errorMessage(caught: unknown): string {
       </div>
     </header>
 
-    <div v-if="loading" class="quiet-panel">正在读取后端 Bundle 差异...</div>
-    <div v-if="error" class="quiet-panel">Bundle 差异读取失败：{{ error }}</div>
+    <div v-if="loading" class="quiet-panel">正在读取 Skill内容差异...</div>
+    <div v-if="error" class="quiet-panel">Skill内容差异读取失败：{{ error }}</div>
     <div v-if="!loading && !error && compareOptions.length === 0" class="quiet-panel">这是第一个 Skill 版本，没有可比较的版本。</div>
     <div v-if="!loading && !error && diff" class="commit-file-list">
       <article v-for="file in (changedFiles.length > 0 ? changedFiles : diff.files)" :key="`${file.status}:${file.path}`" class="commit-file">

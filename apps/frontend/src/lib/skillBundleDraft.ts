@@ -126,7 +126,7 @@ export function validateBundlePath(path: string): string {
 export function buildBundleSourceFromDraftFiles(files: SkillBundleDraftFile[], name: string): BundleSource {
   const validation = validateBundleDraftFiles(files);
   if (!validation.valid) {
-    throw new Error(validation.globalErrors[0] || Object.values(validation.errors)[0] || "Bundle 文件信息不完整。");
+    throw new Error(validation.globalErrors[0] || Object.values(validation.errors)[0] || "Skill内容文件信息不完整。");
   }
   return {
     kind: "files",

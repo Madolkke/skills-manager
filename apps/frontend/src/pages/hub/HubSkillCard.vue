@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import clsx from "clsx";
 import { CheckCircle2, Circle, Workflow } from "lucide-vue-next";
-import { humanDate, scoreKind, scoreLabel, versionName } from "../../lib/format";
+import { compactText, humanDate, scoreKind, scoreLabel, versionName } from "../../lib/format";
 import type { SkillSummary } from "../../types";
 
 defineProps<{ item: SkillSummary }>();
@@ -20,7 +20,7 @@ const emit = defineEmits<{ click: []; workflow: [] }>();
           <div class="skill-card-title"><h3>{{ item.skill.slug }}</h3><span v-if="item.workflow" class="workflow-skill-badge"><Workflow :size="12" />Workflow</span></div>
           <span :class="clsx('score-chip', scoreKind(item.summary.latest_accepted_eval_run))">{{ scoreLabel(item.summary.latest_accepted_eval_run) }}</span>
         </div>
-        <p>{{ item.summary.current_version?.change_summary ?? "尚未写入说明。" }}</p>
+        <p>{{ compactText(item.summary.current_version?.description, "尚未填写 Skill 描述。") }}</p>
       </div>
       <div class="card-metrics">
         <span class="metric-cell">

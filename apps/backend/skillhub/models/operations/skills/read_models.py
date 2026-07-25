@@ -101,6 +101,7 @@ class ReadModelMixin(ListReadModelMixin):
 
     def _skill_version_detail(self, connection, version) -> dict[str, Any]:
         detail = self._row_dict(version)
+        detail["description"] = None
         workflow_sync = connection.execute(
             select(
                 orm.WorkflowSync.workflow_id,
@@ -119,6 +120,7 @@ class ReadModelMixin(ListReadModelMixin):
             artifact = connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id == artifact_id)).mappings().one_or_none()
             if artifact is not None:
                 artifact_detail = self._row_dict(artifact)
+                detail["description"] = self._bundle_description_from_artifact(artifact_detail)
                 detail["bundle_artifact"] = artifact_detail
                 detail["bundle_files"] = self._bundle_files_from_artifact(artifact_detail)
         return detail

@@ -40,17 +40,31 @@ class BundleArtifactMixin:
         return artifact_detail, files
 
     def _bundle_files_from_artifact(self, artifact: dict[str, Any]) -> list[dict[str, Any]]:
-        content_text = artifact.get("content_text")
-        if not isinstance(content_text, str):
-            return []
-        try:
-            manifest = json.loads(content_text)
-        except json.JSONDecodeError:
-            return []
-        files = manifest.get("files") if isinstance(manifest, dict) else None
+        manifest = self._bundle_manifest_from_artifact(artifact)
+        files = manifest.get("files") if manifest is not None else None
         if not isinstance(files, list):
             return []
         return sorted([file for file in files if isinstance(file, dict) and isinstance(file.get("path"), str)], key=lambda file: file["path"])
+
+    def _bundle_description_from_artifact(self, artifact: dict[str, Any]) -> str | None:
+        if artifact.get("kind") != "skill_bundle":
+            return None
+        manifest = self._bundle_manifest_from_artifact(artifact)
+        metadata = manifest.get("metadata") if manifest is not None else None
+        description = metadata.get("description") if isinstance(metadata, dict) else None
+        if not isinstance(description, str) or not description.strip():
+            return None
+        return description.strip()
+
+    def _bundle_manifest_from_artifact(self, artifact: dict[str, Any]) -> dict[str, Any] | None:
+        content_text = artifact.get("content_text")
+        if not isinstance(content_text, str):
+            return None
+        try:
+            manifest = json.loads(content_text)
+        except json.JSONDecodeError:
+            return None
+        return manifest if isinstance(manifest, dict) else None
 
     def _validated_bundle_files_from_artifact(self, artifact: dict[str, Any]) -> list[dict[str, Any]]:
         content_text = artifact.get("content_text")

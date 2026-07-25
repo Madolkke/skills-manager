@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+
+from skillhub.models.schema import orm
 from tests.api_command_test_case import ApiCommandTestCase
 
 
@@ -108,10 +111,32 @@ class ApiBundleContractTest(ApiCommandTestCase):
 
     def test_import_skill_from_file_tree_uses_skill_md_frontmatter(self):
         imported = self.import_standard_skill_bundle("imported-reviewer")
+        hub = self.client.get("/api/skills").json()
         detail = self.client.get(f"/api/skills/{imported['skill_id']}").json()
+        expected_description = "Review pull requests for auth and data access regressions."
 
         self.assertEqual(imported["slug"], "imported-reviewer")
         self.assertEqual(imported["entry_path"], "SKILL.md")
+        self.assertEqual(hub[0]["summary"]["current_version"]["description"], expected_description)
+        self.assertEqual(detail["summary"]["current_version"]["description"], expected_description)
+        self.assertEqual(detail["versions"][0]["description"], expected_description)
+        self.assertNotEqual(detail["summary"]["current_version"]["description"], detail["summary"]["current_version"]["change_summary"])
         self.assertEqual(detail["summary"]["current_version"]["content_ref"]["kind"], "artifact")
         self.assertEqual(detail["summary"]["current_version"]["bundle_artifact"]["id"], imported["bundle_artifact_id"])
         self.assertEqual(len(detail["summary"]["current_version"]["bundle_files"]), 2)
+
+    def test_invalid_bundle_manifest_does_not_break_skill_reads(self):
+        imported = self.import_standard_skill_bundle("invalid-description-manifest")
+        with Session(self.engine) as session, session.begin():
+            artifact = session.get(orm.Artifact, imported["bundle_artifact_id"])
+            self.assertIsNotNone(artifact)
+            artifact.content_text = "{not-json"
+
+        hub = self.client.get("/api/skills")
+        detail = self.client.get(f"/api/skills/{imported['skill_id']}")
+
+        self.assertEqual(hub.status_code, 200)
+        self.assertEqual(detail.status_code, 200)
+        self.assertIsNone(hub.json()[0]["summary"]["current_version"]["description"])
+        self.assertIsNone(detail.json()["summary"]["current_version"]["description"])
+        self.assertIsNone(detail.json()["versions"][0]["description"])

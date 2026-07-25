@@ -125,7 +125,7 @@ function collectFolderPaths(node: BundleTreeNode): string[] {
 
 <template>
   <div v-if="files.length === 0" class="quiet-panel">
-    当前版本没有 bundle 文件。
+    当前版本没有 Skill内容文件。
     <button class="secondary-button" type="button" @click="emit('add')">
       <FilePlus2 :size="16" />
       添加文件
@@ -139,7 +139,7 @@ function collectFolderPaths(node: BundleTreeNode): string[] {
           添加文件
         </button>
       </div>
-      <div class="bundle-tree-list" role="tree" aria-label="Skill bundle 编辑文件树">
+      <div class="bundle-tree-list" role="tree" aria-label="Skill内容编辑文件树">
         <TreeNode
           :node="tree"
           :depth="0"

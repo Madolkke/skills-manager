@@ -48,7 +48,7 @@ function submit(): void {
 </script>
 
 <template>
-  <Modal title="同步到 Skill" description="本次同步将生成完整的新 bundle，并设为当前 Skill 版本。" :open="props.open" motion="workflow" @close="emit('close')" @after-leave="emit('closed')">
+  <Modal title="同步到 Skill" description="本次同步将生成完整的新 Skill内容，并设为当前 Skill 版本。" :open="props.open" motion="workflow" @close="emit('close')" @after-leave="emit('closed')">
     <div class="form-stack workflow-sync-form">
       <div v-if="props.error" class="form-error">{{ props.error }}</div>
       <div class="workflow-replace-warning">

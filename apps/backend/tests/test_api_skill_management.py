@@ -349,9 +349,12 @@ class ApiSkillManagementTest(ApiCommandTestCase):
 
         self.assertEqual(hub[0]["summary"]["current_version"]["id"], skill["skill_version_id"])
         self.assertEqual(hub[0]["summary"]["current_version"]["version"], "0.0.1")
+        self.assertIsNone(hub[0]["summary"]["current_version"]["description"])
         self.assertEqual(detail["summary"]["current_version"]["id"], skill["skill_version_id"])
         self.assertEqual(detail["summary"]["current_version"]["version"], "0.0.1")
+        self.assertIsNone(detail["summary"]["current_version"]["description"])
         self.assertEqual(detail["versions"][0]["id"], skill["skill_version_id"])
+        self.assertIsNone(detail["versions"][0]["description"])
         self.assertEqual(eval_set["cases"][0]["case_version"]["id"], case["eval_case_version_id"])
 
     def test_create_skill_accepts_initial_semver(self):
