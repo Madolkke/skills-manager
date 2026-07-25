@@ -1,16 +1,27 @@
 .icon-button.danger,
 .danger-button {
-  color: #af3e38;
+  color: var(--wf-danger, #b33d38);
 }
 
 .danger-button {
-  min-height: 38px;
+  min-height: var(--wf-control-height, 36px);
   padding: 0 14px;
-  border: 1px solid #b6413b;
-  border-radius: 6px;
-  background: #b6413b;
+  border: 1px solid var(--wf-danger, #b33d38);
+  border-radius: var(--wf-radius-md, 6px);
+  background: var(--wf-danger, #b33d38);
   color: #fff;
   font-weight: 800;
+  transition: background-color var(--ui-motion-fast) var(--ui-ease-standard), border-color var(--ui-motion-fast) var(--ui-ease-standard), box-shadow var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.danger-button:hover {
+  border-color: color-mix(in srgb, var(--wf-danger, #b33d38) 84%, #000);
+  background: color-mix(in srgb, var(--wf-danger, #b33d38) 84%, #000);
+}
+
+.danger-button:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wf-danger, #b33d38) 18%, transparent);
 }
 
 .workflow-confirm-content {
@@ -23,7 +34,7 @@
 
 .workflow-confirm-content p {
   max-width: 420px;
-  color: #5c697b;
+  color: var(--wf-text-secondary, #445268);
   line-height: 1.6;
 }
 
@@ -32,12 +43,12 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  background: #fff6e5;
-  color: #9b5c05;
+  border-radius: var(--wf-radius-lg, 8px);
+  background: var(--wf-warning-soft, #fff5e8);
+  color: var(--wf-warning, #a35b0b);
 }
 
 .workflow-confirm-icon.danger {
-  background: #fff0ef;
-  color: #b13c35;
+  background: var(--wf-danger-soft, #fff0ef);
+  color: var(--wf-danger, #b33d38);
 }

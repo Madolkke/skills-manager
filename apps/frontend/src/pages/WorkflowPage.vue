@@ -1,86 +1,56 @@
 <script setup lang="ts">
 import { AlertTriangle, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, X } from "lucide-vue-next";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import InlineLoading from "../components/InlineLoading.vue";
 import UiButton from "../components/ui/UiButton.vue";
 import UiIconButton from "../components/ui/UiIconButton.vue";
-import type { UiButtonState } from "../components/ui/button";
-import WorkflowCollectionLibrary from "../features/workflow/components/WorkflowCollectionLibrary.vue";
 import WorkflowConfirmModal from "../features/workflow/components/WorkflowConfirmModal.vue";
-import WorkflowConclusionEditor from "../features/workflow/components/WorkflowConclusionEditor.vue";
-import WorkflowMetadataEditor from "../features/workflow/components/WorkflowMetadataEditor.vue";
+import WorkflowEditorContent from "../features/workflow/components/WorkflowEditorContent.vue";
 import WorkflowPreviewPanel from "../features/workflow/components/WorkflowPreviewPanel.vue";
-import WorkflowSettingsEditor from "../features/workflow/components/WorkflowSettingsEditor.vue";
 import WorkflowSidebar from "../features/workflow/components/WorkflowSidebar.vue";
-import WorkflowStepEditor from "../features/workflow/components/WorkflowStepEditor.vue";
 import WorkflowSyncModal from "../features/workflow/components/WorkflowSyncModal.vue";
 import WorkflowToolbar from "../features/workflow/components/WorkflowToolbar.vue";
 import { workflowStatusLabel } from "../features/workflow/domain/presentation";
-import { workflowConclusions, workflowSteps } from "../features/workflow/domain/utils";
+import { workflowSteps } from "../features/workflow/domain/utils";
 import { useWorkflowEditor } from "../features/workflow/useWorkflowEditor";
 import { useWorkflowLayout } from "../features/workflow/useWorkflowLayout";
+import { useWorkflowPersistence } from "../features/workflow/useWorkflowPersistence";
 import { useWorkflowSkillTags } from "../features/workflow/useWorkflowSkillTags";
-import type { WorkflowPathTargetChoice } from "../features/workflow/workflowPathEditing";
 import { useWorkflowShortcuts } from "../features/workflow/useWorkflowShortcuts";
-import { api, ApiError } from "../lib/api";
-import type { CollectionDefinition, SkillDetail, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
+import type { SkillDetail, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
 
 type ConfirmAction = { type: "discard" } | { type: "step" | "conclusion" | "call"; id: string; stepId?: string };
 
 const props = defineProps<{ skill: SkillDetail }>();
 const emit = defineEmits<{ back: []; refresh: []; dirty: [dirty: boolean]; toast: [toast: ToastState] }>();
 const detail = ref<WorkflowDetail | null>(null);
-const loading = ref(true);
-const saving = ref(false);
-const saveFeedback = ref<UiButtonState>("idle");
-const syncing = ref(false);
-const loadError = ref("");
-const actionError = ref("");
-const syncError = ref("");
 const syncOpen = ref(false);
 const confirmAction = ref<ConfirmAction | null>(null);
 const confirmOpen = ref(false);
 const previewTab = ref<"graph" | "read" | "validation">("graph");
 const editorPane = ref<HTMLElement | null>(null);
+const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
 const editor = useWorkflowEditor(() => readOnly.value);
 const layout = useWorkflowLayout();
+const { loading, saving, saveFeedback, syncing, loadError, actionError, syncError, load, save, sync } = useWorkflowPersistence({
+  skillId: () => props.skill.skill.id,
+  detail,
+  editor,
+  editorPane,
+  readonly: () => readOnly.value,
+  refresh: () => emit("refresh"),
+  closeSync: () => { syncOpen.value = false; },
+  toast: (toast) => emit("toast", toast),
+});
 const skillTags = useWorkflowSkillTags({
   skill: () => props.skill,
   refresh: () => emit("refresh"),
   toast: (toast) => emit("toast", toast),
 });
-let saveFeedbackTimer: number | null = null;
 
-const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
 const canCreateVersion = computed(() => Boolean(detail.value?.capabilities.permissions["skill.version.create"]));
 const errors = computed(() => editor.issues.value.filter((item) => item.severity === "error"));
 const canSync = computed(() => Boolean(detail.value && canCreateVersion.value && !editor.dirty.value && errors.value.length === 0 && !saving.value));
-const selectedStep = computed(() => {
-  const selection = editor.selection.value;
-  return selection.type === "step" && editor.bundle.value
-    ? workflowSteps(editor.bundle.value).find((item) => item.id === selection.id)
-    : undefined;
-});
-const selectedConclusion = computed(() => {
-  const selection = editor.selection.value;
-  return selection.type === "conclusion" && editor.bundle.value
-    ? workflowConclusions(editor.bundle.value).find((item) => item.id === selection.id)
-    : undefined;
-});
-const selectedCollectionRef = computed<VersionedRef | undefined>(() => {
-  const selection = editor.selection.value;
-  if (selection.type !== "collection") return undefined;
-  const revision = selection.revision ?? Math.max(...editor.catalog.value.filter((item) => item.id === selection.id).map((item) => item.revision));
-  return Number.isFinite(revision) ? { id: selection.id, revision } : undefined;
-});
-const referencedDefinitionIds = computed(() => editor.bundle.value
-  ? [...new Set(workflowSteps(editor.bundle.value).flatMap((step) => step.collectionCalls.map((call) => call.definition.id)))]
-  : []);
-const editorContentKey = computed(() => {
-  const selection = editor.selection.value;
-  if (selection.type === "inputs" || selection.type === "roles") return "global-inputs";
-  return "id" in selection ? `${selection.type}:${selection.id}` : selection.type;
-});
 
 onMounted(() => {
   window.addEventListener("beforeunload", beforeUnload);
@@ -88,7 +58,6 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("beforeunload", beforeUnload);
-  if (saveFeedbackTimer !== null) window.clearTimeout(saveFeedbackTimer);
   emit("dirty", false);
 });
 watch(() => props.skill.skill.id, () => {
@@ -112,67 +81,6 @@ useWorkflowShortcuts({
   escape: closeTransientUi,
 });
 
-async function load(preserveContext = false): Promise<void> {
-  loading.value = true;
-  loadError.value = "";
-  try {
-    const [nextDetail, response] = await Promise.all([api.getWorkflow(props.skill.skill.id), api.listWorkflowCollections(props.skill.skill.id)]);
-    detail.value = nextDetail;
-    if (preserveContext && editor.bundle.value) editor.accepted(nextDetail, response.definitions);
-    else editor.load(nextDetail, response.definitions);
-  } catch (caught) {
-    loadError.value = message(caught, "Workflow 加载失败。");
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function save(): Promise<void> {
-  if (!editor.bundle.value || !editor.dirty.value || readOnly.value) return;
-  const scrollTop = editorPane.value?.scrollTop ?? 0;
-  saving.value = true;
-  saveFeedback.value = "idle";
-  actionError.value = "";
-  try {
-    const nextDetail = await api.saveWorkflow(props.skill.skill.id, { document: editor.bundle.value, collection_changes: editor.changes.value });
-    const response = await api.listWorkflowCollections(props.skill.skill.id);
-    detail.value = nextDetail;
-    editor.accepted(nextDetail, response.definitions);
-    await nextTick();
-    if (editorPane.value) editorPane.value.scrollTop = scrollTop;
-    emit("refresh");
-    emit("toast", { tone: "success", message: `Workflow revision ${nextDetail.revision} 已保存。` });
-    saveFeedback.value = "success";
-    if (saveFeedbackTimer !== null) window.clearTimeout(saveFeedbackTimer);
-    saveFeedbackTimer = window.setTimeout(() => {
-      saveFeedback.value = "idle";
-      saveFeedbackTimer = null;
-    }, 900);
-  } catch (caught) {
-    actionError.value = message(caught, "Workflow 保存失败。");
-    emit("toast", { tone: "danger", message: actionError.value });
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function sync(payload: { version: string; display_name?: string; change_summary: string }): Promise<void> {
-  syncing.value = true;
-  syncError.value = "";
-  try {
-    const result = await api.syncWorkflow(props.skill.skill.id, payload);
-    syncOpen.value = false;
-    await load(true);
-    emit("refresh");
-    const action = result.mode === "created" ? "已生成新版本" : result.mode === "reactivated" ? "已重新设为当前版本" : "当前版本已经是最新同步结果";
-    emit("toast", { tone: "success", message: action });
-  } catch (caught) {
-    syncError.value = message(caught, "Workflow 同步失败。");
-  } finally {
-    syncing.value = false;
-  }
-}
-
 function select(selection: WorkflowSelection): void {
   editor.selection.value = resolveSelection(selection);
 }
@@ -189,40 +97,6 @@ function resolveSelection(selection: WorkflowSelection): WorkflowSelection {
     ?? steps.find((item) => item.collectionCalls.some((call) => call.definition.id === selection.id));
   const call = step?.collectionCalls.find((item) => item.definition.id === selection.id);
   return step && call ? { type: "step", id: step.id, section: "collections", itemId: call.id, field: selection.field } : selection;
-}
-
-function addExistingCall(definition: CollectionDefinition): void {
-  if (!selectedStep.value) return;
-  const callId = editor.addCall(selectedStep.value.id, definition);
-  editor.selection.value = { type: "step", id: selectedStep.value.id, section: "collections", itemId: callId };
-}
-
-function addDraftCall(): void {
-  if (!selectedStep.value) return;
-  const result = editor.addDraftCollectionCall(selectedStep.value.id);
-  if (result) editor.selection.value = { type: "step", id: selectedStep.value.id, section: "collections", itemId: result.callId };
-}
-
-function updateDefinition(reference: VersionedRef, definition: CollectionDefinition): void {
-  editor.editDefinition(reference, (draft) => Object.assign(draft, definition));
-}
-
-function updateCallDefinition(stepId: string, callId: string, definition: CollectionDefinition): void {
-  const forked = editor.editCallDefinition(stepId, callId, (draft) => Object.assign(draft, definition));
-  if (forked) emit("toast", { tone: "info", message: "已创建采集定义副本，并将当前调用切换到副本。" });
-}
-
-function addWorkflowPath(choice: WorkflowPathTargetChoice): void {
-  if (selectedStep.value) editor.addPath(selectedStep.value.id, choice);
-}
-
-function retargetWorkflowPath(pathId: string, choice: WorkflowPathTargetChoice): void {
-  if (selectedStep.value) editor.retargetPath(selectedStep.value.id, pathId, choice);
-}
-
-function openWorkflowTarget(targetId: string): void {
-  const target = editor.bundle.value?.workflow.nodes.find((item) => item.id === targetId);
-  if (target) select({ type: "stepType" in target ? "step" : "conclusion", id: target.id });
 }
 
 function showValidation(): void {
@@ -274,9 +148,6 @@ function beforeUnload(event: BeforeUnloadEvent): void {
   event.returnValue = "";
 }
 
-function message(caught: unknown, fallback: string): string {
-  return caught instanceof ApiError || caught instanceof Error ? caught.message : fallback;
-}
 </script>
 
 <template>
@@ -325,65 +196,20 @@ function message(caught: unknown, fallback: string): string {
       <div :class="['workflow-panel-resizer', 'left', layout.leftCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整结构面板宽度" @pointerdown="layout.startResize('left', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" :aria-label="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" @pointerdown.stop @click.stop="layout.toggle('left')"><PanelLeftOpen v-if="layout.leftCollapsed.value" :size="14" /><PanelLeftClose v-else :size="14" /></button></div>
 
       <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="layout.graphExpanded.value" :inert="layout.graphExpanded.value">
-        <Transition name="workflow-editor-switch" mode="out-in">
-          <div :key="editorContentKey" class="workflow-editor-content">
-            <WorkflowMetadataEditor
-              v-if="editor.selection.value.type === 'metadata'"
-              :metadata="editor.bundle.value.workflow.metadata"
-              :readonly="readOnly"
-              :tags="skillTags.tags.value"
-              :tag-groups="skillTags.groups.value"
-              :tag-busy="skillTags.busy.value"
-              :tag-error="skillTags.error.value"
-              @change="editor.updateMetadata"
-              @tag-change="skillTags.update"
-              @tag-save="skillTags.save"
-            />
-            <WorkflowSettingsEditor
-              v-else-if="editor.selection.value.type === 'inputs' || editor.selection.value.type === 'roles'"
-              :inputs="editor.bundle.value.workflow.inputs"
-              :roles="editor.bundle.value.workflow.deviceRoles"
-              :target="editor.selection.value.type"
-              :readonly="readOnly"
-              @add-input="editor.addInput"
-              @update-input="editor.updateInput"
-              @remove-input="editor.removeInput"
-              @add-role="editor.addDeviceRole"
-              @update-role="editor.updateDeviceRole"
-              @remove-role="editor.removeDeviceRole"
-            />
-            <WorkflowCollectionLibrary v-else-if="editor.selection.value.type === 'collections' || editor.selection.value.type === 'collection'" :definitions="editor.catalog.value" :selected-ref="selectedCollectionRef" :changes="editor.changes.value" :referenced-definition-ids="referencedDefinitionIds" :readonly="readOnly" @select="selectCatalog" @add="editor.addDefinition" @change="updateDefinition" @remove="editor.removeDraftDefinition" />
-            <WorkflowStepEditor
-              v-else-if="selectedStep"
-              :step="selectedStep"
-              :bundle="editor.bundle.value"
-              :catalog="editor.catalog.value"
-              :changes="editor.changes.value"
-              :issues="editor.issues.value"
-              :target="editor.selection.value"
-              :readonly="readOnly"
-              @change="editor.updateStep(selectedStep.id, $event)"
-              @duplicate="editor.duplicateStep(selectedStep.id)"
-              @remove="requestDelete('step', selectedStep.id)"
-              @add-call="addExistingCall"
-              @add-draft="addDraftCall"
-              @call-change="(id, patch) => editor.updateCall(selectedStep!.id, id, patch)"
-              @call-remove="requestDelete('call', $event, selectedStep.id)"
-              @call-move="(id, direction) => editor.moveCall(selectedStep!.id, id, direction)"
-              @call-reorder="editor.reorderCalls(selectedStep.id, $event)"
-              @binding-change="(callId, inputId, binding) => editor.updateCallBinding(selectedStep!.id, callId, inputId, binding)"
-              @definition-change="(callId, definition) => updateCallDefinition(selectedStep!.id, callId, definition)"
-              @path-add="addWorkflowPath"
-              @path-retarget="retargetWorkflowPath"
-              @path-change="(id, patch) => editor.updatePath(selectedStep!.id, id, patch)"
-              @path-remove="editor.removePath(selectedStep.id, $event)"
-              @path-move="(id, direction) => editor.movePath(selectedStep!.id, id, direction)"
-              @path-open-target="openWorkflowTarget"
-              @predecessor-open="(id) => select({ type: 'step', id })"
-            />
-            <WorkflowConclusionEditor v-else-if="selectedConclusion" :conclusion="selectedConclusion" :bundle="editor.bundle.value" :readonly="readOnly" @change="editor.updateConclusion(selectedConclusion.id, $event)" @remove="requestDelete('conclusion', selectedConclusion.id)" @predecessor-open="(id) => select({ type: 'step', id })" />
-          </div>
-        </Transition>
+        <WorkflowEditorContent
+          :editor="editor"
+          :readonly="readOnly"
+          :tags="skillTags.tags.value"
+          :tag-groups="skillTags.groups.value"
+          :tag-busy="skillTags.busy.value"
+          :tag-error="skillTags.error.value"
+          @select="select"
+          @select-catalog="selectCatalog"
+          @tag-change="skillTags.update"
+          @tag-save="skillTags.save"
+          @toast="emit('toast', { tone: 'info', message: $event })"
+          @request-delete="requestDelete"
+        />
       </main>
 
       <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><PanelRightOpen v-if="layout.rightCollapsed.value" :size="14" /><PanelRightClose v-else :size="14" /></button></div>

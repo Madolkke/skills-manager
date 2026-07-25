@@ -41,7 +41,7 @@ const lastSavedLabel = computed(() => {
     <div class="workflow-toolbar-context">
       <UiIconButton label="返回 Skill" variant="secondary" @click="emit('back')"><ArrowLeft /></UiIconButton>
       <div class="workflow-toolbar-title">
-        <span>Workflow editor</span>
+        <span>工作流编辑</span>
         <strong :title="props.title">{{ props.title }}</strong>
       </div>
       <span v-if="props.revision" class="workflow-toolbar-revision">r{{ props.revision }}</span>
@@ -50,7 +50,6 @@ const lastSavedLabel = computed(() => {
     </div>
 
     <div class="workflow-toolbar-persistence" role="status" aria-live="polite">
-      <span class="workflow-toolbar-updated">最后保存 <time :datetime="props.lastSavedAt">{{ lastSavedLabel }}</time></span>
       <div :class="['workflow-save-state', props.dirty && 'dirty']">
         <Transition name="workflow-state-swap" mode="out-in">
           <span :key="props.dirty ? 'dirty' : 'saved'">
@@ -59,6 +58,7 @@ const lastSavedLabel = computed(() => {
           </span>
         </Transition>
       </div>
+      <span class="workflow-toolbar-updated">最后保存 <time :datetime="props.lastSavedAt">{{ lastSavedLabel }}</time></span>
     </div>
 
     <div class="workflow-toolbar-spacer" />
@@ -69,11 +69,16 @@ const lastSavedLabel = computed(() => {
     </div>
 
     <div class="workflow-toolbar-actions workflow-toolbar-commands">
-      <UiButton variant="secondary" @click="emit('validation')">
+      <UiButton class="workflow-toolbar-validation" variant="secondary" @click="emit('validation')">
         <template #icon><AlertTriangle /></template>
         校验 <Transition name="workflow-count"><span v-if="props.issueCount" class="workflow-count">{{ props.issueCount }}</span></Transition>
       </UiButton>
+      <UiButton class="workflow-toolbar-sync-command" variant="secondary" :state="props.syncing ? 'loading' : 'idle'" :disabled="!props.canSync" :disabled-reason="props.dirty ? '请先保存 Workflow' : props.issueCount ? '请先解决校验问题' : '当前无法创建 Skill 版本'" loading-label="同步中" @click="emit('sync')">
+        <template #icon><RefreshCw /></template>
+        同步到 Skill
+      </UiButton>
       <UiButton
+        class="workflow-toolbar-save-command"
         variant="primary"
         :state="props.saveState"
         :disabled="props.readonly || (!props.dirty && props.saveState !== 'success')"
@@ -85,10 +90,6 @@ const lastSavedLabel = computed(() => {
       >
         <template #icon><Save /></template>
         保存 Workflow
-      </UiButton>
-      <UiButton variant="secondary" :state="props.syncing ? 'loading' : 'idle'" :disabled="!props.canSync" :disabled-reason="props.dirty ? '请先保存 Workflow' : props.issueCount ? '请先解决校验问题' : '当前无法创建 Skill 版本'" loading-label="同步中" @click="emit('sync')">
-        <template #icon><RefreshCw /></template>
-        同步到 Skill
       </UiButton>
     </div>
   </header>

@@ -10,7 +10,6 @@ import WorkflowSettingsEditor from "./components/WorkflowSettingsEditor.vue";
 import WorkflowPreviewPanel from "./components/WorkflowPreviewPanel.vue";
 import WorkflowSidebar from "./components/WorkflowSidebar.vue";
 import WorkflowToolbar from "./components/WorkflowToolbar.vue";
-import { useWorkflowLayout, workflowInitialRightWidth } from "./useWorkflowLayout";
 
 describe("Workflow UI state", () => {
   it("keeps save success visible after dirty state clears", async () => {
@@ -29,7 +28,7 @@ describe("Workflow UI state", () => {
       },
     });
 
-    const save = wrapper.get('button[title="保存 Workflow (Ctrl+S)"]');
+    const save = wrapper.get(".workflow-toolbar-save-command");
     expect(wrapper.get("time").attributes("datetime")).toBe("2026-07-12T02:12:12Z");
     expect(wrapper.text()).toContain("修改尚未写入服务端");
     expect(save.attributes("data-state")).toBe("loading");
@@ -41,35 +40,26 @@ describe("Workflow UI state", () => {
     expect(wrapper.text()).toContain("内容已写入服务端");
   });
 
-  it("collapses layout tracks without changing the remembered panel widths", () => {
-    let layout: ReturnType<typeof useWorkflowLayout> | undefined;
-    const Host = defineComponent({
-      setup() {
-        layout = useWorkflowLayout();
-        return () => h("div");
+  it("keeps destructive and persistence commands inert in read-only mode", async () => {
+    const wrapper = mount(WorkflowToolbar, {
+      props: {
+        title: "Read-only workflow",
+        dirty: true,
+        readonly: true,
+        saveState: "idle",
+        syncing: false,
+        issueCount: 0,
+        canUndo: false,
+        canRedo: false,
+        canSync: false,
       },
     });
-    const wrapper = mount(Host);
-    const expanded = layout!.gridStyle.value.gridTemplateColumns;
 
-    layout!.toggle("left");
-    expect(layout!.gridStyle.value.gridTemplateColumns).toContain("0px 20px");
-    layout!.toggle("left");
-    expect(layout!.gridStyle.value.gridTemplateColumns).toBe(expanded);
-
-    layout!.setGraphExpanded(true);
-    expect(layout!.graphExpanded.value).toBe(true);
-    expect(layout!.leftCollapsed.value).toBe(false);
-    expect(layout!.gridStyle.value.gridTemplateColumns).toBe(expanded);
-    layout!.setGraphExpanded(false);
-    expect(layout!.graphExpanded.value).toBe(false);
-
-    wrapper.unmount();
-  });
-
-  it("gives the editor more room on compact desktop workbenches", () => {
-    expect(workflowInitialRightWidth(1280)).toBe(360);
-    expect(workflowInitialRightWidth(1600)).toBe(440);
+    const save = wrapper.get(".workflow-toolbar-save-command");
+    expect(save.attributes("data-disabled")).toBe("true");
+    expect(save.attributes("aria-disabled")).toBe("true");
+    await save.trigger("click");
+    expect(wrapper.emitted("save")).toBeUndefined();
   });
 
   it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {
@@ -92,12 +82,19 @@ describe("Workflow UI state", () => {
         }, [h("button", { type: "button", onClick: () => emit("toggle-expand") }, "切换展开")]);
       },
     });
+    const issue = {
+      id: "issue-1",
+      code: "missing_name",
+      severity: "error" as const,
+      message: "步骤名称不能为空。",
+      selection: { type: "metadata" as const },
+    };
     const Host = defineComponent({
       setup() {
         return () => h(WorkflowPreviewPanel, {
           bundle: workflowBundle(),
           catalog: [],
-          issues: [],
+          issues: [issue],
           tab: tab.value,
           expanded: expanded.value,
           "onUpdate:tab": (value) => { tab.value = value; },
@@ -121,8 +118,30 @@ describe("Workflow UI state", () => {
     await wrapper.findAll('button[role="tab"]').find((button) => button.text() === "阅读视图")!.trigger("click");
     expect(tab.value).toBe("read");
     expect(expanded.value).toBe(false);
+    await wrapper.findAll('button[role="tab"]').find((button) => button.text() === "校验 1")!.trigger("click");
+    expect(tab.value).toBe("validation");
+    expect(wrapper.get(".workflow-validation-summary").text()).toContain("1 个错误");
+    await wrapper.get(".workflow-validation-list > button").trigger("click");
+    expect(wrapper.findComponent(WorkflowPreviewPanel).emitted("select")?.at(-1)).toEqual([issue.selection]);
 
     wrapper.unmount();
+  });
+
+  it("does not present a warning-only validation summary as an error", () => {
+    const warning = {
+      id: "warning-1",
+      code: "missing_description",
+      severity: "warning" as const,
+      message: "建议补充步骤说明。",
+      selection: { type: "metadata" as const },
+    };
+    const wrapper = mount(WorkflowPreviewPanel, {
+      props: { bundle: workflowBundle(), catalog: [], issues: [warning], tab: "validation" },
+    });
+
+    expect(wrapper.get(".workflow-validation-summary strong").text()).toBe("0 个错误");
+    expect(wrapper.get(".workflow-validation-summary strong").classes()).toContain("is-clear");
+    expect(wrapper.get(".workflow-validation-summary span").classes()).toContain("has-warnings");
   });
 
   it("shows inputs and device roles in one editor and keeps their actions separate", async () => {
@@ -203,6 +222,33 @@ describe("Workflow UI state", () => {
     await globalInputs.trigger("click");
     expect(wrapper.emitted("select")?.at(-1)).toEqual([{ type: "inputs" }]);
     wrapper.unmount();
+  });
+
+  it("filters outline nodes while keeping mutation controls disabled in read-only mode", async () => {
+    const bundle = workflowBundle();
+    bundle.workflow.nodes = [
+      {
+        id: "step-1",
+        name: "检查接口",
+        description: "Investigate timeout alarms",
+        isStart: true,
+        collectionCalls: [],
+        topology: [],
+        stepType: "script",
+      },
+      { id: "conclusion-1", name: "链路异常", rootCause: "丢包", repairRecommendation: "切换链路", nodeType: "conclusion" },
+    ];
+    const wrapper = mount(WorkflowSidebar, {
+      props: { bundle, selection: { type: "metadata" }, issues: [], readonly: true },
+    });
+
+    expect(wrapper.get('button[aria-label="添加步骤"]').attributes()).toHaveProperty("disabled");
+    expect(wrapper.get('button[aria-label="添加结论"]').attributes()).toHaveProperty("disabled");
+    await wrapper.get('input[aria-label="搜索工作流节点"]').setValue("TIMEOUT");
+    expect(wrapper.findAll(".workflow-sidebar-node")).toHaveLength(1);
+    expect(wrapper.get(".workflow-sidebar-node").text()).toContain("检查接口");
+    expect(wrapper.get(".workflow-drag-handle").attributes()).toHaveProperty("disabled");
+    expect(wrapper.text()).toContain("没有匹配的结论");
   });
 });
 

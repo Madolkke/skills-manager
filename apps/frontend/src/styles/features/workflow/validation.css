@@ -1,0 +1,79 @@
+.workflow-validation-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 0 14px 18px;
+  overflow: auto;
+  background: var(--wf-surface-subtle);
+}
+
+.workflow-validation-summary {
+  min-height: 48px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-inline: -14px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--wf-border-subtle);
+  background: color-mix(in srgb, var(--wf-surface) 94%, transparent);
+  color: var(--wf-text-muted);
+  font-size: 11px;
+  backdrop-filter: blur(8px);
+}
+
+.workflow-validation-summary strong.has-errors { color: var(--wf-danger); }
+.workflow-validation-summary strong.is-clear { color: var(--wf-success); }
+.workflow-validation-summary span.has-warnings { color: var(--wf-warning); }
+
+.workflow-validation-list > button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  padding: 11px 12px 11px 14px;
+  overflow: hidden;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface);
+  color: var(--wf-text-secondary);
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.5;
+  transition: border-color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-validation-list > button::before {
+  width: 3px;
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  background: var(--wf-warning);
+  content: "";
+}
+
+.workflow-validation-list > button.error::before { background: var(--wf-danger); }
+
+.workflow-validation-list > button:hover {
+  border-color: var(--wf-border-strong);
+  background: var(--wf-surface-hover);
+}
+
+.workflow-validation-list > button strong {
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.workflow-validation-list > button.error strong { color: var(--wf-danger); }
+.workflow-validation-list > button.warning strong { color: var(--wf-warning); }
+
+.workflow-validation-list > .workflow-empty {
+  margin-top: 32px;
+  color: var(--wf-text-muted);
+  font-size: 12px;
+  text-align: center;
+}

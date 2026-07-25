@@ -24,6 +24,8 @@
 @import "./features/skill/my-review-score.css";
 @import "./features/skill/builder.css";
 @import "./features/skill/builder-markdown.css";
+@import "./features/workflow/tokens.css";
+@import "./features/workflow/toolbar.css";
 @import "./features/workflow/layout.css";
 @import "./features/workflow/motion.css";
 @import "./features/workflow/sidebar.css";
@@ -36,6 +38,7 @@
 @import "./features/workflow/dialogs.css";
 @import "./features/workflow/preview.css";
 @import "./features/workflow/read-preview.css";
+@import "./features/workflow/validation.css";
 @import "./features/workflow/responsive.css";
 @import "./features/workflow/skill-tab.css";
 @import "./features/versions/version-upload.css";
@@ -54,6 +57,8 @@
 @import "./features/evaluation/opencode-runner-queue.css";
 @import "./features/evaluation/opencode-runner-detail.css";
 @import "./core/forms.css";
+@import "./features/workflow/authoring.css";
+@import "./features/workflow/entities.css";
 @import "./features/evaluation/scenario-editor.css";
 @import "./features/evaluation/assertion-template-picker.css";
 @import "./core/responsive.css";

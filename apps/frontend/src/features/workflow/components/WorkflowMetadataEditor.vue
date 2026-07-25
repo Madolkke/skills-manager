@@ -22,8 +22,8 @@ function versions(value: string): string[] {
 </script>
 
 <template>
-  <section class="workflow-document">
-    <header class="workflow-document-head"><span><FileText :size="18" /></span><div><small>WORKFLOW PROFILE</small><h2>基础信息</h2><p>名称和说明会进入同步生成的 SKILL.md。</p></div></header>
+  <section class="workflow-document workflow-metadata-document">
+    <header class="workflow-document-head"><span><FileText :size="18" /></span><div><small>基础资料</small><h2>基础信息</h2><p>名称和说明会进入同步生成的 SKILL.md。</p></div></header>
     <div class="workflow-form-grid">
       <label class="field-label span-2"><span>工作流名称</span><input :value="props.metadata.name" :disabled="props.readonly" @input="emit('change', { name: ($event.target as HTMLInputElement).value })" /></label>
       <label class="field-label"><span>工作流编码</span><input :value="props.metadata.code" :disabled="props.readonly" @input="emit('change', { code: ($event.target as HTMLInputElement).value })" /></label>

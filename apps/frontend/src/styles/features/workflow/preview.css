@@ -1,51 +1,72 @@
 .workflow-preview-tabs {
-  min-height: 46px;
+  min-height: 52px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 7px;
-  border-bottom: 1px solid var(--line);
-  background: white;
-  position: relative;
   gap: 2px;
+  padding: 8px;
+  position: relative;
+  border-bottom: 1px solid var(--wf-border-subtle);
+  background: var(--wf-surface);
+}
+
+.workflow-preview-tabs::after {
+  position: absolute;
+  inset: 8px;
+  border: 1px solid var(--wf-border-subtle);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface-subtle);
+  content: "";
+  pointer-events: none;
 }
 
 .workflow-preview-tabs::before {
-  width: calc((100% - 14px - 4px) / 3);
+  width: calc((100% - 16px - 4px) / 3);
   position: absolute;
-  top: 7px;
-  bottom: 7px;
-  left: 7px;
-  border: 1px solid #c7d8ed;
-  border-radius: 5px;
-  background: #eef5ff;
-  box-shadow: 0 2px 7px rgb(35 72 116 / 8%);
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 1;
+  border: 1px solid color-mix(in srgb, var(--wf-accent) 30%, var(--wf-border));
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-surface);
+  box-shadow: var(--wf-shadow-selected);
   content: "";
   transform: translateX(0);
   transition: transform var(--ui-motion-emphasis) var(--ui-ease-emphasis);
 }
 
-.workflow-preview-tabs.is-read::before { transform: translateX(calc(100% + 2px)); }
-.workflow-preview-tabs.is-validation::before { transform: translateX(calc(200% + 4px)); }
-
-.workflow-preview-tabs button {
-  min-height: 32px;
-  border: 0;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: #66758b;
-  font-size: 12px;
-  font-weight: 800;
-  position: relative;
-  z-index: 1;
-  transition: color var(--ui-motion-fast) var(--ui-ease-standard), transform var(--ui-motion-fast) var(--ui-ease-emphasis);
+.workflow-preview-tabs.is-read::before {
+  transform: translateX(calc(100% + 2px));
 }
 
-.workflow-preview-tabs button:hover { color: #285f9d; }
-.workflow-preview-tabs button:active { transform: scale(0.97); }
+.workflow-preview-tabs.is-validation::before {
+  transform: translateX(calc(200% + 4px));
+}
+
+.workflow-preview-tabs button {
+  min-height: 34px;
+  position: relative;
+  z-index: 2;
+  border: 0;
+  border-radius: var(--wf-radius-sm);
+  background: transparent;
+  color: var(--wf-text-muted);
+  font-size: 12px;
+  font-weight: 750;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-preview-tabs button:hover {
+  color: var(--wf-text-secondary);
+}
+
+.workflow-preview-tabs button:focus-visible {
+  outline: 0;
+  box-shadow: inset var(--wf-focus-ring);
+}
 
 .workflow-preview-tabs button.active {
-  color: #174ea6;
+  color: var(--wf-accent-strong);
 }
 
 .workflow-graph {
@@ -54,12 +75,14 @@
   --workflow-graph-conclusion-height: 92px;
   min-height: 100%;
   position: relative;
-  background-color: #f8fafc;
-  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-  background-size: 18px 18px;
+  background-color: var(--wf-surface-subtle);
+  background-image: radial-gradient(color-mix(in srgb, var(--wf-border-strong) 58%, transparent) 0.8px, transparent 0.8px);
+  background-size: 20px 20px;
 }
 
-.workflow-graph.is-compact { --workflow-graph-node-width: 180px; }
+.workflow-graph.is-compact {
+  --workflow-graph-node-width: 180px;
+}
 
 .workflow-graph .vue-flow {
   min-height: 100%;
@@ -67,47 +90,57 @@
 
 .workflow-graph-controls {
   display: flex;
-  padding: 3px;
-  border: 1px solid #ced8e4;
-  border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 5px 16px rgb(35 53 76 / 10%);
   gap: 1px;
+  padding: 3px;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: color-mix(in srgb, var(--wf-surface) 96%, transparent);
+  box-shadow: 0 4px 14px rgb(23 32 51 / 8%);
 }
 
-.workflow-graph-controls .ui-tooltip-trigger { display: flex; }
-.workflow-graph-controls .ui-button { border-radius: 4px; }
+.workflow-graph-controls .ui-tooltip-trigger {
+  display: flex;
+}
+
+.workflow-graph-controls .ui-button {
+  border-radius: var(--wf-radius-sm);
+}
 
 .workflow-graph-state {
   min-height: 320px;
   display: grid;
   place-items: center;
   padding: 24px;
-  color: var(--muted);
+  color: var(--wf-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
   text-align: center;
 }
 
 .workflow-graph-layouting {
-  min-height: 26px;
+  min-height: 28px;
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 12px;
   z-index: 8;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 9px;
-  border: 1px solid #ccdaea;
-  border-radius: 5px;
-  background: rgb(255 255 255 / 92%);
-  color: #53647a;
+  padding: 0 10px;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: color-mix(in srgb, var(--wf-surface) 94%, transparent);
+  color: var(--wf-text-secondary);
   font-size: 10px;
-  font-weight: 760;
-  box-shadow: 0 4px 12px rgb(35 53 76 / 9%);
+  font-weight: 750;
+  box-shadow: 0 4px 14px rgb(23 32 51 / 8%);
   pointer-events: none;
 }
 
-.workflow-graph-layouting svg { animation: ui-spin 700ms linear infinite; }
+.workflow-graph-layouting svg {
+  color: var(--wf-accent);
+  animation: ui-spin 700ms linear infinite;
+}
 
 .workflow-graph-node {
   width: var(--workflow-graph-node-width);
@@ -115,17 +148,27 @@
   display: grid;
   gap: 7px;
   padding: 11px 12px;
-  border: 1px solid #bfcde0;
-  border-radius: 7px;
-  background: white;
-  color: var(--ink);
-  box-shadow: 0 8px 22px rgb(15 23 42 / 8%);
-  transition: border-color var(--ui-motion-base) var(--ui-ease-standard), box-shadow var(--ui-motion-base) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis);
+  border: 1px solid var(--wf-border-strong);
+  border-radius: var(--wf-radius-lg);
+  background: var(--wf-surface);
+  color: var(--wf-text);
+  box-shadow: none;
+  transition: border-color var(--ui-motion-base) var(--ui-ease-standard), background-color var(--ui-motion-base) var(--ui-ease-standard), box-shadow var(--ui-motion-base) var(--ui-ease-standard);
 }
 
-.workflow-graph-node:hover { transform: translateY(-2px); box-shadow: 0 11px 26px rgb(15 23 42 / 12%); }
-.workflow-graph-node.is-entering { animation: workflow-graph-node-enter var(--ui-motion-emphasis) var(--ui-ease-emphasis); }
-.workflow-graph-node.is-leaving { animation: workflow-graph-node-leave var(--ui-motion-emphasis) var(--ui-ease-exit) forwards; pointer-events: none; }
+.workflow-graph-node:hover {
+  border-color: color-mix(in srgb, var(--wf-accent) 35%, var(--wf-border-strong));
+  background: color-mix(in srgb, var(--wf-accent-soft) 26%, var(--wf-surface));
+}
+
+.workflow-graph-node.is-entering {
+  animation: workflow-graph-node-enter var(--ui-motion-emphasis) var(--ui-ease-emphasis);
+}
+
+.workflow-graph-node.is-leaving {
+  animation: workflow-graph-node-leave var(--ui-motion-emphasis) var(--ui-ease-exit) forwards;
+  pointer-events: none;
+}
 
 .workflow-graph-node .workflow-graph-handle {
   width: 8px;
@@ -146,34 +189,46 @@
   display: -webkit-box;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 4px 7px;
-  border: 1px solid color-mix(in srgb, var(--workflow-edge-color) 48%, white);
-  border-left: 3px solid var(--workflow-edge-color);
-  border-radius: 4px;
-  background: rgb(253 255 252 / 97%);
-  color: #334155;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--workflow-edge-color) 34%, var(--wf-border-subtle));
+  border-left: 2px solid var(--workflow-edge-color);
+  border-radius: var(--wf-radius-sm);
+  background: color-mix(in srgb, var(--wf-surface) 96%, transparent);
+  color: var(--wf-text-secondary);
   font-size: 10px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 14px;
   text-align: center;
   overflow-wrap: anywhere;
   pointer-events: none;
-  box-shadow: 0 2px 7px rgb(45 73 36 / 10%);
+  box-shadow: none;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.workflow-graph-edge-label.is-loop { border-style: dashed; }
+.workflow-graph-edge-label.is-loop {
+  border-style: dashed;
+}
 
 .workflow-graph-node.selected {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 13%);
+  border-color: var(--wf-accent);
+  background: var(--wf-surface);
+  box-shadow: var(--wf-focus-ring), var(--wf-shadow-selected);
 }
 
 .workflow-graph-node.is-conclusion {
   height: var(--workflow-graph-conclusion-height);
-  border-color: #aacfbf;
-  background: #fbfffd;
+  border-color: color-mix(in srgb, var(--wf-success) 32%, var(--wf-border));
+  background: color-mix(in srgb, var(--wf-success-soft) 56%, var(--wf-surface));
+}
+
+.workflow-graph-node.is-conclusion:hover {
+  border-color: color-mix(in srgb, var(--wf-success) 55%, var(--wf-border));
+}
+
+.workflow-graph-node.is-conclusion.selected {
+  border-color: var(--wf-accent);
+  background: var(--wf-surface);
 }
 
 .workflow-graph-node-head,
@@ -182,9 +237,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: var(--muted);
+  color: var(--wf-text-muted);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 750;
 }
 
 .workflow-graph-node-head span,
@@ -196,7 +251,7 @@
 }
 
 .workflow-graph-node-head i {
-  color: var(--red);
+  color: var(--wf-danger);
   font-style: normal;
 }
 
@@ -207,33 +262,36 @@
   white-space: nowrap;
 }
 
-@keyframes workflow-graph-node-enter {
-  from { opacity: 0; transform: translateY(8px) scale(0.92); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes workflow-graph-node-leave {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.9); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .workflow-preview-tabs::before,
-  .workflow-preview-tabs button,
-  .workflow-graph-node { transition: none; }
-  .workflow-preview-tabs button:active,
-  .workflow-graph-node:hover { transform: none; }
-  .workflow-graph .vue-flow__edge.animated path { animation: none; }
-  .workflow-graph-node.is-entering,
-  .workflow-graph-node.is-leaving,
-  .workflow-graph-layouting svg { animation: none; }
-}
-
 .workflow-graph-node strong {
   font-size: 13px;
 }
 
 .workflow-graph-node small {
-  color: var(--muted);
+  color: var(--wf-text-muted);
   font-size: 10px;
+}
+
+@keyframes workflow-graph-node-enter {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes workflow-graph-node-leave {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-preview-tabs::before,
+  .workflow-preview-tabs button,
+  .workflow-graph-node {
+    transition: none;
+  }
+
+  .workflow-graph .vue-flow__edge.animated path,
+  .workflow-graph-node.is-entering,
+  .workflow-graph-node.is-leaving,
+  .workflow-graph-layouting svg {
+    animation: none;
+  }
 }

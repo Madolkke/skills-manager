@@ -1,0 +1,222 @@
+.workflow-workbench-page .workflow-library-layout {
+  border-color: var(--wf-border);
+  border-radius: var(--wf-radius-lg);
+  background: var(--wf-surface);
+}
+
+.workflow-workbench-page .workflow-library-list {
+  border-color: var(--wf-border-subtle);
+  background: var(--wf-surface-subtle);
+}
+
+.workflow-workbench-page .workflow-library-search,
+.workflow-workbench-page .workflow-picker-input,
+.workflow-workbench-page .workflow-path-search {
+  min-height: var(--wf-control-height);
+  border-color: var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface);
+  color: var(--wf-text-muted);
+}
+
+.workflow-workbench-page .workflow-library-item {
+  border-radius: var(--wf-radius-md);
+  color: var(--wf-text);
+  transition: border-color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard), color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-workbench-page .workflow-library-item:hover {
+  border-color: var(--wf-border);
+  background: var(--wf-surface-hover);
+  box-shadow: none;
+  transform: none;
+}
+
+.workflow-workbench-page .workflow-library-item.active {
+  border-color: var(--wf-border-strong);
+  background: var(--wf-surface);
+  color: var(--wf-accent-strong);
+  box-shadow: var(--wf-shadow-selected);
+}
+
+.workflow-workbench-page .workflow-library-item i {
+  background: var(--wf-success-soft);
+  color: var(--wf-success);
+}
+
+.workflow-workbench-page .workflow-library-item code,
+.workflow-workbench-page .workflow-library-item small {
+  color: var(--wf-text-muted);
+  font-size: 11px;
+}
+
+.workflow-workbench-page .workflow-library-detail {
+  background: var(--wf-surface);
+}
+
+.workflow-workbench-page .workflow-library-detail-head {
+  border-color: var(--wf-border-subtle);
+}
+
+.workflow-workbench-page .workflow-library-detail-head span {
+  background: var(--wf-surface-hover);
+  color: var(--wf-text-secondary);
+}
+
+.workflow-workbench-page .workflow-replace-warning {
+  border-color: var(--wf-warning);
+  background: var(--wf-warning-soft);
+  color: var(--wf-warning);
+}
+
+.workflow-workbench-page .workflow-picker-input.active {
+  border-color: var(--wf-accent);
+  box-shadow: var(--wf-focus-ring);
+}
+
+.workflow-workbench-page .workflow-picker-input input {
+  color: var(--wf-text);
+}
+
+.workflow-workbench-page .workflow-picker-menu,
+.workflow-workbench-page .workflow-path-target-popover {
+  border-color: var(--wf-border);
+  border-radius: var(--wf-radius-lg);
+  background: var(--wf-surface);
+  box-shadow: var(--wf-shadow-floating);
+}
+
+.workflow-workbench-page .workflow-picker-menu button,
+.workflow-workbench-page .workflow-path-node-list button {
+  border-radius: var(--wf-radius-md);
+  color: var(--wf-text-secondary);
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-workbench-page .workflow-picker-menu button:hover,
+.workflow-workbench-page .workflow-path-node-list button:hover {
+  background: var(--wf-surface-hover);
+  color: var(--wf-accent-strong);
+  transform: none;
+}
+
+.workflow-workbench-page .workflow-picker-menu code,
+.workflow-workbench-page .workflow-picker-menu small,
+.workflow-workbench-page .workflow-picker-menu p,
+.workflow-workbench-page .workflow-path-node-list > p {
+  color: var(--wf-text-muted);
+}
+
+.workflow-workbench-page .workflow-picker-menu i,
+.workflow-workbench-page .workflow-picker-revision {
+  color: var(--wf-success);
+}
+
+.workflow-workbench-page .workflow-path-target-trigger {
+  min-height: var(--wf-control-height);
+  border-color: var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface);
+  color: var(--wf-text-secondary);
+  box-shadow: none;
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard), background-color var(--ui-motion-fast) var(--ui-ease-standard), border-color var(--ui-motion-fast) var(--ui-ease-standard), box-shadow var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-workbench-page .workflow-path-target-trigger:hover:not(:disabled) {
+  border-color: var(--wf-border-strong);
+  background: var(--wf-surface-hover);
+  box-shadow: none;
+  transform: none;
+}
+
+.workflow-workbench-page .workflow-path-target-trigger.active,
+.workflow-workbench-page .workflow-path-target-trigger:focus-visible {
+  border-color: var(--wf-accent);
+  box-shadow: var(--wf-focus-ring);
+}
+
+.workflow-workbench-page .workflow-path-target-tabs,
+.workflow-workbench-page .workflow-path-step-types {
+  border-color: var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface-subtle);
+}
+
+.workflow-workbench-page .workflow-path-target-tabs button,
+.workflow-workbench-page .workflow-path-step-types button {
+  color: var(--wf-text-muted);
+  font-weight: 700;
+}
+
+.workflow-workbench-page .workflow-path-target-tabs button.active,
+.workflow-workbench-page .workflow-path-step-types button.active {
+  background: var(--wf-surface);
+  color: var(--wf-accent-strong);
+  box-shadow: 0 1px 3px rgb(23 32 51 / 9%);
+}
+
+.workflow-workbench-page .workflow-path-create-button {
+  border-color: var(--wf-accent-strong);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-accent);
+  font-weight: 750;
+}
+
+.workflow-workbench-page .workflow-expression-editor .cm-tooltip-autocomplete,
+.workflow-workbench-page .workflow-expression-editor .cm-completionInfo {
+  border-color: var(--wf-border);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface);
+  color: var(--wf-text-secondary);
+  box-shadow: var(--wf-shadow-floating);
+}
+
+.workflow-workbench-page .workflow-expression-editor .cm-tooltip-autocomplete > ul > li {
+  border-radius: var(--wf-radius-sm);
+  color: var(--wf-text-secondary);
+}
+
+.workflow-workbench-page .workflow-expression-editor .cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background: var(--wf-accent-soft);
+  color: var(--wf-accent-strong);
+}
+
+.workflow-workbench-page .workflow-expression-editor .cm-completionDetail {
+  color: var(--wf-text-muted);
+}
+
+.workflow-workbench-page .workflow-call-revision,
+.workflow-workbench-page .workflow-call-issue {
+  border-radius: var(--wf-radius-sm);
+  background: var(--wf-surface-hover);
+  color: var(--wf-text-secondary);
+}
+
+.workflow-workbench-page .workflow-call-revision.pending {
+  background: var(--wf-success-soft);
+  color: var(--wf-success);
+}
+
+.workflow-workbench-page .workflow-call-issue {
+  background: var(--wf-danger-soft);
+  color: var(--wf-danger);
+}
+
+.workflow-workbench-page .workflow-call-title code,
+.workflow-workbench-page .workflow-call-command,
+.workflow-workbench-page .workflow-call-facts i,
+.workflow-workbench-page .workflow-binding-row small {
+  color: var(--wf-text-muted);
+}
+
+.workflow-workbench-page .workflow-inline-definition summary,
+.workflow-workbench-page .workflow-section-toggle {
+  color: var(--wf-accent-strong);
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-workbench-page .workflow-inline-definition summary:hover,
+.workflow-workbench-page .workflow-section-toggle:hover {
+  color: var(--wf-accent);
+  transform: none;
+}

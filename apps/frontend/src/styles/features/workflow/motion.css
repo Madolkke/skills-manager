@@ -35,16 +35,29 @@
 }
 
 .workflow-editor-switch-enter-active,
-.workflow-editor-switch-leave-active,
-.workflow-preview-switch-enter-active,
-.workflow-preview-switch-leave-active {
+.workflow-editor-switch-leave-active {
   transition: opacity var(--ui-motion-base) var(--ui-ease-standard), transform var(--ui-motion-base) var(--ui-ease-emphasis);
 }
 
-.workflow-editor-switch-enter-from { opacity: 0; transform: translateY(8px); }
-.workflow-editor-switch-leave-to { opacity: 0; transform: translateY(-4px); }
-.workflow-preview-switch-enter-from { opacity: 0; transform: translateX(6px); }
-.workflow-preview-switch-leave-to { opacity: 0; transform: translateX(-4px); }
+.workflow-editor-switch-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.workflow-editor-switch-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.workflow-preview-switch-enter-active,
+.workflow-preview-switch-leave-active {
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.workflow-preview-switch-enter-from,
+.workflow-preview-switch-leave-to {
+  opacity: 0;
+}
 
 .workflow-popover-enter-active,
 .workflow-popover-leave-active {
@@ -67,9 +80,14 @@
 }
 
 .workflow-collapse-enter-active,
-.workflow-collapse-leave-active { max-height: 1200px; }
+.workflow-collapse-leave-active {
+  max-height: 1200px;
+}
+
 .workflow-expand-enter-active,
-.workflow-expand-leave-active { max-height: 5000px; }
+.workflow-expand-leave-active {
+  max-height: 5000px;
+}
 
 .workflow-collapse-enter-from,
 .workflow-collapse-leave-to,
@@ -81,7 +99,9 @@
 }
 
 .modal-backdrop.motion-workflow,
-.modal-card.motion-workflow { animation: none; }
+.modal-card.motion-workflow {
+  animation: none;
+}
 
 .workflow-modal-backdrop-enter-active,
 .workflow-modal-backdrop-leave-active {

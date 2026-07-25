@@ -37,7 +37,7 @@ function focusSection(target: "inputs" | "roles"): void {
     <header class="workflow-document-head">
       <span><Braces :size="18" /></span>
       <div>
-        <small>GLOBAL INPUTS</small>
+        <small>全局配置</small>
         <h2>全局输入</h2>
         <p>声明流程级输入参数和采集目标使用的逻辑设备角色。</p>
       </div>
