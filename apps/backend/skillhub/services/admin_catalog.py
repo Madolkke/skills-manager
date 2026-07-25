@@ -10,8 +10,24 @@ class AdminCatalogService(ServiceBase[SkillHubStore]):
     def list_skills(self) -> object:
         return self.store.list_skills()
 
-    def update_skill(self, *, skill_id: str, slug: str | None, owner_ref: str | None, tags: list[Any] | None) -> object:
-        return self.store.update_skill_admin(skill_id=skill_id, slug=slug, owner_ref=owner_ref, tags=tags)
+    def update_skill(
+        self,
+        *,
+        skill_id: str,
+        slug: str | None,
+        owner_ref: str | None,
+        tags: list[Any] | None,
+        display_name: str | None = None,
+        display_name_provided: bool = False,
+    ) -> object:
+        return self.store.update_skill_admin(
+            skill_id=skill_id,
+            slug=slug,
+            owner_ref=owner_ref,
+            tags=tags,
+            display_name=display_name,
+            display_name_provided=display_name_provided,
+        )
 
     def list_tag_groups(self) -> object:
         return self.store.list_tag_groups()

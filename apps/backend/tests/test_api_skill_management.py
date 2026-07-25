@@ -1265,7 +1265,7 @@ class ApiSkillManagementTest(ApiCommandTestCase):
         self.assertEqual(deleted.json(), {"ok": True})
 
     def test_update_skill_changes_identity_only(self):
-        skill = self.create_skill("settings-api")
+        skill = self.import_standard_skill_bundle("settings-api")
 
         response = self.client.patch(
             f"/api/skills/{skill['skill_id']}",

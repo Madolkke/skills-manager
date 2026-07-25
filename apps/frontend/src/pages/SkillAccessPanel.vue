@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { api, ApiError, type AdminGroup } from "../lib/api";
+import { skillOptionLabel } from "../lib/skillIdentity";
 import { toTagPayloads } from "../lib/skillTags";
 import AdminGroupFormModal from "./admin/AdminGroupFormModal.vue";
 import AdminGroupMemberModal from "./admin/AdminGroupMemberModal.vue";
 import SkillGroupsSettingsSection from "./settings/SkillGroupsSettingsSection.vue";
 import SkillDangerSettingsSection from "./settings/SkillDangerSettingsSection.vue";
+import SkillGeneralSettingsSection from "./settings/SkillGeneralSettingsSection.vue";
 import SkillRolesSettingsSection from "./settings/SkillRolesSettingsSection.vue";
 import SkillTagsSettingsSection from "./settings/SkillTagsSettingsSection.vue";
 import type { SkillDetail, SkillTagPayload, TagGroup, ToastState } from "../types";
@@ -23,7 +25,7 @@ const busy = ref(false);
 const groupModalMode = ref<"create" | "edit" | null>(null);
 const editingGroup = ref<AdminGroup | null>(null);
 const memberGroup = ref<AdminGroup | null>(null);
-const activeSection = ref<"tags" | "groups" | "roles" | "danger">("tags");
+const activeSection = ref<"general" | "tags" | "groups" | "roles" | "danger">("general");
 
 const permissions = computed(() => props.skill.capabilities?.permissions ?? {});
 const canEditSkill = computed(() => Boolean(permissions.value["skill.edit"]));
@@ -32,6 +34,7 @@ const canDeleteSkill = computed(() => Boolean(permissions.value["skill.delete"])
 const effectiveRoles = computed(() => props.skill.capabilities?.effective_roles ?? []);
 
 const sections = computed(() => [
+  { id: "general" as const, label: "基本信息", meta: skillOptionLabel(props.skill.skill) },
   { id: "tags" as const, label: "Skill Tags", meta: `${tags.value.length} 个 Tag` },
   { id: "groups" as const, label: "用户组", meta: `${skillGroups.value.length} 个用户组` },
   { id: "roles" as const, label: "角色授权", meta: `${props.skill.role_assignments.length} 条授权` },
@@ -209,8 +212,15 @@ function showError(error: unknown): void {
       </aside>
 
       <div class="settings-content">
+        <SkillGeneralSettingsSection
+          v-if="activeSection === 'general'"
+          :skill="skill.skill"
+          :can-edit="canEditSkill"
+          @refresh="emit('refresh')"
+          @toast="emit('toast', $event)"
+        />
         <SkillTagsSettingsSection
-          v-if="activeSection === 'tags'"
+          v-else-if="activeSection === 'tags'"
           :tags="tags"
           :tag-groups="tagGroups"
           :disabled="!canEditSkill || busy"

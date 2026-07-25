@@ -1,6 +1,6 @@
 import unittest
 
-from sqlalchemy import ForeignKeyConstraint, Index, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, UniqueConstraint
 
 from skillhub.models.schema.tables import metadata
 from tests.conftest import ensure_postgres_test_database
@@ -207,6 +207,13 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
             ("id", "skill_id"),
         )
 
+    def test_skill_identity_and_global_admin_constraints_are_mapped(self):
+        self.assertIn("display_name", metadata.tables["skills"].c)
+        self.assertTrue(metadata.tables["skills"].c.display_name.nullable)
+        self.assert_check_constraint("skills", "skills_display_name_length_check")
+        self.assert_check_constraint("role_assignments", "role_assignments_resource_type_check")
+        self.assert_check_constraint("role_assignments", "role_assignments_global_admin_check")
+
     def test_accepted_verifications_link_to_exact_run_pointer(self):
         self.assert_unique_constraint(
             "accepted_verifications",
@@ -259,6 +266,10 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         self.assertIsNotNone(match, constraint_name)
         assert match is not None
         self.assertEqual(tuple(column.name for column in match.columns), columns)
+
+    def assert_check_constraint(self, table_name: str, constraint_name: str) -> None:
+        constraints = [item for item in metadata.tables[table_name].constraints if isinstance(item, CheckConstraint)]
+        self.assertIsNotNone(next((item for item in constraints if item.name == constraint_name), None), constraint_name)
 
     def index_names(self, table_name: str) -> set[str]:
         return {item.name for item in metadata.tables[table_name].indexes if isinstance(item, Index)}

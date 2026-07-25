@@ -1,27 +1,49 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { skillOptionLabel } from "../../lib/skillIdentity";
 import { encodeSkillTagResourceId } from "../../lib/skillTags";
 import { filterRoleAssignments, roleResourceLabel } from "../../lib/admin";
 import type { RoleAssignment, SkillRole, SkillSummary, TagGroup } from "../../types";
 
 const props = defineProps<{ roles: RoleAssignment[]; tagGroups: TagGroup[]; skills: SkillSummary[] }>();
 const emit = defineEmits<{
-  assign: [payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag"; resource_id: string; role: string }];
+  assign: [payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag" | "global"; resource_id: string; role: string }];
   revoke: [role: RoleAssignment];
   toast: [message: string];
 }>();
 
-const form = ref({ subject_type: "group" as "user" | "group", subject_id: "", resource_type: "skill" as "skill" | "skill_tag", resource_id: "", tag_group_id: "", tag_value: "", role: "evaluator" as SkillRole });
+const form = ref({ subject_type: "group" as "user" | "group", subject_id: "", resource_type: "skill" as "skill" | "skill_tag" | "global", resource_id: "", tag_group_id: "", tag_value: "", role: "evaluator" as SkillRole });
 const filters = ref({ subject: "", resource: "", resourceType: "", role: "" });
 const filteredRoles = computed(() => filterRoleAssignments(props.roles, filters.value, props.tagGroups, props.skills));
+const canAssign = computed(() => {
+  if (!form.value.subject_id.trim()) return false;
+  if (form.value.resource_type === "global") return true;
+  if (form.value.resource_type === "skill_tag") return Boolean(form.value.tag_group_id && form.value.tag_value);
+  return Boolean(form.value.resource_id);
+});
 
 watch(() => form.value.tag_group_id, () => {
   form.value.tag_value = "";
 });
 
+watch(() => form.value.resource_type, (resourceType, previousType) => {
+  if (resourceType === "global") {
+    form.value.subject_type = "user";
+    form.value.resource_id = "skills";
+    form.value.role = "admin";
+    return;
+  }
+  form.value.resource_id = "";
+  if (previousType === "global") form.value.role = "evaluator";
+});
+
 function assignRole(): void {
   if (form.value.resource_type === "skill_tag" && (!form.value.tag_group_id || !form.value.tag_value)) {
     emit("toast", "请先选择 Tag Group 和 Tag 值。");
+    return;
+  }
+  if (!canAssign.value) {
+    emit("toast", "请完整填写授权主体和资源。");
     return;
   }
   const resourceId = form.value.resource_type === "skill_tag" ? encodeSkillTagResourceId(form.value.tag_group_id, form.value.tag_value) : form.value.resource_id;
@@ -40,7 +62,7 @@ function assignRole(): void {
     <section class="primary-panel admin-card">
       <h2>新增授权</h2>
       <div class="admin-role-form">
-        <select v-model="form.subject_type">
+        <select v-model="form.subject_type" :disabled="form.resource_type === 'global'">
           <option value="user">用户</option>
           <option value="group">用户组</option>
         </select>
@@ -48,6 +70,7 @@ function assignRole(): void {
         <select v-model="form.resource_type">
           <option value="skill">Skill</option>
           <option value="skill_tag">Skill Tag</option>
+          <option value="global">全部 Skill</option>
         </select>
         <template v-if="form.resource_type === 'skill_tag'">
           <select v-model="form.tag_group_id">
@@ -61,11 +84,12 @@ function assignRole(): void {
             </option>
           </select>
         </template>
+        <input v-else-if="form.resource_type === 'global'" value="全部当前及未来 Skill" disabled aria-label="授权资源" />
         <select v-else v-model="form.resource_id">
           <option disabled value="">选择 Skill</option>
-          <option v-for="item in skills" :key="item.skill.id" :value="item.skill.id">{{ item.skill.slug }}</option>
+          <option v-for="item in skills" :key="item.skill.id" :value="item.skill.id">{{ skillOptionLabel(item.skill) }}</option>
         </select>
-        <select v-model="form.role">
+        <select v-model="form.role" :disabled="form.resource_type === 'global'">
           <option value="viewer">viewer</option>
           <option value="evaluator">evaluator</option>
           <option value="reviewer">reviewer</option>
@@ -73,7 +97,7 @@ function assignRole(): void {
           <option value="owner">owner</option>
           <option value="admin">admin</option>
         </select>
-        <button class="primary-button" type="button" :disabled="!form.subject_id.trim()" @click="assignRole">授权</button>
+        <button class="primary-button" type="button" :disabled="!canAssign" @click="assignRole">授权</button>
       </div>
     </section>
 
@@ -89,6 +113,7 @@ function assignRole(): void {
           <option value="">全部资源类型</option>
           <option value="skill">Skill</option>
           <option value="skill_tag">Skill Tag</option>
+          <option value="global">全部 Skill</option>
         </select>
         <select v-model="filters.role">
           <option value="">全部角色</option>

@@ -5,6 +5,7 @@ import InlineLoading from "../components/InlineLoading.vue";
 import { workflowStatusLabel, workflowStatusTone } from "../features/workflow/domain/presentation";
 import { cloneWorkflow } from "../features/workflow/domain/utils";
 import { api, ApiError } from "../lib/api";
+import { skillOptionLabel } from "../lib/skillIdentity";
 import { humanDate } from "../lib/format";
 import type { SkillDetail, ToastState, WorkflowDetail, WorkflowMetadata } from "../types";
 
@@ -90,7 +91,7 @@ function message(error: unknown): string {
     <div class="panel-title-row workflow-tab-heading">
       <div>
         <h1>工作流</h1>
-        <p>{{ skill.skill.slug }}</p>
+        <p>{{ skillOptionLabel(skill.skill) }}</p>
       </div>
       <div class="button-row">
         <button class="icon-button" type="button" title="放弃未保存修改" aria-label="放弃未保存修改" :disabled="!dirty || saving" @click="discard"><RotateCcw :size="16" /></button>

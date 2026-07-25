@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from skillhub.views.request_models.common import (
     ContentRefPayload,
     IdentityRef,
+    SkillDisplayName,
     SkillSlug,
     SkillTagPayload,
     SkillVersionSemVer,
@@ -53,6 +54,8 @@ class UpdateSkillPayload(BaseModel):
     slug: SkillSlug
     owner_ref: IdentityRef
     tags: list[SkillTagPayload] | None = None
+    display_name: SkillDisplayName | None = None
+    expected_slug: SkillSlug | None = None
 
 
 class DeleteSkillPayload(BaseModel):

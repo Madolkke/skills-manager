@@ -56,6 +56,13 @@ class RoleMixin:
                     self._require_skill_permission(connection, skill_id=resource_id, actor=actor, permission="role.manage")
             if clean_resource_type == "skill_tag":
                 self._skill_tag_resource_row(connection, resource_id)
+            if clean_resource_type == "global":
+                self._validate_global_admin_assignment(
+                    resource_id=resource_id,
+                    subject_id=subject_id,
+                    role=role,
+                    subject_type=subject_type,
+                )
             return self._assign_role_in_tx(connection, resource_type=clean_resource_type, resource_id=resource_id, subject_id=subject_id, role=role, actor=actor, subject_type=subject_type)
 
     def revoke_role_assignment(self, *, role_assignment_id: str, actor: str) -> dict[str, bool]:
@@ -220,7 +227,10 @@ class RoleMixin:
     def _actor_role_sources(self, connection, *, skill_id: str, actor: str) -> list[dict[str, Any]]:
         subjects = [("user", actor), *[("group", group_id) for group_id in self._actor_group_ids(connection, actor)]]
         subject_filters = [and_(orm.RoleAssignment.subject_type == subject_type, orm.RoleAssignment.subject_id == subject_id) for subject_type, subject_id in subjects]
-        resource_filters = [and_(orm.RoleAssignment.resource_type == "skill", orm.RoleAssignment.resource_id == skill_id)]
+        resource_filters = [
+            and_(orm.RoleAssignment.resource_type == "skill", orm.RoleAssignment.resource_id == skill_id),
+            and_(orm.RoleAssignment.resource_type == "global", orm.RoleAssignment.resource_id == "skills"),
+        ]
         tag_resource_ids = self._skill_tag_resource_ids(connection, skill_id)
         if tag_resource_ids:
             resource_filters.append(and_(orm.RoleAssignment.resource_type == "skill_tag", orm.RoleAssignment.resource_id.in_(tag_resource_ids)))
@@ -237,8 +247,12 @@ class RoleMixin:
             connection.execute(
                 orm.select_entity(orm.RoleAssignment)
                 .where(or_(*subject_filters))
-                .where(orm.RoleAssignment.resource_type == "skill_tag")
-                .where(orm.RoleAssignment.resource_id.in_(resource_ids))
+                .where(
+                    or_(
+                        and_(orm.RoleAssignment.resource_type == "skill_tag", orm.RoleAssignment.resource_id.in_(resource_ids)),
+                        and_(orm.RoleAssignment.resource_type == "global", orm.RoleAssignment.resource_id == "skills"),
+                    )
+                )
             )
             .mappings()
             .all()
@@ -267,9 +281,21 @@ class RoleMixin:
 
     def _clean_resource_type(self, value: str) -> str:
         clean = value.strip()
-        if clean not in {"skill", "skill_tag"}:
+        if clean not in {"skill", "skill_tag", "global"}:
             raise InvariantError(f"Unsupported role resource_type: {clean}")
         return clean
+
+    def _validate_global_admin_assignment(
+        self,
+        *,
+        resource_id: str,
+        subject_id: str,
+        role: str,
+        subject_type: str,
+    ) -> None:
+        if resource_id.strip() != "skills" or subject_type.strip() != "user" or role != "admin":
+            raise InvariantError("Global role assignments only support user administrators for all Skills.")
+        self._clean_subject_id(subject_id)
 
     def _skill_admin_owner_count(self, connection, skill_id: str) -> int:
         return len(

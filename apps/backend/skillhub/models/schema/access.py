@@ -92,8 +92,12 @@ class RoleAssignment(CreatedAtMixin, Base):
     __tablename__ = "role_assignments"
     __table_args__ = (
         CheckConstraint("subject_type in ('user', 'group')", name="role_assignments_subject_type_check"),
-        CheckConstraint("resource_type in ('skill', 'skill_tag')", name="role_assignments_resource_type_check"),
+        CheckConstraint("resource_type in ('skill', 'skill_tag', 'global')", name="role_assignments_resource_type_check"),
         CheckConstraint("role in ('admin', 'owner', 'maintainer', 'evaluator', 'reviewer', 'viewer')", name="role_assignments_role_check"),
+        CheckConstraint(
+            "resource_type <> 'global' or (resource_id = 'skills' and subject_type = 'user' and role = 'admin')",
+            name="role_assignments_global_admin_check",
+        ),
         UniqueConstraint("subject_type", "subject_id", "resource_type", "resource_id", "role", name="role_assignments_scope_unique"),
     )
 

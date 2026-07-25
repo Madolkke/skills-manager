@@ -76,7 +76,18 @@ def register_skill_routes(app: FastAPI) -> None:
         actor: ActorContext = Depends(actor_dependency),
         service: SkillService = Depends(skill_service_dependency),
     ):
-        return result_payload(service.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref, tags=payload.tags, actor=actor.id))
+        return result_payload(
+            service.update_skill(
+                skill_id=skill_id,
+                slug=payload.slug,
+                owner_ref=payload.owner_ref,
+                tags=payload.tags,
+                display_name=payload.display_name,
+                display_name_provided="display_name" in payload.model_fields_set,
+                expected_slug=payload.expected_slug,
+                actor=actor.id,
+            )
+        )
 
     @app.delete("/api/skills/{skill_id}")
     def delete_skill(

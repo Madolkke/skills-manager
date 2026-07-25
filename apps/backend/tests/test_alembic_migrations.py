@@ -55,6 +55,30 @@ def test_prepare_database_adopts_exact_unversioned_schema_without_data_loss() ->
         engine.dispose()
 
 
+def test_skill_identity_revision_upgrades_the_baseline_without_data_loss() -> None:
+    ensure_postgres_test_database()
+    engine = create_postgres_engine(resolve_database_url())
+    try:
+        _reset_database(engine)
+        upgrade_database(engine, "0001_initial_schema")
+        with engine.begin() as connection:
+            connection.execute(
+                text("insert into skills (id, slug, owner_ref) values ('skill-existing', 'existing-skill', 'owner')")
+            )
+
+        upgrade_database(engine)
+
+        assert current_revision(engine) == "0002_skill_identity_global_admin"
+        with engine.connect() as connection:
+            assert "display_name" in {column["name"] for column in inspect(connection).get_columns("skills")}
+            assert connection.scalar(text("select slug from skills where id = 'skill-existing'")) == "existing-skill"
+            constraints = {item["name"] for item in inspect(connection).get_check_constraints("role_assignments")}
+            assert "role_assignments_global_admin_check" in constraints
+    finally:
+        _reset_database(engine)
+        engine.dispose()
+
+
 def test_prepare_database_rejects_mismatched_unversioned_schema_without_cleanup() -> None:
     ensure_postgres_test_database()
     engine = create_postgres_engine(resolve_database_url())

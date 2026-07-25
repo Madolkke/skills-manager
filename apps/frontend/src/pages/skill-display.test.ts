@@ -11,6 +11,7 @@ import type { SkillDetail, SkillRecord, SkillSummary, SkillVersion } from "../ty
 import HubPage from "./HubPage.vue";
 import OverviewPage from "./OverviewPage.vue";
 import HubSkillCard from "./hub/HubSkillCard.vue";
+import { filterSkills } from "./hub/hubFilters";
 
 describe("Skill display copy", () => {
   afterEach(() => {
@@ -43,6 +44,31 @@ describe("Skill display copy", () => {
     expect(card.get(".card-body > p").text()).toBe("尚未填写 Skill 描述。");
     expect(card.get(".card-tag-list").text()).toBe("未设置 Tag");
     expect(overview.get(".skill-title-copy > p").text()).toBe("尚未填写 Skill 描述。");
+
+    card.unmount();
+    overview.unmount();
+  });
+
+  it("keeps the slug primary and uses the Chinese name as secondary searchable text", async () => {
+    const detail = skillDetail("Review authorization boundaries.");
+    detail.skill.display_name = "访问权限评审";
+    mockOverviewApi(detail.skill);
+
+    const card = mount(HubSkillCard, { props: { item: skillSummary(detail) } });
+    const overview = mount(OverviewPage, { props: { skill: detail } });
+    await flushPromises();
+
+    expect(card.get("h3").text()).toBe("access-reviewer");
+    expect(card.get(".skill-card-title-copy small").text()).toBe("访问权限评审");
+    expect(overview.get("h1").text()).toBe("access-reviewer");
+    expect(overview.get(".skill-display-name").text()).toBe("访问权限评审");
+    expect(filterSkills([skillSummary(detail)], {
+      query: "权限评审",
+      filter: "all",
+      actor: "owner",
+      selectedTags: [],
+      tagGroups: [],
+    })).toHaveLength(1);
 
     card.unmount();
     overview.unmount();
@@ -152,6 +178,7 @@ function skillDetail(description: string | null): SkillDetail {
   const skill: SkillRecord = {
     id: "skill-1",
     slug: "access-reviewer",
+    display_name: null,
     owner_ref: "owner",
     current_version_id: "version-1",
     lifecycle_status: "active",

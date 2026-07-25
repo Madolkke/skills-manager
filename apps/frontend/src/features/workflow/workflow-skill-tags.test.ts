@@ -71,7 +71,7 @@ function tagGroup(): TagGroup {
 
 function skillDetail(): SkillDetail {
   return {
-    skill: { id: "skill-1", slug: "interface-check", owner_ref: "owner", current_version_id: null, lifecycle_status: "draft", tags: [] },
+    skill: { id: "skill-1", slug: "interface-check", display_name: null, owner_ref: "owner", current_version_id: null, lifecycle_status: "draft", tags: [] },
     summary: {} as SkillDetail["summary"],
     versions: [], eval_sets: [], latest_eval_runs: [], role_assignments: [], audit_events: [], capabilities: null, workflow: null,
   };

@@ -34,7 +34,16 @@ def register_admin_routes(app: FastAPI) -> None:
         _: None = admin_auth,
         service: AdminService = Depends(admin_service_dependency),
     ):
-        return result_payload(service.update_skill(skill_id=skill_id, slug=payload.slug, owner_ref=payload.owner_ref, tags=payload.tags))
+        return result_payload(
+            service.update_skill(
+                skill_id=skill_id,
+                slug=payload.slug,
+                owner_ref=payload.owner_ref,
+                tags=payload.tags,
+                display_name=payload.display_name,
+                display_name_provided="display_name" in payload.model_fields_set,
+            )
+        )
 
     @app.get("/api/admin/groups")
     def admin_groups(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):

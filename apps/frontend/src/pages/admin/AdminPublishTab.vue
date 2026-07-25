@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import type { PublishRecord } from "../../types";
 import { humanDate } from "../../lib/format";
+import { skillOptionLabel } from "../../lib/skillIdentity";
 import { pendingPublishRecords, selectedPendingRecords } from "../../lib/batchPublish";
 
 const props = defineProps<{ records: PublishRecord[] }>();
@@ -98,6 +99,7 @@ function groupRecords(records: PublishRecord[]): PublishRecordGroup[] {
 function searchText(record: PublishRecord): string {
   return [
     record.skill?.slug,
+    record.skill?.display_name,
     record.skill_id,
     record.skill_version?.version,
     record.skill_version_id,
@@ -130,7 +132,7 @@ function statusTone(record: PublishRecord): string {
 }
 
 function skillText(record: PublishRecord): string {
-  return record.skill?.slug ?? record.skill_id;
+  return record.skill ? skillOptionLabel(record.skill) : record.skill_id;
 }
 
 function versionText(record: PublishRecord): string {

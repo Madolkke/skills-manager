@@ -234,9 +234,12 @@ class TaggingHelperMixin:
         protected_tags = self._protected_skill_tags(connection, {(tag["group_id"], tag["value"]) for tag in clean_tags})
         if not protected_tags:
             return
+        sources = self._actor_tag_role_sources(connection, actor=actor, tags=protected_tags)
+        if any(source["resource_type"] == "global" and source["role"] == "admin" for source in sources):
+            return
         allowed_tags = {
             source["resource_id"]
-            for source in self._actor_tag_role_sources(connection, actor=actor, tags=protected_tags)
+            for source in sources
             if source["role"] == "admin"
         }
         missing = {tag for tag in protected_tags if encode_skill_tag_resource_id(tag[0], tag[1]) not in allowed_tags}

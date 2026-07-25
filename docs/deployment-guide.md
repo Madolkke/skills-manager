@@ -533,6 +533,8 @@ uv run python -m skillhub.models.schema.cli check
 - HTTPS 下设置 `SKILLHUB_SESSION_COOKIE_SECURE=1`。
 - 不要把 `.env`、`skillhub.env`、数据库 dump 或 Opencode provider key 提交到 Git。
 - 后台密钥只用于 `/skills/admin` 和 `/api/admin/*`，不等同于普通 user/group 角色。
+- 全局 Skill admin 只合并所有 Skill 的 capabilities，不能绕过后台密钥，也不能单独访问 `/api/admin/*`。
+- 当前本地 actor cookie 和 `X-SkillHub-Actor` header 不是生产级身份认证边界。生产环境必须在可信认证代理或受控网络后部署，禁止让不受信任的客户端自行声明 actor。
 - PostgreSQL 账号只授予 SkillHub 所需数据库权限。
 - Worker 工作目录应限制在专用目录，不要与系统敏感目录共用。
 

@@ -18,12 +18,14 @@ def test_declarative_metadata_is_the_only_schema_definition() -> None:
     assert metadata is Base.metadata
 
 
-def test_alembic_head_is_the_declarative_baseline() -> None:
-    assert expected_revision() == "0001_initial_schema"
-    revisions = list((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
-    assert [revision.name for revision in revisions] == ["0001_initial_schema.py"]
-    revision = revisions[0]
-    source = revision.read_text(encoding="utf-8")
+def test_alembic_chain_keeps_the_declarative_baseline() -> None:
+    assert expected_revision() == "0002_skill_identity_global_admin"
+    revisions = sorted((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
+    assert [revision.name for revision in revisions] == [
+        "0001_initial_schema.py",
+        "0002_skill_identity_and_global_admin.py",
+    ]
+    source = revisions[0].read_text(encoding="utf-8")
     for table_name in metadata.tables:
         assert f"op.create_table('{table_name}'" in source
 

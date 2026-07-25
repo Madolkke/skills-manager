@@ -145,7 +145,14 @@
   gap: 3px;
 }
 
+.skill-secondary-name {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .my-review-item-main strong,
+.my-review-item-main .skill-secondary-name,
 .my-review-item-main small {
   min-width: 0;
   overflow: hidden;

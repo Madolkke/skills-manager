@@ -136,6 +136,14 @@
   overflow-wrap: anywhere;
 }
 
+.skill-display-name {
+  display: block;
+  margin-top: 7px;
+  color: #465875;
+  font-size: 18px;
+  font-weight: 720;
+}
+
 .skill-title-copy p {
   max-width: 780px;
   color: var(--muted);

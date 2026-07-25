@@ -22,6 +22,7 @@ export type SkillVersion = {
 export type SkillRecord = {
   id: string;
   slug: string;
+  display_name: string | null;
   owner_ref: string;
   current_version_id: string | null;
   lifecycle_status: string;
@@ -93,7 +94,7 @@ export type RoleAssignment = {
   id: string;
   subject_type: "user" | "group";
   subject_id: string;
-  resource_type: "skill" | "skill_tag";
+  resource_type: "skill" | "skill_tag" | "global";
   resource_id: string;
   role: SkillRole;
   created_at?: string;

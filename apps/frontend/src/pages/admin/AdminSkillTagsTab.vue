@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import SkillTagPicker from "../../components/SkillTagPicker.vue";
+import { skillSecondaryName } from "../../lib/skillIdentity";
 import type { TagDiagnosticFocus } from "../../lib/tagCascades";
 import type { SkillSummary, SkillTagPayload, TagGroup } from "../../types";
 
@@ -46,6 +47,7 @@ const focusText = computed(() => {
     <div v-for="item in visibleSkills" :key="item.skill.id" :class="['admin-skill-row', { 'has-tag-issue': focus }]">
       <div>
         <strong>{{ item.skill.slug }}</strong>
+        <small v-if="skillSecondaryName(item.skill)">{{ skillSecondaryName(item.skill) }}</small>
         <small>{{ item.skill.id }}</small>
         <small v-if="focus" class="field-hint danger">{{ focus.kind === "orphaned" ? "存在路径失效 Tag" : "缺少当前路径要求的必填 Tag" }}</small>
       </div>

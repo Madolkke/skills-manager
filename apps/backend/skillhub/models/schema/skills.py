@@ -19,6 +19,10 @@ class Skill(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "skills"
     __table_args__ = (
         UniqueConstraint("slug", name="skills_slug_unique"),
+        CheckConstraint(
+            "display_name is null or length(btrim(display_name)) between 1 and 120",
+            name="skills_display_name_length_check",
+        ),
         CheckConstraint("lifecycle_status in ('active', 'archived')", name="skills_lifecycle_status_check"),
         ForeignKeyConstraint(
             ["current_version_id", "id"],
@@ -30,6 +34,7 @@ class Skill(CreatedAtMixin, UpdatedAtMixin, Base):
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     slug: Mapped[str] = mapped_column(Text, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(Text)
     owner_ref: Mapped[str] = mapped_column(Text, nullable=False)
     current_version_id: Mapped[str | None] = mapped_column(Text)
     lifecycle_status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))

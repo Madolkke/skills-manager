@@ -2,6 +2,7 @@
 import { Workflow } from "lucide-vue-next";
 import { computed } from "vue";
 import { compactText, humanDate, versionName } from "../../lib/format";
+import { skillSecondaryName } from "../../lib/skillIdentity";
 import { tagLabel } from "../../lib/skillTags";
 import type { SkillSummary } from "../../types";
 
@@ -12,6 +13,7 @@ const activeTags = computed(() => props.item.skill.tags.filter((tag) => tag.path
 const visibleTags = computed(() => activeTags.value.slice(0, 3));
 const hiddenTags = computed(() => activeTags.value.slice(3));
 const hiddenTagTitle = computed(() => hiddenTags.value.map((tag) => tagLabel(tag)).join("、"));
+const secondaryName = computed(() => skillSecondaryName(props.item.skill));
 </script>
 
 <template>
@@ -23,7 +25,13 @@ const hiddenTagTitle = computed(() => hiddenTags.value.map((tag) => tagLabel(tag
           <span>更新 {{ humanDate(item.skill.updated_at) }}</span>
         </div>
         <div class="skill-card-head">
-          <div class="skill-card-title"><h3>{{ item.skill.slug }}</h3><span v-if="item.workflow" class="workflow-skill-badge"><Workflow :size="12" />Workflow</span></div>
+          <div class="skill-card-title">
+            <span class="skill-card-title-copy">
+              <h3>{{ item.skill.slug }}</h3>
+              <small v-if="secondaryName">{{ secondaryName }}</small>
+            </span>
+            <span v-if="item.workflow" class="workflow-skill-badge"><Workflow :size="12" />Workflow</span>
+          </div>
         </div>
         <p>{{ compactText(item.summary.current_version?.description, "尚未填写 Skill 描述。") }}</p>
       </div>

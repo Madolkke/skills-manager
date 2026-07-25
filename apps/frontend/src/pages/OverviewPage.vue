@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { compactText, humanDate, scoreKind, scoreLabel, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
+import { skillSecondaryName } from "../lib/skillIdentity";
 import { tagLabel } from "../lib/skillTags";
 import type { ReviewRequest, SkillDetail, SkillPublishOverview } from "../types";
 
@@ -33,6 +34,7 @@ const suggestions = computed(() => buildSkillSuggestions({
   publishRecords: publishOverview.value?.publish_records ?? [],
   evaluationsVisible: props.evaluationsVisible,
 }));
+const secondaryName = computed(() => skillSecondaryName(props.skill.skill));
 
 onMounted(() => void loadGuidance());
 watch(() => props.skill.skill.id, () => void loadGuidance());
@@ -67,6 +69,7 @@ function skillLifecycleLabel(status: string): string {
       <div class="skill-summary-main">
         <div class="skill-title-copy">
           <h1>{{ skill.skill.slug }}</h1>
+          <span v-if="secondaryName" class="skill-display-name">{{ secondaryName }}</span>
           <p>{{ compactText(version?.description, "尚未填写 Skill 描述。") }}</p>
         </div>
         <dl class="skill-identity-card" aria-label="Skill 身份信息">

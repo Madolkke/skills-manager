@@ -80,13 +80,27 @@ class SkillService(ServiceBase[SkillHubStore]):
     def skill_detail(self, *, skill_id: str, actor: str) -> object:
         return self.store.skill_detail(skill_id, actor=actor)
 
-    def update_skill(self, *, skill_id: str, slug: str | None, owner_ref: str | None, tags: list[Any] | None, actor: str) -> object:
+    def update_skill(
+        self,
+        *,
+        skill_id: str,
+        slug: str | None,
+        owner_ref: str | None,
+        tags: list[Any] | None,
+        actor: str,
+        display_name: str | None = None,
+        display_name_provided: bool = False,
+        expected_slug: str | None = None,
+    ) -> object:
         snapshot = self.store.skill_update_snapshot(skill_id=skill_id, actor=actor)
         return self.store.apply_skill_update(
             skill_id=skill_id,
             slug=slug or snapshot["slug"],
             owner_ref=owner_ref or snapshot["owner_ref"],
             tags=tags,
+            display_name=display_name,
+            display_name_provided=display_name_provided,
+            expected_slug=expected_slug,
             actor=actor,
             require_permission=True,
         )

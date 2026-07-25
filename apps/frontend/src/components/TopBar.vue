@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Bell, Boxes, ClipboardCheck, Plus, Settings, Sparkles } from "lucide-vue-next";
-import { onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { skillSecondaryName } from "../lib/skillIdentity";
 import type { SkillDetail } from "../types";
 
 const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillDetail | null; taskCount?: number }>(), {
@@ -12,6 +13,7 @@ const emit = defineEmits<{ home: []; create: []; builder: []; settings: []; revi
 
 const menuOpen = ref(false);
 const menuRef = ref<HTMLDivElement | null>(null);
+const currentSkillSecondaryName = computed(() => props.currentSkill ? skillSecondaryName(props.currentSkill.skill) : null);
 
 watch(menuOpen, (open) => {
   if (open) document.addEventListener("mousedown", handleClick);
@@ -36,7 +38,10 @@ function handleClick(event: MouseEvent): void {
     </button>
     <template v-if="currentSkill">
       <span class="breadcrumb-separator">/</span>
-      <strong class="breadcrumb-current">{{ currentSkill.skill.slug }}</strong>
+      <span class="breadcrumb-current">
+        <strong>{{ currentSkill.skill.slug }}</strong>
+        <small v-if="currentSkillSecondaryName">{{ currentSkillSecondaryName }}</small>
+      </span>
     </template>
     <div class="top-spacer" />
     <div class="top-bar-actions">

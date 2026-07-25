@@ -97,7 +97,7 @@ function matchesSelectedTags(item: SkillSummary, selectedByGroup: Map<string, Se
 
 function skillSearchText(item: SkillSummary, groups: TagGroup[]): string {
   const tags = (item.skill.tags ?? []).flatMap((tag) => tagSearchParts(tag, groups));
-  return [item.skill.slug, item.skill.owner_ref, item.summary.current_version?.change_summary, item.summary.current_version?.content_digest, ...tags]
+  return [item.skill.slug, item.skill.display_name, item.skill.owner_ref, item.summary.current_version?.change_summary, item.summary.current_version?.content_digest, ...tags]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

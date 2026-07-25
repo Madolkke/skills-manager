@@ -107,6 +107,21 @@
   gap: 8px;
 }
 
+.skill-card-title-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.skill-card-title-copy small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workflow-skill-badge {
   display: inline-flex;
   align-items: center;

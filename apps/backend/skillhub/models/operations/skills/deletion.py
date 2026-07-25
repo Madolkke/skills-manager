@@ -3,12 +3,9 @@ from __future__ import annotations
 from sqlalchemy import delete, insert, or_, select, update
 
 from skillhub.models.entities import new_id, utc_now
-from skillhub.models.errors import ConflictError, FieldError, FieldInvariantError, NotFoundError
+from skillhub.models.errors import FieldError, FieldInvariantError, NotFoundError
+from skillhub.models.operations.skills.active_work import reject_active_skill_work
 from skillhub.models.schema import orm
-
-ACTIVE_JOB_STATUSES = ("queued", "running")
-ACTIVE_EVAL_STATUSES = ("queued", "running")
-ACTIVE_PUBLISH_STATUSES = ("queued", "releasing")
 
 
 class SkillDeletionMixin:
@@ -46,7 +43,7 @@ class SkillDeletionMixin:
 
             owned = self._skill_owned_ids(session, skill_id)
             related_job_ids = self._related_job_ids(session, owned)
-            self._reject_active_work(session, owned, related_job_ids)
+            reject_active_skill_work(session, skill_id=skill_id, action="永久删除")
             artifact_ids = self._candidate_artifact_ids(session, owned)
 
             self._delete_skill_rows(session, skill_id, owned, related_job_ids)
@@ -109,28 +106,6 @@ class SkillDeletionMixin:
                 )
             )
         return job_ids
-
-    def _reject_active_work(self, session, owned: dict[str, set[str]], job_ids: set[str]) -> None:
-        active_eval = session.execute(
-            select(orm.EvalCaseRun.id)
-            .where(orm.EvalCaseRun.id.in_(owned["case_runs"]))
-            .where(orm.EvalCaseRun.status.in_(ACTIVE_EVAL_STATUSES))
-            .limit(1)
-        ).scalar_one_or_none()
-        active_publish = session.execute(
-            select(orm.PublishRecord.id)
-            .where(orm.PublishRecord.id.in_(owned["publish_records"]))
-            .where(orm.PublishRecord.status.in_(ACTIVE_PUBLISH_STATUSES))
-            .limit(1)
-        ).scalar_one_or_none()
-        active_job = session.execute(
-            select(orm.Job.id)
-            .where(orm.Job.id.in_(job_ids))
-            .where(orm.Job.status.in_(ACTIVE_JOB_STATUSES))
-            .limit(1)
-        ).scalar_one_or_none()
-        if active_eval or active_publish or active_job:
-            raise ConflictError("Skill 存在排队中或运行中的任务，任务结束后才能永久删除。")
 
     def _candidate_artifact_ids(self, session, owned: dict[str, set[str]]) -> set[str]:
         artifact_ids: set[str] = set()

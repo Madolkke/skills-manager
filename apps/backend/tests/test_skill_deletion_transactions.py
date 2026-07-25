@@ -12,7 +12,7 @@ from tests.api_command_test_case import ApiCommandTestCase
 
 class SkillDeletionTransactionTest(ApiCommandTestCase):
     def test_delete_uses_current_slug_after_concurrent_rename(self):
-        skill = self.create_skill("delete-old-slug")
+        skill = self.import_standard_skill_bundle("delete-old-slug")
         updated = self.client.patch(
             f"/api/skills/{skill['skill_id']}",
             json={"slug": "delete-new-slug", "owner_ref": "skillhub-lab", "tags": []},

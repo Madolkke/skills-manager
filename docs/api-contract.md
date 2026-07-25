@@ -6,14 +6,14 @@
 
 | 对象 | 语义 |
 | --- | --- |
-| `Skill` | 稳定入口，保存 slug、owner、lifecycle 和 `current_version_id`。 |
+| `Skill` | 稳定入口，保存不可变内部 `id`、可重命名 slug、可选中文名、owner、lifecycle 和 `current_version_id`。 |
 | `SkillVersion` | 不可变 Skill bundle 内容快照，同一 Skill 内 `version` 使用 SemVer 且唯一。 |
 | `EvalCaseVersion` | 不可变测试用例快照，保存 input、expected output 和 notes。 |
 | `EvalSetVersion` | case version 列表快照；未被 `EvalRun` 使用的当前版本可作为工作版更新，已有运行记录后变为历史快照。 |
 | `EvalRun` | 一次 exact `SkillVersion + EvalSetVersion + run_context` 的测评事实。 |
 | `CaseResult` | 某次 run 中某个 case version 的 pass/fail 和 actual output。 |
 | `AcceptedVerification` | 把一次 finished run 接受为当前上下文验证依据。 |
-| `RoleAssignment` | Skill 作用域授权。 |
+| `RoleAssignment` | 单个 Skill、Skill Tag 或全部 Skill 作用域授权。 |
 | `AuditEvent` | append-only 治理事实。 |
 | `Workflow` | 与 Skill 永久一对一绑定的最新作者文档。 |
 | `WorkflowSync` | 某个 Workflow revision 生成 SkillVersion 时的精确源快照和追溯记录。 |
@@ -24,7 +24,8 @@
 ### `Skill`
 
 - `id`
-- `slug`
+- `slug`：用户可见且全局唯一的“Skill ID”，允许重命名。
+- `display_name`：可选中文名，去除首尾空白后最长 120 字符，不要求唯一。
 - `owner_ref`
 - `current_version_id`
 - `lifecycle_status`
@@ -80,7 +81,8 @@
 
 | Permission | 条件 | 用途 |
 | --- | --- | --- |
-| `role.manage` | `owner` | 管理 skill role assignment。 |
+| `role.manage` | `owner` 或 `admin` | 管理 skill role assignment。 |
+| `skill.delete` | `owner` 或 `admin` | 永久删除 Skill。 |
 | `verification.accept` | `owner` 或 `maintainer` | 接受一次 EvalRun 为验证依据。 |
 | `skill.edit` | `owner`、`maintainer` 或 `admin` | 保存 Workflow 和 Workflow 元信息。 |
 | `skill.version.create` | `owner`、`maintainer` 或 `admin` | 同步 Workflow 或重新激活其生成版本。 |
@@ -90,6 +92,7 @@
 | 字段 | 规则 |
 | --- | --- |
 | `slug` | 小写字母、数字、连字符，最多 64 字符，必须以字母或数字开头。 |
+| `display_name` | 可空；去除首尾空白后最长 120 字符，空白值保存为 `null`。 |
 | `owner_ref` / actor | 字母、数字、点、下划线、`@`、连字符，最多 120 字符。 |
 | `environment_tags[]` | 字母、数字、点、下划线、连字符，每个最多 64 字符。 |
 | `change_summary` | 1-1000 字符。 |
@@ -135,7 +138,7 @@
 | `POST /api/skills` | 创建 Skill、初始 SkillVersion、Primary EvalSet 和 owner role。 |
 | `POST /api/skill-imports` | 从标准 Skill bundle 导入 Skill。 |
 | `POST /api/skill-versions` | 创建不可变 SkillVersion，可选择 `make_current`。 |
-| `PATCH /api/skills/{skill_id}` | 更新 slug 和 owner。 |
+| `PATCH /api/skills/{skill_id}` | 更新 slug、中文名、owner 和 Tag；重命名 slug 时自动创建下一个 Patch 版本。 |
 | `DELETE /api/skills/{skill_id}` | 永久删除 Skill 及其从属数据；请求体必须提供精确匹配的 `confirmation_slug`。 |
 | `POST /api/skills/{skill_id}/role-assignments` | 添加 role assignment。 |
 | `DELETE /api/role-assignments/{id}` | 撤销 role assignment。 |
@@ -164,6 +167,33 @@
 ```
 
 确认 slug 区分大小写且不会自动修正。缺少请求体返回 `422`，确认不匹配返回 `400` 和 `skill.delete_confirmation_mismatch`，权限不足返回 `403`；存在排队中或运行中的测评、发布或关联 Job 时返回 `409`。成功返回 `{"ok": true}`。
+
+重命名使用稳定内部 `skill_id` 定位 Skill，并通过 `expected_slug` 防止覆盖并发修改：
+
+```json
+{
+  "slug": "renamed-skill",
+  "expected_slug": "example-skill",
+  "display_name": "示例技能",
+  "owner_ref": "owner"
+}
+```
+
+slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifest 与根目录 `SKILL.md` 的 `name`，创建下一个 Patch SemVer 并设为当前版本。历史版本不会修改。存在活动任务、当前版本不是有效 Artifact Bundle、slug 重复或 `expected_slug` 已过期时返回 `409`，整个更新回滚。只修改 `display_name` 不会创建版本。
+
+后台通用角色接口支持下列固定的全局 Skill admin 授权；其他 `global` 组合会被数据库约束拒绝：
+
+```json
+{
+  "subject_type": "user",
+  "subject_id": "alice",
+  "resource_type": "global",
+  "resource_id": "skills",
+  "role": "admin"
+}
+```
+
+该授权对全部当前及未来 Skill 生效，但不能代替 `SKILLHUB_ADMIN_CONSOLE_KEY`，也不会开放 `/api/admin/*`。
 
 ## Workflow 接口约束
 

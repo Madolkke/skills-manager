@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
 import { humanDate } from "../lib/format";
+import { skillSecondaryName } from "../lib/skillIdentity";
 import type { ReviewRequest, ReviewResponse, ToastState } from "../types";
 
 const emit = defineEmits<{ toast: [toast: ToastState]; openSkill: [skillId: string] }>();
@@ -179,6 +180,7 @@ function showError(error: unknown): void {
           >
             <span class="my-review-item-main">
               <strong>{{ review.skill.slug }}</strong>
+              <span v-if="skillSecondaryName(review.skill)" class="skill-secondary-name">{{ skillSecondaryName(review.skill) }}</span>
               <small>{{ review.skill_version.version }} · 回复 {{ responseCount(review) }}</small>
             </span>
             <span :class="['my-review-score-pill', scoreTone(ownResponse(review)?.score)]">{{ scoreLabel(ownResponse(review)?.score) }}</span>
@@ -196,6 +198,7 @@ function showError(error: unknown): void {
           >
             <span class="my-review-item-main">
               <strong>{{ review.skill.slug }}</strong>
+              <span v-if="skillSecondaryName(review.skill)" class="skill-secondary-name">{{ skillSecondaryName(review.skill) }}</span>
               <small>{{ review.skill_version.version }} · {{ statusLabel(review) }}</small>
             </span>
             <span :class="['my-review-score-pill', scoreTone(ownResponse(review)?.score)]">{{ scoreLabel(ownResponse(review)?.score) }}</span>
@@ -208,6 +211,7 @@ function showError(error: unknown): void {
           <div>
             <span :class="['tag-chip', selectedReview.status === 'open' ? '' : 'muted']">{{ statusLabel(selectedReview) }}</span>
             <h2>{{ selectedReview.skill.slug }}</h2>
+            <span v-if="skillSecondaryName(selectedReview.skill)" class="skill-secondary-name">{{ skillSecondaryName(selectedReview.skill) }}</span>
             <p>{{ selectedReview.skill_version.version }} · 发起人 {{ selectedReview.created_by }}</p>
           </div>
           <button class="secondary-button" type="button" @click="emit('openSkill', selectedReview.skill_id)">查看 Skill</button>

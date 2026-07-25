@@ -1,4 +1,5 @@
 import { encodeSkillTagResourceId, tagLabel } from "./skillTags";
+import { skillOptionLabel } from "./skillIdentity";
 import type { RoleAssignment, SkillSummary, TagGroup } from "../types";
 
 export type AdminTab = "overview" | "groups" | "tag-groups" | "tag-cascades" | "roles" | "skill-tags" | "workers" | "opencode-agents" | "publish-targets" | "publish";
@@ -17,9 +18,10 @@ export const ADMIN_TABS: Array<{ id: AdminTab; label: string }> = [
 ];
 
 export function roleResourceLabel(role: RoleAssignment, tagGroups: TagGroup[], skills: SkillSummary[] = []): string {
+  if (role.resource_type === "global") return "全部 Skill";
   if (role.resource_type === "skill") {
     const skill = skills.find((item) => item.skill.id === role.resource_id);
-    return skill ? `Skill: ${skill.skill.slug}` : `Skill: ${role.resource_id}`;
+    return skill ? `Skill: ${skillOptionLabel(skill.skill)}` : `Skill: ${role.resource_id}`;
   }
   const tag = tagFromResourceId(role.resource_id, tagGroups);
   return tag ? `Skill Tag: ${tagLabel(tag, tagGroups)}` : `Skill Tag: ${role.resource_id}`;

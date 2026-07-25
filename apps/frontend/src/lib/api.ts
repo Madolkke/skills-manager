@@ -139,7 +139,7 @@ function skillApi() {
       apiSend<{ skill_version_id: string }>("/api/skill-versions", "POST", payload),
     updateSkillVersionName: (versionId: string, displayName: string | null) =>
       apiSend<unknown>(`/api/skill-versions/${versionId}`, "PATCH", { display_name: displayName }),
-    updateSkill: (skillId: string, payload: { slug: string; owner_ref: string; tags?: SkillTagPayload[] }) =>
+    updateSkill: (skillId: string, payload: { slug: string; owner_ref: string; tags?: SkillTagPayload[]; display_name?: string | null; expected_slug?: string }) =>
       apiSend<SkillDetail["skill"]>(`/api/skills/${encodeURIComponent(skillId)}`, "PATCH", payload),
     deleteSkill: (skillId: string, confirmationSlug: string) =>
       apiDelete<{ ok: boolean }>(
@@ -275,7 +275,7 @@ function evaluationApi() {
 function adminApi() {
   return {
     adminListSkills: () => apiGet<SkillSummary[]>("/api/admin/skills", { admin: true }),
-    adminUpdateSkill: (skillId: string, payload: { slug?: string; owner_ref?: string; tags?: SkillTagPayload[] }) =>
+    adminUpdateSkill: (skillId: string, payload: { slug?: string; owner_ref?: string; tags?: SkillTagPayload[]; display_name?: string | null }) =>
       apiSend<SkillDetail["skill"]>(`/api/admin/skills/${encodeURIComponent(skillId)}`, "PATCH", payload, { admin: true }),
     adminListGroups: () => apiGet<AdminGroup[]>("/api/admin/groups", { admin: true }),
     adminCreateGroup: (payload: { name: string; description?: string }) => apiSend<AdminGroup>("/api/admin/groups", "POST", payload, { admin: true }),
@@ -306,7 +306,7 @@ function adminApi() {
     adminDeleteTagCascade: (childGroupId: string) =>
       apiDelete<TagCascadeOverview>(`/api/admin/tag-cascades/${encodeURIComponent(childGroupId)}`, { admin: true }),
     adminListRoleAssignments: () => apiGet<RoleAssignment[]>("/api/admin/role-assignments", { admin: true }),
-    adminAssignRole: (payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag"; resource_id: string; role: string }) =>
+    adminAssignRole: (payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag" | "global"; resource_id: string; role: string }) =>
       apiSend<RoleAssignment>("/api/admin/role-assignments", "POST", payload, { admin: true }),
     adminDeleteRoleAssignment: (roleAssignmentId: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/role-assignments/${encodeURIComponent(roleAssignmentId)}`, { admin: true }),

@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from skillhub.views.request_models.common import IdentityRef, OpencodeAgentId, SkillSlug, SkillTagPayload, TagGroupId, TagValue
+from skillhub.views.request_models.common import IdentityRef, OpencodeAgentId, SkillDisplayName, SkillSlug, SkillTagPayload, TagGroupId, TagValue
 
 
 class AdminPublishTargetUpdatePayload(BaseModel):
@@ -106,3 +106,4 @@ class AdminSkillUpdatePayload(BaseModel):
     slug: SkillSlug | None = None
     owner_ref: IdentityRef | None = None
     tags: list[SkillTagPayload] | None = None
+    display_name: SkillDisplayName | None = None

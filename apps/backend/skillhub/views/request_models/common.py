@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from skillhub.models.entities import ContentRef
 from skillhub.models.rules.semver import SEMVER_PATTERN
@@ -23,6 +23,11 @@ VERSION_CHANGE_SUMMARY_MAX_LENGTH = 1_000
 VERSION_DISPLAY_NAME_MAX_LENGTH = 80
 VersionChangeSummary = Annotated[str, Field(min_length=1, max_length=VERSION_CHANGE_SUMMARY_MAX_LENGTH)]
 VersionDisplayName = Annotated[str, Field(min_length=1, max_length=VERSION_DISPLAY_NAME_MAX_LENGTH)]
+SkillDisplayName = Annotated[
+    str,
+    BeforeValidator(lambda value: value.strip() if isinstance(value, str) else value),
+    Field(max_length=120),
+]
 SkillVersionSemVer = Annotated[str, Field(min_length=5, max_length=80, pattern=SEMVER_PATTERN)]
 
 

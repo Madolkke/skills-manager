@@ -133,7 +133,7 @@ export function useAdminActions(options: AdminActionsOptions) {
     }, "Tag 值已删除。");
   }
 
-  async function assignRole(payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag"; resource_id: string; role: string }): Promise<void> {
+  async function assignRole(payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag" | "global"; resource_id: string; role: string }): Promise<void> {
     await runLocalAdminAction(async () => {
       syncAdminState.upsertRole(await api.adminAssignRole(payload));
     }, "角色已授权。");

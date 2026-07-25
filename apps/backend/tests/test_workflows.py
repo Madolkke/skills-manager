@@ -9,6 +9,86 @@ from tests.api_command_test_case import ApiCommandTestCase
 
 
 class WorkflowApiTest(ApiCommandTestCase):
+    def test_rename_in_sync_workflow_creates_synced_revision_and_patch_version(self):
+        created = self._create_workflow("workflow-rename")
+        skill_id = created["skill_id"]
+        workflow = self.client.get(f"/api/skills/{skill_id}/workflow").json()
+        definition = self._definition()
+        saved = self.client.put(
+            f"/api/skills/{skill_id}/workflow",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={
+                "document": self._valid_document(workflow["document"], definition),
+                "collection_changes": [{"operation": "create", "definition": definition}],
+            },
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        synced = self.client.post(
+            f"/api/skills/{skill_id}/workflow/sync",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={"version": "0.0.2", "change_summary": "Initial sync."},
+        )
+        self.assertEqual(synced.status_code, 200, synced.text)
+
+        renamed = self.client.patch(
+            f"/api/skills/{skill_id}",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={"slug": "workflow-renamed", "expected_slug": "workflow-rename", "owner_ref": "workflow-owner"},
+        )
+        detail = self.client.get(f"/api/skills/{skill_id}").json()
+        workflow_detail = self.client.get(f"/api/skills/{skill_id}/workflow").json()
+
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(detail["workflow"]["status"], "in_sync")
+        self.assertEqual(detail["summary"]["current_version"]["version"], "0.0.3")
+        self.assertEqual(workflow_detail["revision"], 3)
+        self.assertEqual(workflow_detail["document"]["workflow"]["revision"], 3)
+        self.assertIn("name: workflow-renamed", detail["summary"]["current_version"]["bundle_files"][0]["content_text"])
+
+    def test_rename_diverged_workflow_does_not_overwrite_unsynced_document(self):
+        created = self._create_workflow("workflow-diverged-rename")
+        skill_id = created["skill_id"]
+        workflow = self.client.get(f"/api/skills/{skill_id}/workflow").json()
+        definition = self._definition()
+        saved = self.client.put(
+            f"/api/skills/{skill_id}/workflow",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={
+                "document": self._valid_document(workflow["document"], definition),
+                "collection_changes": [{"operation": "create", "definition": definition}],
+            },
+        )
+        self.client.post(
+            f"/api/skills/{skill_id}/workflow/sync",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={"version": "0.0.2", "change_summary": "Initial sync."},
+        )
+        changed_document = saved.json()["document"]
+        changed_document["workflow"]["metadata"]["description"] = "Unsynced change that must survive rename."
+        changed = self.client.put(
+            f"/api/skills/{skill_id}/workflow",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={"document": changed_document, "collection_changes": []},
+        )
+        self.assertEqual(changed.json()["revision"], 3)
+
+        renamed = self.client.patch(
+            f"/api/skills/{skill_id}",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={
+                "slug": "workflow-diverged-renamed",
+                "expected_slug": "workflow-diverged-rename",
+                "owner_ref": "workflow-owner",
+            },
+        )
+        detail = self.client.get(f"/api/skills/{skill_id}").json()
+        workflow_after = self.client.get(f"/api/skills/{skill_id}/workflow").json()
+
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(detail["workflow"]["status"], "diverged")
+        self.assertEqual(workflow_after["revision"], 3)
+        self.assertEqual(workflow_after["document"]["workflow"]["metadata"]["description"], "Unsynced change that must survive rename.")
+
     def test_workflow_create_save_sync_and_reactivate(self):
         created = self._create_workflow("interface-check")
         skill_id = created["skill_id"]
