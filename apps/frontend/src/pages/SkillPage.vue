@@ -15,7 +15,7 @@ import UploadVersionModal from "./UploadVersionModal.vue";
 import VersionsPage from "./VersionsPage.vue";
 import WorkflowTab from "./WorkflowTab.vue";
 
-const props = defineProps<{ skill: SkillDetail; tab: SkillTab; route: RouteState }>();
+const props = defineProps<{ skill: SkillDetail; tab: SkillTab; route: RouteState; evaluationsVisible: boolean }>();
 const emit = defineEmits<{
   tab: [tab: SkillTab];
   refresh: [];
@@ -43,7 +43,7 @@ function finishUpload(): void {
 <template>
   <div class="skill-page">
     <div class="skill-nav-row">
-      <SkillTabs :active="tab" :has-workflow="Boolean(skill.workflow)" @change="emit('tab', $event)" />
+      <SkillTabs :active="tab" :has-workflow="Boolean(skill.workflow)" :evaluations-visible="evaluationsVisible" @change="emit('tab', $event)" />
       <button v-if="canUploadVersion" class="primary-button" type="button" @click="uploadOpen = true">
         <Upload :size="17" />
         上传版本
@@ -51,7 +51,7 @@ function finishUpload(): void {
     </div>
 
     <Transition name="fade-slide" mode="out-in">
-      <OverviewPage v-if="tab === 'overview'" key="overview" :skill="skill" @navigate="emit('navigate', $event)" />
+      <OverviewPage v-if="tab === 'overview'" key="overview" :skill="skill" :evaluations-visible="evaluationsVisible" @navigate="emit('navigate', $event)" />
       <WorkflowTab
         v-else-if="tab === 'workflow' && skill.workflow"
         key="workflow"
@@ -75,7 +75,7 @@ function finishUpload(): void {
         @deleted="emit('deleted')"
       />
       <EvalSetsPage
-        v-else-if="tab === 'evalsets'"
+        v-else-if="evaluationsVisible && tab === 'evalsets'"
         key="evalsets"
         :skill="skill"
         :selected-case-id="route.selectedCaseId"
@@ -85,7 +85,7 @@ function finishUpload(): void {
         @toast="emit('toast', $event)"
       />
       <EvaluatePage
-        v-else-if="tab === 'evaluate'"
+        v-else-if="evaluationsVisible && tab === 'evaluate'"
         key="evaluate"
         :skill="skill"
         :selected-eval-set-id="route.selectedEvalSetId"
@@ -94,7 +94,7 @@ function finishUpload(): void {
         @toast="emit('toast', $event)"
       />
       <HistoryPage
-        v-else-if="tab === 'history'"
+        v-else-if="evaluationsVisible && tab === 'history'"
         key="history"
         :skill="skill"
         :selected-run-id="route.selectedRunId"

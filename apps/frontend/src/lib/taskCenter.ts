@@ -21,10 +21,10 @@ export function buildTaskCenterGroups(input: {
   notifications: NotificationItem[];
   skill: SkillDetail | null;
   publishOverview: SkillPublishOverview | null;
-}): TaskCenterGroup[] {
+}, options: { evaluationsVisible?: boolean } = {}): TaskCenterGroup[] {
   const reviewItems = input.reviews.filter((review) => review.status === "open").map(reviewTask);
   const notificationItems = input.notifications.filter((item) => !item.read_at).map(notificationTask);
-  const contextItems = buildSkillContextTasks(input.skill, input.publishOverview);
+  const contextItems = buildSkillContextTasks(input.skill, input.publishOverview, options.evaluationsVisible !== false);
   return [
     { id: "reviews", label: "我的评审", items: reviewItems },
     { id: "notifications", label: "通知", items: notificationItems },
@@ -60,9 +60,13 @@ function notificationTask(item: NotificationItem): TaskCenterItem {
   };
 }
 
-function buildSkillContextTasks(skill: SkillDetail | null, publishOverview: SkillPublishOverview | null): TaskCenterItem[] {
+function buildSkillContextTasks(
+  skill: SkillDetail | null,
+  publishOverview: SkillPublishOverview | null,
+  evaluationsVisible: boolean,
+): TaskCenterItem[] {
   if (!skill) return [];
-  const runningRuns = skill.latest_eval_runs.filter((run) => ["queued", "running"].includes(run.status));
+  const runningRuns = evaluationsVisible ? skill.latest_eval_runs.filter((run) => ["queued", "running"].includes(run.status)) : [];
   const pendingPublish = (publishOverview?.publish_records ?? []).filter((record) =>
     ["pending_confirmation", "queued", "releasing"].includes(record.status),
   );

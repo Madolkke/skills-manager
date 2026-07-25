@@ -98,8 +98,11 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `VITE_SKILLHUB_API_URL` | 前端显式 API 地址，例如 `https://skillhub.example.com`。 |
 | `VITE_SKILLHUB_API_PORT` | 未配置 API URL 时，按当前浏览器 hostname 拼接该端口。 |
 | `VITE_OPENCODE_RUN_POLL_INTERVAL_MS` | 前端测评运行轮询间隔，默认由脚本设为 `5000`。 |
+| `VITE_SKILLHUB_EVALUATIONS_VISIBLE` | 是否显示前端测评界面，默认 `true`；只有显式设置为 `false` 时隐藏。 |
 
 生产建议优先配置 `VITE_SKILLHUB_API_URL`，避免前端在反向代理或多域名场景下拼错 API 地址。
+
+`VITE_SKILLHUB_EVALUATIONS_VISIBLE` 是构建时 Feature Flag。修改后必须重新构建并部署前端，不能在后台运行时切换。设置为 `false` 只会隐藏 Hub、Skill 页面和任务中心中的测评内容，不会禁用后端测评 API、Worker 或已有数据，因此不能作为访问控制或安全边界。
 
 Workflow 编辑器已内置在 SkillHub 前端，不需要单独的服务地址或 iframe 配置。Workflow 文档、Collection Catalog 和同步源快照均使用现有 PostgreSQL 与 artifact 存储。
 
@@ -297,8 +300,12 @@ export LMNR_GRPC_PORT='8443'
 ```bash
 cd /opt/skillhub/repo/apps/frontend
 npm ci
-VITE_SKILLHUB_API_URL='https://skillhub.example.com' npm run build
+VITE_SKILLHUB_API_URL='https://skillhub.example.com' \
+VITE_SKILLHUB_EVALUATIONS_VISIBLE='false' \
+npm run build
 ```
+
+不设置 `VITE_SKILLHUB_EVALUATIONS_VISIBLE` 或将其设为 `true` 时，测评界面保持现有行为。
 
 构建产物位于：
 
@@ -462,10 +469,13 @@ docker run -d \
 构建前端镜像：
 
 ```bash
-docker build -t skillhub-frontend:latest apps/frontend
+docker build \
+  --build-arg VITE_SKILLHUB_EVALUATIONS_VISIBLE=false \
+  -t skillhub-frontend:latest \
+  apps/frontend
 ```
 
-前端 Dockerfile 当前在镜像构建阶段执行 `npm run build`。如果需要注入生产 API 地址，应在构建环境中传入 Vite 变量，或改造 Dockerfile 支持 `ARG VITE_SKILLHUB_API_URL` 后再构建。
+前端 Dockerfile 在镜像构建阶段执行 `npm run build`，并支持通过上述 build argument 控制测评界面。该值写入静态产物，启动容器后再修改环境变量不会生效。如果需要注入生产 API 地址，仍需在构建环境中传入 Vite 变量，或扩展 Dockerfile 支持 `ARG VITE_SKILLHUB_API_URL`。
 
 ## 12. 发布和升级流程
 

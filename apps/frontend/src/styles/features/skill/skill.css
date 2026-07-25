@@ -150,6 +150,10 @@
   gap: 12px;
 }
 
+.skill-summary-metrics.evaluations-hidden {
+  grid-template-columns: 1fr;
+}
+
 .summary-metric {
   min-width: 0;
   min-height: 126px;
@@ -264,6 +268,10 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+}
+
+.version-flow-stages.evaluations-hidden {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .version-flow-stage {

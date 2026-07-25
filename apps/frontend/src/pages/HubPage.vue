@@ -13,7 +13,7 @@ import HubSkillCard from "./hub/HubSkillCard.vue";
 import { filterSkills, skillCounts, sortSkills, tagUsageCounts, type FilterKey, type SortKey, type ViewMode } from "./hub/hubFilters";
 import type { SkillSummary, SkillTagPayload, TagGroup } from "../types";
 
-const props = defineProps<{ skills: SkillSummary[]; actor: string; loading: boolean }>();
+const props = defineProps<{ skills: SkillSummary[]; actor: string; loading: boolean; evaluationsVisible: boolean }>();
 const emit = defineEmits<{ "open-skill": [skillId: string]; "open-workflow": [skillId: string]; create: [] }>();
 
 const query = ref("");
@@ -25,11 +25,11 @@ const selectedTags = ref<SkillTagPayload[]>([]);
 const loadingTags = ref(false);
 const tagError = ref("");
 
-const sortOptions: DropdownSelectOption[] = [
+const sortOptions = computed<DropdownSelectOption[]>(() => [
   { value: "updated", label: "最近更新" },
-  { value: "score", label: "验证得分" },
+  ...(props.evaluationsVisible ? [{ value: "score", label: "验证得分" }] : []),
   { value: "name", label: "名称" },
-];
+]);
 
 const filtered = computed(() =>
   filterSkills(props.skills, {
@@ -40,7 +40,7 @@ const filtered = computed(() =>
     tagGroups: tagGroups.value,
   }),
 );
-const sorted = computed(() => sortSkills(filtered.value, sortKey.value));
+const sorted = computed(() => sortSkills(filtered.value, sortKey.value, props.evaluationsVisible));
 const counts = computed(() => skillCounts(props.skills, props.actor));
 const tagCounts = computed(() => tagUsageCounts(props.skills));
 
@@ -110,8 +110,8 @@ function clearFilters(): void {
         <div class="filter-tabs">
           <FilterButton :active="filter === 'all'" label="全部" :count="counts.all" @click="filter = 'all'" />
           <FilterButton :active="filter === 'workflow'" label="工作流" :count="counts.workflow" @click="filter = 'workflow'" />
-          <FilterButton :active="filter === 'verified'" label="已验证" :count="counts.verified" @click="filter = 'verified'" />
-          <FilterButton :active="filter === 'untested'" label="未测" :count="counts.untested" @click="filter = 'untested'" />
+          <FilterButton v-if="evaluationsVisible" :active="filter === 'verified'" label="已验证" :count="counts.verified" @click="filter = 'verified'" />
+          <FilterButton v-if="evaluationsVisible" :active="filter === 'untested'" label="未测" :count="counts.untested" @click="filter = 'untested'" />
           <FilterButton :active="filter === 'mine'" label="我维护的" :count="counts.mine" @click="filter = 'mine'" />
         </div>
         <div class="view-tools">
@@ -144,7 +144,7 @@ function clearFilters(): void {
       <EmptyState
         v-else-if="props.skills.length === 0"
         title="还没有 Skill"
-        description="新建一个 Skill 后，可以上传版本、配置测评集、发起评审并提交发布。"
+        :description="evaluationsVisible ? '新建一个 Skill 后，可以上传版本、配置测评集、发起评审并提交发布。' : '新建一个 Skill 后，可以上传版本、发起评审并提交发布。'"
         action-label="新建 Skill"
         @action="emit('create')"
       />
@@ -158,7 +158,13 @@ function clearFilters(): void {
         @secondary="emit('create')"
       />
       <TransitionGroup v-else name="list-motion" tag="div" :class="clsx('skill-grid', viewMode === 'list' && 'list-view')">
-        <HubSkillCard v-for="item in sorted" :key="item.skill.id" :item="item" @click="emit('open-skill', item.skill.id)" @workflow="emit('open-workflow', item.skill.id)" />
+        <HubSkillCard
+          v-for="item in sorted"
+          :key="item.skill.id"
+          :item="item"
+          @click="emit('open-skill', item.skill.id)"
+          @workflow="emit('open-workflow', item.skill.id)"
+        />
       </TransitionGroup>
     </section>
   </div>

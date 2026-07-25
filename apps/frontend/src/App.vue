@@ -4,11 +4,12 @@ import IdentitySettingsModal from "./components/IdentitySettingsModal.vue";
 import TaskCenterPanel from "./components/TaskCenterPanel.vue";
 import Toast from "./components/Toast.vue";
 import TopBar from "./components/TopBar.vue";
+import { useTaskCenter } from "./composables/useTaskCenter";
 import WorkflowConfirmModal from "./features/workflow/components/WorkflowConfirmModal.vue";
 import { api, ApiError } from "./lib/api";
+import { appFeatures } from "./lib/appFeatures";
 import { getActorId } from "./lib/identity";
-import { readRoute, writeRoute, type RouteState, type SkillTab } from "./lib/navigation";
-import { buildTaskCenterGroups, taskCenterBadgeCount, type TaskCenterGroup, type TaskCenterItem } from "./lib/taskCenter";
+import { readRoute, replaceRoute, writeRoute, type RouteState, type SkillTab } from "./lib/navigation";
 import AdminPage from "./pages/AdminPage.vue";
 import HubPage from "./pages/HubPage.vue";
 import NewSkillModal from "./pages/NewSkillModal.vue";
@@ -19,7 +20,8 @@ import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types
 
 const WorkflowPage = defineAsyncComponent(() => import("./pages/WorkflowPage.vue"));
 
-const route = ref<RouteState>(readRoute());
+const evaluationsVisible = appFeatures.evaluationsVisible;
+const route = ref<RouteState>(routeFromLocation());
 const skills = ref<SkillSummary[]>([]);
 const skill = ref<SkillDetail | null>(null);
 const session = ref<SessionInfo | null>(null);
@@ -27,10 +29,6 @@ const loading = ref(true);
 const toast = ref<ToastState>(null);
 const newSkillOpen = ref(false);
 const identityOpen = ref(false);
-const taskCenterOpen = ref(false);
-const taskCenterGroups = ref<TaskCenterGroup[]>([]);
-const taskCenterLoading = ref(false);
-const taskCenterError = ref("");
 const workflowDirty = ref(false);
 const pendingWorkflowRoute = ref<RouteState | null>(null);
 
@@ -39,10 +37,25 @@ const sectionShell = computed(() => (route.value.section === "workflows" || rout
 const shellClass = computed(() => `app-shell ${sectionShell.value}`);
 const currentSkill = computed(() => ((route.value.section === "skills" || route.value.section === "workflows") && route.value.skillId ? skill.value : null));
 const mainClass = computed(() => (route.value.section === "workflows" || route.value.section === "skill-builder" ? "workflow-shell-page" : "page-shell"));
-const taskCount = computed(() => taskCenterBadgeCount(taskCenterGroups.value));
+const {
+  open: taskCenterOpen,
+  groups: taskCenterGroups,
+  loading: taskCenterLoading,
+  error: taskCenterError,
+  badgeCount: taskCount,
+  show: openTaskCenter,
+  load: loadTaskCenter,
+  openItem: openTaskItem,
+} = useTaskCenter({
+  actor,
+  currentSkill,
+  evaluationsVisible,
+  errorMessage,
+  openReviews: goMyReviews,
+  openSkillTab: (skillId, tab) => navigate({ section: "skills", skillId, tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null }),
+});
 
 watch(() => [route.value.section, route.value.skillId] as const, () => void load(), { immediate: true });
-watch(() => [actor.value, currentSkill.value?.skill.id ?? ""] as const, () => void loadTaskCenter(), { immediate: true });
 
 onMounted(() => {
   window.addEventListener("popstate", syncRoute);
@@ -90,7 +103,7 @@ async function load(): Promise<void> {
 }
 
 function syncRoute(): void {
-  const next = readRoute();
+  const next = routeFromLocation();
   if (blocksWorkflowNavigation(next)) {
     pendingWorkflowRoute.value = next;
     route.value = writeRoute(route.value);
@@ -98,6 +111,11 @@ function syncRoute(): void {
   }
   workflowDirty.value = false;
   route.value = next;
+}
+
+function routeFromLocation(): RouteState {
+  const next = readRoute(evaluationsVisible);
+  return evaluationsVisible ? next : replaceRoute(next, evaluationsVisible);
 }
 
 function navigate(next: Partial<RouteState>): void {
@@ -148,39 +166,6 @@ function goSkillBuilder(): void {
 
 function goMyReviews(): void {
   navigate({ section: "my-reviews", skillId: null, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
-}
-
-async function openTaskCenter(): Promise<void> {
-  taskCenterOpen.value = true;
-  await loadTaskCenter();
-}
-
-async function loadTaskCenter(): Promise<void> {
-  taskCenterLoading.value = true;
-  taskCenterError.value = "";
-  try {
-    const publishOverviewPromise = currentSkill.value ? api.getSkillPublishOverview(currentSkill.value.skill.id) : Promise.resolve(null);
-    const [reviews, notifications, publishOverview] = await Promise.all([
-      api.listMyReviews(),
-      api.listMyNotifications(),
-      publishOverviewPromise,
-    ]);
-    taskCenterGroups.value = buildTaskCenterGroups({ reviews, notifications, skill: currentSkill.value, publishOverview });
-  } catch (error) {
-    taskCenterError.value = errorMessage(error);
-  } finally {
-    taskCenterLoading.value = false;
-  }
-}
-
-function openTaskItem(item: TaskCenterItem): void {
-  taskCenterOpen.value = false;
-  if (item.target === "reviews" || item.target === "notifications") {
-    goMyReviews();
-    return;
-  }
-  if (!currentSkill.value) return;
-  navigate({ section: "skills", skillId: currentSkill.value.skill.id, tab: item.target, selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
 }
 
 function handleIdentityChanged(nextActor: string): void {
@@ -239,6 +224,7 @@ function isMissingSkillError(error: unknown): boolean {
           :skill="skill"
           :tab="route.tab"
           :route="route"
+          :evaluations-visible="evaluationsVisible"
           @tab="setTab"
           @refresh="load"
           @navigate="navigate"
@@ -270,6 +256,7 @@ function isMissingSkillError(error: unknown): boolean {
           :skills="skills"
           :actor="actor"
           :loading="loading"
+          :evaluations-visible="evaluationsVisible"
           @open-skill="openSkill"
           @open-workflow="openWorkflow"
           @create="newSkillOpen = true"
@@ -284,6 +271,7 @@ function isMissingSkillError(error: unknown): boolean {
       :error="taskCenterError"
       :groups="taskCenterGroups"
       :loading="taskCenterLoading"
+      :evaluations-visible="evaluationsVisible"
       @close="taskCenterOpen = false"
       @open="openTaskItem"
       @refresh="loadTaskCenter"

@@ -1,3 +1,5 @@
+import { appFeatures } from "./appFeatures";
+
 export type AppSection = "hub" | "skills" | "workflows" | "admin" | "my-reviews" | "skill-builder";
 
 export type SkillTab = "overview" | "workflow" | "versions" | "evalsets" | "evaluate" | "history" | "reviews" | "publish" | "settings";
@@ -41,12 +43,12 @@ export function stripAppBase(pathname: string, baseUrl = import.meta.env.BASE_UR
   return path;
 }
 
-export function readRoute(): RouteState {
+export function readRoute(evaluationsVisible = appFeatures.evaluationsVisible): RouteState {
   const url = new URL(window.location.href);
   const pathname = stripAppBase(url.pathname);
   const skillId = url.searchParams.get("skill");
   if (pathname === "/skills/admin") {
-    return {
+    return normalizeRouteForFeatures({
       section: "admin",
       skillId: null,
       tab: "overview",
@@ -54,10 +56,10 @@ export function readRoute(): RouteState {
       selectedEvalSetId: null,
       selectedVersionId: null,
       selectedRunId: null,
-    };
+    }, evaluationsVisible);
   }
   if (pathname === "/skills/reviews") {
-    return {
+    return normalizeRouteForFeatures({
       section: "my-reviews",
       skillId: null,
       tab: "overview",
@@ -65,10 +67,10 @@ export function readRoute(): RouteState {
       selectedEvalSetId: null,
       selectedVersionId: null,
       selectedRunId: null,
-    };
+    }, evaluationsVisible);
   }
   if (pathname === "/skills/builder") {
-    return {
+    return normalizeRouteForFeatures({
       section: "skill-builder",
       skillId: null,
       tab: "overview",
@@ -76,9 +78,9 @@ export function readRoute(): RouteState {
       selectedEvalSetId: null,
       selectedVersionId: null,
       selectedRunId: null,
-    };
+    }, evaluationsVisible);
   }
-  return {
+  return normalizeRouteForFeatures({
     section: normalizeSection(url.searchParams.get("section"), skillId),
     skillId,
     tab: normalizeTab(url.searchParams.get("tab")),
@@ -86,29 +88,52 @@ export function readRoute(): RouteState {
     selectedEvalSetId: url.searchParams.get("evalSet"),
     selectedVersionId: url.searchParams.get("version"),
     selectedRunId: url.searchParams.get("run"),
+  }, evaluationsVisible);
+}
+
+export function writeRoute(next: Partial<RouteState>, evaluationsVisible = appFeatures.evaluationsVisible): RouteState {
+  const current = readRoute(evaluationsVisible);
+  const route = normalizeRouteForFeatures({ ...current, ...next }, evaluationsVisible);
+  return updateBrowserRoute(route, "push");
+}
+
+export function replaceRoute(route: RouteState, evaluationsVisible = appFeatures.evaluationsVisible): RouteState {
+  return updateBrowserRoute(normalizeRouteForFeatures(route, evaluationsVisible), "replace");
+}
+
+export function normalizeRouteForFeatures(route: RouteState, evaluationsVisible: boolean): RouteState {
+  if (evaluationsVisible) return route;
+  return {
+    ...route,
+    tab: isEvaluationTab(route.tab) ? "overview" : route.tab,
+    selectedCaseId: null,
+    selectedEvalSetId: null,
+    selectedRunId: null,
   };
 }
 
-export function writeRoute(next: Partial<RouteState>): RouteState {
-  const current = readRoute();
-  const route = { ...current, ...next };
+export function isEvaluationTab(tab: SkillTab): boolean {
+  return tab === "evalsets" || tab === "evaluate" || tab === "history";
+}
+
+function updateBrowserRoute(route: RouteState, mode: "push" | "replace"): RouteState {
   const url = new URL(window.location.href);
   if (route.section === "admin") {
     url.pathname = withAppBase("/skills/admin");
     url.search = "";
-    window.history.pushState(route, "", url);
+    writeHistory(mode, route, url);
     return route;
   }
   if (route.section === "my-reviews") {
     url.pathname = withAppBase("/skills/reviews");
     url.search = "";
-    window.history.pushState(route, "", url);
+    writeHistory(mode, route, url);
     return route;
   }
   if (route.section === "skill-builder") {
     url.pathname = withAppBase("/skills/builder");
     url.search = "";
-    window.history.pushState(route, "", url);
+    writeHistory(mode, route, url);
     return route;
   }
   url.pathname = withAppBase("/skills");
@@ -120,8 +145,13 @@ export function writeRoute(next: Partial<RouteState>): RouteState {
   if (route.selectedCaseId) url.searchParams.set("case", route.selectedCaseId);
   if (route.selectedVersionId) url.searchParams.set("version", route.selectedVersionId);
   if (route.selectedRunId) url.searchParams.set("run", route.selectedRunId);
-  window.history.pushState(route, "", url);
+  writeHistory(mode, route, url);
   return route;
+}
+
+function writeHistory(mode: "push" | "replace", route: RouteState, url: URL): void {
+  if (mode === "replace") window.history.replaceState(route, "", url);
+  else window.history.pushState(route, "", url);
 }
 
 function normalizeSection(value: string | null, skillId: string | null): AppSection {

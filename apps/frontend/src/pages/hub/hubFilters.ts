@@ -40,11 +40,13 @@ export function skillCounts(skills: SkillSummary[], actor: string) {
   };
 }
 
-export function sortSkills(skills: SkillSummary[], key: SortKey): SkillSummary[] {
+export function sortSkills(skills: SkillSummary[], key: SortKey, evaluationsVisible = true): SkillSummary[] {
   const copy = [...skills];
   if (key === "name") return copy.sort((left, right) => left.skill.slug.localeCompare(right.skill.slug));
-  if (key === "score") return copy.sort((left, right) => scoreValue(right) - scoreValue(left) || updatedTime(right) - updatedTime(left));
-  return copy.sort((left, right) => updatedTime(right) - updatedTime(left));
+  if (key === "score" && evaluationsVisible) {
+    return copy.sort((left, right) => scoreValue(right) - scoreValue(left) || updatedTime(right, true) - updatedTime(left, true));
+  }
+  return copy.sort((left, right) => updatedTime(right, evaluationsVisible) - updatedTime(left, evaluationsVisible));
 }
 
 export function tagUsageCounts(skills: SkillSummary[]): TagCountMap {
@@ -121,8 +123,12 @@ function scoreValue(item: SkillSummary): number {
   return ((run.summary.passed ?? 0) / run.summary.total) * 100;
 }
 
-function updatedTime(item: SkillSummary): number {
-  const dates = [item.skill.updated_at, item.summary.current_version?.created_at, item.summary.latest_accepted_eval_run?.created_at]
+function updatedTime(item: SkillSummary, evaluationsVisible: boolean): number {
+  const dates = [
+    item.skill.updated_at,
+    item.summary.current_version?.created_at,
+    evaluationsVisible ? item.summary.latest_accepted_eval_run?.created_at : undefined,
+  ]
     .map((date) => Date.parse(date ?? ""))
     .filter(Number.isFinite);
   return dates.length ? Math.max(...dates) : 0;

@@ -3,12 +3,13 @@ import { Bell, RefreshCw, X } from "lucide-vue-next";
 import EmptyState from "./EmptyState.vue";
 import type { TaskCenterGroup, TaskCenterItem } from "../lib/taskCenter";
 
-defineProps<{
+withDefaults(defineProps<{
   groups: TaskCenterGroup[];
   loading: boolean;
   error: string;
   badgeCount: number;
-}>();
+  evaluationsVisible?: boolean;
+}>(), { evaluationsVisible: true });
 
 const emit = defineEmits<{ close: []; refresh: []; open: [item: TaskCenterItem] }>();
 
@@ -37,7 +38,7 @@ function dateText(value?: string): string {
     <EmptyState
       v-else-if="!groups.length"
       title="当前没有需要处理的任务"
-      description="新的评审、通知、运行中测评和待确认发布会出现在这里。"
+      :description="evaluationsVisible ? '新的评审、通知、运行中测评和待确认发布会出现在这里。' : '新的评审、通知和待确认发布会出现在这里。'"
     />
     <TransitionGroup v-else name="list-motion" tag="div" class="task-center-groups">
       <section v-for="group in groups" :key="group.id" class="task-center-group">

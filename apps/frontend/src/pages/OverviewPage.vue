@@ -10,7 +10,7 @@ import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidan
 import { tagLabel } from "../lib/skillTags";
 import type { ReviewRequest, SkillDetail, SkillPublishOverview } from "../types";
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = withDefaults(defineProps<{ skill: SkillDetail; evaluationsVisible?: boolean }>(), { evaluationsVisible: true });
 const emit = defineEmits<{ navigate: [next: Partial<RouteState>] }>();
 const reviews = ref<ReviewRequest[]>([]);
 const publishOverview = ref<SkillPublishOverview | null>(null);
@@ -25,11 +25,13 @@ const versionFlowItems = computed(() => buildVersionFlowItems({
   skill: props.skill,
   reviews: reviews.value,
   publishRecords: publishOverview.value?.publish_records ?? [],
+  evaluationsVisible: props.evaluationsVisible,
 }).slice(0, 4));
 const suggestions = computed(() => buildSkillSuggestions({
   skill: props.skill,
   reviews: reviews.value,
   publishRecords: publishOverview.value?.publish_records ?? [],
+  evaluationsVisible: props.evaluationsVisible,
 }));
 
 onMounted(() => void loadGuidance());
@@ -85,18 +87,18 @@ function skillLifecycleLabel(status: string): string {
           <span v-for="tag in skill.skill.tags" :key="`${tag.group_id}:${tag.value}`" class="tag-chip">{{ tagLabel(tag) }}</span>
         </div>
       </div>
-      <div class="skill-summary-metrics">
+      <div :class="['skill-summary-metrics', { 'evaluations-hidden': !evaluationsVisible }]">
         <div class="summary-metric">
           <span>当前版本</span>
           <strong>{{ versionName(version) }}</strong>
           <small v-if="version?.created_at">更新于 {{ humanDate(version.created_at) }}</small>
         </div>
-        <div class="summary-metric">
+        <div v-if="evaluationsVisible" class="summary-metric">
           <span>验证分数</span>
           <strong :class="scoreKind(run)">{{ scoreLabel(run) }}</strong>
           <small>{{ run?.summary?.total ? `${run.summary.passed ?? 0}/${run.summary.total} 通过` : "尚无测评" }}</small>
         </div>
-        <div class="summary-metric">
+        <div v-if="evaluationsVisible" class="summary-metric">
           <span>测评集</span>
           <strong>{{ evalSet?.name ?? "未创建" }}</strong>
           <small>{{ evalSet ? "默认测评集" : "无测评集" }}</small>
@@ -115,7 +117,7 @@ function skillLifecycleLabel(status: string): string {
             版本管理
             <GitCompareArrows :size="16" />
           </button>
-          <button class="secondary-button" type="button" @click="emit('navigate', { tab: 'history' })">
+          <button v-if="evaluationsVisible" class="secondary-button" type="button" @click="emit('navigate', { tab: 'history' })">
             打开测评历史
             <ExternalLink :size="16" />
           </button>
@@ -128,7 +130,7 @@ function skillLifecycleLabel(status: string): string {
       <div class="panel-title-row">
         <div>
           <h2>下一步建议</h2>
-          <p>根据版本、测评、评审和发布状态生成。</p>
+          <p>{{ evaluationsVisible ? "根据版本、测评、评审和发布状态生成。" : "根据版本、评审和发布状态生成。" }}</p>
         </div>
         <InlineLoading v-if="guidanceLoading" label="正在刷新建议" />
       </div>
@@ -141,14 +143,16 @@ function skillLifecycleLabel(status: string): string {
           <button class="secondary-button compact-button" type="button" @click="emit('navigate', { tab: item.tab })">{{ item.actionLabel }}</button>
         </article>
       </div>
-      <div v-else class="skill-suggestion-done">当前没有明确阻塞项，可以继续维护版本、补充测评或查看测评历史。</div>
+      <div v-else class="skill-suggestion-done">
+        {{ evaluationsVisible ? "当前没有明确阻塞项，可以继续维护版本、补充测评或查看测评历史。" : "当前没有明确阻塞项，可以继续维护版本、发起评审或查看发布状态。" }}
+      </div>
     </section>
 
     <section class="primary-panel version-flow-panel">
       <div class="panel-title-row">
         <div>
           <h2>版本流程</h2>
-          <p>按版本查看测评、评审和发布进展。</p>
+          <p>{{ evaluationsVisible ? "按版本查看测评、评审和发布进展。" : "按版本查看评审和发布进展。" }}</p>
         </div>
       </div>
       <div class="version-flow-list">
@@ -157,7 +161,7 @@ function skillLifecycleLabel(status: string): string {
             <strong>{{ item.version }}</strong>
             <span v-if="item.isCurrent" class="tag-chip">当前版本</span>
           </header>
-          <div class="version-flow-stages">
+          <div :class="['version-flow-stages', { 'evaluations-hidden': !evaluationsVisible }]">
             <button
               v-for="stage in item.stages"
               :key="stage.id"

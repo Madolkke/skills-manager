@@ -7,6 +7,7 @@ web_port := env_var_or_default("SKILLHUB_WEB_PORT", "3030")
 
 export VITE_SKILLHUB_API_PORT := env_var_or_default("VITE_SKILLHUB_API_PORT", api_port)
 export VITE_OPENCODE_RUN_POLL_INTERVAL_MS := env_var_or_default("VITE_OPENCODE_RUN_POLL_INTERVAL_MS", "5000")
+export VITE_SKILLHUB_EVALUATIONS_VISIBLE := env_var_or_default("VITE_SKILLHUB_EVALUATIONS_VISIBLE", "true")
 export SKILLHUB_REQUIRE_POSTGRES_TESTS := env_var_or_default("SKILLHUB_REQUIRE_POSTGRES_TESTS", "1")
 
 dev_command := if os() == "windows" { "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-services.ps1" } else { "bash scripts/dev.sh" }

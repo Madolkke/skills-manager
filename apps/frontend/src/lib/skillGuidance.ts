@@ -28,21 +28,20 @@ export function buildVersionFlowItems(input: {
   skill: SkillDetail;
   reviews?: ReviewRequest[];
   publishRecords?: PublishRecord[];
+  evaluationsVisible?: boolean;
 }): VersionFlowItem[] {
   return input.skill.versions.map((version) => {
     const review = input.reviews?.find((item) => item.skill_version_id === version.id) ?? null;
     const publishRecords = (input.publishRecords ?? []).filter((item) => item.skill_version_id === version.id);
     const evalRun = latestRunForVersion(input.skill.latest_eval_runs, version.id);
+    const stages: VersionFlowStage[] = [versionStage(version)];
+    if (input.evaluationsVisible !== false) stages.push(evaluationStage(evalRun));
+    stages.push(reviewStage(review), publishStage(publishRecords));
     return {
       versionId: version.id,
       version: version.version,
       isCurrent: input.skill.skill.current_version_id === version.id,
-      stages: [
-        versionStage(version),
-        evaluationStage(evalRun),
-        reviewStage(review),
-        publishStage(publishRecords),
-      ],
+      stages,
     };
   });
 }
@@ -51,6 +50,7 @@ export function buildSkillSuggestions(input: {
   skill: SkillDetail;
   reviews?: ReviewRequest[];
   publishRecords?: PublishRecord[];
+  evaluationsVisible?: boolean;
 }): SkillSuggestion[] {
   const suggestions: SkillSuggestion[] = [];
   const currentVersionId = input.skill.skill.current_version_id;
@@ -60,12 +60,12 @@ export function buildSkillSuggestions(input: {
     suggestions.push({
       id: "upload-version",
       title: "上传第一个版本",
-      description: "当前 Skill 还没有可测评和发布的版本。",
+      description: input.evaluationsVisible === false ? "当前 Skill 还没有可评审和发布的版本。" : "当前 Skill 还没有可测评和发布的版本。",
       actionLabel: "去版本管理",
       tab: "versions",
     });
   }
-  if (!input.skill.eval_sets.length) {
+  if (input.evaluationsVisible !== false && !input.skill.eval_sets.length) {
     suggestions.push({
       id: "create-eval-set",
       title: "创建测评集",
@@ -74,7 +74,7 @@ export function buildSkillSuggestions(input: {
       tab: "evalsets",
     });
   }
-  if (input.skill.versions.length && !input.skill.latest_eval_runs.length) {
+  if (input.evaluationsVisible !== false && input.skill.versions.length && !input.skill.latest_eval_runs.length) {
     suggestions.push({
       id: "run-evaluation",
       title: "运行一次测评",

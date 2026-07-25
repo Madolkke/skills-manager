@@ -6,11 +6,12 @@ import { buildEvalCaseValidationSummary, validateStep } from "../features/evalua
 import { buildCopiedEvalCasePayload, cleanCaseForm, copyEvalCaseTitle } from "../features/evaluation/lib/evalCaseManagement";
 import { GENERATED_WORKSPACE_NAME, validateWorkspaceFiles, workspaceFilesToBase64 } from "../features/evaluation/lib/workspaceDraft";
 import { pendingPublishRecords, selectedPendingRecords, summarizeBatchResults } from "../lib/batchPublish";
+import { enabledUnlessFalse } from "../lib/appFeatures";
 import { evalRunReason, formalEvalReason, publishRequestReason } from "../lib/disabledReasons";
 import { runWaitHint } from "../lib/evalWaitHints";
 import { scoreKind, scoreLabel } from "../lib/format";
 import { compactDigest, resolveSelectedRunId, runScoreText } from "../lib/history";
-import { appBasePath, stripAppBase, withAppBase } from "../lib/navigation";
+import { appBasePath, normalizeRouteForFeatures, stripAppBase, withAppBase } from "../lib/navigation";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
 import {
   builderSubmitMappingsFromFiles,
@@ -34,7 +35,7 @@ import {
 } from "../lib/skillBundleDraft";
 import { missingRequiredTagGroups, requiredTagMissingMessage, sortTagGroupsForPicker } from "../lib/skillTags";
 import { activeTagGroups, buildTagCascadeTreeRows, orphanedTags, pruneInactiveTags, withCascadeParents } from "../lib/tagCascades";
-import { filterSkills, tagUsageCounts } from "../pages/hub/hubFilters";
+import { filterSkills, sortSkills, tagUsageCounts } from "../pages/hub/hubFilters";
 import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { api, ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
@@ -128,6 +129,38 @@ describe("skill builder UI helpers", () => {
     ]);
     mappings[1].targetPath = "SKILL.md";
     expect(validateBuilderSubmitMappings(mappings).valid).toBe(false);
+  });
+});
+
+describe("frontend feature flags", () => {
+  it("keeps evaluations visible unless explicitly disabled", () => {
+    expect(enabledUnlessFalse(undefined)).toBe(true);
+    expect(enabledUnlessFalse("")).toBe(true);
+    expect(enabledUnlessFalse("true")).toBe(true);
+    expect(enabledUnlessFalse("FALSE")).toBe(false);
+    expect(enabledUnlessFalse(" false ")).toBe(false);
+  });
+
+  it("redirects evaluation routes and clears evaluation selections when hidden", () => {
+    const route = normalizeRouteForFeatures({
+      section: "skills",
+      skillId: "skill-1",
+      tab: "history",
+      selectedCaseId: "case-1",
+      selectedEvalSetId: "eval-set-1",
+      selectedVersionId: "version-1",
+      selectedRunId: "run-1",
+    }, false);
+
+    expect(route).toEqual({
+      section: "skills",
+      skillId: "skill-1",
+      tab: "overview",
+      selectedCaseId: null,
+      selectedEvalSetId: null,
+      selectedVersionId: "version-1",
+      selectedRunId: null,
+    });
   });
 });
 
@@ -574,7 +607,7 @@ describe("skill evidence helpers", () => {
   });
 
   it("aggregates task center groups from existing frontend data", () => {
-    const groups = buildTaskCenterGroups({
+    const input = {
       reviews: [
         { id: "review-1", status: "open", skill: { slug: "writer" }, skill_version: { version: "0.0.1" } },
         { id: "review-2", status: "closed", skill: { slug: "closed" }, skill_version: { version: "0.0.1" } },
@@ -585,10 +618,15 @@ describe("skill evidence helpers", () => {
       ] as never,
       skill: { skill: { id: "skill-1" }, latest_eval_runs: [{ status: "running", created_at: "2026-01-01" }] } as never,
       publishOverview: { publish_records: [{ status: "pending_confirmation", created_at: "2026-01-02" }] } as never,
-    });
+    };
+    const groups = buildTaskCenterGroups(input as never);
 
     expect(groups.map((group) => group.id)).toEqual(["reviews", "notifications", "skill"]);
     expect(taskCenterBadgeCount(groups)).toBe(4);
+
+    const hiddenGroups = buildTaskCenterGroups(input as never, { evaluationsVisible: false });
+    expect(hiddenGroups.flatMap((group) => group.items).map((item) => item.target)).toEqual(["reviews", "notifications", "publish"]);
+    expect(taskCenterBadgeCount(hiddenGroups)).toBe(3);
   });
 
   it("diagnoses long waiting eval runs without changing run state", () => {
@@ -625,6 +663,27 @@ describe("skill evidence helpers", () => {
       expect.objectContaining({ id: "run-evaluation" }),
       expect.objectContaining({ id: "start-review" }),
     ]);
+
+    const hiddenFlow = buildVersionFlowItems({ skill, reviews, publishRecords, evaluationsVisible: false });
+    expect(hiddenFlow[0].stages.map((stage) => stage.id)).toEqual(["version", "review", "publish"]);
+    expect(buildSkillSuggestions({
+      skill: { ...skillFixture, eval_sets: [], latest_eval_runs: [] } as never,
+      evaluationsVisible: false,
+    }).map((item) => item.id)).toEqual(["start-review"]);
+  });
+
+  it("does not let evaluation activity affect recently updated sorting when hidden", () => {
+    const oldSkillWithNewRun = {
+      skill: { id: "old", slug: "old", updated_at: "2026-01-01" },
+      summary: { current_version: null, latest_accepted_eval_run: { created_at: "2026-03-01" } },
+    } as never;
+    const newSkill = {
+      skill: { id: "new", slug: "new", updated_at: "2026-02-01" },
+      summary: { current_version: null, latest_accepted_eval_run: null },
+    } as never;
+
+    expect(sortSkills([oldSkillWithNewRun, newSkill], "updated", false).map((item) => item.skill.id)).toEqual(["new", "old"]);
+    expect(sortSkills([oldSkillWithNewRun, newSkill], "updated", true).map((item) => item.skill.id)).toEqual(["old", "new"]);
   });
 
   it("selects pending publish records for batch actions", () => {
