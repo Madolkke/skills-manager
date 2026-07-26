@@ -85,7 +85,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 connection.execute(
                     update(orm.Workflow)
                     .where(orm.Workflow.id == workflow["id"])
-                    .values(revision=revision, document=candidate, document_digest=candidate_digest, updated_at=saved_at, last_saved_by=actor)
+                    .values(revision=revision, document_schema_version=DOCUMENT_SCHEMA_VERSION, document=candidate, document_digest=candidate_digest, updated_at=saved_at, last_saved_by=actor)
                 )
                 self._audit_workflow(
                     connection,

@@ -5,7 +5,7 @@ from typing import Any
 
 import yaml
 
-GENERATOR_VERSION = "workflow-skill-v3"
+GENERATOR_VERSION = "workflow-skill-v4"
 
 
 def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:
@@ -76,8 +76,10 @@ def _parameters(lines: list[str], heading: str, parameters: list[dict[str, Any]]
     lines.extend([f"## {heading}" if heading == "全局输入" else f"#### {heading}", ""])
     for item in parameters:
         required = "必填" if item["required"] else "可选"
-        description = f" - {item['description']}" if item["description"] else ""
-        lines.append(f"- `{item['key']}` ({item['dataType']}, {required}): {item['name']}{description}")
+        schema = item["schema"]
+        description = f" - {schema['description']}" if schema.get("description") else ""
+        lines.append(f"- `{item['key']}` ({schema.get('type', 'any')}, {required}): {schema.get('title') or item['key']}{description}")
+        _schema_children(lines, schema, indent="  ")
     lines.append("")
 
 
@@ -120,8 +122,12 @@ def _calls(lines, calls, definitions, roles, *, workflow_inputs) -> None:
             if definition["outputs"]:
                 lines.extend(["", "输出字段:"])
                 for item in definition["outputs"]:
-                    suffix = f": {item['description']}" if item["description"] else ""
-                    lines.append(f"- `{_call_output_key(call, item)}` ({item['dataType']}){suffix}")
+                    schema = item["schema"]
+                    title = schema.get("title") or item["key"]
+                    detail = " - " + schema["description"] if schema.get("description") else ""
+                    suffix = f": {title}{detail}"
+                    lines.append(f"- `{_call_output_key(call, item)}` ({schema.get('type', 'any')}, {'必填' if item['required'] else '可选'}){suffix}")
+                    _schema_children(lines, schema, indent="  ")
             samples = [item["name"] for item in definition["spec"]["outputSamples"] if item["name"].strip()]
             if samples:
                 lines.extend(["", f"回显示例: {'、'.join(samples)}"])
@@ -137,7 +143,7 @@ def _bindings(lines, bindings, parameters, *, workflow_inputs, calls, definition
         if binding is None:
             continue
         lines.append(
-            f"- {parameter['name']} (`{parameter['key']}`): "
+            f"- {parameter['schema'].get('title') or parameter['key']} (`{parameter['key']}`): "
             f"{_binding_text(binding, workflow_inputs=workflow_inputs, calls=calls, definitions=definitions)}"
         )
 
@@ -161,7 +167,21 @@ def _binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
 def _named_reference(label: str, item: dict[str, Any] | None) -> str:
     if item is None:
         return "无效引用"
-    return f"{label} `{item['key']}` ({item['name']})"
+    return f"{label} `{item['key']}` ({item['schema'].get('title') or item['key']})"
+
+
+def _schema_children(lines: list[str], schema: dict[str, Any], *, indent: str) -> None:
+    if schema.get("type") == "object":
+        required = set(schema.get("required", []))
+        for key, child in sorted(schema.get("properties", {}).items()):
+            title = child.get("title") or key
+            description = f" - {child['description']}" if child.get("description") else ""
+            lines.append(f"{indent}- `{key}` ({child.get('type', 'any')}, {'必填' if key in required else '可选'}): {title}{description}")
+            _schema_children(lines, child, indent=f"{indent}  ")
+    elif schema.get("type") == "array":
+        item_schema = schema.get("items", {})
+        lines.append(f"{indent}- 数组元素 ({item_schema.get('type', 'any')})")
+        _schema_children(lines, item_schema, indent=f"{indent}  ")
 
 
 def _call_name(call: dict[str, Any], definition: dict[str, Any] | None) -> str:

@@ -62,18 +62,97 @@ def test_skill_identity_revision_upgrades_the_baseline_without_data_loss() -> No
         _reset_database(engine)
         upgrade_database(engine, "0001_initial_schema")
         with engine.begin() as connection:
-            connection.execute(
-                text("insert into skills (id, slug, owner_ref) values ('skill-existing', 'existing-skill', 'owner')")
-            )
+            connection.execute(text("insert into skills (id, slug, owner_ref) values ('skill-existing', 'existing-skill', 'owner')"))
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0002_skill_identity_global_admin"
+        assert current_revision(engine) == "0003_workflow_json_schema_v4"
         with engine.connect() as connection:
             assert "display_name" in {column["name"] for column in inspect(connection).get_columns("skills")}
             assert connection.scalar(text("select slug from skills where id = 'skill-existing'")) == "existing-skill"
             constraints = {item["name"] for item in inspect(connection).get_check_constraints("role_assignments")}
             assert "role_assignments_global_admin_check" in constraints
+    finally:
+        _reset_database(engine)
+        engine.dispose()
+
+
+def test_workflow_json_schema_revision_preserves_v3_collection_history() -> None:
+    ensure_postgres_test_database()
+    engine = create_postgres_engine(resolve_database_url())
+    try:
+        _reset_database(engine)
+        upgrade_database(engine, "0002_skill_identity_global_admin")
+        workflow_document = {
+            "documentType": "workflow_bundle",
+            "workflow": {
+                "id": "workflow-v3",
+                "revision": 1,
+                "metadata": {"name": "迁移", "description": "迁移测试"},
+                "inputs": [{"id": "input-rows", "key": "rows", "name": "数据行", "description": "", "dataType": "array", "required": True}],
+                "deviceRoles": [],
+                "nodes": [],
+            },
+            "collectionSnapshots": [],
+        }
+        collection_document = {
+            "id": "collection-v3",
+            "revision": 1,
+            "key": "legacy",
+            "metadata": {"name": "旧采集", "description": "", "industry": "", "device": "", "versions": [], "tags": []},
+            "spec": {"collectionType": "cli", "commandTemplate": "show legacy", "outputSamples": []},
+            "inputs": [],
+            "outputs": [{"id": "output-table", "key": "table", "description": "旧对象", "dataType": "object"}],
+        }
+        with engine.begin() as connection:
+            connection.execute(metadata.tables["skills"].insert().values(id="skill-v3", slug="workflow-v3", owner_ref="owner"))
+            connection.execute(
+                metadata.tables["workflows"]
+                .insert()
+                .values(
+                    id="workflow-v3",
+                    skill_id="skill-v3",
+                    revision=1,
+                    document_schema_version=3,
+                    document=workflow_document,
+                    document_digest="old",
+                    created_by="tester",
+                    last_saved_by="tester",
+                )
+            )
+            connection.execute(metadata.tables["workflow_collection_definitions"].insert().values(id="collection-v3", latest_revision=1, created_by="tester"))
+            connection.execute(
+                metadata.tables["workflow_collection_revisions"]
+                .insert()
+                .values(
+                    definition_id="collection-v3",
+                    revision=1,
+                    document_schema_version=3,
+                    definition=collection_document,
+                    definition_digest="old",
+                    created_by="tester",
+                )
+            )
+
+        upgrade_database(engine)
+
+        with engine.connect() as connection:
+            workflow = connection.execute(text("select revision, document_schema_version, document from workflows where id='workflow-v3'")).mappings().one()
+            revisions = (
+                connection.execute(
+                    text(
+                        "select revision, document_schema_version, definition from workflow_collection_revisions where definition_id='collection-v3' order by revision"
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            assert workflow["revision"] == 2
+            assert workflow["document_schema_version"] == 4
+            assert workflow["document"]["workflow"]["inputs"][0]["schema"]["items"]["x-skillhub-legacy-loose"] is True
+            assert [(item["revision"], item["document_schema_version"]) for item in revisions] == [(1, 3), (2, 4)]
+            assert revisions[0]["definition"]["outputs"][0]["dataType"] == "object"
+            assert revisions[1]["definition"]["outputs"][0]["schema"]["additionalProperties"] is True
     finally:
         _reset_database(engine)
         engine.dispose()

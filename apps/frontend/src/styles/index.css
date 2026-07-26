@@ -33,6 +33,7 @@
 @import "./features/workflow/settings.css";
 @import "./features/workflow/paths.css";
 @import "./features/workflow/expression-editor.css";
+@import "./features/workflow/schema-editor.css";
 @import "./features/workflow/catalog.css";
 @import "./features/workflow/step-collections.css";
 @import "./features/workflow/dialogs.css";

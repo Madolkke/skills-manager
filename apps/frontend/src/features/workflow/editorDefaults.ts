@@ -1,8 +1,9 @@
 import type { CollectionDefinition, DeviceRole, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
 import { createWorkflowId } from "./domain/utils";
+import { newWorkflowSchema } from "./workflowJsonSchema";
 
 export function newParameter(): WorkflowParameter {
-  return { id: createWorkflowId("input"), key: "", name: "", description: "", dataType: "string", required: true };
+  return { id: createWorkflowId("input"), key: "", required: true, schema: newWorkflowSchema("string") };
 }
 
 export function newRole(index: number): DeviceRole {

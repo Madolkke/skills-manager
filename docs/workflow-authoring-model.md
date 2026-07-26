@@ -134,7 +134,7 @@ Bundle 只携带当前 Workflow 直接引用的 Collection 精确版本。共享
 
 ### Parameter
 
-Parameter 声明 Workflow 全局输入或 Collection 输入槽位，包含 `id/key/name/description/dataType/required`，不保存运行时值。Step 不再声明独立输入。
+Parameter 声明 Workflow 全局输入或 Collection 输入槽位，包含 `id/key/required/schema`，不保存运行时值。显示名称和说明保存在 `schema.title`、`schema.description`；Schema 可递归表达对象、数组和对象数组。Step 不再声明独立输入。
 
 编辑器新建 Workflow 全局输入时固定 `required: true` 且不提供切换控件。Schema 和导入接口仍保留 `required` 字段，Collection 输入继续允许作者配置该值。
 
@@ -156,7 +156,7 @@ DeviceRole 描述逻辑设备角色。`required` 表示未来使用 Workflow 时
 
 ### CollectionDefinition
 
-CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。当前唯一采集类型是 CLI。Collection 输出只包含 `id/key/dataType/description`，其中 Key 同时承担字段名称和表达式引用身份。
+CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。当前唯一采集类型是 CLI。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
 
 CLI spec 包含：
 
@@ -170,7 +170,7 @@ CLI spec 包含：
 
 CollectionCall 表示某个 Step 对 CollectionDefinition 精确版本的一次使用，保存可选调用 Key/Name、Definition 引用、设备角色、采集次数和参数绑定。未选择设备角色时表示“单设备”。调用名称为空时展示 Collection 名称；调用 Key 非空时作为输出字段命名空间，例如 `status.version`，为空时直接暴露输出字段。直接暴露的字段不得与 Workflow 全局输入或其他直接暴露输出重名。
 
-数组顺序只用于写作和阅读，不表达串行、并行、优先级或调度顺序。
+CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_output` 只能引用同一步骤中排在当前调用之前的输出。重排后形成向前引用时允许保存草稿，但阻止同步。
 
 ### 步骤内新建 Collection
 

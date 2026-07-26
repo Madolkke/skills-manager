@@ -1,4 +1,5 @@
-import type { CollectionDefinition, WorkflowBundle, WorkflowSelection, WorkflowValidationIssue } from "../../../types";
+import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowParameter, WorkflowSelection, WorkflowValidationIssue } from "../../../types";
+import { workflowSchemaIsLegacy, workflowSchemasAssignable, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { projectWorkflowGraph, reachableNodeIds } from "./graph";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 
@@ -12,7 +13,8 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   duplicates(bundle.workflow.nodes, "id", "DUPLICATE_NODE_ID", "节点 ID", issues, { type: "metadata" });
   duplicates(bundle.workflow.inputs, "id", "DUPLICATE_INPUT_ID", "全局输入 ID", issues, { type: "inputs" });
   duplicates(bundle.workflow.inputs, "key", "DUPLICATE_INPUT_KEY", "全局输入 key", issues, { type: "inputs" });
-  missingNames(bundle.workflow.inputs, "全局输入名称", issues, { type: "inputs" });
+  missingTitles(bundle.workflow.inputs, "全局输入名称", issues, { type: "inputs" });
+  legacySchemaWarnings(bundle.workflow.inputs, issues, { type: "inputs" });
   duplicates(bundle.workflow.deviceRoles, "id", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, { type: "roles" });
   duplicates(bundle.workflow.deviceRoles, "key", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, { type: "roles" });
   duplicates(bundle.collectionSnapshots.map((item) => ({ reference: `${item.id}@${item.revision}` })), "reference", "DUPLICATE_COLLECTION_REFERENCE", "Collection 引用", issues, { type: "collections" });
@@ -23,21 +25,23 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     else if (/\r|\n/.test(definition.spec.commandTemplate)) add(issues, "MULTILINE_COLLECTION_COMMAND", "error", `采集“${definition.metadata.name || definition.key}”的采集命令必须为单行。`, { ...selection, field: "spec.commandTemplate" });
     duplicates(definition.inputs, "id", "DUPLICATE_COLLECTION_INPUT_ID", "Collection 输入 ID", issues, selection);
     duplicates(definition.inputs, "key", "DUPLICATE_COLLECTION_INPUT_KEY", "Collection 输入 key", issues, selection);
-    missingNames(definition.inputs, "Collection 输入名称", issues, selection);
+    missingTitles(definition.inputs, "Collection 输入名称", issues, selection);
+    legacySchemaWarnings([...definition.inputs, ...definition.outputs], issues, selection);
     duplicates(definition.outputs, "id", "DUPLICATE_COLLECTION_OUTPUT_ID", "Collection 输出 ID", issues, selection);
     duplicates(definition.outputs, "key", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection);
     duplicates(definition.spec.outputSamples, "id", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection);
   }
 
   const roleIds = new Set(bundle.workflow.deviceRoles.map((item) => item.id));
-  const workflowInputIds = new Set(bundle.workflow.inputs.map((item) => item.id));
+  const workflowInputs = new Map(bundle.workflow.inputs.map((item) => [item.id, item]));
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
   for (const step of steps) {
     const selection: WorkflowSelection = { type: "step", id: step.id };
     duplicates(step.collectionCalls, "id", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection);
     optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection);
     duplicates(step.topology, "id", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection);
-    const calls = new Map(step.collectionCalls.map((item) => [item.id, item]));
+    const allCalls = new Map(step.collectionCalls.map((item) => [item.id, item]));
+    const previousCalls = new Map<string, typeof step.collectionCalls[number]>();
     const unscopedOutputKeys = new Set<string>();
     for (const call of step.collectionCalls) {
       const definition = findCollection(catalog, call.definition);
@@ -49,9 +53,11 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       definition?.inputs.forEach((input) => {
         const binding = call.inputBindings[input.id];
         if (input.required && (!binding || (binding.kind === "literal" && (binding.value === undefined || binding.value === "")))) {
-          add(issues, "MISSING_REQUIRED_BINDING", "error", `采集“${callName}”尚未绑定必填参数“${input.name}”。`, { ...callSelection, field: `binding.${input.id}` });
+          add(issues, "MISSING_REQUIRED_BINDING", "error", `采集“${callName}”尚未绑定必填参数“${workflowSchemaTitle(input.schema, input.key)}”。`, { ...callSelection, field: `binding.${input.id}` });
         }
-        if (binding && !validBinding(binding, workflowInputIds, calls, catalog)) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”的参数“${input.name}”引用无效。`, { ...callSelection, field: `binding.${input.id}` });
+        if (binding?.kind === "literal" && !workflowValueMatchesSchema(binding.value, input.schema)) add(issues, "LITERAL_SCHEMA_MISMATCH", "warning", `采集“${callName}”的固定值与“${workflowSchemaTitle(input.schema, input.key)}”Schema 不匹配。`, { ...callSelection, field: `binding.${input.id}` });
+        const problem = binding && bindingProblem(binding, input, workflowInputs, previousCalls, allCalls, catalog);
+        if (problem) add(issues, problem.code, "error", `采集“${callName}”的参数“${workflowSchemaTitle(input.schema, input.key)}”${problem.message}`, { ...callSelection, field: `binding.${input.id}` });
       });
       if (definition && !call.key.trim()) {
         definition.outputs.forEach((output) => {
@@ -63,6 +69,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
           unscopedOutputKeys.add(key);
         });
       }
+      previousCalls.set(call.id, call);
     }
     step.topology.forEach((item) => {
       const target = nodes.get(item.target.id);
@@ -83,18 +90,27 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   return issues;
 }
 
-function validBinding(
-  binding: { kind: string; reference: Record<string, string> },
-  workflowInputs: Set<string>,
+function bindingProblem(
+  binding: WorkflowBinding,
+  target: WorkflowParameter,
+  workflowInputs: Map<string, WorkflowParameter>,
   calls: Map<string, { definition: { id: string; revision: number } }>,
+  allCalls: Map<string, { definition: { id: string; revision: number } }>,
   definitions: CollectionDefinition[],
-): boolean {
-  if (binding.kind === "literal") return true;
-  if (binding.kind === "workflow_input") return workflowInputs.has(binding.reference.input_id ?? "");
-  if (binding.kind !== "collection_output") return false;
+): { code: string; message: string } | null {
+  if (binding.kind === "literal") return null;
+  if (binding.kind === "workflow_input") {
+    const source = workflowInputs.get(binding.reference.input_id ?? "");
+    if (!source) return { code: "BROKEN_REFERENCE", message: "引用无效。" };
+    return workflowSchemasAssignable(source.schema, target.schema) ? null : { code: "INCOMPATIBLE_BINDING_SCHEMA", message: "的来源 Schema 不兼容。" };
+  }
+  if (binding.kind !== "collection_output") return { code: "BROKEN_REFERENCE", message: "引用无效。" };
   const call = calls.get(binding.reference.call_id ?? "");
+  if (!call && allCalls.has(binding.reference.call_id ?? "")) return { code: "FORWARD_OUTPUT_BINDING", message: "引用了当前采集之后的输出。" };
   const definition = call && findCollection(definitions, call.definition);
-  return Boolean(definition?.outputs.some((item) => item.id === binding.reference.output_id));
+  const output = definition?.outputs.find((item) => item.id === binding.reference.output_id);
+  if (!output) return { code: "BROKEN_REFERENCE", message: "引用无效。" };
+  return workflowSchemasAssignable(output.schema, target.schema) ? null : { code: "INCOMPATIBLE_BINDING_SCHEMA", message: "的来源 Schema 不兼容。" };
 }
 
 function duplicates(items: Array<Record<string, unknown>>, field: string, code: string, label: string, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
@@ -116,9 +132,15 @@ function optionalDuplicates(items: Array<Record<string, unknown>>, field: string
   });
 }
 
-function missingNames(items: Array<{ name: string }>, label: string, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
+function missingTitles(items: WorkflowParameter[], label: string, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
   items.forEach((item) => {
-    if (!item.name.trim()) add(issues, "MISSING_PARAMETER_NAME", "error", `${label}不能为空。`, selection);
+    if (!item.schema.title?.trim()) add(issues, "MISSING_PARAMETER_NAME", "error", `${label}不能为空。`, selection);
+  });
+}
+
+function legacySchemaWarnings(items: Array<{ key: string; schema: WorkflowParameter["schema"] }>, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
+  items.forEach((item) => {
+    if (workflowSchemaIsLegacy(item.schema)) add(issues, "LEGACY_LOOSE_SCHEMA", "warning", `字段“${workflowSchemaTitle(item.schema, item.key)}”仍使用迁移后的宽松 Schema，建议补充详细结构。`, selection);
   });
 }
 

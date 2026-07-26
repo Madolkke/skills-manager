@@ -17,6 +17,7 @@ from skillhub.models.rules.workflows import (
     render_skill_markdown,
     validate_workflow_document,
 )
+from skillhub.models.rules.workflows.expression import expression_contract, validate_expression
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 
@@ -24,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowService(ServiceBase[SkillHubStore]):
+    def expression_contract(self) -> dict[str, Any]:
+        return expression_contract()
+
+    def validate_expression(self, *, source: str, environment: dict[str, Any]) -> dict[str, Any]:
+        return validate_expression(source, environment)
+
     def create_workflow_skill(self, *, slug: str, owner_ref: str, description: str, tags: list[Any], actor: str) -> dict[str, Any]:
         workflow_id = new_id("workflow")
         clean_description = description.strip()
@@ -55,9 +62,7 @@ class WorkflowService(ServiceBase[SkillHubStore]):
             }
         )
         frontmatter = yaml.safe_dump({"name": slug, "description": clean_description}, allow_unicode=True, sort_keys=False, width=1000).strip()
-        bundle = parse_skill_import_source(
-            {"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": f"---\n{frontmatter}\n---\n"}]}
-        )
+        bundle = parse_skill_import_source({"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": f"---\n{frontmatter}\n---\n"}]})
         logger.info("creating workflow skill slug=%s actor=%s", slug, actor)
         return self.store.create_workflow_skill(
             slug=slug,
@@ -80,10 +85,7 @@ class WorkflowService(ServiceBase[SkillHubStore]):
 
     def save_workflow(self, *, skill_id: str, document: dict[str, Any], collection_changes: list[dict[str, Any]], actor: str) -> dict[str, Any]:
         normalized = normalize_workflow_document(document)
-        normalized_changes = [
-            {"operation": item["operation"], "definition": item["definition"]}
-            for item in collection_changes
-        ]
+        normalized_changes = [{"operation": item["operation"], "definition": item["definition"]} for item in collection_changes]
         self.store.save_workflow(skill_id=skill_id, document=normalized, collection_changes=normalized_changes, actor=actor)
         return self.store.workflow_detail(skill_id=skill_id, actor=actor)
 
@@ -119,9 +121,7 @@ class WorkflowService(ServiceBase[SkillHubStore]):
             )
         slug = self._skill_slug(skill_id)
         markdown = render_skill_markdown(slug=slug, document=document)
-        bundle = parse_skill_import_source(
-            {"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": markdown}]}
-        )
+        bundle = parse_skill_import_source({"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": markdown}]})
         source_text = json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         logger.info("syncing workflow skill_id=%s revision=%s actor=%s", skill_id, detail["revision"], actor)
         return self.store.sync_workflow(

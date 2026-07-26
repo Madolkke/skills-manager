@@ -5,6 +5,7 @@ from typing import Any
 
 from skillhub.models.entities import digest_text
 from skillhub.models.errors import InvariantError, NotFoundError
+from skillhub.models.rules.workflows import migrate_collection_definition
 from skillhub.models.schema import orm
 
 
@@ -75,7 +76,7 @@ class WorkflowHelperMixin:
         )
         if row is None:
             raise InvariantError(f"Collection revision does not exist: {definition_id}@{revision}")
-        return dict(row["definition"])
+        return migrate_collection_definition(int(row["document_schema_version"]), dict(row["definition"]))
 
     def _workflow_summary(self, connection, skill) -> dict[str, Any] | None:
         workflow = connection.execute(orm.select_entity(orm.Workflow).where(orm.Workflow.skill_id == skill["id"])).mappings().one_or_none()

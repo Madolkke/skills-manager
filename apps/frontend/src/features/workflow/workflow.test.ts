@@ -236,9 +236,9 @@ describe("workflow domain", () => {
   it("reports unscoped output collisions and multiline commands", () => {
     const bundle = workflowBundle();
     const definition = bundle.collectionSnapshots[0]!;
-    definition.outputs = [{ id: "output-version", key: "version", description: "Version", dataType: "string" }];
+    definition.outputs = [{ id: "output-version", key: "version", required: true, schema: { type: "string", title: "Version", description: "" } }];
     definition.spec.commandTemplate = "display version\nverbose";
-    bundle.workflow.inputs = [{ id: "workflow-version", key: "version", name: "Version", description: "", dataType: "string", required: true }];
+    bundle.workflow.inputs = [{ id: "workflow-version", key: "version", required: true, schema: { type: "string", title: "Version", description: "" } }];
     workflowStep(bundle).collectionCalls[0]!.key = "";
 
     expect(validateWorkflow(bundle, bundle.collectionSnapshots).map((item) => item.code)).toEqual(expect.arrayContaining(["MULTILINE_COLLECTION_COMMAND", "UNSCOPED_OUTPUT_CONFLICT"]));

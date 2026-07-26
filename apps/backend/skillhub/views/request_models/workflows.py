@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from skillhub.models.rules.workflows.schema import JsonSchema
 from skillhub.views.request_models.common import IdentityRef, SkillSlug, SkillTagPayload, SkillVersionSemVer, VersionChangeSummary, VersionDisplayName
 
 WorkflowDescription = Annotated[str, Field(max_length=1024)]
@@ -51,3 +52,17 @@ class SyncWorkflowPayload(BaseModel):
     version: SkillVersionSemVer
     display_name: VersionDisplayName | None = None
     change_summary: VersionChangeSummary
+
+
+class WorkflowExpressionEnvironmentPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inputs: dict[str, JsonSchema] = Field(default_factory=dict)
+    outputs: dict[str, dict[str, JsonSchema]] = Field(default_factory=dict)
+
+
+class WorkflowExpressionValidationPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: Annotated[str, Field(max_length=20_000)]
+    environment: WorkflowExpressionEnvironmentPayload = Field(default_factory=WorkflowExpressionEnvironmentPayload)

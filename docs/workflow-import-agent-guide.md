@@ -106,7 +106,7 @@ Agent 必须按以下顺序转换：
 
 ### 数据与安全规则
 
-- 输入参数使用现有 `Parameter`，Collection 输出使用 `id/key/dataType/description`，不要添加输出 `name` 或发明脚本专属输入格式。
+- 输入参数和 Collection 输出统一使用 `id/key/required/schema`；名称和说明写入 `schema.title`、`schema.description`，不要在字段外重复保存展示元数据。
 - 原始命令回显只可作为必要的作者示例；默认不迁移生产回显、账号、Cookie、Token、私钥或设备敏感信息。
 - 不把 Skill owner、平台 Tags、权限和版本历史写入 Import Bundle。
 - 未被 Call 引用的 `collections` 仍会入库；Agent 必须在报告中列出这些定义。
@@ -191,8 +191,12 @@ Agent 必须按以下顺序转换：
         {
           "id": "output-cli-text",
           "key": "cli_text",
-          "description": "原始 CLI 输出。",
-          "dataType": "string"
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "原始 CLI 输出",
+            "description": "命令返回的原始文本。"
+          }
         }
       ]
     }

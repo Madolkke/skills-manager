@@ -160,22 +160,22 @@ describe("Workflow UI state", () => {
     expect(wrapper.get("#workflow-inputs-heading").text()).toContain("输入参数 1");
     expect(wrapper.get("#workflow-roles-heading").text()).toContain("设备角色 1");
     expect(wrapper.findAll(".workflow-setting-field > span").map((item) => item.text())).toEqual([
-      "参数 Key", "参数名称", "参数说明", "数据类型", "角色 Key", "角色名称", "角色说明",
+      "角色 Key", "角色名称", "角色说明",
     ]);
-    expect(wrapper.get('input[aria-label="输入 Key"]').attributes("placeholder")).toBe("tenant");
+    expect(wrapper.get('input[aria-label="参数 Key"]').attributes("placeholder")).toBe("interface_name");
     expect(wrapper.get('input[aria-label="角色 Key"]').attributes("placeholder")).toBe("primary");
-    expect(wrapper.find('.workflow-setting-row.is-input input[type="checkbox"]').exists()).toBe(false);
+    expect(wrapper.find('.workflow-schema-field-grid input[type="checkbox"]').exists()).toBe(true);
     expect(wrapper.find('.workflow-setting-row.is-role input[type="checkbox"]').exists()).toBe(true);
     expect(document.activeElement).toBe(wrapper.get('[aria-labelledby="workflow-inputs-heading"]').element);
 
     await wrapper.findAll("button").find((button) => button.text().includes("添加输入"))!.trigger("click");
-    await wrapper.get('input[aria-label="输入名称"]').setValue("接口名称");
+    await wrapper.get('input[aria-label="参数 Key"]').setValue("interface_name");
     await wrapper.get('button[aria-label="删除输入"]').trigger("click");
     await wrapper.findAll("button").find((button) => button.text().includes("添加设备角色"))!.trigger("click");
     await wrapper.get('input[aria-label="角色名称"]').setValue("主设备");
     await wrapper.get('button[aria-label="删除设备角色"]').trigger("click");
     expect(wrapper.emitted("add-input")).toHaveLength(1);
-    expect(wrapper.emitted("update-input")?.[0]).toEqual(["input-1", { name: "接口名称" }]);
+    expect(wrapper.emitted("update-input")?.[0]).toEqual(["input-1", { key: "interface_name" }]);
     expect(wrapper.emitted("remove-input")?.[0]).toEqual(["input-1"]);
     expect(wrapper.emitted("add-role")).toHaveLength(1);
     expect(wrapper.emitted("update-role")?.[0]).toEqual(["role-1", { name: "主设备" }]);
@@ -253,7 +253,7 @@ describe("Workflow UI state", () => {
 });
 
 function workflowInput(id: string, key: string): WorkflowParameter {
-  return { id, key, name: key, description: "", dataType: "string", required: true };
+  return { id, key, required: true, schema: { type: "string", title: key, description: "" } };
 }
 
 function workflowBundle(): WorkflowBundle {

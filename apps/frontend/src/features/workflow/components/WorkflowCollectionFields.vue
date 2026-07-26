@@ -6,6 +6,7 @@ import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionDefinition, CollectionOutput, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { cloneWorkflow, createWorkflowId } from "../domain/utils";
+import { newWorkflowSchema } from "../workflowJsonSchema";
 import WorkflowCollectionInputRows from "./WorkflowCollectionInputRows.vue";
 import WorkflowCollectionOutputRows from "./WorkflowCollectionOutputRows.vue";
 
@@ -30,7 +31,7 @@ function list(value: string): string[] {
 }
 
 function addInput(): void {
-  update((draft) => draft.inputs.push({ id: createWorkflowId("collection-input"), key: "", name: "", description: "", dataType: "string", required: true }));
+  update((draft) => draft.inputs.push({ id: createWorkflowId("collection-input"), key: "", required: true, schema: newWorkflowSchema("string") }));
 }
 
 function updateInput(id: string, patch: Partial<WorkflowParameter>): void {
@@ -38,7 +39,7 @@ function updateInput(id: string, patch: Partial<WorkflowParameter>): void {
 }
 
 function addOutput(): void {
-  update((draft) => draft.outputs.push({ id: createWorkflowId("collection-output"), key: "", description: "", dataType: "string" }));
+  update((draft) => draft.outputs.push({ id: createWorkflowId("collection-output"), key: "", required: true, schema: newWorkflowSchema("string") }));
 }
 
 function updateOutput(id: string, patch: Partial<CollectionOutput>): void {

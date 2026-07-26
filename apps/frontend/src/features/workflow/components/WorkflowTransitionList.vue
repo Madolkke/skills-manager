@@ -4,7 +4,7 @@ import { computed, nextTick, ref } from "vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { WorkflowBundle, WorkflowStep } from "../../../types";
 import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
-import { workflowExpressionVariables } from "../workflowExpressionVariables";
+import { workflowExpressionEnvironment, workflowExpressionVariables } from "../workflowExpressionVariables";
 import WorkflowExpressionEditor from "./WorkflowExpressionEditor.vue";
 import WorkflowPathTargetPicker from "./WorkflowPathTargetPicker.vue";
 
@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>();
 const root = ref<HTMLElement | null>(null);
 const expressionVariables = computed(() => workflowExpressionVariables(props.bundle, props.step.id));
+const expressionEnvironment = computed(() => workflowExpressionEnvironment(props.bundle));
 
 async function add(choice: WorkflowPathTargetChoice): Promise<void> {
   emit("add", choice);
@@ -42,7 +43,7 @@ async function add(choice: WorkflowPathTargetChoice): Promise<void> {
       <div class="workflow-form-grid compact-grid">
         <div class="field-label span-2"><span>目标节点</span><div class="workflow-path-target-row"><WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" :current-target-id="item.target.id" variant="target" :readonly="props.readonly" @select="emit('retarget', item.id, $event)" /><UiIconButton label="打开目标节点" @click="emit('open-target', item.target.id)"><ArrowUpRight /></UiIconButton></div></div>
         <label class="field-label span-2"><span>条件说明</span><input data-path-condition :value="item.conditionText" :disabled="props.readonly" placeholder="留空表示无条件跳转" @input="emit('change', item.id, { conditionText: ($event.target as HTMLInputElement).value })" /></label>
-        <div class="field-label span-2"><span>条件表达式</span><WorkflowExpressionEditor :value="item.conditionExpression" :variables="expressionVariables" :readonly="props.readonly" @change="emit('change', item.id, { conditionExpression: $event })" /></div>
+        <div class="field-label span-2"><span>条件表达式</span><WorkflowExpressionEditor :value="item.conditionExpression" :variables="expressionVariables" :environment="expressionEnvironment" :readonly="props.readonly" @change="emit('change', item.id, { conditionExpression: $event })" /></div>
       </div>
       <UiIconButton label="删除路径" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove', item.id)"><Trash2 /></UiIconButton>
     </article>

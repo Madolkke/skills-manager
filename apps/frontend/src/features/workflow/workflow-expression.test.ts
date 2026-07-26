@@ -4,8 +4,9 @@ import { CompletionContext, completionStatus, selectedCompletionIndex, type Comp
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { mount } from "@vue/test-utils";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
+import { api } from "../../lib/api";
 import type { CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
 import WorkflowExpressionEditor from "./components/WorkflowExpressionEditor.vue";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
@@ -34,19 +35,18 @@ beforeAll(() => {
   }
 });
 
-afterEach(() => { document.body.innerHTML = ""; });
+afterEach(() => { document.body.innerHTML = ""; vi.restoreAllMocks(); });
 
 describe("Workflow expression variables", () => {
   it("projects namespaced variables in scope order and keeps duplicate output paths", () => {
     const variables = workflowExpressionVariables(workflowBundle(), "step-current");
 
     expect(variables.map((item) => item.reference)).toEqual([
-      "global.tenant",
-      "output.status.version",
-      "output.version",
-      "output.status.version",
+      "inputs.tenant",
+      "outputs.status.version",
+      "outputs.status.version",
     ]);
-    expect(variables.filter((item) => item.reference === "output.status.version").map((item) => item.source)).toEqual([
+    expect(variables.filter((item) => item.reference === "outputs.status.version").map((item) => item.source)).toEqual([
       "当前检查 · 接口状态",
       "其他检查 · 接口状态",
     ]);
@@ -56,9 +56,9 @@ describe("Workflow expression variables", () => {
   it("matches full references, call paths, and leaf keys", () => {
     const variables = workflowExpressionVariables(workflowBundle(), "step-current");
 
-    expect(filterWorkflowExpressionVariables(variables, "global.ten").map((item) => item.reference)).toEqual(["global.tenant"]);
+    expect(filterWorkflowExpressionVariables(variables, "inputs.ten").map((item) => item.reference)).toEqual(["inputs.tenant"]);
     expect(filterWorkflowExpressionVariables(variables, "status.ver")).toHaveLength(2);
-    expect(filterWorkflowExpressionVariables(variables, "ver").map((item) => item.kind)).toEqual(["output", "output", "output"]);
+    expect(filterWorkflowExpressionVariables(variables, "ver").map((item) => item.kind)).toEqual(["output", "output"]);
   });
 
   it("provides explicit completion at an empty cursor and suppresses quoted text", async () => {
@@ -70,13 +70,13 @@ describe("Workflow expression variables", () => {
     const readonlyState = EditorState.create({ extensions: EditorState.readOnly.of(true) });
     const readonlyResult = await source(new CompletionContext(readonlyState, 0, true));
 
-    expect(explicit?.options).toHaveLength(4);
-    expect(automatic?.options.map((item) => item.label)).toEqual(["output.status.version", "output.status.version"]);
+    expect(explicit?.options).toHaveLength(3);
+    expect(automatic?.options.map((item) => item.label)).toEqual(["outputs.status.version", "outputs.status.version"]);
     expect(quoted).toBeNull();
     expect(readonlyResult).toBeNull();
     expect(normalizeWorkflowExpressionInput("a\r\n&&\nb")).toBe("a && b");
-    expect(shouldOpenWorkflowExpressionCompletion(variables, "global.ten")).toBe(true);
-    expect(shouldOpenWorkflowExpressionCompletion(variables, "\"global.ten")).toBe(false);
+    expect(shouldOpenWorkflowExpressionCompletion(variables, "inputs.ten")).toBe(true);
+    expect(shouldOpenWorkflowExpressionCompletion(variables, "\"inputs.ten")).toBe(false);
     expect(shouldOpenWorkflowExpressionCompletion(variables, "unknown")).toBe(false);
   });
 
@@ -85,8 +85,8 @@ describe("Workflow expression variables", () => {
     const groups: string[] = [];
     const editing = createWorkflowPathEditing(bundle, (_recipe, group) => { groups.push(group ?? ""); });
 
-    editing.updatePath("step-current", "path-current", { conditionExpression: "global.tenant" });
-    editing.updatePath("step-current", "path-current", { conditionExpression: "global.tenant == 'acme'" });
+    editing.updatePath("step-current", "path-current", { conditionExpression: "inputs.tenant" });
+    editing.updatePath("step-current", "path-current", { conditionExpression: "inputs.tenant == 'acme'" });
 
     expect(groups).toEqual([
       "path:step-current:path-current:conditionExpression",
@@ -112,7 +112,7 @@ describe("WorkflowExpressionEditor", () => {
     expect(selectedCompletionIndex(view.state)).toBe(0);
     const completionAccepted = acceptWorkflowExpressionCompletion(view);
     await nextTick();
-    expect(view.state.doc.toString()).toBe("output.status.version");
+    expect(view.state.doc.toString()).toBe("outputs.status.version");
     expect(completionAccepted).toBe(true);
 
     expect(acceptWorkflowExpressionCompletion(view)).toBe(false);
@@ -124,11 +124,32 @@ describe("WorkflowExpressionEditor", () => {
     view.focus();
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "ver" }, selection: { anchor: 3 }, userEvent: "input.type" });
     await expect.poll(() => completionStatus(view.state), { timeout: 1000 }).toBe("active");
-    await wrapper.setProps({ value: "global.tenant", readonly: true });
+    await wrapper.setProps({ value: "inputs.tenant", readonly: true });
     await nextTick();
-    expect(view.state.doc.toString()).toBe("global.tenant");
+    expect(view.state.doc.toString()).toBe("inputs.tenant");
     expect(view.state.readOnly).toBe(true);
     expect(completionStatus(view.state)).toBeNull();
+    wrapper.unmount();
+  });
+
+  it("防抖调用后端类型检查并取消过期请求", async () => {
+    const signals: AbortSignal[] = [];
+    const validation = vi.spyOn(api, "validateWorkflowExpression").mockImplementation(async (_source, _environment, signal) => {
+      if (signal) signals.push(signal);
+      return { inferredType: { kind: "boolean" }, diagnostics: [] };
+    });
+    const wrapper = mount(WorkflowExpressionEditor, {
+      props: { value: "inputs.tenant", variables: [], environment: { inputs: { tenant: { type: "string", title: "租户", description: "" } }, outputs: {} } },
+    });
+
+    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(1);
+    await wrapper.setProps({ value: "inputs.tenant == 'a'" });
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+    await wrapper.setProps({ value: "inputs.tenant == 'b'" });
+    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(2);
+
+    expect(validation.mock.calls[1]?.[0]).toBe("inputs.tenant == 'b'");
+    expect(signals[0]?.aborted).toBe(true);
     wrapper.unmount();
   });
 });
@@ -180,7 +201,7 @@ function step(id: string, name: string, collectionCalls: WorkflowStep["collectio
 }
 
 function parameter(id: string, key: string) {
-  return { id, key, name: key, description: "", dataType: "string", required: true };
+  return { id, key, required: true, schema: { type: "string" as const, title: key, description: "" } };
 }
 
 function collectionDefinition(): CollectionDefinition {
@@ -192,8 +213,8 @@ function collectionDefinition(): CollectionDefinition {
     spec: { collectionType: "cli", commandTemplate: "display interface", outputSamples: [] },
     inputs: [],
     outputs: [
-      { id: "output-version", key: "version", description: "版本", dataType: "string" },
-      { id: "output-empty", key: "", description: "空字段", dataType: "string" },
+      { id: "output-version", key: "version", required: true, schema: { type: "string", title: "版本", description: "" } },
+      { id: "output-empty", key: "", required: true, schema: { type: "string", title: "空字段", description: "" } },
     ],
   };
 }

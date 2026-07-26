@@ -46,6 +46,9 @@ import type {
   WorkflowDetail,
   WorkflowMetadata,
   WorkflowSyncResult,
+  WorkflowExpressionContract,
+  WorkflowExpressionEnvironment,
+  WorkflowExpressionValidation,
 } from "../types";
 import { getActorId } from "./identity";
 
@@ -119,6 +122,9 @@ function skillApi() {
       apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/metadata`, "PATCH", payload),
     listWorkflowCollections: (skillId: string) =>
       apiGet<{ definitions: CollectionDefinition[] }>(`/api/skills/${encodeURIComponent(skillId)}/workflow/collections`),
+    getWorkflowExpressionContract: () => apiGet<WorkflowExpressionContract>("/api/workflow-expression-contract"),
+    validateWorkflowExpression: (source: string, environment: WorkflowExpressionEnvironment, signal?: AbortSignal) =>
+      apiSend<WorkflowExpressionValidation>("/api/workflow-expression-validations", "POST", { source, environment }, { signal }),
     syncWorkflow: (skillId: string, payload: { version: string; display_name?: string; change_summary: string }) =>
       apiSend<WorkflowSyncResult>(`/api/skills/${encodeURIComponent(skillId)}/workflow/sync`, "POST", payload),
     listSkillBuilderSessions: () => apiGet<SkillBuilderSession[]>("/api/skill-builder/sessions"),
@@ -344,12 +350,13 @@ export type AdminGroup = {
   created_by?: string;
 };
 
-type RequestOptions = { admin?: boolean };
+type RequestOptions = { admin?: boolean; signal?: AbortSignal };
 
 async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
     headers: requestHeaders(options),
+    signal: options.signal,
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;
@@ -361,6 +368,7 @@ async function apiSend<T>(path: string, method: "POST" | "PATCH" | "PUT", body: 
     credentials: "include",
     headers: requestHeaders({ ...options, json: true } as RequestOptions & { json: boolean }),
     body: JSON.stringify(body),
+    signal: options.signal,
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;
@@ -372,6 +380,7 @@ async function apiDelete<T>(path: string, options: RequestOptions = {}, body?: u
     credentials: "include",
     headers: requestHeaders({ ...options, json: body !== undefined }),
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: options.signal,
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;

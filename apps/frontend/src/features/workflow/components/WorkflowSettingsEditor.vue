@@ -4,6 +4,7 @@ import { nextTick, onMounted, ref, watch } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { DeviceRole, WorkflowParameter } from "../../../types";
+import WorkflowSchemaFieldRows from "./WorkflowSchemaFieldRows.vue";
 
 const props = defineProps<{
   inputs: WorkflowParameter[];
@@ -49,15 +50,7 @@ function focusSection(target: "inputs" | "roles"): void {
         <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-input')"><template #icon><Plus /></template>添加输入</UiButton>
       </header>
       <div class="workflow-settings-list">
-        <div v-for="item in props.inputs" :key="item.id" class="workflow-setting-row is-input">
-          <label class="workflow-setting-field"><span>参数 Key</span><input class="workflow-key-input" :value="item.key" aria-label="输入 Key" placeholder="tenant" :disabled="props.readonly" @input="emit('update-input', item.id, { key: ($event.target as HTMLInputElement).value })" /></label>
-          <label class="workflow-setting-field"><span>参数名称</span><input :value="item.name" aria-label="输入名称" placeholder="租户" :disabled="props.readonly" @input="emit('update-input', item.id, { name: ($event.target as HTMLInputElement).value })" /></label>
-          <label class="workflow-setting-field"><span>参数说明</span><input :value="item.description" aria-label="输入说明" placeholder="参数用途（可选）" :disabled="props.readonly" @input="emit('update-input', item.id, { description: ($event.target as HTMLInputElement).value })" /></label>
-          <label class="workflow-setting-field"><span>数据类型</span><select :value="item.dataType" aria-label="输入类型" :disabled="props.readonly" @change="emit('update-input', item.id, { dataType: ($event.target as HTMLSelectElement).value })">
-            <option v-for="type in ['string', 'integer', 'number', 'boolean', 'array', 'object']" :key="type" :value="type">{{ type }}</option>
-          </select></label>
-          <UiIconButton label="删除输入" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove-input', item.id)"><Trash2 /></UiIconButton>
-        </div>
+        <WorkflowSchemaFieldRows kind="input" :items="props.inputs" :readonly="props.readonly" @change="(id, patch) => emit('update-input', id, patch)" @remove="emit('remove-input', $event)" />
         <div v-if="props.inputs.length === 0" class="workflow-empty">当前没有输入参数。</div>
       </div>
     </section>
