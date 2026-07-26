@@ -106,10 +106,9 @@ describe("WorkflowExpressionEditor", () => {
     const view = EditorView.findFromDOM(wrapper.get(".cm-editor").element as HTMLElement)!;
     view.focus();
     view.dispatch({ changes: { from: 0, insert: "ver" }, selection: { anchor: 3 }, userEvent: "input.type" });
-    await wait(140);
 
-    expect(document.querySelector(".cm-tooltip-autocomplete")).not.toBeNull();
-    expect(completionStatus(view.state)).toBe("active");
+    await expect.poll(() => completionStatus(view.state), { timeout: 1000 }).toBe("active");
+    await expect.poll(() => document.querySelector(".cm-tooltip-autocomplete"), { timeout: 1000 }).not.toBeNull();
     expect(selectedCompletionIndex(view.state)).toBe(0);
     const completionAccepted = acceptWorkflowExpressionCompletion(view);
     await nextTick();
@@ -124,8 +123,7 @@ describe("WorkflowExpressionEditor", () => {
     expect(document.activeElement).toBe(nextButton);
     view.focus();
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "ver" }, selection: { anchor: 3 }, userEvent: "input.type" });
-    await wait(140);
-    expect(completionStatus(view.state)).toBe("active");
+    await expect.poll(() => completionStatus(view.state), { timeout: 1000 }).toBe("active");
     await wrapper.setProps({ value: "global.tenant", readonly: true });
     await nextTick();
     expect(view.state.doc.toString()).toBe("global.tenant");
@@ -142,10 +140,6 @@ async function completion(
 ): Promise<CompletionResult | null> {
   const state = EditorState.create({ doc, selection: { anchor: doc.length } });
   return await source(new CompletionContext(state, doc.length, explicit)) as CompletionResult | null;
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function workflowBundle(): WorkflowBundle {

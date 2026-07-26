@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from "vue";
-import { ADMIN_TABS, type AdminTab } from "../lib/admin";
-import { api, ApiError, type AdminGroup } from "../lib/api";
-import { toTagPayloads } from "../lib/skillTags";
-import type { OpencodeAgent, OpencodeProviderCatalog, PublishGateCheckDefinition, PublishRecord, PublishTarget, RoleAssignment, SkillSummary, SkillTagPayload, TagGroup, WorkerStatusOverview } from "../types";
-import { createAdminStateSync } from "./admin/adminStateSync";
+import { ADMIN_TABS } from "../lib/admin";
 import AdminGroupsTab from "./admin/AdminGroupsTab.vue";
 import AdminOpencodeAgentsTab from "./admin/AdminOpencodeAgentsTab.vue";
 import AdminOverviewTab from "./admin/AdminOverviewTab.vue";
@@ -15,190 +10,15 @@ import AdminSkillTagsTab from "./admin/AdminSkillTagsTab.vue";
 import AdminTagGroupsTab from "./admin/AdminTagGroupsTab.vue";
 import AdminTagCascadesTab from "./admin/AdminTagCascadesTab.vue";
 import AdminWorkersTab from "./admin/AdminWorkersTab.vue";
-import { useAdminActions } from "./admin/useAdminActions";
-import { useAdminTagCascades } from "./admin/useAdminTagCascades";
+import { useAdminPageState } from "./admin/useAdminPageState";
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
-
-const key = ref(sessionStorage.getItem("skillhub.admin.key") || "");
-const unlocked = ref(Boolean(key.value));
-const loading = ref(false);
-const activeTab = ref<AdminTab>("overview");
-const skills = ref<SkillSummary[]>([]);
-const groups = ref<AdminGroup[]>([]);
-const tagGroups = ref<TagGroup[]>([]);
-const roles = ref<RoleAssignment[]>([]);
-const publishTargets = ref<PublishTarget[]>([]);
-const publishGateChecks = ref<PublishGateCheckDefinition[]>([]);
-const publishRecords = ref<PublishRecord[]>([]);
-const workerStatus = ref<WorkerStatusOverview | null>(null);
-const opencodeAgents = ref<OpencodeAgent[]>([]);
-const opencodeProviderCatalog = ref<OpencodeProviderCatalog | null>(null);
-const selectedGroupId = ref("");
-const selectedTagGroupId = ref("");
-const selectedOpencodeAgentId = ref("");
-const tagDrafts = ref<Record<string, SkillTagPayload[]>>({});
-const tagCascadeActions = useAdminTagCascades({
-  activeTab,
-  emitToast: (toast) => emit("toast", toast),
-});
-const syncAdminState = createAdminStateSync({
-  groups,
-  tagGroups,
-  roles,
-  publishTargets,
-  publishRecords,
-  opencodeAgents,
-  skills,
-  tagDrafts,
-  selectedGroupId,
-  selectedTagGroupId,
-  selectedOpencodeAgentId,
-});
-const adminActions = useAdminActions({
-  tagDrafts,
-  selectedGroupId,
-  selectedTagGroupId,
-  selectedOpencodeAgentId,
-  syncAdminState,
-  load,
-  emitToast: (toast) => emit("toast", toast),
-});
-let workerRefreshTimer: number | undefined;
-let publishRefreshTimer: number | undefined;
-
-watch(activeTab, (tab) => {
-  if (tab === "workers") startWorkerRefresh();
-  else stopWorkerRefresh();
-});
-
-watch([activeTab, publishRecords], ([tab, records]) => {
-  if (tab === "publish" && records.some((record) => record.status === "queued" || record.status === "releasing")) startPublishRefresh();
-  else stopPublishRefresh();
-});
-
-onBeforeUnmount(() => {
-  stopWorkerRefresh();
-  stopPublishRefresh();
-});
-
-async function unlock(): Promise<void> {
-  sessionStorage.setItem("skillhub.admin.key", key.value.trim());
-  unlocked.value = true;
-  await load();
-}
-
-async function load(): Promise<void> {
-  loading.value = true;
-  try {
-    const [
-      nextSkills,
-      nextGroups,
-      nextTagGroups,
-      nextTagCascades,
-      nextRoles,
-      nextPublishTargets,
-      nextPublishGateChecks,
-      nextPublishRecords,
-      nextWorkerStatus,
-      nextOpencodeAgents,
-      nextProviderCatalog,
-    ] = await Promise.all([
-      api.adminListSkills(),
-      api.adminListGroups(),
-      api.adminListTagGroups(),
-      api.adminListTagCascades(),
-      api.adminListRoleAssignments(),
-      api.adminListPublishTargets(),
-      api.adminListPublishGateChecks(),
-      api.adminListPublishRecords(),
-      api.adminListWorkers(),
-      api.adminListOpencodeAgents(),
-      api.listOpencodeProviders().catch(() => null),
-    ]);
-    skills.value = nextSkills;
-    groups.value = nextGroups;
-    tagGroups.value = nextTagGroups;
-    tagCascadeActions.overview.value = nextTagCascades;
-    roles.value = nextRoles;
-    publishTargets.value = nextPublishTargets;
-    publishGateChecks.value = nextPublishGateChecks;
-    publishRecords.value = nextPublishRecords;
-    workerStatus.value = nextWorkerStatus;
-    opencodeAgents.value = nextOpencodeAgents;
-    opencodeProviderCatalog.value = nextProviderCatalog;
-    tagDrafts.value = Object.fromEntries(nextSkills.map((item) => [item.skill.id, toTagPayloads(item.skill.tags ?? [])]));
-    if (!selectedGroupId.value && nextGroups.length) selectedGroupId.value = nextGroups[0].id;
-    if (!selectedTagGroupId.value && nextTagGroups.length) selectedTagGroupId.value = nextTagGroups[0].id;
-    if (!selectedOpencodeAgentId.value && nextOpencodeAgents.length) selectedOpencodeAgentId.value = nextOpencodeAgents[0].id;
-  } catch (error) {
-    showError(error);
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function refreshWorkers(): Promise<void> {
-  try {
-    workerStatus.value = await api.adminListWorkers();
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function refreshPublishRecords(): Promise<void> {
-  try {
-    publishRecords.value = await api.adminListPublishRecords();
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function refreshOpencodeProviders(): Promise<void> {
-  try {
-    opencodeProviderCatalog.value = await api.listOpencodeProviders();
-    emit("toast", { tone: "success", message: "Provider/Model 列表已刷新。" });
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function selectAdminTab(tabId: AdminTab): Promise<void> {
-  if (activeTab.value === tabId) return;
-  activeTab.value = tabId;
-  await load();
-}
-
-function startWorkerRefresh(): void {
-  if (workerRefreshTimer !== undefined) return;
-  workerRefreshTimer = window.setInterval(() => {
-    void refreshWorkers();
-  }, 5000);
-}
-
-function stopWorkerRefresh(): void {
-  if (workerRefreshTimer === undefined) return;
-  window.clearInterval(workerRefreshTimer);
-  workerRefreshTimer = undefined;
-}
-
-function startPublishRefresh(): void {
-  if (publishRefreshTimer !== undefined) return;
-  publishRefreshTimer = window.setInterval(() => {
-    void refreshPublishRecords();
-  }, 3000);
-}
-
-function stopPublishRefresh(): void {
-  if (publishRefreshTimer === undefined) return;
-  window.clearInterval(publishRefreshTimer);
-  publishRefreshTimer = undefined;
-}
-
-function showError(error: unknown): void {
-  const message = error instanceof ApiError || error instanceof Error ? error.message : "操作失败。";
-  emit("toast", { tone: "danger", message });
-}
+const {
+  key, unlocked, loading, activeTab, skills, groups, tagGroups, roles, publishTargets, publishGateChecks,
+  publishRecords, workerStatus, opencodeAgents, opencodeProviderCatalog, selectedGroupId, selectedTagGroupId,
+  selectedOpencodeAgentId, tagDrafts, tagCascadeActions, adminActions, unlock, load, refreshWorkers,
+  refreshOpencodeProviders, selectAdminTab,
+} = useAdminPageState((toast) => emit("toast", toast));
 </script>
 
 <template>
@@ -208,9 +28,9 @@ function showError(error: unknown): void {
       <p>输入后台密钥后访问管理能力。这个入口不属于普通权限体系。</p>
       <label class="field-label">
         <span>后台密钥</span>
-        <input v-model="key" type="password" @keydown.enter="unlock" />
+        <input v-model="key" type="password" :disabled="loading" @keydown.enter="unlock" />
       </label>
-      <button class="primary-button" type="button" @click="unlock">进入后台</button>
+      <button class="primary-button" type="button" :disabled="loading" @click="unlock">{{ loading ? "验证中..." : "进入后台" }}</button>
     </section>
 
     <template v-else>

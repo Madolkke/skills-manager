@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import TagPathSelect from "../../components/TagPathSelect.vue";
 import { skillOptionLabel } from "../../lib/skillIdentity";
 import { encodeSkillTagResourceId } from "../../lib/skillTags";
 import { filterRoleAssignments, roleResourceLabel } from "../../lib/admin";
-import type { RoleAssignment, SkillRole, SkillSummary, TagGroup } from "../../types";
+import type { RoleAssignment, SkillRole, SkillSummary, SkillTagPayload, TagGroup } from "../../types";
 
 const props = defineProps<{ roles: RoleAssignment[]; tagGroups: TagGroup[]; skills: SkillSummary[] }>();
 const emit = defineEmits<{
@@ -15,15 +16,14 @@ const emit = defineEmits<{
 const form = ref({ subject_type: "group" as "user" | "group", subject_id: "", resource_type: "skill" as "skill" | "skill_tag" | "global", resource_id: "", tag_group_id: "", tag_value: "", role: "evaluator" as SkillRole });
 const filters = ref({ subject: "", resource: "", resourceType: "", role: "" });
 const filteredRoles = computed(() => filterRoleAssignments(props.roles, filters.value, props.tagGroups, props.skills));
+const selectedTagResource = computed<SkillTagPayload | null>(() => form.value.tag_group_id && form.value.tag_value
+  ? { group_id: form.value.tag_group_id, value: form.value.tag_value }
+  : null);
 const canAssign = computed(() => {
   if (!form.value.subject_id.trim()) return false;
   if (form.value.resource_type === "global") return true;
   if (form.value.resource_type === "skill_tag") return Boolean(form.value.tag_group_id && form.value.tag_value);
   return Boolean(form.value.resource_id);
-});
-
-watch(() => form.value.tag_group_id, () => {
-  form.value.tag_value = "";
 });
 
 watch(() => form.value.resource_type, (resourceType, previousType) => {
@@ -55,6 +55,11 @@ function assignRole(): void {
     role: form.value.role,
   });
 }
+
+function selectTagResource(tag: SkillTagPayload): void {
+  form.value.tag_group_id = tag.group_id;
+  form.value.tag_value = tag.value;
+}
 </script>
 
 <template>
@@ -73,16 +78,13 @@ function assignRole(): void {
           <option value="global">全部 Skill</option>
         </select>
         <template v-if="form.resource_type === 'skill_tag'">
-          <select v-model="form.tag_group_id">
-            <option disabled value="">选择 Tag Group</option>
-            <option v-for="group in tagGroups" :key="group.id" :value="group.id">{{ group.display_name }} ({{ group.id }})</option>
-          </select>
-          <select v-model="form.tag_value">
-            <option disabled value="">选择 Tag 值</option>
-            <option v-for="value in tagGroups.find((group) => group.id === form.tag_group_id)?.values ?? []" :key="value.value" :value="value.value">
-              {{ value.display_name || value.value }}
-            </option>
-          </select>
+          <TagPathSelect
+            class="admin-role-tag-path"
+            :groups="tagGroups"
+            :model-value="selectedTagResource"
+            placeholder="选择完整 Tag 路径"
+            @update:model-value="selectTagResource"
+          />
         </template>
         <input v-else-if="form.resource_type === 'global'" value="全部当前及未来 Skill" disabled aria-label="授权资源" />
         <select v-else v-model="form.resource_id">

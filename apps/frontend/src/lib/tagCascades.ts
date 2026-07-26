@@ -1,6 +1,9 @@
 import type { SkillTagPayload, TagCascadeRelation, TagGroup, TagValueOption } from "../types";
 
 export type ActiveTagGroup = { group: TagGroup; depth: number };
+export type TagPathSegment = { kind: "group" | "value"; id: string; label: string };
+export type TagPathIssue = "missing_group" | "missing_parent" | "cycle";
+export type TagPathInfo = { segments: TagPathSegment[]; valid: boolean; issue: TagPathIssue | null };
 export type TagDiagnosticFocus = {
   groupId: string;
   kind: "orphaned" | "missing_required";
@@ -28,7 +31,7 @@ export function activeTagGroups(groups: TagGroup[], tags: SkillTagPayload[]): Ac
     if (visited.has(group.id)) return;
     visited.add(group.id);
     result.push({ group, depth });
-    for (const value of sortValues(group)) {
+    for (const value of sortTagValues(group)) {
       const key = tagIdentity({ group_id: group.id, value: value.value });
       if (!selected.has(key)) continue;
       for (const child of sortGroups(children.get(key) ?? [])) visit(child, depth + 1);
@@ -68,6 +71,70 @@ export function rootTagGroups(groups: TagGroup[]): TagGroup[] {
   return sortGroups(groups.filter((group) => !group.parent));
 }
 
+export function tagGroupPath(groups: TagGroup[], groupId: string): TagPathSegment[] {
+  return tagGroupPathInfo(groups, groupId).segments;
+}
+
+export function tagGroupPathInfo(groups: TagGroup[], groupId: string): TagPathInfo {
+  const byId = new Map(groups.map((group) => [group.id, group]));
+  const path: TagPathSegment[] = [];
+  const visited = new Set<string>();
+  let group = byId.get(groupId);
+  if (!group) {
+    return {
+      segments: [{ kind: "group", id: groupId, label: groupId }],
+      valid: false,
+      issue: "missing_group",
+    };
+  }
+  while (group) {
+    if (visited.has(group.id)) return { segments: path, valid: false, issue: "cycle" };
+    visited.add(group.id);
+    path.unshift({ kind: "group", id: group.id, label: group.display_name });
+    if (!group.parent) return { segments: path, valid: true, issue: null };
+    const parent = byId.get(group.parent.group_id);
+    path.unshift({
+      kind: "value",
+      id: group.parent.value,
+      label: valueDisplayName(parent, group.parent.value),
+    });
+    if (!parent) return { segments: path, valid: false, issue: "missing_parent" };
+    group = parent;
+  }
+  return { segments: path, valid: true, issue: null };
+}
+
+export function tagValuePath(groups: TagGroup[], groupId: string, value: string): TagPathSegment[] {
+  return tagValuePathInfo(groups, groupId, value).segments;
+}
+
+export function tagValuePathInfo(groups: TagGroup[], groupId: string, value: string): TagPathInfo {
+  const group = groups.find((item) => item.id === groupId);
+  const path = tagGroupPathInfo(groups, groupId);
+  return {
+    ...path,
+    segments: [...path.segments, { kind: "value", id: value, label: valueDisplayName(group, value) }],
+  };
+}
+
+export function tagGroupPathLabel(groups: TagGroup[], groupId: string): string {
+  return tagGroupPath(groups, groupId).map((segment) => segment.label).join(" / ");
+}
+
+export function tagValuePathLabel(groups: TagGroup[], groupId: string, value: string): string {
+  return tagValuePath(groups, groupId, value).map((segment) => segment.label).join(" / ");
+}
+
+export function selectedLeafTags(tags: SkillTagPayload[], groups: TagGroup[]): SkillTagPayload[] {
+  const selected = new Set(tags.map(tagIdentity));
+  return tags.filter((tag) => {
+    return !groups.some((group) => {
+      if (group.parent?.group_id !== tag.group_id || group.parent.value !== tag.value) return false;
+      return tags.some((candidate) => candidate.group_id === group.id && selected.has(tagIdentity(candidate)));
+    });
+  });
+}
+
 export function withCascadeParents(groups: TagGroup[], relations: TagCascadeRelation[]): TagGroup[] {
   const parents = new Map(relations.map((relation) => [relation.child_group_id, relation]));
   return groups.map((group) => {
@@ -86,7 +153,7 @@ export function buildTagCascadeTreeRows(groups: TagGroup[]): TagCascadeTreeRow[]
     if (visited.has(group.id)) return;
     visited.add(group.id);
     rows.push({ kind: "group", key: `group:${group.id}`, depth, group });
-    for (const value of sortValues(group)) {
+    for (const value of sortTagValues(group)) {
       rows.push({ kind: "value", key: `value:${group.id}:${value.value}`, depth: depth + 1, group, value });
       for (const child of childGroupsForValue(groups, group.id, value.value)) visit(child, depth + 2);
     }
@@ -102,7 +169,7 @@ export function sortGroups(groups: TagGroup[]): TagGroup[] {
   );
 }
 
-function sortValues(group: TagGroup): TagValueOption[] {
+export function sortTagValues(group: TagGroup): TagValueOption[] {
   return [...group.values].sort((left, right) => left.sort_order - right.sort_order || left.value.localeCompare(right.value));
 }
 
@@ -118,4 +185,8 @@ function uniqueTags(tags: SkillTagPayload[]): SkillTagPayload[] {
 
 function tagIdentity(tag: SkillTagPayload): string {
   return `${tag.group_id}\u0000${tag.value}`;
+}
+
+function valueDisplayName(group: TagGroup | undefined, value: string): string {
+  return group?.values.find((item) => item.value === value)?.display_name || value;
 }

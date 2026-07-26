@@ -6,16 +6,17 @@ export type FilterKey = "all" | "workflow" | "verified" | "untested" | "mine";
 export type SortKey = "updated" | "score" | "name";
 export type ViewMode = "grid" | "list";
 export type TagCountMap = Record<string, number>;
+export type SkillFilterOptions = {
+  query: string;
+  filter: FilterKey;
+  actor: string;
+  selectedTags: SkillTagPayload[];
+  tagGroups: TagGroup[];
+};
 
 export function filterSkills(
   skills: SkillSummary[],
-  options: {
-    query: string;
-    filter: FilterKey;
-    actor: string;
-    selectedTags: SkillTagPayload[];
-    tagGroups: TagGroup[];
-  },
+  options: SkillFilterOptions,
 ): SkillSummary[] {
   const normalized = options.query.trim().toLowerCase();
   const selectedByGroup = groupSelectedTags(options.selectedTags);
@@ -54,6 +55,20 @@ export function tagUsageCounts(skills: SkillSummary[]): TagCountMap {
   for (const item of skills) {
     const unique = new Set((item.skill.tags ?? []).filter((tag) => tag.path_valid !== false).map(tagKey));
     for (const key of unique) counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function contextualTagCounts(skills: SkillSummary[], options: SkillFilterOptions): TagCountMap {
+  const counts: TagCountMap = {};
+  const selectedKeys = new Set(options.selectedTags.map(tagKey));
+  for (const group of options.tagGroups) {
+    for (const value of group.values) {
+      const tag = { group_id: group.id, value: value.value };
+      const key = tagKey(tag);
+      const selectedTags = selectedKeys.has(key) ? options.selectedTags : [...options.selectedTags, tag];
+      counts[key] = filterSkills(skills, { ...options, selectedTags }).length;
+    }
   }
   return counts;
 }

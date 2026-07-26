@@ -34,8 +34,8 @@ import {
   validateBundlePath,
 } from "../lib/skillBundleDraft";
 import { missingRequiredTagGroups, requiredTagMissingMessage, sortTagGroupsForPicker } from "../lib/skillTags";
-import { activeTagGroups, buildTagCascadeTreeRows, orphanedTags, pruneInactiveTags, withCascadeParents } from "../lib/tagCascades";
-import { filterSkills, sortSkills, tagUsageCounts } from "../pages/hub/hubFilters";
+import { activeTagGroups, buildTagCascadeTreeRows, orphanedTags, pruneInactiveTags, selectedLeafTags, tagGroupPathInfo, tagValuePathLabel, withCascadeParents } from "../lib/tagCascades";
+import { contextualTagCounts, filterSkills, sortSkills, tagUsageCounts } from "../pages/hub/hubFilters";
 import { buildTaskCenterGroups, taskCenterBadgeCount } from "../lib/taskCenter";
 import { summarizeBundleDiff } from "../lib/bundle-diff";
 import { api, ApiError, apiErrorMessage, resolveApiBaseUrl } from "../lib/api";
@@ -43,6 +43,14 @@ import { bumpVersion, nextPatchVersion } from "../lib/semver";
 import { durationText, queuedWorkerJobs, workerCurrentJobText, workerJobTypeText, workerStatusText, workerStatusTone } from "../lib/workerStatus";
 import { buildReviewerSources, reviewerSourceText, reviewerUserIds, selectedReviewerCount } from "../lib/reviewerSelection";
 import type { EvalSetCase, ReviewerCandidateOverview, SkillSummary, TagGroup, WorkerStatusOverview } from "../types";
+
+function taggedSkill(slug: string, tags: Array<{ group_id: string; value: string }>): SkillSummary {
+  return {
+    skill: { id: slug, slug, display_name: null, owner_ref: "owner", current_version_id: null, lifecycle_status: "active", tags },
+    summary: { current_version: null, latest_accepted_eval_run: null },
+    workflow: null,
+  } as SkillSummary;
+}
 
 describe("skill builder UI helpers", () => {
   it("renders common markdown and safe external links", () => {
@@ -428,6 +436,54 @@ describe("skill evidence helpers", () => {
       "1:value:one",
       "2:group:child",
     ]);
+  });
+
+  it("builds complete path labels and keeps only selected leaves in summaries", () => {
+    const groups = [
+      { id: "scope", display_name: "场景", description: "", sort_order: 0, required: false, free_form: false, parent: null, values: [{ tag_group_id: "scope", value: "cloud", display_name: "云平台", description: "", sort_order: 0 }] },
+      { id: "provider", display_name: "云厂商", description: "", sort_order: 0, required: false, free_form: false, parent: { group_id: "scope", value: "cloud" }, values: [{ tag_group_id: "provider", value: "aws", display_name: "AWS", description: "", sort_order: 0 }] },
+      { id: "runtime", display_name: "运行环境", description: "", sort_order: 0, required: false, free_form: false, parent: { group_id: "provider", value: "aws" }, values: [{ tag_group_id: "runtime", value: "eks", display_name: "EKS", description: "", sort_order: 0 }] },
+    ] as TagGroup[];
+    const tags = [{ group_id: "scope", value: "cloud" }, { group_id: "provider", value: "aws" }, { group_id: "runtime", value: "eks" }];
+
+    expect(tagValuePathLabel(groups, "runtime", "eks")).toBe("场景 / 云平台 / 云厂商 / AWS / 运行环境 / EKS");
+    expect(selectedLeafTags(tags, groups)).toEqual([{ group_id: "runtime", value: "eks" }]);
+  });
+
+  it("reports missing parents and cycles without losing the visible path", () => {
+    const missingParent = [{
+      id: "child",
+      display_name: "子组",
+      description: "",
+      sort_order: 0,
+      required: false,
+      free_form: false,
+      parent: { group_id: "missing", value: "root-value" },
+      values: [],
+    }] as TagGroup[];
+    const cyclic = [
+      { ...missingParent[0], id: "a", display_name: "A", parent: { group_id: "b", value: "to-a" } },
+      { ...missingParent[0], id: "b", display_name: "B", parent: { group_id: "a", value: "to-b" } },
+    ] as TagGroup[];
+
+    expect(tagGroupPathInfo(missingParent, "child")).toMatchObject({ valid: false, issue: "missing_parent" });
+    expect(tagGroupPathInfo(missingParent, "child").segments.map((segment) => segment.label)).toEqual(["root-value", "子组"]);
+    expect(tagGroupPathInfo(cyclic, "a")).toMatchObject({ valid: false, issue: "cycle" });
+  });
+
+  it("computes contextual Tag counts with same-group OR and cross-group AND", () => {
+    const groups = [
+      { id: "scope", display_name: "场景", description: "", sort_order: 0, required: false, free_form: false, parent: null, values: [{ tag_group_id: "scope", value: "network", description: "", sort_order: 0 }, { tag_group_id: "scope", value: "cloud", description: "", sort_order: 1 }] },
+      { id: "protocol", display_name: "协议", description: "", sort_order: 0, required: false, free_form: false, parent: { group_id: "scope", value: "network" }, values: [{ tag_group_id: "protocol", value: "bgp", description: "", sort_order: 0 }, { tag_group_id: "protocol", value: "ospf", description: "", sort_order: 1 }] },
+    ] as TagGroup[];
+    const skills = [
+      taggedSkill("alpha", [{ group_id: "scope", value: "network" }, { group_id: "protocol", value: "bgp" }]),
+      taggedSkill("beta", [{ group_id: "scope", value: "network" }, { group_id: "protocol", value: "ospf" }]),
+      taggedSkill("gamma", [{ group_id: "scope", value: "cloud" }]),
+    ];
+    const counts = contextualTagCounts(skills, { query: "", filter: "all", actor: "", selectedTags: [{ group_id: "scope", value: "network" }], tagGroups: groups });
+
+    expect(counts).toMatchObject({ "scope\u0000network": 2, "scope\u0000cloud": 3, "protocol\u0000bgp": 1, "protocol\u0000ospf": 1 });
   });
 
   it("keeps orphan Tags searchable but excludes them from structured Hub filters", () => {

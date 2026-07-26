@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { humanDate } from "../../lib/format";
 import type { TagGroup, TagValueOption } from "../../types";
 import AdminTagGroupFormModal from "./AdminTagGroupFormModal.vue";
+import AdminTagGroupNavigator from "./AdminTagGroupNavigator.vue";
 import AdminTagValueFormModal from "./AdminTagValueFormModal.vue";
 
 const props = defineProps<{ tagGroups: TagGroup[]; selectedTagGroupId: string }>();
@@ -19,22 +20,8 @@ const emit = defineEmits<{
 const groupModalMode = ref<"create" | "edit" | null>(null);
 const valueModalMode = ref<"create" | "edit" | null>(null);
 const editingValue = ref<TagValueOption | null>(null);
-const groupSearch = ref("");
-
 const selectedGroup = computed(() => props.tagGroups.find((group) => group.id === props.selectedTagGroupId) ?? props.tagGroups[0] ?? null);
 const selectedGroupValues = computed(() => [...(selectedGroup.value?.values ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.value.localeCompare(b.value)));
-const filteredGroups = computed(() => {
-  const keyword = groupSearch.value.trim().toLowerCase();
-  if (!keyword) return props.tagGroups;
-  return props.tagGroups.filter((group) =>
-    [group.id, group.display_name, group.description]
-      .some((value) => value.toLowerCase().includes(keyword)),
-  );
-});
-const selectedGroupHiddenBySearch = computed(() => {
-  if (!groupSearch.value.trim() || !selectedGroup.value) return false;
-  return filteredGroups.value.every((group) => group.id !== selectedGroup.value?.id);
-});
 
 watch(selectedGroup, () => {
   valueModalMode.value = null;
@@ -86,18 +73,7 @@ function openValueEdit(value: TagValueOption): void {
         <button class="primary-button" type="button" @click="groupModalMode = 'create'">新建 Tag Group</button>
       </div>
 
-      <label class="field-label compact">
-        <span>搜索 Tag Group</span>
-        <input v-model="groupSearch" placeholder="输入 ID、显示名称或备注" />
-      </label>
-      <label class="field-label compact">
-        <span>选择 Tag Group</span>
-        <select :value="selectedGroup?.id ?? ''" :disabled="!filteredGroups.length" @change="emit('select', ($event.target as HTMLSelectElement).value)">
-          <option v-for="group in filteredGroups" :key="group.id" :value="group.id">
-            {{ group.display_name }}（{{ group.id }}）
-          </option>
-        </select>
-      </label>
+      <AdminTagGroupNavigator :groups="tagGroups" :selected-group-id="selectedGroup?.id ?? ''" @select="emit('select', $event)" />
 
       <div v-if="selectedGroup" class="admin-selected-summary">
         <strong>{{ selectedGroup.display_name }}</strong>
@@ -108,7 +84,6 @@ function openValueEdit(value: TagValueOption): void {
           <span v-if="selectedGroup.parent" class="tag-chip muted">子组</span>
         </div>
         <p>{{ selectedGroup.description || "无备注" }}</p>
-        <p v-if="selectedGroupHiddenBySearch" class="field-help">当前选中项被搜索条件隐藏；清空搜索可在下拉框中看到它。</p>
       </div>
       <template v-if="selectedGroup">
         <dl class="admin-detail-grid compact">
@@ -146,7 +121,6 @@ function openValueEdit(value: TagValueOption): void {
         <strong>暂无可选 Tag Group</strong>
         <p>创建后可在右侧维护该组下的 Tag 值。</p>
       </div>
-      <p v-if="tagGroups.length && !filteredGroups.length" class="field-help">没有匹配的 Tag Group。</p>
     </section>
 
     <section class="primary-panel admin-card">

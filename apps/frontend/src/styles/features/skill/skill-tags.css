@@ -12,69 +12,118 @@
   align-items: start;
 }
 
-.skill-tag-selected,
-.skill-tag-options,
-.skill-tag-add-options {
+.skill-tag-selected {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.skill-tag-add-panel {
+.skill-tag-selected .tag-chip { max-width: 100%; }
+
+.skill-tag-branch-list {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.skill-tag-branch {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
   border: 1px solid var(--soft-line);
   border-radius: 8px;
-  background: white;
+  background: #fbfdff;
   padding: 12px;
-  display: grid;
+}
+
+.skill-tag-branch.nested {
+  border-color: #d6e2f2;
+  border-left: 3px solid #8db5e9;
+  background: white;
+}
+
+.skill-tag-branch.missing {
+  border-color: #f2ba66;
+  box-shadow: inset 3px 0 #d98718;
+}
+
+.skill-tag-branch-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.skill-tag-group-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 280px) auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: end;
-}
-
-.skill-tag-group-select {
+.skill-tag-branch-head > div:first-child {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
-.skill-tag-group-select span {
+.skill-tag-branch-head strong {
+  color: #26364d;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.skill-tag-branch-head small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.skill-tag-branch-description {
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  line-height: 1.5;
 }
 
-.skill-tag-group-select select {
-  min-height: 38px;
-  padding: 8px 34px 8px 12px;
-  border-radius: 8px;
-  font-weight: 760;
-  background-color: #fbfdff;
+.skill-tag-branch-values,
+.skill-tag-value-branch,
+.skill-tag-branch-children {
+  min-width: 0;
+  display: grid;
+}
+
+.skill-tag-branch-values {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.skill-tag-value-branch { gap: 8px; }
+
+.skill-tag-value-branch:has(.skill-tag-branch-children) { grid-column: 1 / -1; }
+
+.skill-tag-branch-children {
+  gap: 8px;
+  margin-left: 18px;
+  padding-left: 12px;
+  border-left: 1px solid #c9d8eb;
 }
 
 .skill-tag-option {
-  min-height: 34px;
-  display: inline-flex;
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   border: 1px solid var(--soft-line);
-  border-radius: 999px;
+  border-radius: 7px;
   background: #f8fafc;
-  padding: 6px 10px;
+  padding: 7px 10px;
   cursor: pointer;
   line-height: 1.2;
-  white-space: nowrap;
-  max-width: 100%;
-  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .skill-tag-option:hover {
-  border-color: var(--blue);
-  background: var(--blue-soft);
+  border-color: #a9c7ee;
+  background: #f7fbff;
 }
 
 .skill-tag-option.selected {
@@ -85,7 +134,6 @@
 
 .skill-tag-option input,
 .field-label .skill-tag-option input[type="checkbox"] {
-  flex: 0 0 auto;
   width: 16px;
   height: 16px;
   min-height: 0;
@@ -93,17 +141,30 @@
   padding: 0;
 }
 
-.skill-tag-option span {
+.skill-tag-option-copy {
   min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.skill-tag-option-copy strong,
+.skill-tag-option-copy small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-tag-option-copy strong { font-size: 13px; }
+
+.skill-tag-option-copy small {
+  color: var(--muted);
+  font-size: 10px;
 }
 
 @media (max-width: 920px) {
-  .skill-tag-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .skill-tag-group-row {
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
+  .skill-tag-toolbar { grid-template-columns: 1fr; }
+  .skill-tag-branch-head { align-items: flex-start; }
+  .skill-tag-branch-values { grid-template-columns: 1fr; }
+  .skill-tag-branch-children { margin-left: 8px; padding-left: 8px; }
 }

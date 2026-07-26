@@ -97,7 +97,7 @@ function submit(): void {
             <p v-if="version && !validSemver(version)" class="field-hint danger">版本号需要使用 SemVer，例如 0.1.0。</p>
             <div class="field-label new-skill-tags-field">
               <span>Skill Tags</span>
-              <SkillTagPicker :value="tags" :groups="tagGroups" @change="emit('update:tags', $event)" />
+              <SkillTagPicker :value="tags" :groups="tagGroups" mode="inline" @change="emit('update:tags', $event)" />
             </div>
             <p v-if="tagValidationError" class="field-hint danger">{{ tagValidationError }}</p>
           </section>

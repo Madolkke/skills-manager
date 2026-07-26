@@ -10,7 +10,7 @@ import { pruneInactiveTags } from "../lib/tagCascades";
 import { tagKey } from "../lib/skillTags";
 import HubFilterPanel from "./hub/HubFilterPanel.vue";
 import HubSkillCard from "./hub/HubSkillCard.vue";
-import { filterSkills, skillCounts, sortSkills, tagUsageCounts, type FilterKey, type SortKey, type ViewMode } from "./hub/hubFilters";
+import { contextualTagCounts, filterSkills, skillCounts, sortSkills, type FilterKey, type SortKey, type ViewMode } from "./hub/hubFilters";
 import type { SkillSummary, SkillTagPayload, TagGroup } from "../types";
 
 const props = defineProps<{ skills: SkillSummary[]; actor: string; loading: boolean; evaluationsVisible: boolean }>();
@@ -42,7 +42,13 @@ const filtered = computed(() =>
 );
 const sorted = computed(() => sortSkills(filtered.value, sortKey.value, props.evaluationsVisible));
 const counts = computed(() => skillCounts(props.skills, props.actor));
-const tagCounts = computed(() => tagUsageCounts(props.skills));
+const tagCounts = computed(() => contextualTagCounts(props.skills, {
+  query: query.value,
+  filter: filter.value,
+  actor: props.actor,
+  selectedTags: selectedTags.value,
+  tagGroups: tagGroups.value,
+}));
 
 const FilterButton = defineComponent({
   props: {

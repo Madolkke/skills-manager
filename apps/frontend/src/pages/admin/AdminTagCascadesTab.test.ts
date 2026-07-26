@@ -41,10 +41,11 @@ describe("AdminTagCascadesTab", () => {
     const metrics = wrapper.findAll(".cascade-metric-grid .admin-metric-card").map((item) => item.text());
 
     expect(metrics).toEqual(["Group 总数3", "根级 Group2", "级联关系1", "异常项2"]);
-    expect(wrapper.get('[data-group-id="runtime"].group').text()).toContain("平台 / Python");
-    expect(wrapper.get('[data-group-id="platform"][data-value="python"]').text()).toContain("1 个子 Group");
+    expect(wrapper.get('[data-group-id="platform"][data-value="python"]').text()).toContain("1 个子组");
 
-    await wrapper.get('[data-group-id="runtime"].group .cascade-issue-button').trigger("click");
+    await wrapper.get('[data-group-id="runtime"].group').trigger("click");
+    expect(wrapper.get(".cascade-inspector").text()).toContain("平台 / Python / 运行时");
+    await wrapper.get(".cascade-inspector .cascade-issue-button").trigger("click");
     expect(wrapper.emitted("inspect")?.[0]).toEqual([{
       groupId: "runtime",
       kind: "orphaned",
@@ -69,12 +70,12 @@ describe("AdminTagCascadesTab", () => {
     const wrapper = mount(AdminTagCascadesTab, { props: { tagGroups, overview } });
     const valueRow = wrapper.get('[data-group-id="platform"][data-value="python"]');
 
-    await valueRow.get(".cascade-attach-button").trigger("click");
+    await valueRow.trigger("click");
     expect(valueRow.classes()).toContain("selected");
-    expect(wrapper.get(".cascade-link-context").text()).toContain("平台 / Python");
+    expect(wrapper.get(".cascade-inspector").text()).toContain("平台 / Python");
     expect((wrapper.get('select[aria-label="选择子 Tag Group"]').element as HTMLSelectElement).value).toBe("region");
 
-    await wrapper.get(".cascade-link-editor .primary-button").trigger("click");
+    await wrapper.get(".cascade-attach-editor .primary-button").trigger("click");
     expect(wrapper.emitted("attach")?.[0]).toEqual([{
       parent_group_id: "platform",
       parent_value: "python",
@@ -85,8 +86,17 @@ describe("AdminTagCascadesTab", () => {
   it("explains when no root group can be mounted", async () => {
     const wrapper = mount(AdminTagCascadesTab, { props: { tagGroups: tagGroups.slice(0, 2), overview } });
 
-    await wrapper.get('[data-group-id="platform"][data-value="python"] .cascade-attach-button').trigger("click");
+    await wrapper.get('[data-group-id="platform"][data-value="python"]').trigger("click");
     expect(wrapper.text()).toContain("没有可挂载的根级 Group");
-    expect(wrapper.get(".cascade-link-editor .primary-button").attributes("disabled")).toBeDefined();
+    expect(wrapper.get(".cascade-attach-editor .primary-button").attributes("disabled")).toBeDefined();
+  });
+
+  it("keeps ancestor context while searching for a nested group", async () => {
+    const wrapper = mount(AdminTagCascadesTab, { props: { tagGroups, overview } });
+    await wrapper.get('input[aria-label="搜索 Tag 级联"]').setValue("运行时");
+
+    expect(wrapper.find('[data-group-id="platform"].group').exists()).toBe(true);
+    expect(wrapper.find('[data-group-id="runtime"].group').exists()).toBe(true);
+    expect(wrapper.find('[data-group-id="region"].group').exists()).toBe(false);
   });
 });

@@ -2,7 +2,8 @@
 
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import type { SkillSummary } from "../../types";
+import { encodeSkillTagResourceId } from "../../lib/skillTags";
+import type { SkillSummary, TagGroup } from "../../types";
 import AdminRoleAssignmentsTab from "./AdminRoleAssignmentsTab.vue";
 
 const skill = {
@@ -63,5 +64,32 @@ describe("AdminRoleAssignmentsTab", () => {
     });
 
     expect(wrapper.get(".admin-role-table-row").text()).toContain("全部 Skill");
+  });
+
+  it("encodes a selected Tag path without changing the role payload", async () => {
+    const tagGroups = [{
+      id: "scope",
+      display_name: "场景",
+      description: "",
+      sort_order: 0,
+      required: false,
+      free_form: false,
+      parent: null,
+      values: [{ tag_group_id: "scope", value: "cloud", display_name: "云平台", description: "", sort_order: 0 }],
+    }] as TagGroup[];
+    const wrapper = mount(AdminRoleAssignmentsTab, { props: { roles: [], tagGroups, skills: [skill] } });
+    await wrapper.findAll(".admin-role-form select")[1].setValue("skill_tag");
+    await wrapper.get('input[placeholder="主体 ID"]').setValue("reviewers");
+    await wrapper.get(".tag-path-select-trigger").trigger("click");
+    await wrapper.get(".tag-path-select-option").trigger("click");
+    await wrapper.get("button.primary-button").trigger("click");
+
+    expect(wrapper.emitted("assign")?.[0]).toEqual([{
+      subject_type: "group",
+      subject_id: "reviewers",
+      resource_type: "skill_tag",
+      resource_id: encodeSkillTagResourceId("scope", "cloud"),
+      role: "evaluator",
+    }]);
   });
 });

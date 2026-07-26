@@ -24,10 +24,11 @@ type AdminActionsOptions = {
   syncAdminState: AdminStateSync;
   load: () => Promise<void>;
   emitToast: (toast: Toast) => void;
+  onError?: (error: unknown) => void;
 };
 
 export function useAdminActions(options: AdminActionsOptions) {
-  const { tagDrafts, selectedGroupId, selectedTagGroupId, selectedOpencodeAgentId, syncAdminState, load, emitToast } = options;
+  const { tagDrafts, selectedGroupId, selectedTagGroupId, selectedOpencodeAgentId, syncAdminState, load, emitToast, onError } = options;
 
   async function createGroup(payload: { name: string; description?: string }): Promise<void> {
     await runLocalAdminAction(async () => {
@@ -246,6 +247,10 @@ export function useAdminActions(options: AdminActionsOptions) {
   }
 
   function showError(error: unknown): void {
+    if (onError) {
+      onError(error);
+      return;
+    }
     const message = error instanceof ApiError || error instanceof Error ? error.message : "操作失败。";
     emitToast({ tone: "danger", message });
   }
