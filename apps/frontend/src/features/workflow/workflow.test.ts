@@ -328,7 +328,16 @@ describe("workflow domain", () => {
     );
 
     await api.createWorkflowSkill({ slug: "interface-check", owner_ref: "owner", description: "Check interfaces.", tags: [] });
-    await api.syncWorkflow("skill-1", { version: "0.0.2", display_name: "Workflow v2", change_summary: "Sync workflow." });
+    await api.syncWorkflow("skill-1", {
+      version: "0.0.2",
+      display_name: "Workflow v2",
+      change_summary: "Sync workflow.",
+      expected_workflow_revision: 2,
+      generator_id: "builtin.three-file",
+      generator_version: "1.0.0",
+      generator_options: {},
+      preview_digest: "preview-digest",
+    });
 
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
@@ -336,7 +345,16 @@ describe("workflow domain", () => {
     });
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
-      body: JSON.stringify({ version: "0.0.2", display_name: "Workflow v2", change_summary: "Sync workflow." }),
+      body: JSON.stringify({
+        version: "0.0.2",
+        display_name: "Workflow v2",
+        change_summary: "Sync workflow.",
+        expected_workflow_revision: 2,
+        generator_id: "builtin.three-file",
+        generator_version: "1.0.0",
+        generator_options: {},
+        preview_digest: "preview-digest",
+      }),
     });
     fetchMock.mockRestore();
   });

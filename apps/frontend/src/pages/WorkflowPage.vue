@@ -32,7 +32,7 @@ const editorPane = ref<HTMLElement | null>(null);
 const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
 const editor = useWorkflowEditor(() => readOnly.value);
 const layout = useWorkflowLayout();
-const { loading, saving, saveFeedback, syncing, loadError, actionError, syncError, load, save, sync } = useWorkflowPersistence({
+const { loading, saving, saveFeedback, syncing, loadError, actionError, syncError, syncConflictKey, load, save, sync } = useWorkflowPersistence({
   skillId: () => props.skill.skill.id,
   detail,
   editor,
@@ -216,7 +216,18 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
     </div>
 
-    <WorkflowSyncModal v-if="detail" :open="syncOpen" :skill="skill" :revision="detail.revision" :issues="editor.issues.value" :busy="syncing" :error="syncError" @close="syncOpen = false; syncError = ''" @submit="sync" />
+    <WorkflowSyncModal
+      v-if="detail"
+      :open="syncOpen"
+      :skill="skill"
+      :revision="detail.revision"
+      :recovery-key="syncConflictKey"
+      :busy="syncing"
+      :error="syncError"
+      @close="syncOpen = false; syncError = ''"
+      @previewed="syncError = ''"
+      @submit="sync"
+    />
     <WorkflowConfirmModal v-if="confirmAction" :open="confirmOpen" :title="confirmAction.type === 'discard' ? '放弃未保存修改' : '确认删除'" :description="confirmAction.type === 'discard' ? '当前 Workflow 的所有未保存修改都将丢失。' : confirmAction.type === 'step' || confirmAction.type === 'conclusion' ? '节点及指向它的路径将被删除，此操作可在保存前撤销。' : '当前采集调用将被删除；若它是待入库定义的最后引用，定义也会一并清理。'" :confirm-label="confirmAction.type === 'discard' ? '放弃修改' : '删除'" tone="danger" @close="confirmOpen = false" @closed="finishConfirmClose" @confirm="confirm" />
   </section>
 </template>

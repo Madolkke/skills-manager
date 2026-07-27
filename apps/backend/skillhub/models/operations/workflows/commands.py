@@ -7,10 +7,9 @@ from sqlalchemy import insert, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.models.entities import ContentRef, digest_text, new_id, utc_now
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
+from skillhub.models.errors import InvariantError
 from skillhub.models.operations.workflows.catalog import WorkflowCatalogMixin
 from skillhub.models.operations.workflows.helpers import WorkflowHelperMixin
-from skillhub.models.rules.semver import normalize_semver
 from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, normalize_workflow_document
 from skillhub.models.schema import orm
 
@@ -119,81 +118,6 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 actor,
             )
         return {"document": candidate, "revision": revision, "changed": changed, "validation": self._workflow_validation(candidate)}
-
-    def sync_workflow(self, *, skill_id: str, version: str, display_name: str | None, change_summary: str, manifest_text: str, source_text: str, generator_version: str, actor: str) -> dict[str, Any]:
-        created_at = utc_now()
-        try:
-            with self._write_session() as connection:
-                skill = self._skill_row(connection, skill_id)
-                self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.version.create")
-                workflow = self._workflow_row(connection, skill_id=skill_id)
-                existing = (
-                    connection.execute(
-                        orm.select_entity(orm.WorkflowSync)
-                        .where(orm.WorkflowSync.workflow_id == workflow["id"])
-                        .where(orm.WorkflowSync.workflow_revision == workflow["revision"])
-                    )
-                    .mappings()
-                    .one_or_none()
-                )
-                if existing is not None:
-                    current = skill["current_version_id"] == existing["skill_version_id"]
-                    if not current:
-                        connection.execute(update(orm.Skill).where(orm.Skill.id == skill_id).values(current_version_id=existing["skill_version_id"], updated_at=created_at))
-                        self._audit_workflow(connection, skill_id=skill_id, actor=actor, action="workflow.sync_reactivated", payload={"workflow_id": workflow["id"], "revision": workflow["revision"], "skill_version_id": existing["skill_version_id"]}, created_at=created_at)
-                    logger.info(
-                        "workflow sync reused skill_id=%s workflow_id=%s revision=%s skill_version_id=%s actor=%s mode=%s",
-                        skill_id,
-                        workflow["id"],
-                        workflow["revision"],
-                        existing["skill_version_id"],
-                        actor,
-                        "already_current" if current else "reactivated",
-                    )
-                    return {"mode": "already_current" if current else "reactivated", "skill_id": skill_id, "skill_version_id": existing["skill_version_id"], "workflow_revision": workflow["revision"]}
-
-                semver = normalize_semver(version)
-                source_artifact_id = self._insert_text_artifact(connection, kind="workflow_source", namespace=f"workflow:{workflow['id']}:{workflow['revision']}", content=source_text, actor=actor, created_at=created_at)
-                bundle_artifact_id = self._insert_text_artifact(connection, kind="skill_bundle", namespace=f"workflow-sync:{skill_id}:{workflow['revision']}", content=manifest_text, actor=actor, created_at=created_at)
-                skill_version_id = new_id("skillver")
-                version_number = self._next_skill_version_number(connection, skill_id)
-                connection.execute(
-                    insert(orm.SkillVersion).values(
-                        id=skill_version_id,
-                        skill_id=skill_id,
-                        version_number=version_number,
-                        version=semver,
-                        display_name=display_name.strip() if display_name and display_name.strip() else None,
-                        content_ref={"kind": "artifact", "locator": f"artifact:{bundle_artifact_id}", "digest": digest_text(manifest_text), "path": "SKILL.md"},
-                        content_digest=digest_text(manifest_text),
-                        change_summary=change_summary.strip(),
-                        created_at=created_at,
-                        created_by=actor,
-                    )
-                )
-                sync_id = new_id("workflowsync")
-                connection.execute(
-                    insert(orm.WorkflowSync).values(
-                        id=sync_id,
-                        workflow_id=workflow["id"],
-                        workflow_revision=workflow["revision"],
-                        document_schema_version=workflow["document_schema_version"],
-                        source_artifact_id=source_artifact_id,
-                        skill_version_id=skill_version_id,
-                        generator_version=generator_version,
-                        created_at=created_at,
-                        created_by=actor,
-                    )
-                )
-                connection.execute(update(orm.Skill).where(orm.Skill.id == skill_id).values(current_version_id=skill_version_id, updated_at=created_at))
-                self._audit_workflow(connection, skill_id=skill_id, actor=actor, action="workflow.synced", payload={"workflow_id": workflow["id"], "revision": workflow["revision"], "skill_version_id": skill_version_id, "generator_version": generator_version}, created_at=created_at)
-        except IntegrityError as exc:
-            raise FieldInvariantError(
-                "Workflow sync version conflicts with an existing SkillVersion.",
-                [FieldError(field="version", message="这个 Skill 已经存在相同版本号。", code="skill_version.version_conflict")],
-            ) from exc
-        logger.info("workflow synced skill_id=%s workflow_id=%s revision=%s skill_version_id=%s actor=%s", skill_id, workflow["id"], workflow["revision"], skill_version_id, actor)
-        return {"mode": "created", "skill_id": skill_id, "skill_version_id": skill_version_id, "workflow_revision": workflow["revision"], "version": semver, "version_number": version_number}
 
     def _audit_workflow(self, connection, *, skill_id: str, actor: str, action: str, payload: dict[str, Any], created_at) -> None:
         connection.execute(

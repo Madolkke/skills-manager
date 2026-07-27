@@ -9,6 +9,32 @@ from skillhub.models.schema import orm
 
 
 class WorkflowHelperMixin:
+    def _generator_evidence_from_sync(self, sync) -> dict[str, Any]:
+        return self._generator_evidence(
+            generator_id=str(sync["generator_id"]),
+            generator_version=str(sync["generator_version"]),
+            generator_options=dict(sync["generator_options"]),
+            generator_options_digest=str(sync["generator_options_digest"]),
+            preview_digest=str(sync["preview_digest"]),
+        )
+
+    def _generator_evidence(
+        self,
+        *,
+        generator_id: str,
+        generator_version: str,
+        generator_options: dict[str, Any],
+        generator_options_digest: str,
+        preview_digest: str,
+    ) -> dict[str, Any]:
+        return {
+            "generator_id": generator_id,
+            "generator_version": generator_version,
+            "generator_options": dict(generator_options),
+            "generator_options_digest": generator_options_digest,
+            "preview_digest": preview_digest,
+        }
+
     def _workflow_row(self, connection, *, skill_id: str):
         row = connection.execute(orm.select_entity(orm.Workflow).where(orm.Workflow.skill_id == skill_id)).mappings().one_or_none()
         if row is None:
@@ -25,31 +51,48 @@ class WorkflowHelperMixin:
         }
 
     def _workflow_sync_status(self, connection, *, workflow, skill) -> dict[str, Any]:
+        current_sync = None
+        if skill["current_version_id"]:
+            current_sync = (
+                connection.execute(
+                    orm.select_entity(orm.WorkflowSync)
+                    .where(orm.WorkflowSync.skill_version_id == skill["current_version_id"])
+                )
+                .mappings()
+                .one_or_none()
+            )
         latest = (
             connection.execute(
                 orm.select_entity(orm.WorkflowSync)
                 .where(orm.WorkflowSync.workflow_id == workflow["id"])
-                .order_by(orm.WorkflowSync.workflow_revision.desc())
+                .order_by(orm.WorkflowSync.created_at.desc(), orm.WorkflowSync.id.desc())
                 .limit(1)
             )
             .mappings()
             .one_or_none()
         )
-        return self._workflow_sync_status_from_latest(latest=latest, workflow=workflow, skill=skill)
+        return self._workflow_sync_status_from_latest(
+            latest=latest,
+            current_sync=current_sync,
+            workflow=workflow,
+            skill=skill,
+        )
 
-    def _workflow_sync_status_from_latest(self, *, latest, workflow, skill) -> dict[str, Any]:
+    def _workflow_sync_status_from_latest(self, *, latest, workflow, skill, current_sync=None) -> dict[str, Any]:
         if latest is None:
             return {"status": "never_synced", "last_synced_revision": None, "last_synced_skill_version_id": None, "last_synced_at": None}
-        workflow_changed = int(latest["workflow_revision"]) != int(workflow["revision"])
-        skill_changed = str(skill["current_version_id"] or "") != str(latest["skill_version_id"])
-        if workflow_changed and skill_changed:
-            status = "diverged"
-        elif workflow_changed:
-            status = "workflow_changed"
-        elif skill_changed:
-            status = "skill_changed"
+        if current_sync is not None:
+            status = (
+                "in_sync"
+                if int(current_sync["workflow_revision"]) == int(workflow["revision"])
+                else "workflow_changed"
+            )
         else:
-            status = "in_sync"
+            status = (
+                "skill_changed"
+                if int(latest["workflow_revision"]) == int(workflow["revision"])
+                else "diverged"
+            )
         return {
             "status": status,
             "last_synced_revision": latest["workflow_revision"],

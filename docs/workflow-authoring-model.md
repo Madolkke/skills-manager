@@ -58,10 +58,14 @@ flowchart LR
 - 外部 `document_schema_version`
 - 完整 Workflow 源快照 artifact
 - 生成的 `skill_version_id`
-- `generator_version`
+- `generator_id / generator_version`
+- 规范化 `generator_options / generator_options_digest`
+- 用户确认的 `preview_digest`
 - 操作者和时间
 
-同一个 Workflow revision 只生成一次 SkillVersion。重复同步时，如果原版本不是当前版本，则重新激活；已经是当前版本时直接 no-op。
+唯一生成身份是 `workflow_id + workflow_revision + generator_id + generator_version + generator_options_digest`。同一 revision 可由不同 Generator 分别生成；精确重复时，如果原版本不是当前版本则重新激活，已经是当前版本时直接 no-op。
+
+同步状态只看当前 SkillVersion 与 Workflow 的关系：当前版本由当前 revision 生成时为 `in_sync`，由旧 revision 生成时为 `workflow_changed`；当前是手工版本且当前 revision 已生成时为 `skill_changed`，Workflow 与 Skill 都变化时为 `diverged`。
 
 ### Collection Catalog
 
@@ -229,16 +233,27 @@ CollectionCall 表示某个 Step 对 CollectionDefinition 精确版本的一次�
 
 ## 11. 同步到 Skill
 
-同步是显式操作，且 dirty 状态禁止同步。转换器是后端纯规则模块，只生成单文件 `SKILL.md`：
+同步是显式操作，且 dirty 状态禁止同步。前端只展示服务端结果，不复制转换或路径规则。服务端提供三个可版本化的纯规则 Generator：
+
+- `builtin.single-file@workflow-skill-v3`：兼容旧 renderer，输出字节级一致的单个 `SKILL.md`。
+- `builtin.three-file@1.0.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
+- `builtin.node-split@1.0.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
+
+统一输出规则：
 
 - frontmatter `name` 使用同步时的 Skill slug。
 - frontmatter `description` 使用 Workflow description，并通过 YAML 序列化器输出。
 - 正文确定性渲染元信息、输入、设备角色、步骤、采集、命令模板、绑定、输出、路径、脚本草稿和结论。
 - 节点关系使用 Name，参数和采集关系使用可读 Key/Name，不输出 opaque ID。
+- 保留作者事实，但排除 `symptom`、原始 `stdout` 和样例 `inputValues`。
+- 输出统一为 UTF-8、LF 和文件尾换行，并重新经过标准 Skill Bundle parser 的路径、根目录、frontmatter、100 文件、5 MB 和 digest 校验。
+- 按节点模式超过 Bundle 限制时停止生成，并提示改用固定三文件模式。
 - 不写入 `workflow.json`。
 - 不合并当前手工 SkillVersion；每次同步生成完整新 bundle。
 
-同步事务同时写入源快照、生成 artifact、SkillVersion、当前版本指针和审计事件，任一步失败全部回滚。
+同步弹窗先选择 Generator，再展示 Bundle 与文本 diff、版本信息和最终确认。切换 Generator 会立即废弃旧预览。`warning` 展示但不阻止，`error` 阻止生成；`reactivate/already_current` 展示并锁定既有版本元数据。
+
+预览不持久化。正式同步时服务端重新生成，并用 `preview_digest` 核对 Workflow、Generator、options 和输出。任何证据变化都返回 `409`；前端重新加载并生成新预览，且必须再次人工确认，不自动重试。同步事务同时写入源快照、生成 artifact、SkillVersion、当前版本指针和审计事件，任一步失败全部回滚。
 
 ## 12. 明确不包含
 

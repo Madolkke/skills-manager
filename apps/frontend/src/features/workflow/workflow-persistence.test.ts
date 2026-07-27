@@ -3,8 +3,8 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "../../lib/api";
-import type { ToastState, WorkflowBundle, WorkflowDetail } from "../../types";
+import { api, ApiError } from "../../lib/api";
+import type { ToastState, WorkflowBundle, WorkflowDetail, WorkflowSyncPayload } from "../../types";
 import { useWorkflowEditor } from "./useWorkflowEditor";
 import { useWorkflowPersistence } from "./useWorkflowPersistence";
 
@@ -56,12 +56,25 @@ describe("Workflow persistence", () => {
       skill_id: "skill-1",
       skill_version_id: "version-2",
       workflow_revision: 2,
+      generator_id: "builtin.three-file",
+      generator_version: "1.0.0",
+      generator_options: {},
+      generator_options_digest: "options-digest",
+      preview_digest: "preview-digest",
+      bundle_digest: "bundle-digest",
+      generator: {
+        id: "builtin.three-file",
+        version: "1.0.0",
+        label: "固定三文件",
+        default: true,
+        options_schema: {},
+      },
     });
     const harness = mountPersistence();
 
     await harness.persistence.load();
     harness.editor.selection.value = { type: "step", id: "step-1" };
-    await harness.persistence.sync({ version: "0.0.2", change_summary: "Sync workflow." });
+    await harness.persistence.sync(syncPayload());
 
     expect(harness.closeSync).toHaveBeenCalledOnce();
     expect(harness.editor.selection.value).toEqual({ type: "step", id: "step-1" });
@@ -75,7 +88,7 @@ describe("Workflow persistence", () => {
     vi.spyOn(api, "syncWorkflow").mockRejectedValue(new Error("Provider unavailable"));
     const harness = mountPersistence();
 
-    await harness.persistence.sync({ version: "0.0.2", change_summary: "Sync workflow." });
+    await harness.persistence.sync(syncPayload());
 
     expect(harness.closeSync).not.toHaveBeenCalled();
     expect(harness.refresh).not.toHaveBeenCalled();
@@ -83,7 +96,34 @@ describe("Workflow persistence", () => {
     expect(harness.persistence.syncing.value).toBe(false);
     harness.wrapper.unmount();
   });
+
+  it("reloads Workflow and invalidates preview state after a 409", async () => {
+    vi.spyOn(api, "getWorkflow").mockResolvedValue(workflowDetail(2));
+    vi.spyOn(api, "listWorkflowCollections").mockResolvedValue({ definitions: [] });
+    vi.spyOn(api, "syncWorkflow").mockRejectedValue(new ApiError("Preview expired", 409));
+    const harness = mountPersistence();
+
+    await harness.persistence.sync(syncPayload());
+
+    expect(api.getWorkflow).toHaveBeenCalledWith("skill-1");
+    expect(harness.persistence.syncConflictKey.value).toBe(1);
+    expect(harness.persistence.syncError.value).toContain("同步预览已失效");
+    expect(harness.closeSync).not.toHaveBeenCalled();
+    harness.wrapper.unmount();
+  });
 });
+
+function syncPayload(): WorkflowSyncPayload {
+  return {
+    version: "0.0.2",
+    change_summary: "Sync workflow.",
+    expected_workflow_revision: 1,
+    generator_id: "builtin.three-file",
+    generator_version: "1.0.0",
+    generator_options: {},
+    preview_digest: "preview-digest",
+  };
+}
 
 function mountPersistence() {
   const detail = ref<WorkflowDetail | null>(null);

@@ -162,22 +162,21 @@ class SkillRenameCommandMixin:
         ).mappings().one_or_none()
         if workflow is None:
             return None
-        latest = session.execute(
+        current_sync = session.execute(
             orm.select_entity(orm.WorkflowSync)
             .where(orm.WorkflowSync.workflow_id == workflow["id"])
-            .order_by(orm.WorkflowSync.workflow_revision.desc())
-            .limit(1)
+            .where(orm.WorkflowSync.skill_version_id == skill["current_version_id"])
         ).mappings().one_or_none()
         if (
-            latest is None
-            or int(latest["workflow_revision"]) != int(workflow["revision"])
-            or latest["skill_version_id"] != skill["current_version_id"]
+            current_sync is None
+            or int(current_sync["workflow_revision"]) != int(workflow["revision"])
         ):
             return None
         revision = int(workflow["revision"]) + 1
         document = deepcopy(workflow["document"])
         document["workflow"]["revision"] = revision
         source_text = json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        document_digest = digest_text(source_text)
         source_artifact_id = self._insert_text_artifact(
             session,
             kind="workflow_source",
@@ -192,7 +191,7 @@ class SkillRenameCommandMixin:
             .values(
                 revision=revision,
                 document=document,
-                document_digest=digest_text(source_text),
+                document_digest=document_digest,
                 updated_at=renamed_at,
                 last_saved_by=actor,
             )
@@ -205,12 +204,50 @@ class SkillRenameCommandMixin:
                 document_schema_version=workflow["document_schema_version"],
                 source_artifact_id=source_artifact_id,
                 skill_version_id=skill_version_id,
-                generator_version=latest["generator_version"],
+                generator_id=current_sync["generator_id"],
+                generator_version=current_sync["generator_version"],
+                generator_options=current_sync["generator_options"],
+                generator_options_digest=current_sync["generator_options_digest"],
+                preview_digest=self._rename_preview_digest(
+                    session,
+                    workflow_id=str(workflow["id"]),
+                    workflow_revision=revision,
+                    document_digest=document_digest,
+                    skill_version_id=skill_version_id,
+                    generator_id=str(current_sync["generator_id"]),
+                    generator_version=str(current_sync["generator_version"]),
+                    generator_options=dict(current_sync["generator_options"]),
+                ),
                 created_at=renamed_at,
                 created_by=actor,
             )
         )
         return revision
+
+    def _rename_preview_digest(
+        self,
+        session,
+        *,
+        workflow_id: str,
+        workflow_revision: int,
+        document_digest: str,
+        skill_version_id: str,
+        generator_id: str,
+        generator_version: str,
+        generator_options: dict[str, Any],
+    ) -> str:
+        skill_version = self._skill_version_row(session, skill_version_id)
+        evidence = {
+            "workflow_id": workflow_id,
+            "workflow_revision": workflow_revision,
+            "workflow_document_digest": document_digest,
+            "generator_id": generator_id,
+            "generator_version": generator_version,
+            "generator_options": generator_options,
+            "bundle_digest": skill_version["content_digest"],
+        }
+        canonical = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return digest_text(canonical)
 
     def _apply_non_slug_updates(
         self,

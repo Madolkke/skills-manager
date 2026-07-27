@@ -66,24 +66,21 @@ erDiagram
 
 关键语义：
 
-- `Skill` 是稳定入口，保存 `current_version_id`。
-- `SkillVersion` 是不可变内容快照，append-only；对外版本号使用 SemVer，同一 Skill 内唯一。
-- `EvalCaseVersion` 是不可变测试用例快照。
-- `EvalSetVersion` 是 case version 列表快照；未被 `EvalRun` 使用的当前版本是可编辑工作版，首次运行后锁定为历史快照。
+- `Skill` 是保存 `current_version_id` 的稳定入口；`SkillVersion` 是 append-only 的不可变内容快照，对外 SemVer 在同一 Skill 内唯一。
+- `EvalCaseVersion` 是不可变测试用例快照；`EvalSetVersion` 是 case version 列表快照，未被运行使用的当前版本是可编辑工作版，首次运行后锁定。
 - `EvalRun` 是一次 exact `SkillVersion + EvalSetVersion + run_context` 的证据。
 - `CaseResult` 只记录该 run 下某个 case version 的最终结果和 actual output artifact。
 - `AcceptedVerification` 指向一次 finished run，并按 `run_context_hash` 区分不同运行环境。
-- `Workflow` 只保存最新作者文档，通过显式保存增加 revision。
-- `WorkflowSync` 保存精确源快照并绑定生成的 SkillVersion；同一 Workflow revision 最多同步一次。
+- `Workflow` 只保存显式增加 revision 的最新作者文档；`WorkflowSync` 保存源快照、Generator 证据和确认摘要，并绑定生成的 SkillVersion，同一 revision 可由不同 Generator 各生成一次。
 - `CollectionRevision` 是全局 Catalog 中不可变的采集定义版本，WorkflowBundle 只携带直接引用的精确快照。
 
 ### Workflow 边界
 
-- Workflow 只能在 Skill 创建时绑定，不支持独立存在、解绑或换绑。
-- Skill 仍是 owner、平台 Tag、权限和生命周期的唯一真源。
+- Workflow 只能在 Skill 创建时绑定，不支持独立存在、解绑或换绑；Skill 仍是 owner、平台 Tag、权限和生命周期的唯一真源。
 - Workflow 保存与同步是两个独立显式操作；dirty 文档不能同步。
 - 保存允许领域错误草稿，语义 `error` 阻止同步，`warning` 不阻止。
-- 同步使用后端纯转换器完整生成单文件 `SKILL.md`，不合并当前手工版本。
+- 同步使用后端确定性 Generator 完整生成 Skill Bundle，不合并当前手工版本；默认输出固定三文件，也可选择兼容单文件或按节点拆分。
+- 所有同步必须先生成无副作用预览，再由用户确认；正式写入前会重新生成并核对 Workflow revision、Generator version、options 和 Bundle digest。
 - Workflow 后端通过独立 `WorkflowService`、`models.operations.workflows` 和 `models.rules.workflows` 实现。
 
 ## 4. 数据所有权
@@ -203,11 +200,11 @@ apps/backend/skillhub/
 | `models.operations` | 按业务域组织的 Session + ORM 事务内读写操作 |
 | `models.store.SkillHubStore` | Session 绑定的组合根；service 通过它访问领域 operations |
 | `views.schemas` | HTTP request/response schema，保持对外 API contract 稳定 |
-| `services.workflows` | 编排 Workflow Skill 创建、显式保存、元信息更新和同步生成 SkillVersion |
+| `services.workflows / workflow_syncs` | 分别编排 Workflow 创建保存，以及 Generator 预览、确认摘要校验和正式同步 |
 | `services.admin_*` | 分别承载目录、权限和运行态后台管理用例；`services.admin` 仅保留兼容 facade |
 | `services.evaluation_reads` | 测评详情、历史、对比和矩阵等只读用例 |
-| `models.rules.workflows` | Workflow 严格结构、领域校验和确定性 SKILL.md 转换器 |
-| `models.operations.workflows` | Workflow、WorkflowSync 和 Collection Catalog 的事务内读写 |
+| `models.rules.workflows / bundle_diffs` | Workflow 结构、校验、三个确定性 Generator，以及共用 Bundle 文本差异规则 |
+| `models.operations.workflows` | Workflow、WorkflowSync、Generator 证据和 Collection Catalog 的事务内读写 |
 
 依赖方向固定为：
 

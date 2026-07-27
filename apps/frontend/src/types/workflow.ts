@@ -1,3 +1,5 @@
+import type { BundleDiffFile, BundleFile } from "./bundle";
+
 export type VersionedRef = { id: string; revision: number };
 
 export type WorkflowParameter = {
@@ -108,4 +110,77 @@ export type WorkflowDetail = {
 };
 
 export type WorkflowCollectionChange = { operation: "create" | "revise" | "fork"; definition: CollectionDefinition };
-export type WorkflowSyncResult = { mode: "created" | "reactivated" | "already_current"; skill_id: string; skill_version_id: string; workflow_revision: number; version?: string; version_number?: number };
+
+export type WorkflowSkillGenerator = {
+  id: string;
+  version: string;
+  label: string;
+  default: boolean;
+  options_schema: Record<string, unknown>;
+};
+
+export type WorkflowSkillGeneratorCatalog = {
+  generators: WorkflowSkillGenerator[];
+  default_generator_id: string;
+};
+
+export type WorkflowSyncWarning = string | { code?: string; message: string };
+
+export type WorkflowSyncPreviewAction = {
+  mode: "create" | "reactivate" | "already_current";
+  skill_version_id: string | null;
+  version: string | null;
+  version_number: number | null;
+  display_name: string | null;
+  next_version: string | null;
+};
+
+export type WorkflowSyncPreview = {
+  workflow_id: string;
+  workflow_revision: number;
+  generator: WorkflowSkillGenerator;
+  generator_options: Record<string, unknown>;
+  generator_options_digest: string;
+  preview_digest: string;
+  bundle_digest: string;
+  files: BundleFile[];
+  diff: {
+    summary: { added: number; changed: number; removed: number; unchanged: number; binary: number };
+    files: BundleDiffFile[];
+  };
+  warnings: WorkflowSyncWarning[];
+  action: WorkflowSyncPreviewAction;
+};
+
+export type WorkflowSyncPreviewPayload = {
+  expected_workflow_revision: number;
+  generator_id: string;
+  generator_options: Record<string, unknown>;
+};
+
+export type WorkflowSyncPayload = {
+  version: string;
+  display_name?: string;
+  change_summary: string;
+  expected_workflow_revision: number;
+  generator_id: string;
+  generator_version: string;
+  generator_options: Record<string, unknown>;
+  preview_digest: string;
+};
+
+export type WorkflowSyncResult = {
+  mode: "created" | "reactivated" | "already_current";
+  skill_id: string;
+  skill_version_id: string;
+  workflow_revision: number;
+  version?: string;
+  version_number?: number;
+  generator_id: string;
+  generator_version: string;
+  generator_options: Record<string, unknown>;
+  generator_options_digest: string;
+  preview_digest: string;
+  bundle_digest: string;
+  generator: WorkflowSkillGenerator;
+};

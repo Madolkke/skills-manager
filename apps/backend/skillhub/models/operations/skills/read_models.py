@@ -106,7 +106,11 @@ class ReadModelMixin(ListReadModelMixin):
             select(
                 orm.WorkflowSync.workflow_id,
                 orm.WorkflowSync.workflow_revision,
+                orm.WorkflowSync.generator_id,
                 orm.WorkflowSync.generator_version,
+                orm.WorkflowSync.generator_options,
+                orm.WorkflowSync.generator_options_digest,
+                orm.WorkflowSync.preview_digest,
                 orm.WorkflowSync.created_at,
             ).where(orm.WorkflowSync.skill_version_id == version["id"])
         ).mappings().one_or_none()

@@ -23,11 +23,7 @@ class WorkflowApiTest(ApiCommandTestCase):
             },
         )
         self.assertEqual(saved.status_code, 200, saved.text)
-        synced = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "change_summary": "Initial sync."},
-        )
+        synced = self._sync_workflow(skill_id, version="0.0.2", change_summary="Initial sync.")
         self.assertEqual(synced.status_code, 200, synced.text)
 
         renamed = self.client.patch(
@@ -44,6 +40,14 @@ class WorkflowApiTest(ApiCommandTestCase):
         self.assertEqual(workflow_detail["revision"], 3)
         self.assertEqual(workflow_detail["document"]["workflow"]["revision"], 3)
         self.assertIn("name: workflow-renamed", detail["summary"]["current_version"]["bundle_files"][0]["content_text"])
+        renamed_sync = detail["summary"]["current_version"]["workflow_sync"]
+        self.assertEqual(renamed_sync["generator_id"], "builtin.single-file")
+        self.assertEqual(renamed_sync["generator_options"], {})
+        self.assertEqual(len(renamed_sync["preview_digest"]), 64)
+
+        repeated = self._sync_workflow(skill_id, version="9.9.9", change_summary="重命名同步证据可复用。")
+        self.assertEqual(repeated.status_code, 200, repeated.text)
+        self.assertEqual(repeated.json()["mode"], "already_current")
 
     def test_rename_diverged_workflow_does_not_overwrite_unsynced_document(self):
         created = self._create_workflow("workflow-diverged-rename")
@@ -58,11 +62,7 @@ class WorkflowApiTest(ApiCommandTestCase):
                 "collection_changes": [{"operation": "create", "definition": definition}],
             },
         )
-        self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "change_summary": "Initial sync."},
-        )
+        self._sync_workflow(skill_id, version="0.0.2", change_summary="Initial sync.")
         changed_document = saved.json()["document"]
         changed_document["workflow"]["metadata"]["description"] = "Unsynced change that must survive rename."
         changed = self.client.put(
@@ -114,10 +114,11 @@ class WorkflowApiTest(ApiCommandTestCase):
         catalog = self.client.get(f"/api/skills/{skill_id}/workflow/collections").json()
         self.assertEqual(catalog["definitions"][0]["id"], "collection-interface")
 
-        synced = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "display_name": "Workflow v2", "change_summary": "同步排障流程。"},
+        synced = self._sync_workflow(
+            skill_id,
+            version="0.0.2",
+            display_name="Workflow v2",
+            change_summary="同步排障流程。",
         )
         self.assertEqual(synced.status_code, 200, synced.text)
         self.assertEqual(synced.json()["mode"], "created")
@@ -137,11 +138,7 @@ class WorkflowApiTest(ApiCommandTestCase):
             source_text = connection.execute(select(tables.artifacts.c.content_text).where(tables.artifacts.c.id == sync_row["source_artifact_id"])).scalar_one()
         self.assertEqual(json.loads(source_text), saved.json()["document"])
 
-        already_current = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "8.8.8", "change_summary": "不会创建重复版本。"},
-        )
+        already_current = self._sync_workflow(skill_id, version="8.8.8", change_summary="不会创建重复版本。")
         self.assertEqual(already_current.json()["mode"], "already_current")
         self.assertEqual(len(self.client.get(f"/api/skills/{skill_id}").json()["versions"]), 2)
 
@@ -153,11 +150,7 @@ class WorkflowApiTest(ApiCommandTestCase):
         self.assertEqual(manual.status_code, 200)
         self.assertEqual(self.client.get(f"/api/skills/{skill_id}").json()["workflow"]["status"], "skill_changed")
 
-        reactivated = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "9.9.9", "change_summary": "不会创建重复版本。"},
-        )
+        reactivated = self._sync_workflow(skill_id, version="9.9.9", change_summary="不会创建重复版本。")
         final_detail = self.client.get(f"/api/skills/{skill_id}").json()
         self.assertEqual(reactivated.status_code, 200)
         self.assertEqual(reactivated.json()["mode"], "reactivated")
@@ -180,11 +173,7 @@ class WorkflowApiTest(ApiCommandTestCase):
             headers={"X-SkillHub-Actor": "workflow-owner"},
             json={"document": detail["document"], "collection_changes": []},
         )
-        sync = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "change_summary": "invalid"},
-        )
+        sync = self._preview_workflow_sync(skill_id)
 
         self.assertEqual(denied.status_code, 403)
         self.assertEqual(saved.status_code, 200)
@@ -208,11 +197,7 @@ class WorkflowApiTest(ApiCommandTestCase):
                 "collection_changes": [{"operation": "create", "definition": definition}],
             },
         )
-        sync = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "change_summary": "incomplete collection"},
-        )
+        sync = self._preview_workflow_sync(skill_id)
 
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(
@@ -318,11 +303,7 @@ class WorkflowApiTest(ApiCommandTestCase):
         )
         self.assertEqual(manual.status_code, 200)
 
-        conflict = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "change_summary": "conflict"},
-        )
+        conflict = self._sync_workflow(skill_id, version="0.0.2", change_summary="conflict")
 
         final_detail = self.client.get(f"/api/skills/{skill_id}").json()
         with self.engine.connect() as connection:
@@ -390,11 +371,7 @@ class WorkflowApiTest(ApiCommandTestCase):
         actions = [item["action"] for item in self.client.get(f"/api/skills/{skill_id}/audit-events").json()]
         self.assertIn("workflow.imported", actions)
 
-        synced = self.client.post(
-            f"/api/skills/{skill_id}/workflow/sync",
-            headers={"X-SkillHub-Actor": "workflow-owner"},
-            json={"version": "0.0.2", "change_summary": "imported workflow"},
-        )
+        synced = self._sync_workflow(skill_id, version="0.0.2", change_summary="imported workflow")
         self.assertEqual(synced.status_code, 200, synced.text)
         repeated = self.client.post(
             f"/api/skills/{skill_id}/workflow/import",
@@ -454,6 +431,53 @@ class WorkflowApiTest(ApiCommandTestCase):
         self.assertEqual(
             {item["code"] for item in response.json()["validation"]["errors"]},
             {"MISSING_WORKFLOW_NAME", "NO_START_STEP"},
+        )
+
+    def _preview_workflow_sync(
+        self,
+        skill_id: str,
+        *,
+        generator_id: str = "builtin.single-file",
+        expected_workflow_revision: int | None = None,
+    ):
+        revision = expected_workflow_revision
+        if revision is None:
+            revision = self.client.get(f"/api/skills/{skill_id}/workflow").json()["revision"]
+        return self.client.post(
+            f"/api/skills/{skill_id}/workflow/sync-preview",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={
+                "expected_workflow_revision": revision,
+                "generator_id": generator_id,
+                "generator_options": {},
+            },
+        )
+
+    def _sync_workflow(
+        self,
+        skill_id: str,
+        *,
+        version: str,
+        change_summary: str,
+        display_name: str | None = None,
+        generator_id: str = "builtin.single-file",
+    ):
+        preview_response = self._preview_workflow_sync(skill_id, generator_id=generator_id)
+        self.assertEqual(preview_response.status_code, 200, preview_response.text)
+        preview = preview_response.json()
+        return self.client.post(
+            f"/api/skills/{skill_id}/workflow/sync",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={
+                "version": version,
+                "display_name": display_name,
+                "change_summary": change_summary,
+                "expected_workflow_revision": preview["workflow_revision"],
+                "generator_id": preview["generator"]["id"],
+                "generator_version": preview["generator"]["version"],
+                "generator_options": preview["generator_options"],
+                "preview_digest": preview["preview_digest"],
+            },
         )
 
     def _create_workflow(self, slug: str) -> dict:

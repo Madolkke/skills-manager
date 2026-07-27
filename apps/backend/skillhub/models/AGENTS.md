@@ -14,6 +14,7 @@
 - `operations/skills/tag_cascades.py`：Tag 级联关系、活跃路径计算和历史数据诊断。
 - `operations/shared/tagging.py`：所有 Skill 写入口共用的 Tag 清洗、自由值沉淀、条件必填和权限辅助逻辑。
 - `operations/workflows/`：Workflow、WorkflowSync 和全局 Collection Catalog 的事务读写、同步状态与审计。
+- `operations/workflows/workflow_syncs.py`：在事务内复核预览证据，并创建或重激活 Generator 对应的 SkillVersion。
 - `operations/workflows/imports.py`：Import Bundle 的原子导入、Collection 身份分配和引用重写。
 - `operations/reviews/read_models.py`：评审详情、评审回复、发布目标和发布记录的查询辅助。
 - `operations/reviews/reviewers.py`：评审人角色快照、用户组展开和通知写入辅助。
@@ -24,6 +25,7 @@
 - `operations/shared/jobs.py`：跨领域复用的 Job 入队和状态更新辅助。
 - `operations/reviews/helpers.py`：上述评审辅助能力的兼容组合入口。
 - `rules/workflows/`：Workflow/Collection 严格结构、文档格式迁移、领域校验和确定性 Skill 转换。
+- `rules/bundle_diffs.py`：版本差异与同步预览共用的确定性 Bundle 文本 diff。
 - `store.py`：Model 层对 Service 层暴露的组合根，持有请求级 Session，并保留薄兼容 facade。
 
 ## 依赖方向

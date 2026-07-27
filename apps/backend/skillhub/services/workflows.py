@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -10,20 +9,18 @@ from skillhub.models.entities import new_id
 from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.models.rules.workflows import (
-    GENERATOR_VERSION,
     format_workflow_document,
     normalize_workflow_document,
     normalize_workflow_import_bundle,
-    render_skill_markdown,
-    validate_workflow_document,
 )
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
+from skillhub.services.workflow_syncs import WorkflowSyncServiceMixin
 
 logger = logging.getLogger(__name__)
 
 
-class WorkflowService(ServiceBase[SkillHubStore]):
+class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
     def create_workflow_skill(self, *, slug: str, owner_ref: str, description: str, tags: list[Any], actor: str) -> dict[str, Any]:
         workflow_id = new_id("workflow")
         clean_description = description.strip()
@@ -106,34 +103,3 @@ class WorkflowService(ServiceBase[SkillHubStore]):
         document = detail["document"]
         document["workflow"]["metadata"] = metadata
         return self.save_workflow(skill_id=skill_id, document=document, collection_changes=[], actor=actor)
-
-    def sync_workflow(self, *, skill_id: str, version: str, display_name: str | None, change_summary: str, actor: str) -> dict[str, Any]:
-        detail = self.store.workflow_detail(skill_id=skill_id, actor=actor)
-        document = detail["document"]
-        issues = validate_workflow_document(document)
-        errors = [item for item in issues if item["severity"] == "error"]
-        if errors:
-            raise FieldInvariantError(
-                "Workflow contains validation errors and cannot be synced.",
-                [FieldError(field="document", message=f"Workflow 仍有 {len(errors)} 个错误，请修复后再同步。", code="workflow.not_syncable")],
-            )
-        slug = self._skill_slug(skill_id)
-        markdown = render_skill_markdown(slug=slug, document=document)
-        bundle = parse_skill_import_source(
-            {"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": markdown}]}
-        )
-        source_text = json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        logger.info("syncing workflow skill_id=%s revision=%s actor=%s", skill_id, detail["revision"], actor)
-        return self.store.sync_workflow(
-            skill_id=skill_id,
-            version=version,
-            display_name=display_name,
-            change_summary=change_summary,
-            manifest_text=bundle.manifest_text,
-            source_text=source_text,
-            generator_version=GENERATOR_VERSION,
-            actor=actor,
-        )
-
-    def _skill_slug(self, skill_id: str) -> str:
-        return self.store.skill_detail(skill_id)["skill"]["slug"]

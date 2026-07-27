@@ -53,6 +53,26 @@ npm run lint
 npm run build
 ```
 
+## Workflow Generator 验收
+
+涉及 Workflow 转换、同步或 Bundle 展示时，除完整门禁外至少执行：
+
+```bash
+cd apps/backend
+uv run pytest -q \
+  tests/test_workflow_skill_generators.py \
+  tests/test_workflow_sync_service.py \
+  tests/test_workflow_sync_store.py \
+  tests/test_workflow_sync_api.py \
+  tests/test_alembic_migrations.py
+
+cd ../frontend
+npm run test -- src/features/workflow/workflow-sync.test.ts \
+  src/features/workflow/workflow-persistence.test.ts
+```
+
+浏览器冒烟必须走完整人工路径：保存 Workflow，依次选择三种 Generator 并检查文件与 diff，确认同步后进入版本页核对 Bundle 和 `workflow_sync` 证据。制造一次过期 revision 后应看到 `409` 恢复流程：重新加载、重新预览、确认框清空，且不会自动同步。
+
 ## 仓库边界
 
 - 运行时代码只放在 `apps/backend` 和 `apps/frontend`。

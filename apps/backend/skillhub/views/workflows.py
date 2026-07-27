@@ -13,10 +13,18 @@ from skillhub.views.schemas import (
     SaveWorkflowPayload,
     SyncWorkflowPayload,
     WorkflowMetadataPayload,
+    WorkflowSyncPreviewPayload,
 )
 
 
 def register_workflow_routes(app: FastAPI) -> None:
+    @app.get("/api/workflow-skill-generators")
+    def workflow_skill_generators(
+        _actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ):
+        return result_payload(service.workflow_skill_generators())
+
     @app.post("/api/workflows")
     def create_workflow_skill(
         payload: CreateWorkflowSkillPayload,
@@ -110,6 +118,28 @@ def register_workflow_routes(app: FastAPI) -> None:
                 version=payload.version,
                 display_name=payload.display_name,
                 change_summary=payload.change_summary,
+                expected_workflow_revision=payload.expected_workflow_revision,
+                generator_id=payload.generator_id,
+                generator_version=payload.generator_version,
+                generator_options=payload.generator_options,
+                preview_digest=payload.preview_digest,
+                actor=actor.id,
+            )
+        )
+
+    @app.post("/api/skills/{skill_id}/workflow/sync-preview")
+    def preview_workflow_sync(
+        skill_id: str,
+        payload: WorkflowSyncPreviewPayload,
+        actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ):
+        return result_payload(
+            service.preview_workflow_sync(
+                skill_id=skill_id,
+                expected_workflow_revision=payload.expected_workflow_revision,
+                generator_id=payload.generator_id,
+                generator_options=payload.generator_options,
                 actor=actor.id,
             )
         )

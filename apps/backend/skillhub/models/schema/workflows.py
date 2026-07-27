@@ -71,7 +71,14 @@ class WorkflowSync(CreatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("workflow_revision > 0", name="workflow_syncs_revision_positive"),
         CheckConstraint("document_schema_version > 0", name="workflow_syncs_schema_version_positive"),
-        UniqueConstraint("workflow_id", "workflow_revision", name="workflow_syncs_workflow_revision_unique"),
+        UniqueConstraint(
+            "workflow_id",
+            "workflow_revision",
+            "generator_id",
+            "generator_version",
+            "generator_options_digest",
+            name="workflow_syncs_generator_identity_unique",
+        ),
         UniqueConstraint("skill_version_id", name="workflow_syncs_skill_version_unique"),
     )
 
@@ -81,7 +88,11 @@ class WorkflowSync(CreatedAtMixin, Base):
     document_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
     source_artifact_id: Mapped[str] = mapped_column(Text, ForeignKey("artifacts.id"), nullable=False)
     skill_version_id: Mapped[str] = mapped_column(Text, ForeignKey("skill_versions.id"), nullable=False)
+    generator_id: Mapped[str] = mapped_column(Text, nullable=False)
     generator_version: Mapped[str] = mapped_column(Text, nullable=False)
+    generator_options: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    generator_options_digest: Mapped[str] = mapped_column(Text, nullable=False)
+    preview_digest: Mapped[str] = mapped_column(Text, nullable=False)
     created_by: Mapped[str] = mapped_column(Text, nullable=False)
 
     workflow: Mapped[Workflow] = relationship(back_populates="syncs", lazy="raise")

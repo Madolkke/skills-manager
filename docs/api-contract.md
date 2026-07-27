@@ -156,7 +156,9 @@
 | `PUT /api/skills/{skill_id}/workflow` | 显式保存 Workflow 文档和本次 CollectionChanges。 |
 | `POST /api/skills/{skill_id}/workflow/import` | 使用专用 Import Bundle 覆盖 Workflow，并为全部导入 Collection 创建独立身份。 |
 | `PATCH /api/skills/{skill_id}/workflow/metadata` | 显式保存 Workflow 元信息。 |
-| `POST /api/skills/{skill_id}/workflow/sync` | 将当前 Workflow revision 完整转换为新的 SkillVersion，或重新激活已生成版本。 |
+| `GET /api/workflow-skill-generators` | 返回内置 Generator descriptor 和服务端默认项。 |
+| `POST /api/skills/{skill_id}/workflow/sync-preview` | 无写入地生成 Bundle、当前版本文本 diff、预计动作和确认摘要。 |
+| `POST /api/skills/{skill_id}/workflow/sync` | 重新生成并校验已确认预览，再创建或重新激活 SkillVersion。 |
 
 `DELETE /api/skills/{skill_id}` 是破坏性接口，已替换旧版归档语义。仅 owner 或 admin 可调用：
 
@@ -236,20 +238,59 @@ Workflow 文档当前只接受 `document_schema_version = 3` 对应的结构：S
 
 `POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
 
+`GET /api/workflow-skill-generators` 返回固定内置目录：
+
+```json
+{
+  "default_generator_id": "builtin.three-file",
+  "generators": [
+    {
+      "id": "builtin.three-file",
+      "version": "1.0.0",
+      "label": "固定三文件",
+      "default": true,
+      "options_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    }
+  ]
+}
+```
+
+完整目录还包含 `builtin.single-file@workflow-skill-v3` 和 `builtin.node-split@1.0.0`。v1 内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+
+`POST /api/skills/{skill_id}/workflow/sync-preview`：
+
+```json
+{
+  "expected_workflow_revision": 7,
+  "generator_id": "builtin.three-file",
+  "generator_options": {}
+}
+```
+
+响应包含规范化 `generator`、`generator_options`、`files`、`bundle_digest`、与当前 SkillVersion 的 `diff`、`warnings`、`action` 和 `preview_digest`。`action.mode` 为 `create`、`reactivate` 或 `already_current`。预览只执行权限校验、读取和纯计算，不创建 Artifact、SkillVersion、WorkflowSync 或审计事件。
+
 `POST /api/skills/{skill_id}/workflow/sync`：
 
 ```json
 {
   "version": "0.0.2",
   "display_name": "Workflow v2",
-  "change_summary": "从 Workflow 同步接口排查流程。"
+  "change_summary": "从 Workflow 同步接口排查流程。",
+  "expected_workflow_revision": 7,
+  "generator_id": "builtin.three-file",
+  "generator_version": "1.0.0",
+  "generator_options": {},
+  "preview_digest": "<64 位 sha256>"
 }
 ```
 
 - 存在校验 `error` 时返回业务错误；`warning` 不阻止同步。
-- 同一 Workflow revision 只生成一次 SkillVersion。
+- 服务端正式写入前重新生成 Bundle；Workflow revision、文档 digest、Generator version、options 或输出 digest 与预览不一致时返回 `409`，且不写入任何事实。
+- `preview_digest` 覆盖 Workflow ID/revision/document digest、Generator ID/version/options 和 Bundle digest。
+- 唯一生成身份为 `workflow_id + workflow_revision + generator_id + generator_version + generator_options_digest`；同一 revision 可由三个 Generator 分别生成 SkillVersion。
 - 已生成版本不是当前版本时返回 `mode: "reactivated"`；已经是当前版本时返回 `mode: "already_current"`。
-- 新 revision 成功生成时返回 `mode: "created"`。
+- 精确重复同步沿用原版本，忽略请求中的新版本元数据；新身份成功生成时返回 `mode: "created"`。
+- SkillVersion 的 `workflow_sync` 和同步审计 payload 均返回完整 Generator 证据与 `preview_digest`。
 
 ## EvalRun 写入约束
 

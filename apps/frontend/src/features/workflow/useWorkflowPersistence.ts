@@ -1,7 +1,7 @@
 import { nextTick, onBeforeUnmount, ref, type Ref } from "vue";
 import type { UiButtonState } from "../../components/ui/button";
 import { api, ApiError } from "../../lib/api";
-import type { ToastState, WorkflowDetail } from "../../types";
+import type { ToastState, WorkflowDetail, WorkflowSyncPayload } from "../../types";
 import type { useWorkflowEditor } from "./useWorkflowEditor";
 
 type PersistenceEditor = Pick<
@@ -28,6 +28,7 @@ export function useWorkflowPersistence(options: WorkflowPersistenceOptions) {
   const loadError = ref("");
   const actionError = ref("");
   const syncError = ref("");
+  const syncConflictKey = ref(0);
   let saveFeedbackTimer: number | null = null;
 
   async function load(preserveContext = false): Promise<void> {
@@ -78,7 +79,10 @@ export function useWorkflowPersistence(options: WorkflowPersistenceOptions) {
     }
   }
 
-  async function sync(payload: { version: string; display_name?: string; change_summary: string }): Promise<boolean> {
+  /**
+   * Commits an explicitly confirmed preview and refreshes it after a conflict.
+   */
+  async function sync(payload: WorkflowSyncPayload): Promise<boolean> {
     syncing.value = true;
     syncError.value = "";
     try {
@@ -94,7 +98,13 @@ export function useWorkflowPersistence(options: WorkflowPersistenceOptions) {
       options.toast({ tone: "success", message: action });
       return true;
     } catch (caught) {
-      syncError.value = errorMessage(caught, "Workflow 同步失败。");
+      if (caught instanceof ApiError && caught.status === 409) {
+        syncError.value = "同步预览已失效，已加载最新 Workflow 并重新生成预览。";
+        await load(true);
+        syncConflictKey.value += 1;
+      } else {
+        syncError.value = errorMessage(caught, "Workflow 同步失败。");
+      }
       return false;
     } finally {
       syncing.value = false;
@@ -114,7 +124,7 @@ export function useWorkflowPersistence(options: WorkflowPersistenceOptions) {
     if (saveFeedbackTimer !== null) window.clearTimeout(saveFeedbackTimer);
   });
 
-  return { loading, saving, saveFeedback, syncing, loadError, actionError, syncError, load, save, sync };
+  return { loading, saving, saveFeedback, syncing, loadError, actionError, syncError, syncConflictKey, load, save, sync };
 }
 
 function errorMessage(caught: unknown, fallback: string): string {

@@ -45,6 +45,10 @@ import type {
   WorkflowCollectionChange,
   WorkflowDetail,
   WorkflowMetadata,
+  WorkflowSkillGeneratorCatalog,
+  WorkflowSyncPayload,
+  WorkflowSyncPreview,
+  WorkflowSyncPreviewPayload,
   WorkflowSyncResult,
 } from "../types";
 import { getActorId } from "./identity";
@@ -119,7 +123,10 @@ function skillApi() {
       apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/metadata`, "PATCH", payload),
     listWorkflowCollections: (skillId: string) =>
       apiGet<{ definitions: CollectionDefinition[] }>(`/api/skills/${encodeURIComponent(skillId)}/workflow/collections`),
-    syncWorkflow: (skillId: string, payload: { version: string; display_name?: string; change_summary: string }) =>
+    listWorkflowSkillGenerators: () => apiGet<WorkflowSkillGeneratorCatalog>("/api/workflow-skill-generators"),
+    previewWorkflowSync: (skillId: string, payload: WorkflowSyncPreviewPayload) =>
+      apiSend<WorkflowSyncPreview>(`/api/skills/${encodeURIComponent(skillId)}/workflow/sync-preview`, "POST", payload),
+    syncWorkflow: (skillId: string, payload: WorkflowSyncPayload) =>
       apiSend<WorkflowSyncResult>(`/api/skills/${encodeURIComponent(skillId)}/workflow/sync`, "POST", payload),
     listSkillBuilderSessions: () => apiGet<SkillBuilderSession[]>("/api/skill-builder/sessions"),
     createSkillBuilderSession: (payload: SkillBuilderCreateSessionPayload) =>

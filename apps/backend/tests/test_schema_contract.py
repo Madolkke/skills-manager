@@ -19,11 +19,12 @@ def test_declarative_metadata_is_the_only_schema_definition() -> None:
 
 
 def test_alembic_chain_keeps_the_declarative_baseline() -> None:
-    assert expected_revision() == "0002_skill_identity_global_admin"
+    assert expected_revision() == "0003_workflow_skill_generators"
     revisions = sorted((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
     assert [revision.name for revision in revisions] == [
         "0001_initial_schema.py",
         "0002_skill_identity_and_global_admin.py",
+        "0003_workflow_skill_generators.py",
     ]
     source = revisions[0].read_text(encoding="utf-8")
     for table_name in metadata.tables:
@@ -62,3 +63,14 @@ def test_cross_skill_invariants_remain_database_constraints() -> None:
     unique_constraints = {constraint.name for constraint in version_constraints if isinstance(constraint, UniqueConstraint)}
     assert "skill_versions_skill_version_unique" in unique_constraints
     assert "skill_versions_skill_semver_unique" in unique_constraints
+
+    workflow_sync_constraints = metadata.tables["workflow_syncs"].constraints
+    workflow_sync_unique = {
+        constraint.name
+        for constraint in workflow_sync_constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    assert workflow_sync_unique == {
+        "workflow_syncs_generator_identity_unique",
+        "workflow_syncs_skill_version_unique",
+    }

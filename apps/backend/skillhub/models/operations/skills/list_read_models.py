@@ -91,7 +91,11 @@ class ListReadModelMixin:
                 orm.WorkflowSync.skill_version_id,
                 orm.WorkflowSync.workflow_id,
                 orm.WorkflowSync.workflow_revision,
+                orm.WorkflowSync.generator_id,
                 orm.WorkflowSync.generator_version,
+                orm.WorkflowSync.generator_options,
+                orm.WorkflowSync.generator_options_digest,
+                orm.WorkflowSync.preview_digest,
                 orm.WorkflowSync.created_at,
             ).where(orm.WorkflowSync.skill_version_id.in_(version_ids))
         ).mappings().all()
@@ -158,9 +162,14 @@ class ListReadModelMixin:
         sync_rows = connection.execute(
             orm.select_entity(orm.WorkflowSync)
             .where(orm.WorkflowSync.workflow_id.in_(workflow_ids))
-            .order_by(orm.WorkflowSync.workflow_revision.desc())
+            .order_by(orm.WorkflowSync.created_at.desc(), orm.WorkflowSync.id.desc())
         ).mappings().all()
         latest_syncs: dict[str, Any] = {}
+        current_syncs = {
+            str(row["skill_version_id"]): row
+            for row in sync_rows
+            if row["skill_version_id"] in {skill["current_version_id"] for skill in skills}
+        }
         for row in sync_rows:
             latest_syncs.setdefault(str(row["workflow_id"]), row)
         skills_by_id = {str(row["id"]): row for row in skills}
@@ -175,6 +184,7 @@ class ListReadModelMixin:
                 "updated_at": workflow["updated_at"],
                 **self._workflow_sync_status_from_latest(
                     latest=latest_syncs.get(str(workflow["id"])),
+                    current_sync=current_syncs.get(str(skills_by_id[skill_id]["current_version_id"])),
                     workflow=workflow,
                     skill=skills_by_id[skill_id],
                 ),

@@ -1,0 +1,47 @@
+@media (max-width: 980px) {
+  .workflow-sync-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-sync-sidebar {
+    border-top: 1px solid var(--soft-line);
+    border-left: 0;
+  }
+
+  .workflow-sync-version-fields .version-bump-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .workflow-sync-generator-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .workflow-generator-segments,
+  .workflow-sync-version-fields .version-bump-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-skill-preview .bundle-browser {
+    min-height: 520px;
+    max-height: none;
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-skill-preview .bundle-tree {
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid var(--soft-line);
+  }
+
+  .workflow-preview-summary {
+    align-items: flex-start;
+  }
+
+  .workflow-sync-sidebar .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

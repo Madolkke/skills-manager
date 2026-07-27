@@ -106,6 +106,8 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 
 Workflow 编辑器已内置在 SkillHub 前端，不需要单独的服务地址或 iframe 配置。Workflow 文档、Collection Catalog 和同步源快照均使用现有 PostgreSQL 与 artifact 存储。
 
+Workflow Generator API 是直接切换契约：Web 必须先调用 `sync-preview`，旧的无预览 `sync` 请求会被拒绝。数据库迁移、API 与 Web 需要协调发布；不应先部署只会发送旧请求的 Web，也不应在数据库仍停留旧 revision 时启动新 API。
+
 ## 5. 数据库准备
 
 创建数据库和用户：
@@ -126,7 +128,9 @@ uv run python -m skillhub.models.schema.cli check
 uv run alembic check
 ```
 
-当前仓库只保留 `0001_initial_schema`，它是首个正式数据库版本，不包含任何正式版之前的迁移链。空数据库会直接创建当前完整结构并写入固定发布目标。已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时才会自动 stamp；存在差异时命令会中止且不会删除数据。
+当前迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。升级前必须备份数据库，升级后执行 revision 与 metadata drift 检查。
+
+空数据库会直接创建当前完整结构并写入固定发布目标。已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时才会自动 stamp；存在差异时命令会中止且不会删除数据。
 
 正式版之前的 revision 不再受支持。仍带有旧 revision 标记的环境应先备份，通过 SQLAlchemy metadata reflection 确认结构完全一致，再执行 `alembic stamp --purge head`；无法确认一致时应使用空库重新初始化，禁止直接伪造 revision。`stamp` 只改 revision 标记，不会补建表、约束或索引。
 

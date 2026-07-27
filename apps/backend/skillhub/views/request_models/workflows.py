@@ -51,3 +51,16 @@ class SyncWorkflowPayload(BaseModel):
     version: SkillVersionSemVer
     display_name: VersionDisplayName | None = None
     change_summary: VersionChangeSummary
+    expected_workflow_revision: Annotated[int, Field(gt=0)]
+    generator_id: Annotated[str, Field(min_length=1, max_length=120)]
+    generator_version: Annotated[str, Field(min_length=1, max_length=120)]
+    generator_options: dict[str, Any]
+    preview_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class WorkflowSyncPreviewPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_workflow_revision: Annotated[int, Field(gt=0)]
+    generator_id: Annotated[str, Field(min_length=1, max_length=120)]
+    generator_options: dict[str, Any]

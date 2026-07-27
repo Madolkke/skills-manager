@@ -16,7 +16,16 @@ export type SkillVersion = {
   created_by: string;
   bundle_artifact?: ArtifactRef;
   bundle_files?: BundleFile[];
-  workflow_sync?: { workflow_id: string; workflow_revision: number; generator_version: string; created_at: string } | null;
+  workflow_sync?: {
+    workflow_id: string;
+    workflow_revision: number;
+    generator_id: string;
+    generator_version: string;
+    generator_options: Record<string, unknown>;
+    generator_options_digest: string;
+    preview_digest: string;
+    created_at: string;
+  } | null;
 };
 
 export type SkillRecord = {
