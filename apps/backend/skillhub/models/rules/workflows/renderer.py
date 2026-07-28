@@ -13,7 +13,7 @@ from .generators.rendering import (
     frontmatter_lines,
 )
 
-GENERATOR_VERSION = "workflow-skill-v3"
+GENERATOR_VERSION = "workflow-skill-v4"
 
 
 def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:

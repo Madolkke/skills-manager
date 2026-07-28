@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.workflows.document_migration import migrate_collection_v3, migrate_workflow_v3, workflow_uses_v3_fields
 
-DOCUMENT_SCHEMA_VERSION = 3
+DOCUMENT_SCHEMA_VERSION = 4
 
 
 def _camel(name: str) -> str:
@@ -23,13 +24,48 @@ class VersionedRef(WorkflowModel):
     revision: int
 
 
+class JsonSchema(WorkflowModel):
+    type: Literal["string", "integer", "number", "boolean", "object", "array"] | None = None
+    title: str = ""
+    description: str = ""
+    properties: dict[str, JsonSchema] | None = None
+    required: list[str] | None = None
+    additional_properties: bool | None = None
+    items: JsonSchema | None = None
+    legacy_loose: bool = Field(default=False, alias="x-skillhub-legacy-loose")
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "JsonSchema":
+        if self.type is None:
+            if not self.legacy_loose or any(value is not None for value in (self.properties, self.required, self.additional_properties, self.items)):
+                raise ValueError("Only migrated legacy schemas may omit type")
+            return self
+        if self.type == "object":
+            if self.properties is None or self.required is None or self.additional_properties is None or self.items is not None:
+                raise ValueError("Object schema requires properties, required and additionalProperties")
+            if self.additional_properties and not self.legacy_loose:
+                raise ValueError("New object schemas must set additionalProperties to false")
+            if any(not key.strip() for key in self.properties):
+                raise ValueError("Object property keys must be non-empty")
+            if len(self.required) != len(set(self.required)) or not set(self.required).issubset(self.properties):
+                raise ValueError("Object required entries must be unique property keys")
+            self.properties = dict(sorted(self.properties.items()))
+            self.required = sorted(self.required)
+            return self
+        if self.type == "array":
+            if self.items is None or any(value is not None for value in (self.properties, self.required, self.additional_properties)):
+                raise ValueError("Array schema requires items")
+            return self
+        if any(value is not None for value in (self.properties, self.required, self.additional_properties, self.items)):
+            raise ValueError("Scalar schemas cannot define structural keywords")
+        return self
+
+
 class Parameter(WorkflowModel):
     id: str
     key: str
-    name: str
-    description: str = ""
-    data_type: str = "string"
     required: bool = True
+    schema_: JsonSchema = Field(alias="schema")
 
 
 class Binding(WorkflowModel):
@@ -68,8 +104,8 @@ class CollectionMetadata(WorkflowModel):
 class CollectionOutput(WorkflowModel):
     id: str
     key: str
-    description: str = ""
-    data_type: str = "string"
+    required: bool = True
+    schema_: JsonSchema = Field(alias="schema")
 
 
 class CliOutputSample(WorkflowModel):
@@ -165,17 +201,31 @@ class WorkflowBundle(WorkflowModel):
 
 
 def normalize_workflow_document(value: dict[str, Any]) -> dict[str, Any]:
+    if workflow_uses_v3_fields(value):
+        value = migrate_workflow_v3(value)
     return _normalize(WorkflowBundle, value, "Workflow 文档格式不正确。")
 
 
 def normalize_collection_definition(value: dict[str, Any]) -> dict[str, Any]:
+    if any("schema" not in item for item in [*value.get("inputs", []), *value.get("outputs", [])]):
+        value = migrate_collection_v3(value)
     return _normalize(CollectionDefinition, value, "Collection 定义格式不正确。")
 
 
 def migrate_workflow_document(document_schema_version: int, value: dict[str, Any]) -> dict[str, Any]:
-    if document_schema_version != DOCUMENT_SCHEMA_VERSION:
+    if document_schema_version == 3:
+        value = migrate_workflow_v3(value)
+    elif document_schema_version != DOCUMENT_SCHEMA_VERSION:
         raise InvariantError(f"Unsupported Workflow document schema version: {document_schema_version}")
     return normalize_workflow_document(value)
+
+
+def migrate_collection_definition(document_schema_version: int, value: dict[str, Any]) -> dict[str, Any]:
+    if document_schema_version == 3:
+        value = migrate_collection_v3(value)
+    elif document_schema_version != DOCUMENT_SCHEMA_VERSION:
+        raise InvariantError(f"Unsupported Collection document schema version: {document_schema_version}")
+    return normalize_collection_definition(value)
 
 
 def _normalize(model, value: dict[str, Any], message: str) -> dict[str, Any]:

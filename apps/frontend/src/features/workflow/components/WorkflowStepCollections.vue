@@ -70,6 +70,8 @@ const hasCalls = computed(() => props.step.collectionCalls.length > 0);
         :call="call"
         :definition="definition(call)"
         :workflow-inputs="props.bundle.workflow.inputs"
+        :previous-calls="props.step.collectionCalls.slice(0, index)"
+        :catalog="props.catalog"
         :roles="props.bundle.workflow.deviceRoles"
         :readonly="props.readonly"
         :expanded="activeCallId === call.id"

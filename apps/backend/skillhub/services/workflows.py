@@ -13,6 +13,7 @@ from skillhub.models.rules.workflows import (
     normalize_workflow_document,
     normalize_workflow_import_bundle,
 )
+from skillhub.models.rules.workflows.expression import expression_contract, validate_expression
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 from skillhub.services.workflow_syncs import WorkflowSyncServiceMixin
@@ -21,6 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
+    def expression_contract(self) -> dict[str, Any]:
+        """Return the public static-analysis contract for Workflow expressions."""
+        return expression_contract()
+
+    def validate_expression(self, *, source: str, environment: dict[str, Any]) -> dict[str, Any]:
+        """Validate an expression without evaluating it or causing external effects."""
+        return validate_expression(source, environment)
+
     def create_workflow_skill(self, *, slug: str, owner_ref: str, description: str, tags: list[Any], actor: str) -> dict[str, Any]:
         workflow_id = new_id("workflow")
         clean_description = description.strip()
@@ -52,9 +61,7 @@ class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
             }
         )
         frontmatter = yaml.safe_dump({"name": slug, "description": clean_description}, allow_unicode=True, sort_keys=False, width=1000).strip()
-        bundle = parse_skill_import_source(
-            {"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": f"---\n{frontmatter}\n---\n"}]}
-        )
+        bundle = parse_skill_import_source({"kind": "files", "name": slug, "files": [{"path": "SKILL.md", "content_text": f"---\n{frontmatter}\n---\n"}]})
         logger.info("creating workflow skill slug=%s actor=%s", slug, actor)
         return self.store.create_workflow_skill(
             slug=slug,
@@ -77,10 +84,7 @@ class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
 
     def save_workflow(self, *, skill_id: str, document: dict[str, Any], collection_changes: list[dict[str, Any]], actor: str) -> dict[str, Any]:
         normalized = normalize_workflow_document(document)
-        normalized_changes = [
-            {"operation": item["operation"], "definition": item["definition"]}
-            for item in collection_changes
-        ]
+        normalized_changes = [{"operation": item["operation"], "definition": item["definition"]} for item in collection_changes]
         self.store.save_workflow(skill_id=skill_id, document=normalized, collection_changes=normalized_changes, actor=actor)
         return self.store.workflow_detail(skill_id=skill_id, actor=actor)
 

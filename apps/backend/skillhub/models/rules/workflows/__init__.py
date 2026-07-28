@@ -20,7 +20,13 @@ from .import_schema import (
     validate_workflow_import_references,
 )
 from .renderer import GENERATOR_VERSION, render_skill_markdown
-from .schema import DOCUMENT_SCHEMA_VERSION, migrate_workflow_document, normalize_collection_definition, normalize_workflow_document
+from .schema import (
+    DOCUMENT_SCHEMA_VERSION,
+    migrate_collection_definition,
+    migrate_workflow_document,
+    normalize_collection_definition,
+    normalize_workflow_document,
+)
 from .validation import validate_workflow_document
 
 __all__ = [
@@ -39,6 +45,7 @@ __all__ = [
     "generate_workflow_skill",
     "list_workflow_skill_generators",
     "materialize_workflow_import",
+    "migrate_collection_definition",
     "migrate_workflow_document",
     "normalize_workflow_import_bundle",
     "normalize_collection_definition",

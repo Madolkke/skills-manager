@@ -36,8 +36,11 @@ def append_parameters(lines: list[str], heading: str, parameters: list[dict[str,
     lines.extend([f"{prefix} {heading}", ""])
     for item in parameters:
         required = "必填" if item["required"] else "可选"
-        description = f" - {item['description']}" if item["description"] else ""
-        lines.append(f"- `{item['key']}` ({item['dataType']}, {required}): {item['name']}{description}")
+        schema = item["schema"]
+        description = f" - {schema['description']}" if schema.get("description") else ""
+        title = schema.get("title") or item["key"]
+        lines.append(f"- `{item['key']}` ({schema_type(schema)}, {required}): {title}{description}")
+        append_schema_children(lines, schema, indent="  ")
     lines.append("")
 
 
@@ -91,8 +94,12 @@ def append_calls(
             if definition["outputs"]:
                 lines.extend(["", "输出字段:"])
                 for item in definition["outputs"]:
-                    suffix = f": {item['description']}" if item["description"] else ""
-                    lines.append(f"- `{call_output_key(call, item)}` ({item['dataType']}){suffix}")
+                    schema = item["schema"]
+                    required = "必填" if item["required"] else "可选"
+                    description = f" - {schema['description']}" if schema.get("description") else ""
+                    title = schema.get("title") or item["key"]
+                    lines.append(f"- `{call_output_key(call, item)}` ({schema_type(schema)}, {required}): {title}{description}")
+                    append_schema_children(lines, schema, indent="  ")
             samples = [item["name"] for item in definition["spec"]["outputSamples"] if item["name"].strip()]
             if samples:
                 lines.extend(["", f"回显示例: {'、'.join(samples)}"])
@@ -107,10 +114,8 @@ def append_bindings(lines, bindings, parameters, *, workflow_inputs, calls, defi
         binding = bindings.get(parameter["id"])
         if binding is None:
             continue
-        lines.append(
-            f"- {parameter['name']} (`{parameter['key']}`): "
-            f"{binding_text(binding, workflow_inputs=workflow_inputs, calls=calls, definitions=definitions)}"
-        )
+        title = binding_field_title(parameter)
+        lines.append(f"- {title} (`{parameter['key']}`): {binding_text(binding, workflow_inputs=workflow_inputs, calls=calls, definitions=definitions)}")
 
 
 def binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
@@ -132,7 +137,35 @@ def binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
 def named_reference(label: str, item: dict[str, Any] | None) -> str:
     if item is None:
         return "无效引用"
-    return f"{label} `{item['key']}` ({item['name']})"
+    return f"{label} `{item['key']}` ({binding_field_title(item)})"
+
+
+def binding_field_title(field: dict[str, Any]) -> str:
+    return str(field.get("schema", {}).get("title") or field.get("key") or "未命名字段")
+
+
+def schema_type(schema: dict[str, Any]) -> str:
+    return str(schema.get("type") or "any")
+
+
+def append_schema_children(lines: list[str], schema: dict[str, Any], *, indent: str) -> None:
+    schema_kind = schema.get("type")
+    if schema_kind == "object":
+        required = set(schema.get("required", []))
+        for key, child in sorted(schema.get("properties", {}).items()):
+            necessity = "必填" if key in required else "可选"
+            title = child.get("title") or key
+            description = f" - {child['description']}" if child.get("description") else ""
+            lines.append(f"{indent}- `{key}` ({schema_type(child)}, {necessity}): {title}{description}")
+            append_schema_children(lines, child, indent=f"{indent}  ")
+        return
+    if schema_kind == "array":
+        item_schema = schema.get("items", {})
+        title = item_schema.get("title")
+        description = f" - {item_schema['description']}" if item_schema.get("description") else ""
+        detail = f": {title}{description}" if title else description
+        lines.append(f"{indent}- 数组元素 ({schema_type(item_schema)}){detail}")
+        append_schema_children(lines, item_schema, indent=f"{indent}  ")
 
 
 def call_name(call: dict[str, Any], definition: dict[str, Any] | None) -> str:

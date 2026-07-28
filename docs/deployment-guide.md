@@ -128,11 +128,15 @@ uv run python -m skillhub.models.schema.cli check
 uv run alembic check
 ```
 
-当前迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。升级前必须备份数据库，升级后执行 revision 与 metadata drift 检查。
+当前正式迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators -> 0004_workflow_json_schema_v4`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。`0004` 再执行 Workflow JSON Schema v4 数据迁移。已有且已纳入 Alembic 的数据库必须从当前 revision 连续升级，禁止跳过中间 revision。
 
-空数据库会直接创建当前完整结构并写入固定发布目标。已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时才会自动 stamp；存在差异时命令会中止且不会删除数据。
+空数据库会依次执行完整迁移链并写入固定发布目标。升级前必须备份数据库，升级后执行 revision、唯一 head 与 metadata drift 检查。
 
-正式版之前的 revision 不再受支持。仍带有旧 revision 标记的环境应先备份，通过 SQLAlchemy metadata reflection 确认结构完全一致，再执行 `alembic stamp --purge head`；无法确认一致时应使用空库重新初始化，禁止直接伪造 revision。`stamp` 只改 revision 标记，不会补建表、约束或索引。
+`0004_workflow_json_schema_v4` 会重写当前 Workflow JSONB，并为当前或仍被引用的 Collection 创建新的 v4 revision。该迁移不支持 downgrade；执行前必须停写、备份并完成恢复演练。具体步骤和验收 SQL 见 [Workflow JSON Schema v4 迁移手册](workflow-json-schema-v4-migration.md)。
+
+已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时，初始化命令才会自动 stamp。包含 Workflow 数据的未版本化数据库不得直接 stamp 到 head，因为这会跳过 JSONB 数据迁移；必须先审计真实数据版本并建立正确的 Alembic 基线。
+
+正式版之前的 revision 不再受支持。仍带有旧 revision 标记或没有 revision 的环境应先备份，同时审计表结构和 Workflow 文档版本，再决定建立哪个正式 revision 基线；无法确认一致时应使用空库重新初始化。禁止直接伪造 head revision，`stamp` 只改 revision 标记，不会补建表、约束、索引或迁移 JSONB 数据。
 
 ## 6. 后端 API 部署
 
@@ -486,7 +490,7 @@ docker build \
 API、Worker 和 Web 必须协调发布，不支持新旧版本混跑。推荐升级步骤：
 
 1. 记录当前 Git commit。
-2. 从负载均衡摘除并停止所有旧 API，停止全部 Worker，避免升级时继续写入或消费任务。
+2. 从负载均衡摘除并停止所有旧 API，停止全部 Worker，将 Web 切换到维护状态，避免升级时继续写入或消费任务。
 3. 备份 PostgreSQL，并验证备份文件可读取。
 4. 拉取同一个 Git commit 的代码或镜像，安装后端依赖并构建前端。
 5. 只运行一次 `uv run python -m skillhub.models.schema.cli upgrade`。
@@ -498,7 +502,9 @@ API、Worker 和 Web 必须协调发布，不支持新旧版本混跑。推荐�
 备份示例：
 
 ```bash
-pg_dump --format=custom --file=skillhub-$(date +%Y%m%d%H%M%S).dump skillhub
+backup_file="skillhub-$(date +%Y%m%d%H%M%S).dump"
+pg_dump --format=custom --file="$backup_file" skillhub
+pg_restore --list "$backup_file" >/dev/null
 ```
 
 恢复示例：
@@ -516,6 +522,7 @@ pg_restore --dbname=skillhub_restore skillhub-20260101010101.dump
 curl -f https://skillhub.example.com/health
 curl -f https://skillhub.example.com/api/skills
 curl -f https://skillhub.example.com/api/tag-groups
+curl -f https://skillhub.example.com/api/workflow-expression-contract
 cd /opt/skillhub/repo/apps/backend
 uv run python -m skillhub.models.schema.cli check
 ```

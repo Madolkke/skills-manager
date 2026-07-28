@@ -51,6 +51,7 @@ class WorkflowImportMixin:
                     .where(orm.Workflow.id == workflow["id"])
                     .values(
                         revision=revision,
+                        document_schema_version=DOCUMENT_SCHEMA_VERSION,
                         document=candidate,
                         document_digest=self._document_digest(candidate),
                         updated_at=imported_at,

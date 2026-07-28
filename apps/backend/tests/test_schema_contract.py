@@ -1,11 +1,12 @@
 from pathlib import Path
 
+from alembic.script import ScriptDirectory
 from sqlalchemy import ForeignKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import RelationshipProperty
 
 from skillhub.models.schema import Base, metadata
 from skillhub.models.schema.evaluations import EvalCase, EvalRun, EvalSet
-from skillhub.models.schema.migrations import expected_revision
+from skillhub.models.schema.migrations import alembic_config, expected_revision
 from skillhub.models.schema.skills import Skill, SkillVersion
 
 BACKEND_ROOT = Path(__file__).parents[1]
@@ -19,12 +20,14 @@ def test_declarative_metadata_is_the_only_schema_definition() -> None:
 
 
 def test_alembic_chain_keeps_the_declarative_baseline() -> None:
-    assert expected_revision() == "0003_workflow_skill_generators"
+    assert expected_revision() == "0004_workflow_json_schema_v4"
+    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0004_workflow_json_schema_v4"]
     revisions = sorted((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
     assert [revision.name for revision in revisions] == [
         "0001_initial_schema.py",
         "0002_skill_identity_and_global_admin.py",
         "0003_workflow_skill_generators.py",
+        "0004_workflow_json_schema_v4.py",
     ]
     source = revisions[0].read_text(encoding="utf-8")
     for table_name in metadata.tables:

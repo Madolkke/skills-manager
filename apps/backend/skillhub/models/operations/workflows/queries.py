@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import select
 
 from skillhub.models.operations.workflows.helpers import WorkflowHelperMixin
-from skillhub.models.rules.workflows import migrate_workflow_document
+from skillhub.models.rules.workflows import migrate_collection_definition, migrate_workflow_document
 from skillhub.models.schema import orm
 
 
@@ -37,7 +37,7 @@ class WorkflowQueryMixin(WorkflowHelperMixin):
             self._skill_capabilities(connection, skill_id=skill_id, actor=actor)
             rows = (
                 connection.execute(
-                    select(orm.WorkflowCollectionRevision.definition)
+                    select(orm.WorkflowCollectionRevision.document_schema_version, orm.WorkflowCollectionRevision.definition)
                     .join(
                         orm.WorkflowCollectionDefinition,
                         (orm.WorkflowCollectionDefinition.id == orm.WorkflowCollectionRevision.definition_id)
@@ -45,10 +45,9 @@ class WorkflowQueryMixin(WorkflowHelperMixin):
                     )
                     .order_by(orm.WorkflowCollectionDefinition.id)
                 )
-                .scalars()
                 .all()
             )
-            return [dict(item) for item in rows]
+            return [migrate_collection_definition(int(item.document_schema_version), dict(item.definition)) for item in rows]
 
     def workflow_sync_source(self, *, skill_version_id: str) -> dict[str, Any] | None:
         with self._read_session() as connection:

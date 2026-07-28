@@ -1,6 +1,6 @@
 # Workflow 文档 Schema
 
-本文档描述 SkillHub 当前 Workflow 文档格式 **schema v3**。它是 `WorkflowBundle` 的持久化结构，字段名使用 API 中的 camelCase 形式。
+本文档描述 SkillHub 当前 Workflow 文档格式 **schema v4**。它是 `WorkflowBundle` 的持久化结构，字段名使用 API 中的 camelCase 形式。
 
 权威实现：
 
@@ -10,10 +10,10 @@
 
 ## 基本规则
 
-- `document_schema_version` 存在数据库 `workflows` 表中，不写入 Bundle 内部；当前值为 `3`。
-- 当前只接受 schema v3，不兼容 v2 的步骤输入、`step_input` Binding 或 Collection 输出展示名称。
+- `document_schema_version` 存在数据库 `workflows` 表中，不写入 Bundle 内部；当前值为 `4`。
+- v3 文档会在读取或导入时迁移为 v4；v1、v2 和未知版本仍被拒绝。
 - 所有对象禁止未知字段，字段名使用严格类型校验。
-- Python 字段名通过 alias 转换为 camelCase，例如 `step_type` 对应 `stepType`，`data_type` 对应 `dataType`。
+- Python 字段名通过 alias 转换为 camelCase，例如 `step_type` 对应 `stepType`。
 - `id` 用于身份和结构引用，创建后不应修改或复用。
 - `key` 用于参数、设备角色、Collection 或输出字段的可读引用；节点和 Transition 不再有 `key`。
 - `name` 用于展示，不承担结构引用职责。
@@ -80,12 +80,22 @@ Workflow Metadata 不保存 Skill 的 owner、权限、Tags、生命周期或归
 | --- | --- | --- | --- | --- |
 | `id` | `string` | 是 | - | 参数身份，供 Binding 引用。 |
 | `key` | `string` | 是 | - | 参数机器可读名称；在所属作用域内用于引用。当前编辑器新建参数默认为空。 |
-| `name` | `string` | 是 | - | 参数展示名称；当前编辑器新建参数默认为空。 |
-| `description` | `string` | 否 | `""` | 参数说明。 |
-| `dataType` | `string` | 否 | `"string"` | 数据类型描述，例如 `string`、`integer`、`number`、`boolean`、`array`、`object`。Schema 不限制自定义字符串。 |
 | `required` | `boolean` | 否 | `true` | 是否要求调用方提供该参数。 |
+| `schema` | `WorkflowJsonSchema` | 是 | - | 参数结构；展示名称和说明分别位于 `schema.title`、`schema.description`。 |
 
-Workflow 编辑器新建全局输入时固定使用 `required: true`，且不提供切换控件；Schema 和 Import Bundle 仍接受 `required: false`，并按原值保存。Collection 输入仍可配置该字段。
+Workflow 和 Collection 编辑器均可配置 `required`。新字段默认必填。
+
+### WorkflowJsonSchema
+
+Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
+
+- 标量：`string`、`integer`、`number`、`boolean`。
+- 对象：递归 `properties`、`required`，新对象固定 `additionalProperties: false`。
+- 数组：必须声明递归 `items`，因此可表达对象数组和多维数组。
+- 所有有类型节点可声明 `title` 和 `description`。
+- 暂不接受 `null`、`enum`、约束关键字、`$ref`、组合或条件 Schema。
+
+从 v3 迁移且无法推断元素结构的 `array`/`object` 会带 `x-skillhub-legacy-loose: true`，编辑器显示兼容警告；新建 Schema 不能产生该标记。
 
 ### Binding
 
@@ -102,6 +112,10 @@ Workflow 编辑器新建全局输入时固定使用 `required: true`，且不提
 | `workflow_input` | `{ "input_id": string }` | 引用 Workflow 全局输入。 |
 | `collection_output` | `{ "call_id": string, "output_id": string }` | 引用当前步骤某个 Collection Call 的输出字段。 |
 | `literal` | `{}` | 使用 `value` 中的 JSON 值。 |
+
+`collection_output` 只允许引用同一步骤中排在当前调用之前的输出，并按递归 Schema 检查兼容性；`integer` 可以赋给 `number`。固定值不匹配只产生 warning。
+
+条件表达式使用 Python `eval` 语法，根变量为 `inputs` 和 `outputs`，例如 `inputs.region == "cn"`、`outputs.inventory.rows[0].status`。函数与只读方法白名单由 `GET /api/workflow-expression-contract` 提供，`POST /api/workflow-expression-validations` 返回类型和位置诊断。表达式诊断不阻止同步，当前 SkillHub 也不会执行表达式 evaluator。
 
 ## 设备角色
 
@@ -134,8 +148,8 @@ Workflow 编辑器新建全局输入时固定使用 `required: true`，且不提
 | --- | --- | --- | --- | --- |
 | `id` | `string` | 是 | - | 输出字段身份，供 `collection_output` Binding 引用。 |
 | `key` | `string` | 是 | - | 输出字段机器可读名称。 |
-| `description` | `string` | 否 | `""` | 输出字段说明。 |
-| `dataType` | `string` | 否 | `"string"` | 输出数据类型，例如 `string` 或 `object`。 |
+| `required` | `boolean` | 否 | `true` | 输出字段是否保证存在；v3 输出迁移后为 `false`。 |
+| `schema` | `WorkflowJsonSchema` | 是 | - | 输出结构；展示名称和说明位于 Schema 内。 |
 
 ### CliOutputSample
 

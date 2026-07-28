@@ -227,7 +227,7 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 }
 ```
 
-Workflow 文档当前只接受 `document_schema_version = 3` 对应的结构：Step 不包含 `inputs`，Binding 不接受 `step_input`，Collection 输出不包含展示 `name`。Step、Conclusion 和 Transition 不包含 `key`，Transition 只包含 `id/target/conditionText/conditionExpression`，其中 `target` 只包含节点 `id`。开发阶段不兼容旧结构。
+Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter 与 Collection Output 使用递归 JSON Schema 描述 object、array 和标量；历史 v3 文档在读取时迁移为 v4 结构。
 
 - 服务端执行最后写入者覆盖，不接收 `expected_revision`。
 - 相同文档且没有 Collection 变更时不增加 revision。
@@ -246,7 +246,7 @@ Workflow 文档当前只接受 `document_schema_version = 3` 对应的结构：S
   "generators": [
     {
       "id": "builtin.three-file",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "label": "固定三文件",
       "default": true,
       "options_schema": { "type": "object", "properties": {}, "additionalProperties": false }
@@ -255,7 +255,9 @@ Workflow 文档当前只接受 `document_schema_version = 3` 对应的结构：S
 }
 ```
 
-完整目录还包含 `builtin.single-file@workflow-skill-v3` 和 `builtin.node-split@1.0.0`。v1 内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+完整目录还包含 `builtin.single-file@workflow-skill-v4` 和 `builtin.node-split@2.0.0`。内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+
+`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`POST /api/workflow-expression-validations` 接收 `source` 和 `environment`，只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。
 
 `POST /api/skills/{skill_id}/workflow/sync-preview`：
 

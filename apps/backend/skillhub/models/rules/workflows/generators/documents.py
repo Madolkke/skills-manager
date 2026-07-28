@@ -9,9 +9,11 @@ from .rendering import (
     append_paragraph,
     append_parameters,
     append_roles,
+    append_schema_children,
     append_script,
     append_transitions,
     frontmatter_lines,
+    schema_type,
 )
 
 
@@ -175,8 +177,12 @@ def append_collection_definition(lines: list[str], definition: dict[str, Any], *
     if definition["outputs"]:
         lines.extend([f"{'#' * (level + 1)} 输出字段", ""])
         for output in definition["outputs"]:
-            suffix = f": {output['description']}" if output["description"] else ""
-            lines.append(f"- `{output['key']}` ({output['dataType']}){suffix}")
+            schema = output["schema"]
+            required = "必填" if output["required"] else "可选"
+            title = schema.get("title") or output["key"]
+            description = f" - {schema['description']}" if schema.get("description") else ""
+            lines.append(f"- `{output['key']}` ({schema_type(schema)}, {required}): {title}{description}")
+            append_schema_children(lines, schema, indent="  ")
         lines.append("")
     samples = [sample["name"] for sample in definition["spec"]["outputSamples"] if sample["name"].strip()]
     if samples:

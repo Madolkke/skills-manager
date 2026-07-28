@@ -12,6 +12,7 @@ from skillhub.views.schemas import (
     CreateWorkflowSkillPayload,
     SaveWorkflowPayload,
     SyncWorkflowPayload,
+    WorkflowExpressionValidationPayload,
     WorkflowMetadataPayload,
     WorkflowSyncPreviewPayload,
 )
@@ -24,6 +25,26 @@ def register_workflow_routes(app: FastAPI) -> None:
         service: WorkflowService = Depends(workflow_service_dependency),
     ):
         return result_payload(service.workflow_skill_generators())
+
+    @app.get("/api/workflow-expression-contract")
+    def workflow_expression_contract(
+        _actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ):
+        return result_payload(service.expression_contract())
+
+    @app.post("/api/workflow-expression-validations")
+    def workflow_expression_validation(
+        payload: WorkflowExpressionValidationPayload,
+        _actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ):
+        return result_payload(
+            service.validate_expression(
+                source=payload.source,
+                environment=payload.environment.model_dump(by_alias=True),
+            )
+        )
 
     @app.post("/api/workflows")
     def create_workflow_skill(

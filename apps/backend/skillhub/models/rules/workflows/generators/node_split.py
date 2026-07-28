@@ -24,7 +24,7 @@ from .documents import (
 class NodeSplitWorkflowSkillGenerator:
     descriptor = WorkflowSkillGeneratorDescriptor(
         id="builtin.node-split",
-        version="1.0.0",
+        version="2.0.0",
         label="按节点拆分",
         default=False,
         options_schema=EMPTY_OPTIONS_SCHEMA,
@@ -55,13 +55,8 @@ class NodeSplitWorkflowSkillGenerator:
             ),
             generated_text_file("references/index.md", render_node_index(context.document)),
         ]
-        files.extend(
-            generated_text_file(node_reference_path(node), render_node_reference(context.document, node)) for node in nodes
-        )
-        files.extend(
-            generated_text_file(collection_reference_path(definition), render_collection_reference(definition))
-            for definition in definitions
-        )
+        files.extend(generated_text_file(node_reference_path(node), render_node_reference(context.document, node)) for node in nodes)
+        files.extend(generated_text_file(collection_reference_path(definition), render_collection_reference(definition)) for definition in definitions)
         generated_files = tuple(files)
         total_size = sum(len(file.content_text.encode("utf-8")) for file in generated_files)
         if total_size > MAX_BUNDLE_BYTES:

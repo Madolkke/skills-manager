@@ -141,7 +141,7 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_parameter_names_and_multiline_commands_block_sync_validation(self):
         document = normalize_workflow_document(self._document())
         definition = document["collectionSnapshots"][0]
-        definition["inputs"][0]["name"] = ""
+        definition["inputs"][0]["schema"]["title"] = ""
         definition["spec"]["commandTemplate"] = "display interface\nverbose"
 
         codes = {item["code"] for item in validate_workflow_document(document)}
@@ -152,7 +152,9 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_unscoped_call_outputs_conflicting_with_inputs_are_rejected(self):
         document = normalize_workflow_document(self._document())
         definition = document["collectionSnapshots"][0]
-        definition["outputs"] = [{"id": "output-interface", "key": "interface_name", "description": "接口名称", "dataType": "string"}]
+        definition["outputs"] = [
+            {"id": "output-interface", "key": "interface_name", "required": True, "schema": {"type": "string", "title": "接口名称", "description": ""}}
+        ]
         document["workflow"]["nodes"][0]["collectionCalls"][0]["key"] = ""
 
         self.assertIn("UNSCOPED_OUTPUT_CONFLICT", {item["code"] for item in validate_workflow_document(document)})
@@ -160,18 +162,18 @@ class WorkflowRulesTest(unittest.TestCase):
     def test_renderer_uses_collection_name_and_optional_call_namespace(self):
         document = normalize_workflow_document(self._document())
         definition = document["collectionSnapshots"][0]
-        definition["outputs"] = [{"id": "output-version", "key": "version", "description": "版本", "dataType": "string"}]
+        definition["outputs"] = [{"id": "output-version", "key": "version", "required": True, "schema": {"type": "string", "title": "版本", "description": ""}}]
         call = document["workflow"]["nodes"][0]["collectionCalls"][0]
         call["name"] = ""
         call["key"] = ""
 
         direct = render_skill_markdown(slug="interface-check", document=document)
         self.assertIn("##### 接口状态", direct)
-        self.assertIn("- `version` (string): 版本", direct)
+        self.assertIn("- `version` (string, 必填): 版本", direct)
 
         call["key"] = "status"
         scoped = render_skill_markdown(slug="interface-check", document=document)
-        self.assertIn("- `status.version` (string): 版本", scoped)
+        self.assertIn("- `status.version` (string, 必填): 版本", scoped)
 
     def test_document_schema_rejects_legacy_and_unknown_versions(self):
         with self.assertRaisesRegex(InvariantError, "schema version: 1"):
@@ -203,7 +205,7 @@ class WorkflowRulesTest(unittest.TestCase):
 
         document = self._document()
         document["collectionSnapshots"][0]["outputs"] = [
-            {"id": "output-status", "key": "status", "name": "状态", "description": "", "dataType": "string"}
+            {"id": "output-status", "key": "status", "required": True, "schema": {"type": "string", "title": "状态", "description": ""}, "name": "状态"}
         ]
         with self.assertRaisesRegex(InvariantError, "Extra inputs are not permitted"):
             normalize_workflow_document(document)
@@ -351,7 +353,9 @@ class WorkflowRulesTest(unittest.TestCase):
             "documentType": "workflow_import_bundle",
             "workflow": {
                 "metadata": {"name": "接口检查", "code": "", "description": "检查接口状态。", "industry": "网络", "device": "交换机", "versions": []},
-                "inputs": [{"id": "workflow-input-interface", "key": "interface_name", "name": "接口名称", "description": "", "dataType": "string", "required": True}],
+                "inputs": [
+                    {"id": "workflow-input-interface", "key": "interface_name", "name": "接口名称", "description": "", "dataType": "string", "required": True}
+                ],
                 "deviceRoles": [],
                 "nodes": [
                     {
@@ -385,7 +389,16 @@ class WorkflowRulesTest(unittest.TestCase):
                     "key": "interface_status",
                     "metadata": {"name": "接口状态", "description": "", "industry": "网络", "device": "交换机", "versions": [], "tags": []},
                     "spec": {"collectionType": "cli", "commandTemplate": "display interface {interface_name}", "outputSamples": []},
-                    "inputs": [{"id": "collection-input-interface", "key": "interface_name", "name": "接口名称", "description": "", "dataType": "string", "required": True}],
+                    "inputs": [
+                        {
+                            "id": "collection-input-interface",
+                            "key": "interface_name",
+                            "name": "接口名称",
+                            "description": "",
+                            "dataType": "string",
+                            "required": True,
+                        }
+                    ],
                     "outputs": [],
                 }
             ],

@@ -2,20 +2,57 @@ import type { BundleDiffFile, BundleFile } from "./bundle";
 
 export type VersionedRef = { id: string; revision: number };
 
+export type WorkflowScalarSchema = {
+  type: "string" | "integer" | "number" | "boolean";
+  title: string;
+  description: string;
+  "x-skillhub-legacy-loose"?: boolean;
+};
+
+export type WorkflowObjectSchema = {
+  type: "object";
+  title: string;
+  description: string;
+  properties: Record<string, WorkflowJsonSchema>;
+  required: string[];
+  additionalProperties: boolean;
+  "x-skillhub-legacy-loose"?: boolean;
+};
+
+export type WorkflowArraySchema = {
+  type: "array";
+  title: string;
+  description: string;
+  items: WorkflowJsonSchema;
+  "x-skillhub-legacy-loose"?: boolean;
+};
+
+export type WorkflowLegacyAnySchema = {
+  type?: undefined;
+  title?: string;
+  description?: string;
+  "x-skillhub-legacy-loose": true;
+};
+
+export type WorkflowJsonSchema = WorkflowScalarSchema | WorkflowObjectSchema | WorkflowArraySchema | WorkflowLegacyAnySchema;
+
 export type WorkflowParameter = {
   id: string;
   key: string;
-  name: string;
-  description: string;
-  dataType: string;
   required: boolean;
+  schema: WorkflowJsonSchema;
 };
 
 export type WorkflowBinding = { kind: "workflow_input" | "collection_output" | "literal"; reference: Record<string, string>; value?: unknown };
 export type WorkflowMetadata = { name: string; code: string; description: string; symptom: string; industry: string; device: string; versions: string[] };
 export type DeviceRole = { id: string; key: string; name: string; description: string; required: boolean };
 export type CollectionMetadata = { name: string; description: string; industry: string; device: string; versions: string[]; tags: string[] };
-export type CollectionOutput = { id: string; key: string; description: string; dataType: string };
+export type CollectionOutput = { id: string; key: string; required: boolean; schema: WorkflowJsonSchema };
+
+export type WorkflowExpressionDiagnostic = { severity: "warning"; code: string; message: string; start: number; end: number };
+export type WorkflowExpressionValidation = { inferredType: Record<string, unknown>; diagnostics: WorkflowExpressionDiagnostic[] };
+export type WorkflowExpressionEnvironment = { inputs: Record<string, WorkflowJsonSchema>; outputs: Record<string, Record<string, WorkflowJsonSchema>> };
+export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; functions: Record<string, unknown>; methods: Record<string, unknown> };
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
 
 export type CollectionDefinition = {
