@@ -192,6 +192,9 @@ function artifactApi() {
         `/api/artifacts/diff?left_skill_version_id=${encodeURIComponent(leftSkillVersionId)}&right_skill_version_id=${encodeURIComponent(rightSkillVersionId)}`,
       ),
     artifactDownloadUrl: (artifactId: string) => `${API_BASE_URL}/api/artifacts/${encodeURIComponent(artifactId)}/download`,
+    downloadSkillBundle: (skillVersionId: string) => apiDownload(`/api/skill-versions/${encodeURIComponent(skillVersionId)}/download`),
+    quickPublishSkillBundle: (skillVersionId: string) =>
+      apiSend<{ destination: string; file_count: number }>(`/api/skill-versions/${encodeURIComponent(skillVersionId)}/quick-publish`, "POST", {}),
     downloadArtifactBase64: async (artifactId: string) => {
       const response = await fetch(`${API_BASE_URL}/api/artifacts/${encodeURIComponent(artifactId)}/download`, {
         credentials: "include",
@@ -360,6 +363,15 @@ async function apiGet<T>(path: string, options: RequestOptions = {}): Promise<T>
   });
   if (!response.ok) throw await parseApiError(response);
   return response.json() as Promise<T>;
+}
+
+async function apiDownload(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
+    headers: requestHeaders(options),
+  });
+  if (!response.ok) throw await parseApiError(response);
+  return response.blob();
 }
 
 async function apiSend<T>(path: string, method: "POST" | "PATCH" | "PUT", body: unknown, options: RequestOptions = {}): Promise<T> {

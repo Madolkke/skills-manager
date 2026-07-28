@@ -1,6 +1,12 @@
+from io import BytesIO
+from pathlib import Path
+from shutil import rmtree
+from zipfile import ZipFile
+
 from sqlalchemy.orm import Session
 
 from skillhub.models.schema import orm
+from skillhub.services.artifacts import QUICK_PUBLISH_DIRECTORY
 from tests.api_command_test_case import ApiCommandTestCase
 
 
@@ -93,6 +99,31 @@ class ApiBundleContractTest(ApiCommandTestCase):
         self.assertEqual(diff.status_code, 200)
         self.assertEqual(diff.json()["summary"]["changed"], 2)
         self.assertEqual(diff.json()["left"]["skill_version_id"], first_version_id)
+
+    def test_skill_version_bundle_can_be_downloaded_and_quick_published(self):
+        imported = self.import_standard_skill_bundle("bundle-export")
+        version_id = imported["skill_version_id"]
+        destination = QUICK_PUBLISH_DIRECTORY / version_id
+
+        try:
+            download = self.client.get(f"/api/skill-versions/{version_id}/download")
+
+            self.assertEqual(download.status_code, 200)
+            self.assertEqual(download.headers["content-type"], "application/zip")
+            with ZipFile(BytesIO(download.content)) as archive:
+                self.assertEqual(archive.namelist(), ["SKILL.md", "references/checklist.md"])
+                self.assertIn("name: bundle-export", archive.read("SKILL.md").decode("utf-8"))
+
+            published = self.client.post(f"/api/skill-versions/{version_id}/quick-publish")
+
+            self.assertEqual(published.status_code, 200)
+            self.assertEqual(Path(published.json()["destination"]), destination)
+            self.assertEqual(published.json()["file_count"], 2)
+            self.assertIn("name: bundle-export", (destination / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertEqual((destination / "references" / "checklist.md").read_text(encoding="utf-8"), "Check owner filters and secret logging.\n")
+        finally:
+            if destination.exists():
+                rmtree(destination)
 
     def test_bundle_diff_rejects_cross_skill_versions(self):
         first = self.import_standard_skill_bundle("first-diff")

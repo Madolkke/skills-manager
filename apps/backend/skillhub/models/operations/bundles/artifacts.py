@@ -8,10 +8,12 @@ from skillhub.models.schema import orm
 
 
 class BundleArtifactMixin:
-    def publish_release_artifact(self, *, skill_version_id: str) -> dict[str, Any]:
+    def publish_release_artifact(self, *, skill_version_id: str, actor: str | None = None) -> dict[str, Any]:
         """Return a validated Skill Bundle artifact read model for release."""
         with self._read_session() as connection:
             version = self._skill_version_row(connection, skill_version_id)
+            if actor is not None:
+                self._require_skill_permission(connection, skill_id=version["skill_id"], actor=actor, permission="publish.request")
             artifact, _files = self._bundle_artifact_for_version(connection, version)
             files = self._validated_bundle_files_from_artifact(artifact)
             content_ref = version["content_ref"] or {}

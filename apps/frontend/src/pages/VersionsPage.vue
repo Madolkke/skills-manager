@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import clsx from "clsx";
-import { FileText, SquarePen, X } from "lucide-vue-next";
+import { Download, FileText, Rocket, SquarePen, X } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import BundleBrowser from "../components/BundleBrowser.vue";
 import BundleDiffPanel from "../components/BundleDiffPanel.vue";
+import { api, ApiError } from "../lib/api";
 import { humanDate, versionName } from "../lib/format";
 import { compareSkillVersions } from "../lib/semver";
 import type { RouteState } from "../lib/navigation";
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 }>();
 
 const editOpen = ref(false);
+const bundleAction = ref<"download" | "publish" | null>(null);
 const selected = computed(() => props.skill.versions.find((version) => version.id === props.selectedVersionId) ?? props.skill.summary.current_version ?? props.skill.versions[0] ?? null);
 const previous = computed(() => (selected.value ? previousSkillVersion(props.skill.versions, selected.value) : null));
 const files = computed(() => selected.value?.bundle_files ?? []);
@@ -37,6 +39,42 @@ function finishEdit(): void {
 
 function previousSkillVersion(versions: SkillVersion[], current: SkillVersion): SkillVersion | null {
   return [...versions].filter((version) => compareSkillVersions(version, current) < 0).sort((left, right) => compareSkillVersions(right, left))[0] ?? null;
+}
+
+async function downloadBundle(): Promise<void> {
+  if (!selected.value || bundleAction.value) return;
+  bundleAction.value = "download";
+  try {
+    const blob = await api.downloadSkillBundle(selected.value.id);
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${props.skill.skill.slug}-${selected.value.version}.zip`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    emit("toast", { tone: "success", message: "Skill 压缩包已开始下载。" });
+  } catch (error) {
+    emit("toast", { tone: "danger", message: errorMessage(error, "下载 Skill 失败。") });
+  } finally {
+    bundleAction.value = null;
+  }
+}
+
+async function quickPublishBundle(): Promise<void> {
+  if (!selected.value || bundleAction.value) return;
+  bundleAction.value = "publish";
+  try {
+    const result = await api.quickPublishSkillBundle(selected.value.id);
+    emit("toast", { tone: "success", message: `Skill 已发布至 ${result.destination}。` });
+  } catch (error) {
+    emit("toast", { tone: "danger", message: errorMessage(error, "快速发布 Skill 失败。") });
+  } finally {
+    bundleAction.value = null;
+  }
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError || error instanceof Error ? error.message : fallback;
 }
 
 </script>
@@ -98,6 +136,14 @@ function previousSkillVersion(versions: SkillVersion[], current: SkillVersion): 
             <FileText :size="16" />
             {{ files.length }} 个文件 · {{ humanDate(selected.created_at) }}
           </span>
+          <button class="secondary-button" type="button" :disabled="bundleAction !== null" @click="downloadBundle">
+            <Download :size="16" />
+            {{ bundleAction === "download" ? "正在下载" : "下载 Skill" }}
+          </button>
+          <button class="secondary-button" type="button" :disabled="bundleAction !== null" @click="quickPublishBundle">
+            <Rocket :size="16" />
+            {{ bundleAction === "publish" ? "正在发布" : "快速发布" }}
+          </button>
           <button class="secondary-button" type="button" @click="() => { emit('upload-close'); editOpen = true; }">
             <SquarePen :size="16" />
             编辑 Skill

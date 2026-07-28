@@ -4,7 +4,7 @@ from .admin import AdminService
 from .admin_access import AdminAccessService
 from .admin_catalog import AdminCatalogService
 from .admin_runtime import AdminRuntimeService
-from .artifacts import ArtifactDownload, ArtifactService
+from .artifacts import ArtifactDownload, ArtifactService, QuickPublishResult
 from .evaluation_reads import EvaluationReadService
 from .evaluations import EvaluationService
 from .external import ExternalSkillService
@@ -23,6 +23,7 @@ __all__ = [
     "AdminRuntimeService",
     "ArtifactDownload",
     "ArtifactService",
+    "QuickPublishResult",
     "EvaluationService",
     "EvaluationReadService",
     "ExternalSkillService",

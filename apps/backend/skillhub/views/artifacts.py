@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import Response
 
 from skillhub.services import ArtifactService, EvaluationReadService
+from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import artifact_service_dependency, evaluation_read_service_dependency
 from skillhub.views.responses import result_payload
 
@@ -87,3 +88,24 @@ def register_artifact_routes(app: FastAPI) -> None:
             media_type=download.media_type,
             headers={"Content-Disposition": f'attachment; filename="{download.filename}"'},
         )
+
+    @app.get("/api/skill-versions/{skill_version_id}/download")
+    def skill_bundle_download(
+        skill_version_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        service: ArtifactService = Depends(artifact_service_dependency),
+    ):
+        download = service.downloadable_skill_bundle(skill_version_id=skill_version_id, actor=actor.id)
+        return Response(
+            content=download.content,
+            media_type=download.media_type,
+            headers={"Content-Disposition": f'attachment; filename="{download.filename}"'},
+        )
+
+    @app.post("/api/skill-versions/{skill_version_id}/quick-publish")
+    def quick_publish_skill_bundle(
+        skill_version_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        service: ArtifactService = Depends(artifact_service_dependency),
+    ):
+        return result_payload(service.quick_publish_skill_bundle(skill_version_id=skill_version_id, actor=actor.id))
