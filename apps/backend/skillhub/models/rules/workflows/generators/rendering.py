@@ -177,9 +177,13 @@ def call_name(call: dict[str, Any], definition: dict[str, Any] | None) -> str:
 
 
 def call_output_key(call: dict[str, Any], output: dict[str, Any], *, indexed: bool = True) -> str:
-    if indexed and call["sampleCount"] > 1 and call["key"].strip():
-        return f"outputs.{call['key']}[i].{output['key']}"
-    return f"{call['key']}.{output['key']}" if call["key"].strip() else output["key"]
+    call_key = call["key"].strip()
+    if not call_key:
+        return output["key"]
+    sample = f"outputs.{call_key}"
+    if indexed and call["sampleCount"] > 1:
+        sample = f"{sample}[i]"
+    return f"{sample}.{output['key']}"
 
 
 def append_transitions(lines: list[str], transitions, node_names, *, level: int = 4) -> None:

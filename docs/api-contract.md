@@ -246,7 +246,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
   "generators": [
     {
       "id": "builtin.three-file",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "label": "固定三文件",
       "default": true,
       "options_schema": { "type": "object", "properties": {}, "additionalProperties": false }
@@ -255,7 +255,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
 }
 ```
 
-完整目录还包含 `builtin.single-file@workflow-skill-v4.1` 和 `builtin.node-split@2.1.0`。内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+完整目录还包含 `builtin.single-file@workflow-skill-v4.1.1` 和 `builtin.node-split@2.1.1`。内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
 
 `GET /api/workflow-expression-contract` 返回 `contractVersion = 2` 以及条件表达式允许使用的根变量、函数、方法与类型代数。`environment.outputs` 标准结构如下；旧字段 map 按 `sampleCount = 1` 兼容：
 

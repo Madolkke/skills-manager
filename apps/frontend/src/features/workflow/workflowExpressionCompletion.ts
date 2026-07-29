@@ -53,9 +53,12 @@ export function createWorkflowExpressionCompletionSource(
 }
 
 type CompletionQuery = { from: number; fragment: string; matches: WorkflowExpressionVariable[] };
+type IndexedSampleQuery = CompletionQuery | "blocked" | null;
+type SampleIndexAnalysis = { end: number; slice: boolean };
 
 function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): CompletionQuery | null {
   const indexed = indexedSampleQuery(variables, beforeCursor);
+  if (indexed === "blocked") return null;
   if (indexed) return indexed;
   if (hasUnclosedSampleIndex(variables, beforeCursor)) return null;
   const fragment = beforeCursor.match(fragmentPattern)?.[0] ?? "";
@@ -66,17 +69,18 @@ function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: 
   };
 }
 
-function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): CompletionQuery | null {
+function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): IndexedSampleQuery {
   for (const variable of variables.filter((item) => (item.sampleCount ?? 1) > 1)) {
     const from = beforeCursor.lastIndexOf(variable.reference);
     if (from < 0 || !isReferenceBoundary(beforeCursor, from)) continue;
     const bracketStart = from + variable.reference.length;
     if (beforeCursor[bracketStart] !== "[") continue;
-    const bracketEnd = matchingBracket(beforeCursor, bracketStart);
-    if (bracketEnd < 0 || bracketEnd >= beforeCursor.length) continue;
-    const suffix = beforeCursor.slice(bracketEnd + 1);
+    const index = analyzeSampleIndex(beforeCursor, bracketStart);
+    if (!index) continue;
+    const suffix = beforeCursor.slice(index.end + 1);
     if (suffix && !/^(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[^\]]*\])*(?:\.)?$/u.test(suffix)) continue;
-    const sampleReference = beforeCursor.slice(from, bracketEnd + 1);
+    if (index.slice) return "blocked";
+    const sampleReference = beforeCursor.slice(from, index.end + 1);
     const fragment = beforeCursor.slice(from);
     const matches = filterWorkflowExpressionVariables(
       expandWorkflowExpressionVariable(variable, sampleReference),
@@ -93,14 +97,16 @@ function hasUnclosedSampleIndex(variables: WorkflowExpressionVariable[], beforeC
     const from = beforeCursor.lastIndexOf(variable.reference);
     if (from < 0 || !isReferenceBoundary(beforeCursor, from)) return false;
     const bracketStart = from + variable.reference.length;
-    return beforeCursor[bracketStart] === "[" && matchingBracket(beforeCursor, bracketStart) < 0;
+    return beforeCursor[bracketStart] === "[" && analyzeSampleIndex(beforeCursor, bracketStart) === null;
   });
 }
 
-function matchingBracket(source: string, start: number): number {
-  let depth = 0;
+function analyzeSampleIndex(source: string, start: number): SampleIndexAnalysis | null {
+  const delimiters: string[] = [];
+  const closingDelimiter: Record<string, string> = { "]": "[", ")": "(", "}": "{" };
   let quote = "";
   let escaped = false;
+  let slice = false;
   for (let index = start; index < source.length; index += 1) {
     const character = source[index]!;
     if (escaped) {
@@ -111,13 +117,17 @@ function matchingBracket(source: string, start: number): number {
       if (character === quote) quote = "";
     } else if (character === "\"" || character === "'") {
       quote = character;
-    } else if (character === "[") {
-      depth += 1;
-    } else if (character === "]" && --depth === 0) {
-      return index;
+    } else if (character === "[" || character === "(" || character === "{") {
+      delimiters.push(character);
+    } else if (character in closingDelimiter) {
+      if (delimiters.at(-1) !== closingDelimiter[character]) return null;
+      delimiters.pop();
+      if (delimiters.length === 0) return character === "]" ? { end: index, slice } : null;
+    } else if (character === ":" && delimiters.length === 1) {
+      slice = true;
     }
   }
-  return -1;
+  return null;
 }
 
 function isReferenceBoundary(source: string, start: number): boolean {

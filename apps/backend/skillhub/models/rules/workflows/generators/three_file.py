@@ -14,7 +14,7 @@ from .documents import render_collections_reference, render_entry, render_workfl
 class ThreeFileWorkflowSkillGenerator:
     descriptor = WorkflowSkillGeneratorDescriptor(
         id="builtin.three-file",
-        version="2.1.0",
+        version="2.1.1",
         label="固定三文件",
         default=True,
         options_schema=EMPTY_OPTIONS_SCHEMA,

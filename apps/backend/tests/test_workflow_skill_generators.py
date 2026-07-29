@@ -22,9 +22,9 @@ def test_builtin_registry_has_one_three_file_default_and_strict_empty_options():
     descriptors = list_workflow_skill_generators()
 
     assert [(item.id, item.version) for item in descriptors] == [
-        ("builtin.single-file", "workflow-skill-v4.1"),
-        ("builtin.three-file", "2.1.0"),
-        ("builtin.node-split", "2.1.0"),
+        ("builtin.single-file", "workflow-skill-v4.1.1"),
+        ("builtin.three-file", "2.1.1"),
+        ("builtin.node-split", "2.1.1"),
     ]
     assert DEFAULT_WORKFLOW_SKILL_GENERATOR_ID == "builtin.three-file"
     assert [item.id for item in descriptors if item.default] == ["builtin.three-file"]
@@ -68,6 +68,12 @@ def test_single_file_is_byte_compatible_and_all_builtins_are_deterministic_valid
         parsed = parse_skill_import_source(first.import_source(name="interface-check"))
         assert parsed.file_count == file_count
         assert parsed.slug == "interface-check"
+        rendered = "\n".join(file.content_text for file in first.files)
+        assert "outputs.status[i].state" in rendered
+        assert "outputs.single.state" in rendered
+        assert "采集“单次采集”的输出 `outputs.single.state`" in rendered
+        assert "- `state` (string, 可选):" in rendered
+        assert "`single.state` (" not in rendered
 
     single = generate_workflow_skill(
         slug="interface-check", document=document, generator_id="builtin.single-file", generator_options={}
@@ -216,7 +222,35 @@ def _document() -> dict:
                                         "reference": {"input_id": "input-interface"},
                                     }
                                 },
-                            }
+                            },
+                            {
+                                "id": "call-single",
+                                "key": "single",
+                                "name": "单次采集",
+                                "definition": {"id": "collection-status", "revision": 4},
+                                "deviceRoleId": "role-device",
+                                "sampleCount": 1,
+                                "inputBindings": {
+                                    "parameter-interface": {
+                                        "kind": "workflow_input",
+                                        "reference": {"input_id": "input-interface"},
+                                    }
+                                },
+                            },
+                            {
+                                "id": "call-direct",
+                                "key": "",
+                                "name": "直接输出",
+                                "definition": {"id": "collection-status", "revision": 4},
+                                "deviceRoleId": "role-device",
+                                "sampleCount": 1,
+                                "inputBindings": {
+                                    "parameter-interface": {
+                                        "kind": "collection_output",
+                                        "reference": {"call_id": "call-single", "output_id": "output-state"},
+                                    }
+                                },
+                            },
                         ],
                         "topology": [
                             {

@@ -88,6 +88,7 @@ describe("Workflow expression variables", () => {
     const otherCall = bundle.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-other")!.collectionCalls[0]!;
     currentCall.sampleCount = 3;
     otherCall.key = "other_status";
+    otherCall.sampleCount = 2;
     const variables = workflowExpressionVariables(bundle, "step-current");
     const source = createWorkflowExpressionCompletionSource(() => variables);
 
@@ -99,8 +100,26 @@ describe("Workflow expression variables", () => {
     expect((await completion(source, "outputs.status[0].ver", false))?.options.map((item) => item.label)).toEqual([
       "outputs.status[0].version",
     ]);
+    expect((await completion(source, "outputs.status[-1].", false))?.options.map((item) => item.label)).toEqual([
+      "outputs.status[-1].version",
+    ]);
     expect((await completion(source, "outputs.status[inputs.offset].ver", false))?.options.map((item) => item.label)).toEqual([
       "outputs.status[inputs.offset].version",
+    ]);
+    expect((await completion(source, "outputs.status[1:].", false))).toBeNull();
+    expect((await completion(source, "outputs.status[:].", true))).toBeNull();
+    expect((await completion(source, "outputs.status[::2].", false))).toBeNull();
+    expect((await completion(source, "outputs.status[inputs.offsets[1:][0]].", false))?.options.map((item) => item.label)).toEqual([
+      "outputs.status[inputs.offsets[1:][0]].version",
+    ]);
+    expect((await completion(source, "outputs.status[{'a': 0}['a']].", false))?.options.map((item) => item.label)).toEqual([
+      "outputs.status[{'a': 0}['a']].version",
+    ]);
+    expect((await completion(source, "outputs.status['a:b'].", false))?.options.map((item) => item.label)).toEqual([
+      "outputs.status['a:b'].version",
+    ]);
+    expect((await completion(source, "outputs.status[1:] and outputs.other_status[0].", false))?.options.map((item) => item.label)).toEqual([
+      "outputs.other_status[0].version",
     ]);
     expect(workflowExpressionEnvironment(bundle).outputs.status).toMatchObject({
       sampleCount: 3,

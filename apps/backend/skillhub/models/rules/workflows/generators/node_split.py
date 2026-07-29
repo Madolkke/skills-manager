@@ -24,7 +24,7 @@ from .documents import (
 class NodeSplitWorkflowSkillGenerator:
     descriptor = WorkflowSkillGeneratorDescriptor(
         id="builtin.node-split",
-        version="2.1.0",
+        version="2.1.1",
         label="按节点拆分",
         default=False,
         options_schema=EMPTY_OPTIONS_SCHEMA,

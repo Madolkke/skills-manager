@@ -174,7 +174,7 @@ class WorkflowRulesTest(unittest.TestCase):
 
         call["key"] = "status"
         scoped = render_skill_markdown(slug="interface-check", document=document)
-        self.assertIn("- `status.version` (string, 必填): 版本", scoped)
+        self.assertIn("- `outputs.status.version` (string, 必填): 版本", scoped)
 
     def test_document_schema_rejects_legacy_and_unknown_versions(self):
         with self.assertRaisesRegex(InvariantError, "schema version: 1"):
