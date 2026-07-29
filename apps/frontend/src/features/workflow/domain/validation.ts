@@ -2,6 +2,7 @@ import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowPar
 import { workflowSchemaIsLegacy, workflowSchemasAssignable, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { projectWorkflowGraph, reachableNodeIds } from "./graph";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
+import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
   const issues: WorkflowValidationIssue[] = [];
@@ -35,10 +36,10 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   const roleIds = new Set(bundle.workflow.deviceRoles.map((item) => item.id));
   const workflowInputs = new Map(bundle.workflow.inputs.map((item) => [item.id, item]));
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
+  globalCallKeyIssues(steps, issues);
   for (const step of steps) {
     const selection: WorkflowSelection = { type: "step", id: step.id };
     duplicates(step.collectionCalls, "id", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection);
-    optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection);
     duplicates(step.topology, "id", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection);
     const allCalls = new Map(step.collectionCalls.map((item) => [item.id, item]));
     const previousCalls = new Map<string, typeof step.collectionCalls[number]>();
@@ -48,6 +49,8 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       const callSelection: WorkflowSelection = { ...selection, section: "collections", itemId: call.id };
       const callName = call.name || definition?.metadata.name || "未命名采集";
       if (call.sampleCount < 1) add(issues, "INVALID_SAMPLE_COUNT", "error", `采集“${callName}”的采集次数必须大于零。`, { ...callSelection, field: "sampleCount" });
+      else if (call.sampleCount > 1 && !call.key.trim()) add(issues, "MULTI_SAMPLE_CALL_KEY_REQUIRED", "error", `多次采集“${callName}”必须填写调用 key。`, { ...callSelection, field: "key" });
+      else if (call.sampleCount > 1 && !isWorkflowExpressionIdentifier(call.key.trim())) add(issues, "INVALID_MULTI_SAMPLE_CALL_KEY", "error", `多次采集“${callName}”的调用 key 必须是合法的 Python 标识符。`, { ...callSelection, field: "key" });
       if (!definition) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”引用的定义版本不存在。`, callSelection);
       if (call.deviceRoleId && !roleIds.has(call.deviceRoleId)) add(issues, "BROKEN_REFERENCE", "error", `采集“${call.name}”引用的设备角色不存在。`, { ...callSelection, field: "deviceRoleId" });
       definition?.inputs.forEach((input) => {
@@ -121,14 +124,17 @@ function duplicates(items: Array<Record<string, unknown>>, field: string, code: 
   });
 }
 
-function optionalDuplicates(items: Array<Record<string, unknown>>, field: string, code: string, label: string, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
+function globalCallKeyIssues(steps: ReturnType<typeof workflowSteps>, issues: WorkflowValidationIssue[]): void {
+  const calls = steps.flatMap((step) => step.collectionCalls
+    .filter((call) => call.key.trim())
+    .map((call) => ({ step, call, key: call.key.trim() })));
   const counts = new Map<string, number>();
-  items.forEach((item) => {
-    const value = String(item[field] ?? "").trim();
-    if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
-  });
-  counts.forEach((count, value) => {
-    if (count > 1) add(issues, code, "error", `${label}“${value}”重复。`, selection);
+  calls.forEach(({ key }) => counts.set(key, (counts.get(key) ?? 0) + 1));
+  calls.forEach(({ step, call, key }) => {
+    if ((counts.get(key) ?? 0) < 2) return;
+    add(issues, "DUPLICATE_CALL_KEY", "error", `采集调用 key“${key}”必须在整个 Workflow 内唯一。`, {
+      type: "step", id: step.id, section: "collections", itemId: call.id, field: "key",
+    });
   });
 }
 

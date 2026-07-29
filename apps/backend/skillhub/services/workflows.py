@@ -30,6 +30,15 @@ class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
         """Validate an expression without evaluating it or causing external effects."""
         return validate_expression(source, environment)
 
+    def validate_expressions(self, *, expressions: list[dict[str, str]], environment: dict[str, Any]) -> dict[str, object]:
+        """Validate an ordered expression batch against one shared type environment."""
+        return {
+            "validations": [
+                {"id": item["id"], **validate_expression(item["source"], environment)}
+                for item in expressions
+            ]
+        }
+
     def create_workflow_skill(self, *, slug: str, owner_ref: str, description: str, tags: list[Any], actor: str) -> dict[str, Any]:
         workflow_id = new_id("workflow")
         clean_description = description.strip()

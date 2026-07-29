@@ -10,6 +10,7 @@ class TypeSpec:
     item: "TypeSpec | None" = None
     properties: dict[str, "TypeSpec"] = field(default_factory=dict)
     options: tuple["TypeSpec", ...] = ()
+    sample_count: int | None = None
 
     def serialize(self) -> dict[str, Any]:
         value: dict[str, Any] = {"kind": self.kind}
@@ -19,6 +20,8 @@ class TypeSpec:
             value["properties"] = {key: item.serialize() for key, item in sorted(self.properties.items())}
         if self.options:
             value["options"] = [item.serialize() for item in self.options]
+        if self.sample_count is not None:
+            value["sampleCount"] = self.sample_count
         return value
 
 
@@ -30,12 +33,12 @@ INTEGER = TypeSpec("integer")
 NUMBER = TypeSpec("number")
 
 
-def array(item: TypeSpec = ANY) -> TypeSpec:
-    return TypeSpec("array", item=item)
+def array(item: TypeSpec = ANY, *, sample_count: int | None = None) -> TypeSpec:
+    return TypeSpec("array", item=item, sample_count=sample_count)
 
 
-def object_type(properties: dict[str, TypeSpec] | None = None) -> TypeSpec:
-    return TypeSpec("object", properties=properties or {})
+def object_type(properties: dict[str, TypeSpec] | None = None, *, sample_count: int | None = None) -> TypeSpec:
+    return TypeSpec("object", properties=properties or {}, sample_count=sample_count)
 
 
 def union(*options: TypeSpec) -> TypeSpec:

@@ -244,6 +244,31 @@ describe("workflow domain", () => {
     expect(validateWorkflow(bundle, bundle.collectionSnapshots).map((item) => item.code)).toEqual(expect.arrayContaining(["MULTILINE_COLLECTION_COMMAND", "UNSCOPED_OUTPUT_CONFLICT"]));
   });
 
+  it("requires globally unique call keys and valid keys for multi-sample calls", () => {
+    const bundle = workflowBundle();
+    const firstStep = workflowStep(bundle);
+    const secondStep = structuredClone(firstStep);
+    secondStep.id = "step-second";
+    secondStep.isStart = false;
+    secondStep.collectionCalls[0]!.id = "call-second";
+    secondStep.topology = [];
+    bundle.workflow.nodes.splice(1, 0, secondStep);
+
+    const duplicateIssues = validateWorkflow(bundle, bundle.collectionSnapshots)
+      .filter((item) => item.code === "DUPLICATE_CALL_KEY");
+    expect(duplicateIssues.map((item) => item.selection)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "step-start", itemId: "call-interface" }),
+      expect.objectContaining({ id: "step-second", itemId: "call-second" }),
+    ]));
+
+    bundle.workflow.nodes.splice(1, 1);
+    firstStep.collectionCalls[0]!.sampleCount = 2;
+    firstStep.collectionCalls[0]!.key = "";
+    expect(validateWorkflow(bundle).map((item) => item.code)).toContain("MULTI_SAMPLE_CALL_KEY_REQUIRED");
+    firstStep.collectionCalls[0]!.key = "not-valid";
+    expect(validateWorkflow(bundle).map((item) => item.code)).toContain("INVALID_MULTI_SAMPLE_CALL_KEY");
+  });
+
   it("rejects removed transition names and descriptions", () => {
     const legacy = structuredClone(workflowBundle()) as unknown as { workflow: { nodes: Array<Record<string, unknown>> } };
     const step = legacy.workflow.nodes[0]!;

@@ -53,6 +53,8 @@ import type {
   WorkflowExpressionContract,
   WorkflowExpressionEnvironment,
   WorkflowExpressionValidation,
+  WorkflowExpressionBatchItem,
+  WorkflowExpressionBatchResponse,
 } from "../types";
 import { getActorId } from "./identity";
 
@@ -132,6 +134,8 @@ function skillApi() {
     getWorkflowExpressionContract: () => apiGet<WorkflowExpressionContract>("/api/workflow-expression-contract"),
     validateWorkflowExpression: (source: string, environment: WorkflowExpressionEnvironment, signal?: AbortSignal) =>
       apiSend<WorkflowExpressionValidation>("/api/workflow-expression-validations", "POST", { source, environment }, { signal }),
+    validateWorkflowExpressions: (expressions: WorkflowExpressionBatchItem[], environment: WorkflowExpressionEnvironment, signal?: AbortSignal) =>
+      apiSend<WorkflowExpressionBatchResponse>("/api/workflow-expression-validations/batch", "POST", { expressions, environment }, { signal }),
     syncWorkflow: (skillId: string, payload: WorkflowSyncPayload) =>
       apiSend<WorkflowSyncResult>(`/api/skills/${encodeURIComponent(skillId)}/workflow/sync`, "POST", payload),
     listSkillBuilderSessions: () => apiGet<SkillBuilderSession[]>("/api/skill-builder/sessions"),

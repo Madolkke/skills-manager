@@ -44,10 +44,15 @@ METHODS: dict[str, dict[str, dict[str, Any]]] = {
 
 def expression_contract() -> dict[str, Any]:
     return {
-        "contractVersion": 1,
+        "contractVersion": 2,
         "language": "python-eval",
         "roots": ["inputs", "outputs"],
-        "typeAlgebra": ["any", "none", "string", "integer", "number", "boolean", "array<T>", "object", "union", "TypeVar", "optional", "variadic"],
+        "typeAlgebra": ["any", "none", "string", "integer", "number", "boolean", "array<T>", "fixed-array<T>", "object", "union", "TypeVar", "optional", "variadic"],
+        "outputModel": {
+            "single": "outputs.<callKey>.<field>",
+            "multiple": "outputs.<callKey>[<index>].<field>",
+            "indexing": "zero-based Python indexing, including negative indexes",
+        },
         "functions": FUNCTIONS,
         "methods": METHODS,
     }

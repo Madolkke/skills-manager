@@ -1,4 +1,4 @@
-import type { CollectionCall, CollectionDefinition, WorkflowBundle, WorkflowConclusion, WorkflowNode, WorkflowStep, VersionedRef } from "../../../types";
+import type { CollectionCall, CollectionDefinition, WorkflowBundle, WorkflowCollectionChange, WorkflowConclusion, WorkflowNode, WorkflowStep, VersionedRef } from "../../../types";
 
 export function createWorkflowId(prefix: string): string {
   const cryptoId = globalThis.crypto?.randomUUID?.();
@@ -61,4 +61,19 @@ export function nextUniqueKey(existing: string[], requested: string): string {
     if (!existing.includes(candidate)) return candidate;
   }
   return `${base}_${Date.now()}`;
+}
+
+export function workflowFieldGroup(prefix: string, patch: Record<string, unknown>): string {
+  return `${prefix}:${Object.keys(patch).sort().join(",")}`;
+}
+
+export function upsertWorkflowCollectionChange(
+  draft: { changes: WorkflowCollectionChange[] },
+  operation: WorkflowCollectionChange["operation"],
+  definition: CollectionDefinition,
+): void {
+  const index = draft.changes.findIndex((item) => item.definition.id === definition.id);
+  const next = { operation, definition: cloneWorkflow(definition) };
+  if (index >= 0) draft.changes[index] = next;
+  else draft.changes.push(next);
 }

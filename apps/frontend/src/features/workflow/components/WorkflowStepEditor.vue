@@ -10,6 +10,7 @@ import type {
   WorkflowBundle,
   WorkflowCollectionChange,
   WorkflowEditorSection,
+  WorkflowExpressionDiagnostic,
   WorkflowSelection,
   WorkflowStep,
   WorkflowValidationIssue,
@@ -26,6 +27,7 @@ const props = defineProps<{
   catalog: CollectionDefinition[];
   changes: WorkflowCollectionChange[];
   issues: WorkflowValidationIssue[];
+  expressionDiagnostics: Record<string, WorkflowExpressionDiagnostic[]>;
   target: WorkflowSelection;
   readonly: boolean;
 }>();
@@ -164,6 +166,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
       :section-number="props.step.stepType === 'script' ? '04' : '03'"
       :step="props.step"
       :bundle="props.bundle"
+      :diagnostics="props.expressionDiagnostics"
       :readonly="props.readonly"
       @add="emit('path-add', $event)"
       @retarget="(id, choice) => emit('path-retarget', id, choice)"

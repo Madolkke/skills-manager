@@ -61,7 +61,7 @@ def test_confirmed_preview_passes_complete_generator_evidence_to_store() -> None
         change_summary="从 Workflow 生成。",
         expected_workflow_revision=3,
         generator_id="builtin.three-file",
-        generator_version="2.0.0",
+        generator_version="2.1.0",
         generator_options={},
         preview_digest=preview["preview_digest"],
         actor="owner",

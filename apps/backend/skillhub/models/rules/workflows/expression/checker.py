@@ -4,8 +4,18 @@ import ast
 from dataclasses import dataclass
 from typing import Any
 
+from .environment import expression_root_types
 from .registry import FUNCTIONS, METHODS
-from .types import ANY, BOOLEAN, INTEGER, NONE, NUMBER, STRING, TypeSpec, array, from_json_schema, object_type, union
+from .types import ANY, BOOLEAN, INTEGER, NONE, NUMBER, STRING, TypeSpec, array, object_type, union
+
+SAMPLE_INDEX_DIAGNOSTIC_CODES = frozenset(
+    {
+        "SAMPLE_INDEX_REQUIRED",
+        "SAMPLE_INDEX_NOT_ALLOWED",
+        "SAMPLE_INDEX_OUT_OF_RANGE",
+        "INVALID_SAMPLE_INDEX_TYPE",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -27,13 +37,7 @@ def validate_expression(source: str, environment: dict[str, Any]) -> dict[str, A
     except SyntaxError as exc:
         start = max((exc.offset or 1) - 1, 0)
         return {"inferredType": ANY.serialize(), "diagnostics": [Diagnostic("PYTHON_SYNTAX", exc.msg, start, start + 1).serialize()]}
-    roots = {
-        "inputs": object_type({key: from_json_schema(value) for key, value in environment.get("inputs", {}).items()}),
-        "outputs": object_type(
-            {call: object_type({key: from_json_schema(value) for key, value in values.items()}) for call, values in environment.get("outputs", {}).items()}
-        ),
-    }
-    checker = _Checker(source, roots)
+    checker = _Checker(source, expression_root_types(environment))
     inferred = checker.infer(tree.body)
     return {"inferredType": inferred.serialize(), "diagnostics": [item.serialize() for item in checker.diagnostics]}
 
@@ -84,13 +88,28 @@ class _Checker:
 
     def infer_Subscript(self, node: ast.Subscript) -> TypeSpec:
         owner = self.infer(node.value)
-        self.infer(node.slice)
+        index_type = self.infer(node.slice)
+        if owner.sample_count == 1 and owner.kind == "object":
+            if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                return owner.properties.get(node.slice.value, ANY)
+            self.warn(node, "SAMPLE_INDEX_NOT_ALLOWED", "单次采集输出不允许使用结果下标。")
+            return owner
+        if isinstance(node.slice, ast.Slice):
+            return array(owner.item or ANY) if owner.kind == "array" else owner
         if owner.kind == "array":
+            if owner.sample_count is not None:
+                if not _integer_index_type(index_type):
+                    self.warn(node.slice, "INVALID_SAMPLE_INDEX_TYPE", "采集结果下标必须是整数。")
+                literal = _integer_literal(node.slice)
+                if literal is not None and not -owner.sample_count <= literal < owner.sample_count:
+                    self.warn(
+                        node.slice,
+                        "SAMPLE_INDEX_OUT_OF_RANGE",
+                        f"采集结果下标 {literal} 超出范围 {-owner.sample_count}..{owner.sample_count - 1}。",
+                    )
             return owner.item or ANY
         if owner.kind == "object" and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
             return owner.properties.get(node.slice.value, ANY)
-        if isinstance(node.slice, ast.Slice):
-            return owner
         return ANY
 
     def infer_Slice(self, node: ast.Slice) -> TypeSpec:
@@ -201,6 +220,9 @@ class _Checker:
         return result
 
     def _attribute(self, owner: TypeSpec, node: ast.Attribute) -> TypeSpec:
+        if owner.kind == "array" and owner.sample_count is not None:
+            self.warn(node, "SAMPLE_INDEX_REQUIRED", "多次采集输出必须先指定结果下标。")
+            return self._attribute(owner.item or ANY, node)
         if owner.kind == "object":
             if node.attr in owner.properties:
                 return owner.properties[node.attr]
@@ -235,3 +257,22 @@ class _Checker:
 
 def _offset(source: str, line: int, column: int) -> int:
     return sum(len(item) + 1 for item in source.splitlines()[: max(line - 1, 0)]) + column
+
+
+def _integer_index_type(value: TypeSpec) -> bool:
+    if value.kind in {"any", "integer"}:
+        return True
+    return value.kind == "union" and all(option.kind == "integer" for option in value.options)
+
+
+def _integer_literal(node: ast.AST) -> int | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return node.value
+    if isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant):
+        value = node.operand.value
+        if isinstance(value, int) and not isinstance(value, bool):
+            if isinstance(node.op, ast.USub):
+                return -value
+            if isinstance(node.op, ast.UAdd):
+                return value
+    return None

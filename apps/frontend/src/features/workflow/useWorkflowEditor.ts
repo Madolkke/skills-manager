@@ -1,9 +1,10 @@
 import { computed, ref } from "vue";
 import type { CollectionCall, CollectionDefinition, VersionedRef, WorkflowBundle, WorkflowCollectionChange, WorkflowDetail, WorkflowMetadata, WorkflowSelection, WorkflowStep } from "../../types";
-import { cloneWorkflow, createWorkflowId, findCall, findCollection, mergeCatalog, nextUniqueKey, syncSnapshots, workflowConclusions, workflowSteps } from "./domain/utils";
+import { cloneWorkflow, createWorkflowId, findCall, findCollection, mergeCatalog, nextUniqueKey, syncSnapshots, upsertWorkflowCollectionChange as upsertChange, workflowConclusions, workflowFieldGroup as fieldGroup, workflowSteps } from "./domain/utils";
 import { validateWorkflow } from "./domain/validation";
 import { newCollection, newConclusion, newParameter, newRole, newStep } from "./editorDefaults";
 import { useWorkflowHistory } from "./useWorkflowHistory";
+import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidation";
 import { createWorkflowOrdering } from "./workflowOrdering";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
 import { validWorkflowSelection } from "./workflowSelection";
@@ -17,7 +18,10 @@ export function useWorkflowEditor(readonly: () => boolean) {
   const changes = ref<WorkflowCollectionChange[]>([]);
   const linkedCallFields = new Map<string, { name: boolean; key: boolean }>();
   const history = useWorkflowHistory(currentSnapshot, restore);
-  const issues = computed(() => bundle.value ? validateWorkflow(bundle.value, catalog.value) : []);
+  const expressionValidation = useWorkflowExpressionValidation(bundle);
+  const issues = computed(() => bundle.value
+    ? [...validateWorkflow(bundle.value, catalog.value), ...expressionValidation.issues.value]
+    : []);
   const ordering = createWorkflowOrdering(bundle, commit);
   const paths = createWorkflowPathEditing(bundle, commit);
 
@@ -145,7 +149,12 @@ export function useWorkflowEditor(readonly: () => boolean) {
         if (call.definition.id !== definition.id) return;
         const linked = linkedCallFields.get(call.id);
         if (linked?.name) call.name = definition.metadata.name;
-        if (linked?.key) call.key = nextUniqueKey(step.collectionCalls.filter((item) => item.id !== call.id).map((item) => item.key), definition.key);
+        if (linked?.key) {
+          const keys = workflowSteps(draft.bundle).flatMap((candidate) => candidate.collectionCalls
+            .filter((item) => item.id !== call.id)
+            .map((item) => item.key));
+          call.key = nextUniqueKey(keys, definition.key);
+        }
       }));
     }, `definition:${reference.id}`);
   }
@@ -278,7 +287,8 @@ export function useWorkflowEditor(readonly: () => boolean) {
   }
 
   return {
-    bundle, catalog, selection, changes, issues, dirty: history.dirty, canUndo: history.canUndo, canRedo: history.canRedo,
+    bundle, catalog, selection, changes, issues, expressionDiagnostics: expressionValidation.diagnostics,
+    dirty: history.dirty, canUndo: history.canUndo, canRedo: history.canRedo,
     load, accepted, undo: history.undo, redo: history.redo, discard: history.discard, updateMetadata, addInput, updateInput, removeInput, addDeviceRole, updateDeviceRole, removeDeviceRole,
     addWorkflowStep, duplicateStep, updateStep, removeStep, addWorkflowConclusion, updateConclusion, removeConclusion,
     addPath: paths.addPath, retargetPath: paths.retargetPath, updatePath: paths.updatePath, removePath: paths.removePath, movePath: paths.movePath,
@@ -286,15 +296,4 @@ export function useWorkflowEditor(readonly: () => boolean) {
     addDefinition, editDefinition, removeDraftDefinition, addCall, addDraftCollectionCall, updateCall, removeCall, moveCall,
     reorderCalls: ordering.reorderCalls, updateCallBinding, editCallDefinition,
   };
-}
-
-function fieldGroup(prefix: string, patch: Record<string, unknown>): string {
-  return `${prefix}:${Object.keys(patch).sort().join(",")}`;
-}
-
-function upsertChange(draft: WorkflowEditorSnapshot, operation: WorkflowCollectionChange["operation"], definition: CollectionDefinition): void {
-  const index = draft.changes.findIndex((item) => item.definition.id === definition.id);
-  const next = { operation, definition: cloneWorkflow(definition) };
-  if (index >= 0) draft.changes[index] = next;
-  else draft.changes.push(next);
 }

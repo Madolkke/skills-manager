@@ -77,6 +77,10 @@ def append_calls(
             lines.append(f"- 调用 key: `{call['key']}`")
         lines.append(f"- 设备角色: {(role or {}).get('name', '单设备')}")
         lines.append(f"- 采集次数: {call['sampleCount']}")
+        if call["sampleCount"] > 1 and call["key"].strip():
+            lines.append(
+                f"- 结果下标: `i = 0..{call['sampleCount'] - 1}`，同时支持对应负数下标 `-{call['sampleCount']}..-1`"
+            )
         if definition:
             lines.append(f"- Collection: {definition['metadata']['name']} (`{definition['key']}`)")
             if collection_link:
@@ -130,7 +134,7 @@ def binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"])) if call else None
         output = next((item for item in definition["outputs"] if item["id"] == reference.get("output_id")), None) if definition else None
         if call and output:
-            return f"采集“{call_name(call, definition)}”的输出 `{call_output_key(call, output)}`"
+            return f"采集“{call_name(call, definition)}”的输出 `{call_output_key(call, output, indexed=False)}`"
     return "无效引用"
 
 
@@ -172,7 +176,9 @@ def call_name(call: dict[str, Any], definition: dict[str, Any] | None) -> str:
     return call["name"].strip() or (definition or {}).get("metadata", {}).get("name", "").strip() or "未命名采集"
 
 
-def call_output_key(call: dict[str, Any], output: dict[str, Any]) -> str:
+def call_output_key(call: dict[str, Any], output: dict[str, Any], *, indexed: bool = True) -> str:
+    if indexed and call["sampleCount"] > 1 and call["key"].strip():
+        return f"outputs.{call['key']}[i].{output['key']}"
     return f"{call['key']}.{output['key']}" if call["key"].strip() else output["key"]
 
 

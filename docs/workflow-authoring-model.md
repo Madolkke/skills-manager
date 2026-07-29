@@ -229,17 +229,17 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 - `error` 阻止同步。
 - `warning` 允许同步。
 
-典型错误包括：无起始步骤、重复 ID、参数 Key/名称缺失、参数或采集 Key 重复、多行采集命令、无命名空间输出冲突、无效节点或 Collection 引用、缺少必填绑定、无效设备角色和采集次数小于 1。
+典型错误包括：无起始步骤、重复 ID、参数 Key/名称缺失、Workflow 内重复的采集调用 Key、多行采集命令、无命名空间输出冲突、无效节点或 Collection 引用、缺少必填绑定、无效设备角色和采集次数小于 1。多次采集还必须填写合法的 Python 标识符形式调用 Key；这些错误允许保存草稿，但阻止同步。
 
-典型 warning 包括：不可达节点和潜在循环。
+典型 warning 包括：不可达节点、潜在循环，以及多次采集缺少结果下标、单次采集误用下标、字面量下标越界和非整数下标。表达式 warning 不阻止保存或同步。
 
 ## 11. 同步到 Skill
 
 同步是显式操作，且 dirty 状态禁止同步。前端只展示服务端结果，不复制转换或路径规则。服务端提供三个可版本化的纯规则 Generator：
 
-- `builtin.single-file@workflow-skill-v4`：输出递归 Schema 信息的单个 `SKILL.md`。
-- `builtin.three-file@2.0.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
-- `builtin.node-split@2.0.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
+- `builtin.single-file@workflow-skill-v4.1`：输出递归 Schema 与多次采集下标信息的单个 `SKILL.md`。
+- `builtin.three-file@2.1.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
+- `builtin.node-split@2.1.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
 
 统一输出规则：
 
@@ -247,6 +247,7 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 - frontmatter `description` 使用 Workflow description，并通过 YAML 序列化器输出。
 - 正文确定性渲染元信息、输入、设备角色、步骤、采集、命令模板、绑定、输出、路径、脚本草稿和结论。
 - 节点关系使用 Name，参数和采集关系使用可读 Key/Name，不输出 opaque ID。
+- 多次采集输出写为 `outputs.<callKey>[i].<field>`，并说明 `i = 0..N-1` 及对应负数下标。
 - 保留作者事实，但排除 `symptom`、原始 `stdout` 和样例 `inputValues`。
 - 输出统一为 UTF-8、LF 和文件尾换行，并重新经过标准 Skill Bundle parser 的路径、根目录、frontmatter、100 文件、5 MB 和 digest 校验。
 - 按节点模式超过 Bundle 限制时停止生成，并提示改用固定三文件模式。

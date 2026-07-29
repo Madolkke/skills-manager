@@ -234,7 +234,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
 - 结构错误拒绝保存；领域 `error/warning` 可保存为草稿。
 - CollectionChanges 与 Workflow 在同一事务提交，服务端返回规范化文档和正式 revision。
 - 步骤内新建采集仍使用 `operation: "create"`，不存在独立即时入库接口。
-- 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。
+- 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 在整个 Workflow 内全局唯一；单次采集可为空，为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。多次采集必须使用合法 Python 标识符形式的调用 Key。
 
 `POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
 
@@ -246,7 +246,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
   "generators": [
     {
       "id": "builtin.three-file",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "label": "固定三文件",
       "default": true,
       "options_schema": { "type": "object", "properties": {}, "additionalProperties": false }
@@ -255,9 +255,22 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
 }
 ```
 
-完整目录还包含 `builtin.single-file@workflow-skill-v4` 和 `builtin.node-split@2.0.0`。内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+完整目录还包含 `builtin.single-file@workflow-skill-v4.1` 和 `builtin.node-split@2.1.0`。内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
 
-`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`POST /api/workflow-expression-validations` 接收 `source` 和 `environment`，只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。
+`GET /api/workflow-expression-contract` 返回 `contractVersion = 2` 以及条件表达式允许使用的根变量、函数、方法与类型代数。`environment.outputs` 标准结构如下；旧字段 map 按 `sampleCount = 1` 兼容：
+
+```json
+{
+  "outputs": {
+    "status": {
+      "sampleCount": 3,
+      "fields": { "version": { "type": "string", "title": "版本", "description": "" } }
+    }
+  }
+}
+```
+
+`POST /api/workflow-expression-validations` 接收单条 `source` 和共享 `environment`。`POST /api/workflow-expression-validations/batch` 接收带唯一 `id` 的 `expressions` 数组和共享 `environment`，响应保持请求顺序。两个接口只执行 AST 与类型检查并返回定位诊断，不执行 expression evaluator。
 
 `POST /api/skills/{skill_id}/workflow/sync-preview`：
 

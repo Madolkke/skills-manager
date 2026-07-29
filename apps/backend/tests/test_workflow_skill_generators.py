@@ -22,9 +22,9 @@ def test_builtin_registry_has_one_three_file_default_and_strict_empty_options():
     descriptors = list_workflow_skill_generators()
 
     assert [(item.id, item.version) for item in descriptors] == [
-        ("builtin.single-file", "workflow-skill-v4"),
-        ("builtin.three-file", "2.0.0"),
-        ("builtin.node-split", "2.0.0"),
+        ("builtin.single-file", "workflow-skill-v4.1"),
+        ("builtin.three-file", "2.1.0"),
+        ("builtin.node-split", "2.1.0"),
     ]
     assert DEFAULT_WORKFLOW_SKILL_GENERATOR_ID == "builtin.three-file"
     assert [item.id for item in descriptors if item.default] == ["builtin.three-file"]
@@ -88,6 +88,8 @@ def test_three_file_output_has_fixed_golden_structure_and_filters_sensitive_exam
     assert "核心、网络" in files["references/collections.md"]
     assert "display interface {{ interface_name }}" in files["references/collections.md"]
     assert "采集次数: 2" in files["references/collections.md"]
+    assert "outputs.status[i].state" in files["references/collections.md"]
+    assert "`i = 0..1`，同时支持对应负数下标 `-2..-1`" in files["references/collections.md"]
     joined = "\n".join(files.values())
     assert "接口 Down 示例" in joined
     assert "SECRET SYMPTOM" not in joined

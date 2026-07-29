@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import Counter, deque
 from typing import Any
 
+from .expression.environment import is_expression_identifier
+from .expression.workflow_validation import workflow_sample_index_diagnostics
 from .json_schema import has_legacy_schema, schema_title, schemas_assignable, value_matches_schema
 
 
@@ -30,6 +32,8 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
     workflow_input_keys = {item["key"].strip() for item in workflow["inputs"] if item["key"].strip()}
     for step in steps:
         _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, workflow_input_keys, issues)
+    for diagnostic, selection in workflow_sample_index_diagnostics(document, steps):
+        issues.append(_issue(diagnostic["code"], "warning", diagnostic["message"], selection))
 
     reachable = _reachable_nodes(steps)
     for node in [*steps, *conclusions]:
@@ -52,11 +56,27 @@ def _duplicate_issues(workflow, steps, issues) -> None:
     _append_legacy_schema_warnings(workflow["inputs"], issues, {"type": "inputs"})
     _append_duplicates(workflow["deviceRoles"], "id", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, {"type": "roles"})
     _append_duplicates(workflow["deviceRoles"], "key", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
+    _append_global_call_key_duplicates(steps, issues)
     for step in steps:
         selection = {"type": "step", "id": step["id"]}
         _append_duplicates(step["collectionCalls"], "id", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
-        _append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection)
         _append_duplicates(step["topology"], "id", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
+
+
+def _append_global_call_key_duplicates(steps, issues) -> None:
+    calls = [(step, call) for step in steps for call in step["collectionCalls"] if call["key"].strip()]
+    counts = Counter(call["key"].strip() for _, call in calls)
+    for step, call in calls:
+        key = call["key"].strip()
+        if counts[key] > 1:
+            issues.append(
+                _issue(
+                    "DUPLICATE_CALL_KEY",
+                    "error",
+                    f"采集调用 key“{key}”必须在整个 Workflow 内唯一。",
+                    {"type": "step", "id": step["id"], "section": "collections", "itemId": call["id"], "field": "key"},
+                )
+            )
 
 
 def _collection_identity_issues(definitions, issues) -> None:
@@ -102,13 +122,6 @@ def _append_duplicates(items, field, code, label, issues, selection) -> None:
             issues.append(_issue(code, "error", message, selection))
 
 
-def _append_optional_duplicates(items, field, code, label, issues, selection) -> None:
-    counts = Counter(str(item.get(field, "")).strip() for item in items)
-    for value, count in counts.items():
-        if value and count > 1:
-            issues.append(_issue(code, "error", f"{label}“{value}”重复。", selection))
-
-
 def _append_missing_titles(items, label, issues, selection) -> None:
     for item in items:
         if not str(item.get("schema", {}).get("title", "")).strip():
@@ -129,8 +142,22 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
     for call in step["collectionCalls"]:
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
         call_label = _call_label(call, definition) if definition else call["name"] or "未命名采集"
+        call_selection = {**selection, "section": "collections", "itemId": call["id"]}
         if call["sampleCount"] < 1:
-            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", selection))
+            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", call_selection))
+        elif call["sampleCount"] > 1:
+            key = call["key"].strip()
+            if not key:
+                issues.append(_issue("MULTI_SAMPLE_CALL_KEY_REQUIRED", "error", f"多次采集“{call_label}”必须填写调用 key。", call_selection))
+            elif not is_expression_identifier(key):
+                issues.append(
+                    _issue(
+                        "INVALID_MULTI_SAMPLE_CALL_KEY",
+                        "error",
+                        f"多次采集“{call_label}”的调用 key 必须是合法的 Python 标识符。",
+                        call_selection,
+                    )
+                )
         if definition is None:
             issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call_label}”引用的定义版本不存在。", selection))
             continue
@@ -258,5 +285,5 @@ def _selection(node) -> dict[str, str]:
 
 
 def _issue(code: str, severity: str, message: str, selection: dict[str, str]) -> dict[str, Any]:
-    suffix = selection.get("id", selection["type"])
+    suffix = selection.get("itemId", selection.get("id", selection["type"]))
     return {"id": f"{code.lower()}-{suffix}", "code": code, "severity": severity, "message": message, "selection": selection}
