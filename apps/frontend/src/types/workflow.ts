@@ -105,10 +105,10 @@ export type WorkflowBundle = {
 export type WorkflowEditorSection = "overview" | "script" | "collections" | "paths";
 
 export type WorkflowSelection =
-  | { type: "metadata" | "inputs" | "roles" | "collections" }
+  | { type: "metadata" | "inputs" | "roles" | "collections"; itemId?: string; field?: string }
   | { type: "step"; id: string; section?: WorkflowEditorSection; itemId?: string; field?: string }
   | { type: "conclusion"; id: string; field?: string }
-  | { type: "collection"; id: string; revision?: number; field?: string };
+  | { type: "collection"; id: string; revision?: number; itemId?: string; field?: string };
 
 export type WorkflowValidationIssue = {
   id: string;

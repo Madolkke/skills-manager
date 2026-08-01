@@ -201,6 +201,12 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 
 `GET /api/skills/{skill_id}/workflow/formatted` 与普通 Workflow 获取接口使用相同的 Skill、Workflow 和 actor 校验，但响应体只包含转换后的 JSON object。当前转换函数为深拷贝透传，因此响应等于普通接口的 `document` 字段；后续自定义格式只修改该转换函数，不改变接口路径。
 
+Workflow 校验问题统一包含 `id`、`code`、`severity`、`message` 和 `selection`。`selection` 使用 `type` 定位编辑区域，并按需携带 `id`、`revision`、`section`、`itemId` 和 `field`；采集调用相关问题必须提供 `section: "collections"`、调用 `itemId`，字段级问题还必须提供 `field`。
+
+问题 `id` 的稳定身份依次由 `code`、`selection.type`、`selection.id`、`selection.revision`、`selection.section`、`selection.itemId`、`selection.field` 组成。各部分按 RFC 3986 编码后以 `/` 连接，并追加同身份问题从 `0` 开始的局部序号。前后端必须生成相同 ID；新增其他身份的问题不得改变已有 ID。
+
+必填 ID 或 key 为空时使用对应的 `MISSING_*` code，非空值重复时使用 `DUPLICATE_*` code。缺失码包括 `MISSING_NODE_ID`、`MISSING_INPUT_ID`、`MISSING_INPUT_KEY`、`MISSING_ROLE_ID`、`MISSING_ROLE_KEY`、`MISSING_CALL_ID`、`MISSING_TRANSITION_ID`、`MISSING_COLLECTION_INPUT_ID`、`MISSING_COLLECTION_INPUT_KEY`、`MISSING_COLLECTION_OUTPUT_ID`、`MISSING_COLLECTION_OUTPUT_KEY` 和 `MISSING_COLLECTION_SAMPLE_ID`。Collection reference 与可选 call key 只检查重复。
+
 `POST /api/workflows`：
 
 ```json

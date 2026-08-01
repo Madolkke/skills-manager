@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from typing import Any
+from urllib.parse import quote
 
 from .json_schema import has_legacy_schema, schema_title, schemas_assignable, value_matches_schema
 
@@ -41,27 +42,27 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
     if cycle:
         names = [node_by_id[item]["name"] for item in cycle if item in node_by_id]
         issues.append(_issue("POTENTIAL_CYCLE", "warning", f"检测到可能的循环路径：{' -> '.join(names)}。", {"type": "step", "id": cycle[0]}))
-    return issues
+    return _assign_issue_ids(issues)
 
 
 def _duplicate_issues(workflow, steps, issues) -> None:
-    _append_duplicates(workflow["nodes"], "id", "DUPLICATE_NODE_ID", "节点 ID", issues, {"type": "metadata"})
-    _append_duplicates(workflow["inputs"], "id", "DUPLICATE_INPUT_ID", "全局输入 ID", issues, {"type": "inputs"})
-    _append_duplicates(workflow["inputs"], "key", "DUPLICATE_INPUT_KEY", "全局输入 key", issues, {"type": "inputs"})
+    _append_duplicates(workflow["nodes"], "id", "MISSING_NODE_ID", "DUPLICATE_NODE_ID", "节点 ID", issues, {"type": "metadata"})
+    _append_duplicates(workflow["inputs"], "id", "MISSING_INPUT_ID", "DUPLICATE_INPUT_ID", "全局输入 ID", issues, {"type": "inputs"})
+    _append_duplicates(workflow["inputs"], "key", "MISSING_INPUT_KEY", "DUPLICATE_INPUT_KEY", "全局输入 key", issues, {"type": "inputs"})
     _append_missing_titles(workflow["inputs"], "全局输入名称", issues, {"type": "inputs"})
     _append_legacy_schema_warnings(workflow["inputs"], issues, {"type": "inputs"})
-    _append_duplicates(workflow["deviceRoles"], "id", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, {"type": "roles"})
-    _append_duplicates(workflow["deviceRoles"], "key", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
+    _append_duplicates(workflow["deviceRoles"], "id", "MISSING_ROLE_ID", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, {"type": "roles"})
+    _append_duplicates(workflow["deviceRoles"], "key", "MISSING_ROLE_KEY", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
     for step in steps:
         selection = {"type": "step", "id": step["id"]}
-        _append_duplicates(step["collectionCalls"], "id", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
+        _append_duplicates(step["collectionCalls"], "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
         _append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection)
-        _append_duplicates(step["topology"], "id", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
+        _append_duplicates(step["topology"], "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
 
 
 def _collection_identity_issues(definitions, issues) -> None:
     references = [{"reference": f"{item['id']}@{item['revision']}"} for item in definitions]
-    _append_duplicates(references, "reference", "DUPLICATE_COLLECTION_REFERENCE", "Collection 引用", issues, {"type": "collections"})
+    _append_optional_duplicates(references, "reference", "DUPLICATE_COLLECTION_REFERENCE", "Collection 引用", issues, {"type": "collections"})
     for definition in definitions:
         selection = {"type": "collection", "id": definition["id"], "revision": definition["revision"]}
         if not definition["metadata"]["name"].strip():
@@ -85,21 +86,22 @@ def _collection_identity_issues(definitions, issues) -> None:
                     {**selection, "field": "spec.commandTemplate"},
                 )
             )
-        _append_duplicates(definition["inputs"], "id", "DUPLICATE_COLLECTION_INPUT_ID", "Collection 输入 ID", issues, selection)
-        _append_duplicates(definition["inputs"], "key", "DUPLICATE_COLLECTION_INPUT_KEY", "Collection 输入 key", issues, selection)
+        _append_duplicates(definition["inputs"], "id", "MISSING_COLLECTION_INPUT_ID", "DUPLICATE_COLLECTION_INPUT_ID", "Collection 输入 ID", issues, selection)
+        _append_duplicates(definition["inputs"], "key", "MISSING_COLLECTION_INPUT_KEY", "DUPLICATE_COLLECTION_INPUT_KEY", "Collection 输入 key", issues, selection)
         _append_missing_titles(definition["inputs"], "Collection 输入名称", issues, selection)
         _append_legacy_schema_warnings([*definition["inputs"], *definition["outputs"]], issues, selection)
-        _append_duplicates(definition["outputs"], "id", "DUPLICATE_COLLECTION_OUTPUT_ID", "Collection 输出 ID", issues, selection)
-        _append_duplicates(definition["outputs"], "key", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection)
-        _append_duplicates(definition["spec"]["outputSamples"], "id", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection)
+        _append_duplicates(definition["outputs"], "id", "MISSING_COLLECTION_OUTPUT_ID", "DUPLICATE_COLLECTION_OUTPUT_ID", "Collection 输出 ID", issues, selection)
+        _append_duplicates(definition["outputs"], "key", "MISSING_COLLECTION_OUTPUT_KEY", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection)
+        _append_duplicates(definition["spec"]["outputSamples"], "id", "MISSING_COLLECTION_SAMPLE_ID", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection)
 
 
-def _append_duplicates(items, field, code, label, issues, selection) -> None:
+def _append_duplicates(items, field, missing_code, duplicate_code, label, issues, selection) -> None:
     counts = Counter(str(item.get(field, "")).strip() for item in items)
     for value, count in counts.items():
-        if not value or count > 1:
-            message = f"{label}不能为空。" if not value else f"{label}“{value}”重复。"
-            issues.append(_issue(code, "error", message, selection))
+        if not value:
+            issues.append(_issue(missing_code, "error", f"{label}不能为空。", selection))
+        elif count > 1:
+            issues.append(_issue(duplicate_code, "error", f"{label}“{value}”重复。", selection))
 
 
 def _append_optional_duplicates(items, field, code, label, issues, selection) -> None:
@@ -127,21 +129,23 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
     previous_calls: dict[str, Any] = {}
     unscoped_outputs: dict[str, str] = {}
     for call in step["collectionCalls"]:
+        call_selection = {**selection, "section": "collections", "itemId": call["id"]}
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
         call_label = _call_label(call, definition) if definition else call["name"] or "未命名采集"
         if call["sampleCount"] < 1:
-            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", selection))
+            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", {**call_selection, "field": "sampleCount"}))
         if definition is None:
-            issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call_label}”引用的定义版本不存在。", selection))
+            issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call_label}”引用的定义版本不存在。", call_selection))
             continue
         if call.get("deviceRoleId") and call["deviceRoleId"] not in role_ids:
-            issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", selection))
+            issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", {**call_selection, "field": "deviceRoleId"}))
         for parameter in definition["inputs"]:
             binding = call["inputBindings"].get(parameter["id"])
+            binding_selection = {**call_selection, "field": f"binding.{parameter['id']}"}
             if parameter["required"] and not _binding_has_value(binding):
-                issues.append(_issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", selection))
+                issues.append(_issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
-                _validate_binding(binding, parameter, workflow_inputs, previous_calls, all_calls, definitions, issues, selection)
+                _validate_binding(binding, parameter, workflow_inputs, previous_calls, all_calls, definitions, issues, binding_selection)
         if not call["key"].strip():
             _validate_unscoped_outputs(
                 call=call,
@@ -149,7 +153,7 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
                 names=unscoped_outputs,
                 reserved=workflow_input_keys,
                 issues=issues,
-                selection=selection,
+                selection=call_selection,
             )
         previous_calls[call["id"]] = call
     for transition in step["topology"]:
@@ -258,5 +262,16 @@ def _selection(node) -> dict[str, str]:
 
 
 def _issue(code: str, severity: str, message: str, selection: dict[str, str]) -> dict[str, Any]:
-    suffix = selection.get("id", selection["type"])
-    return {"id": f"{code.lower()}-{suffix}", "code": code, "severity": severity, "message": message, "selection": selection}
+    return {"id": "", "code": code, "severity": severity, "message": message, "selection": selection}
+
+
+def _assign_issue_ids(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    fields = ("type", "id", "revision", "section", "itemId", "field")
+    occurrences: Counter[str] = Counter()
+    for issue in issues:
+        parts = [issue["code"].lower(), *(str(issue["selection"].get(field, "")) for field in fields)]
+        base = "/".join(["workflow-issue", *(quote(part, safe="-._~") for part in parts)])
+        occurrence = occurrences[base]
+        occurrences[base] += 1
+        issue["id"] = f"{base}/{occurrence}"
+    return issues
