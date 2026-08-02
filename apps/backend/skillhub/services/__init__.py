@@ -7,6 +7,7 @@ from .admin_runtime import AdminRuntimeService
 from .artifacts import ArtifactDownload, ArtifactService, QuickPublishResult
 from .evaluation_reads import EvaluationReadService
 from .evaluations import EvaluationService
+from .executor_workflows import ExecutorWorkflowService
 from .external import ExternalSkillService
 from .opencode import OpencodeService
 from .reviews import ReviewService
@@ -26,6 +27,7 @@ __all__ = [
     "QuickPublishResult",
     "EvaluationService",
     "EvaluationReadService",
+    "ExecutorWorkflowService",
     "ExternalSkillService",
     "OpencodeService",
     "ReviewService",

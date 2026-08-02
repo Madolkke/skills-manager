@@ -12,6 +12,7 @@
 - `request_models/`：按资源域组织的 Pydantic request schema；新增字段优先放入对应资源模块。
 - `responses.py`：把领域对象和 service 返回值转换成 HTTP 响应结构。
 - `workflows.py`：提供 Workflow Skill 创建、文档保存、Import Bundle 导入、元信息、Collection Catalog 和同步接口。
+- `executor_workflows.py`：提供无需 actor 的外部执行器 Workflow 只读转换接口。
 - 其他业务文件：按资源组织 endpoint，例如 `skills.py`、`evaluations.py`、`reviews.py`。
 
 ## 依赖方向

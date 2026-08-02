@@ -10,6 +10,13 @@ from skillhub.models.schema import orm
 
 
 class WorkflowQueryMixin(WorkflowHelperMixin):
+    def executor_workflow_source(self, *, skill_id: str) -> dict[str, Any]:
+        """Return the current migrated Workflow document without editor read models."""
+        with self._read_session() as connection:
+            self._skill_row(connection, skill_id)
+            workflow = self._workflow_row(connection, skill_id=skill_id)
+            return migrate_workflow_document(workflow["document_schema_version"], dict(workflow["document"]))
+
     def workflow_detail(self, *, skill_id: str, actor: str) -> dict[str, Any]:
         with self._read_session() as connection:
             skill = self._skill_row(connection, skill_id)

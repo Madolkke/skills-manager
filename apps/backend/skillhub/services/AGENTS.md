@@ -12,6 +12,7 @@
 - `admin_runtime.py`：封装发布目标、发布记录、Worker 状态和 Opencode Agent 管理。
 - `artifacts.py`：封装 artifact 下载和 bundle 差异查询。
 - `evaluations.py`：封装测评集、测试例、运行测评和聚合结果相关流程。
+- `executor_workflows.py`：读取当前 Workflow 文档并转换为外部执行器 DTO。
 - `evaluation_reads.py`：封装测评详情、历史和矩阵等只读用例。
 - `external.py`：封装外部 Skill zip upsert API 的创建和更新流程。
 - `opencode.py`：封装读取和脱敏 Opencode provider/model 配置，以及测评页可用 Opencode Agent 列表。

@@ -25,6 +25,7 @@
 - `operations/shared/jobs.py`：跨领域复用的 Job 入队和状态更新辅助。
 - `operations/reviews/helpers.py`：上述评审辅助能力的兼容组合入口。
 - `rules/workflows/`：Workflow/Collection 严格结构、文档格式迁移、领域校验和确定性 Skill 转换。
+- `rules/executor_workflows/`：外部执行器 Workflow 的严格 DTO 和无副作用写作侧转换规则。
 - `rules/bundle_diffs.py`：版本差异与同步预览共用的确定性 Bundle 文本 diff。
 - `store.py`：Model 层对 Service 层暴露的组合根，持有请求级 Session，并保留薄兼容 facade。
 

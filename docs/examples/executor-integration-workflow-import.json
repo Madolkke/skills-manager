@@ -1,0 +1,274 @@
+{
+  "documentType": "workflow_import_bundle",
+  "workflow": {
+    "metadata": {
+      "name": "PTN故障快排集成测试",
+      "code": "PTN-QUICK-CHECK",
+      "description": "用于验证写作侧 Workflow 到执行器 Workflow 的完整转换链路。",
+      "symptom": "设备内存使用率偏高或业务状态异常。",
+      "industry": "通信",
+      "device": "PTN设备",
+      "versions": ["V1"]
+    },
+    "inputs": [
+      {
+        "id": "input-slot-id",
+        "key": "slot-id",
+        "required": true,
+        "schema": {"type": "string", "title": "槽位号", "description": "要检查的槽位号"}
+      },
+      {
+        "id": "input-warning-threshold",
+        "key": "warning_threshold",
+        "required": true,
+        "schema": {"type": "number", "title": "告警阈值", "description": "内存使用率告警阈值"}
+      },
+      {
+        "id": "input-max-retries",
+        "key": "max_retries",
+        "required": true,
+        "schema": {"type": "integer", "title": "最大重试次数", "description": "恢复动作的最大重试次数"}
+      },
+      {
+        "id": "input-include-history",
+        "key": "include_history",
+        "required": true,
+        "schema": {"type": "boolean", "title": "包含历史数据", "description": "是否在诊断时包含历史数据"}
+      }
+    ],
+    "deviceRoles": [],
+    "nodes": [
+      {
+        "id": "step-prepare",
+        "name": "准备执行环境",
+        "description": "关闭终端分页并准备后续命令。",
+        "isStart": true,
+        "collectionCalls": [
+          {
+            "id": "call-prepare-environment",
+            "key": "environment",
+            "name": "准备环境",
+            "definitionLocalId": "prepare-environment",
+            "sampleCount": 1,
+            "inputBindings": {}
+          }
+        ],
+        "topology": [
+          {
+            "id": "transition-prepare-to-diagnose",
+            "target": {"id": "step-diagnose"},
+            "conditionText": "环境准备完成",
+            "conditionExpression": ""
+          }
+        ],
+        "stepType": "expression"
+      },
+      {
+        "id": "step-diagnose",
+        "name": "采集并判断内存状态",
+        "description": "采集指定槽位的内存状态并计算是否超过阈值。",
+        "isStart": false,
+        "collectionCalls": [
+          {
+            "id": "call-memory-status",
+            "key": "memory",
+            "name": "采集内存状态",
+            "definitionLocalId": "memory-status",
+            "sampleCount": 1,
+            "inputBindings": {
+              "parameter-memory-slot": {
+                "kind": "workflow_input",
+                "reference": {"input_id": "input-slot-id"}
+              }
+            }
+          },
+          {
+            "id": "call-evaluate-memory",
+            "key": "evaluation",
+            "name": "评估内存状态",
+            "definitionLocalId": "evaluate-memory",
+            "sampleCount": 1,
+            "inputBindings": {
+              "parameter-evaluate-usage": {
+                "kind": "collection_output",
+                "reference": {"call_id": "call-memory-status", "output_id": "output-memory-usage"}
+              },
+              "parameter-evaluate-threshold": {
+                "kind": "workflow_input",
+                "reference": {"input_id": "input-warning-threshold"}
+              },
+              "parameter-evaluate-retries": {
+                "kind": "workflow_input",
+                "reference": {"input_id": "input-max-retries"}
+              },
+              "parameter-evaluate-history": {
+                "kind": "workflow_input",
+                "reference": {"input_id": "input-include-history"}
+              },
+              "parameter-evaluate-mode": {"kind": "literal", "reference": {}, "value": "fast"},
+              "parameter-evaluate-dry-run": {"kind": "literal", "reference": {}, "value": false},
+              "parameter-evaluate-baseline": {"kind": "literal", "reference": {}, "value": 0}
+            }
+          }
+        ],
+        "topology": [
+          {
+            "id": "transition-diagnose-to-recover",
+            "target": {"id": "step-recover"},
+            "conditionText": "内存使用率超过阈值",
+            "conditionExpression": "outputs.evaluation.over_threshold == True"
+          },
+          {
+            "id": "transition-diagnose-normal",
+            "target": {"id": "conclusion-normal"},
+            "conditionText": "内存状态正常",
+            "conditionExpression": ""
+          }
+        ],
+        "stepType": "expression"
+      },
+      {
+        "id": "step-recover",
+        "name": "执行恢复动作",
+        "description": "对指定槽位执行受控恢复动作并检查结果。",
+        "isStart": false,
+        "collectionCalls": [
+          {
+            "id": "call-recover-memory",
+            "key": "recovery",
+            "name": "恢复内存状态",
+            "definitionLocalId": "recover-memory",
+            "sampleCount": 1,
+            "inputBindings": {
+              "parameter-recover-slot": {
+                "kind": "workflow_input",
+                "reference": {"input_id": "input-slot-id"}
+              },
+              "parameter-recover-action": {"kind": "literal", "reference": {}, "value": "reset-process"},
+              "parameter-recover-force": {"kind": "literal", "reference": {}, "value": true}
+            }
+          }
+        ],
+        "topology": [
+          {
+            "id": "transition-recover-success",
+            "target": {"id": "conclusion-recovered"},
+            "conditionText": "恢复成功",
+            "conditionExpression": "outputs.recovery.recovered == True"
+          },
+          {
+            "id": "transition-recover-manual",
+            "target": {"id": "conclusion-manual"},
+            "conditionText": "自动恢复失败",
+            "conditionExpression": ""
+          }
+        ],
+        "stepType": "expression"
+      },
+      {
+        "id": "conclusion-normal",
+        "name": "无异常",
+        "rootCause": "内存使用率未超过告警阈值。",
+        "repairRecommendation": "无需处理。",
+        "nodeType": "conclusion"
+      },
+      {
+        "id": "conclusion-recovered",
+        "name": "异常已恢复",
+        "rootCause": "内存使用率超过阈值。",
+        "repairRecommendation": "持续观察内存趋势。",
+        "nodeType": "conclusion"
+      },
+      {
+        "id": "conclusion-manual",
+        "name": "需要人工处理",
+        "rootCause": "自动恢复动作未成功。",
+        "repairRecommendation": "升级人工排障并保留诊断输出。",
+        "nodeType": "conclusion"
+      }
+    ]
+  },
+  "collections": [
+    {
+      "localId": "prepare-environment",
+      "key": "prepare_environment",
+      "metadata": {"name": "准备执行环境", "description": "关闭终端分页。", "tags": ["integration"]},
+      "spec": {
+        "collectionType": "cli",
+        "commandTemplate": "screen-length 0 temporary",
+        "outputSamples": [{"id": "sample-prepare", "name": "成功", "stdout": "", "inputValues": {}}]
+      },
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "localId": "memory-status",
+      "key": "memory_status",
+      "metadata": {"name": "采集内存状态", "description": "读取指定槽位内存信息。", "tags": ["integration", "memory"]},
+      "spec": {
+        "collectionType": "cli",
+        "commandTemplate": "display memory slot {slot-id}",
+        "outputSamples": [
+          {"id": "sample-memory", "name": "高内存", "stdout": "Memory Usage: 86%", "inputValues": {"slot-id": "1"}}
+        ]
+      },
+      "inputs": [
+        {
+          "id": "parameter-memory-slot",
+          "key": "slot-id",
+          "required": true,
+          "schema": {"type": "string", "title": "槽位号", "description": "要检查的槽位号"}
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output-memory-usage",
+          "key": "usage_percentage",
+          "required": true,
+          "schema": {"type": "number", "title": "内存使用率", "description": "0 到 1 之间的内存使用率"}
+        },
+        {
+          "id": "output-memory-status",
+          "key": "status",
+          "required": true,
+          "schema": {"type": "string", "title": "内存状态", "description": "设备返回的内存状态"}
+        }
+      ]
+    },
+    {
+      "localId": "evaluate-memory",
+      "key": "evaluate_memory",
+      "metadata": {"name": "评估内存状态", "description": "根据阈值生成诊断结果。", "tags": ["integration", "diagnosis"]},
+      "spec": {"collectionType": "cli", "commandTemplate": "evaluate memory", "outputSamples": []},
+      "inputs": [
+        {"id": "parameter-evaluate-usage", "key": "usage", "required": true, "schema": {"type": "number", "title": "内存使用率", "description": "采集到的内存使用率"}},
+        {"id": "parameter-evaluate-threshold", "key": "threshold", "required": true, "schema": {"type": "number", "title": "阈值", "description": "告警阈值"}},
+        {"id": "parameter-evaluate-retries", "key": "retry_limit", "required": true, "schema": {"type": "integer", "title": "重试次数", "description": "最大重试次数"}},
+        {"id": "parameter-evaluate-history", "key": "include_history", "required": true, "schema": {"type": "boolean", "title": "历史数据", "description": "是否包含历史数据"}},
+        {"id": "parameter-evaluate-mode", "key": "mode", "required": true, "schema": {"type": "string", "title": "模式", "description": "诊断模式"}},
+        {"id": "parameter-evaluate-dry-run", "key": "dry_run", "required": true, "schema": {"type": "boolean", "title": "试运行", "description": "是否只试运行"}},
+        {"id": "parameter-evaluate-baseline", "key": "baseline", "required": true, "schema": {"type": "integer", "title": "基线", "description": "整数基线"}},
+        {"id": "parameter-evaluate-note", "key": "note", "required": false, "schema": {"type": "string", "title": "备注", "description": "可选诊断备注"}}
+      ],
+      "outputs": [
+        {"id": "output-evaluate-over-threshold", "key": "over_threshold", "required": true, "schema": {"type": "boolean", "title": "是否超阈值", "description": "是否需要执行恢复动作"}},
+        {"id": "output-evaluate-summary", "key": "summary", "required": true, "schema": {"type": "string", "title": "诊断摘要", "description": "内存诊断摘要"}}
+      ]
+    },
+    {
+      "localId": "recover-memory",
+      "key": "recover_memory",
+      "metadata": {"name": "恢复内存状态", "description": "执行受控恢复动作。", "tags": ["integration", "recovery"]},
+      "spec": {"collectionType": "cli", "commandTemplate": "reset process slot {slot-id}", "outputSamples": []},
+      "inputs": [
+        {"id": "parameter-recover-slot", "key": "slot-id", "required": true, "schema": {"type": "string", "title": "槽位号", "description": "要恢复的槽位号"}},
+        {"id": "parameter-recover-action", "key": "action", "required": true, "schema": {"type": "string", "title": "恢复动作", "description": "恢复动作名称"}},
+        {"id": "parameter-recover-force", "key": "force", "required": true, "schema": {"type": "boolean", "title": "强制执行", "description": "是否强制执行"}}
+      ],
+      "outputs": [
+        {"id": "output-recover-result", "key": "recovered", "required": true, "schema": {"type": "boolean", "title": "恢复结果", "description": "恢复动作是否成功"}},
+        {"id": "output-recover-message", "key": "message", "required": true, "schema": {"type": "string", "title": "恢复信息", "description": "恢复动作返回信息"}}
+      ]
+    }
+  ]
+}
