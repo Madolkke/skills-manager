@@ -279,7 +279,7 @@ function isMissingSkillError(error: unknown): boolean {
     <WorkflowConfirmModal
       v-if="pendingWorkflowRoute"
       title="离开 Workflow 编辑器"
-      description="当前 Workflow 有未保存修改，离开后这些修改将丢失。"
+      description="当前 Workflow 的修改尚未保存。离开后将无法恢复这些内容。"
       confirm-label="放弃并离开"
       tone="danger"
       @close="pendingWorkflowRoute = null"
