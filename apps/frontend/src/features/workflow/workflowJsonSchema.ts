@@ -1,6 +1,7 @@
 import type { WorkflowJsonSchema } from "../../types";
 
 export type WorkflowSchemaType = "string" | "integer" | "number" | "boolean" | "object" | "array";
+export type WorkflowSchemaEditorType = "string" | "integer" | "number" | "boolean" | "string-array" | "complex";
 
 export function newWorkflowSchema(type: WorkflowSchemaType = "string", title = "", description = ""): WorkflowJsonSchema {
   if (type === "object") return { type, title, description, properties: {}, required: [], additionalProperties: false };
@@ -10,6 +11,18 @@ export function newWorkflowSchema(type: WorkflowSchemaType = "string", title = "
 
 export function changeWorkflowSchemaType(schema: WorkflowJsonSchema, type: WorkflowSchemaType): WorkflowJsonSchema {
   return newWorkflowSchema(type, schema.title ?? "", schema.description ?? "");
+}
+
+export function workflowSchemaEditorType(schema: WorkflowJsonSchema): WorkflowSchemaEditorType {
+  if (schema.type === "array" && schema.items.type === "string") return "string-array";
+  if (schema.type === "string" || schema.type === "integer" || schema.type === "number" || schema.type === "boolean") return schema.type;
+  return "complex";
+}
+
+export function changeWorkflowSchemaEditorType(schema: WorkflowJsonSchema, type: WorkflowSchemaEditorType): WorkflowJsonSchema {
+  if (type === "string-array") return newWorkflowSchema("array", schema.title ?? "", schema.description ?? "");
+  if (type === "complex") return newWorkflowSchema("object", schema.title ?? "", schema.description ?? "");
+  return changeWorkflowSchemaType(schema, type);
 }
 
 export function workflowSchemaTitle(schema: WorkflowJsonSchema, fallback: string): string {
@@ -33,7 +46,7 @@ export function workflowSchemaIsLegacy(schema: WorkflowJsonSchema): boolean {
 export function canonicalWorkflowSchema(schema: WorkflowJsonSchema): WorkflowJsonSchema {
   if (schema.type === "object") {
     const properties = Object.fromEntries(Object.entries(schema.properties).sort(([left], [right]) => left.localeCompare(right)).map(([key, child]) => [key, canonicalWorkflowSchema(child)]));
-    return { ...schema, properties, required: [...new Set(schema.required)].filter((key) => key in properties).sort() };
+    return { ...schema, properties, required: Object.keys(properties) };
   }
   if (schema.type === "array") return { ...schema, items: canonicalWorkflowSchema(schema.items) };
   return { ...schema };

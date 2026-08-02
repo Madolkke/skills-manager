@@ -26,6 +26,20 @@
   width: min(1040px, calc(100vw - 48px));
 }
 
+.modal-card.editor {
+  width: min(780px, calc(100vw - 48px));
+}
+
+@media (max-width: 560px) {
+  .modal-card.editor {
+    width: calc(100vw - 24px);
+  }
+}
+
+.modal-card.compact {
+  width: min(520px, calc(100vw - 32px));
+}
+
 .modal-card.workspace {
   width: min(80vw, calc(100vw - 48px));
 }

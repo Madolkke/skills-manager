@@ -5,11 +5,46 @@ import { afterEach, describe, expect, it } from "vitest";
 import { nextTick } from "vue";
 import WorkflowJsonValueModal from "./components/WorkflowJsonValueModal.vue";
 import WorkflowSchemaEditorModal from "./components/WorkflowSchemaEditorModal.vue";
-import { workflowSchemasAssignable } from "./workflowJsonSchema";
+import type { WorkflowJsonSchema } from "../../types";
+import { workflowSchemaEditorType, workflowSchemasAssignable } from "./workflowJsonSchema";
 
 afterEach(() => { document.body.innerHTML = ""; });
 
 describe("Workflow Schema editor", () => {
+  it("按字段结构区分字符串数组与复杂对象", () => {
+    const complexSchemas: WorkflowJsonSchema[] = [
+      { type: "object", title: "", description: "", properties: {}, required: [], additionalProperties: false },
+      { type: "array", title: "", description: "", items: { type: "number", title: "", description: "" } },
+      {
+        type: "array", title: "", description: "",
+        items: {
+          type: "object", title: "", description: "", properties: {}, required: [], additionalProperties: false,
+        },
+      },
+      {
+        type: "array", title: "", description: "",
+        items: {
+          type: "array", title: "", description: "",
+          items: { type: "boolean", title: "", description: "" },
+        },
+      },
+      {
+        type: "array", title: "", description: "",
+        items: { "x-skillhub-legacy-loose": true },
+        "x-skillhub-legacy-loose": true,
+      },
+    ];
+
+    expect(complexSchemas.map(workflowSchemaEditorType)).toEqual([
+      "complex", "complex", "complex", "complex", "complex",
+    ]);
+    expect(workflowSchemaEditorType({
+      type: "array", title: "标签", description: "",
+      items: { type: "string", title: "", description: "" },
+      "x-skillhub-legacy-loose": true,
+    })).toBe("string-array");
+  });
+
   it("递归展示对象数组并按 Key 规范化确认结果", async () => {
     const wrapper = mount(WorkflowSchemaEditorModal, {
       attachTo: document.body,
@@ -21,7 +56,7 @@ describe("Workflow Schema editor", () => {
           type: "array", title: "数据行", description: "表格数据",
           items: {
             type: "object", title: "行", description: "", additionalProperties: false,
-            required: ["status", "name"],
+            required: ["status"],
             properties: {
               status: { type: "string", title: "状态", description: "" },
               name: { type: "string", title: "名称", description: "" },
@@ -33,8 +68,14 @@ describe("Workflow Schema editor", () => {
 
     expect(document.body.textContent).toContain("数组元素");
     expect(document.body.textContent).toContain("对象属性");
+    expect(document.body.querySelector(".modal-card.editor")).not.toBeNull();
+    expect(document.body.querySelector('.workflow-schema-property input[type="checkbox"]')).toBeNull();
+    const previewButton = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.includes("JSON Schema 预览"))!;
+    expect(previewButton.getAttribute("aria-expanded")).toBe("false");
     await clickButton("JSON Schema 预览");
+    expect(previewButton.getAttribute("aria-expanded")).toBe("true");
     expect(document.body.querySelector("pre")?.textContent).toContain('"additionalProperties": false');
+    expect([...document.body.querySelectorAll(".modal-actions .ui-button")].at(-1)?.classList).toContain("is-primary");
     await clickButton("确认 Schema");
 
     const confirmed = wrapper.emitted("confirm")?.[0]?.[0] as { items: { properties: Record<string, unknown>; required: string[] } };
@@ -54,8 +95,42 @@ describe("Workflow Schema editor", () => {
     expect(wrapper.emitted("confirm")).toBeUndefined();
   });
 
-  it("拒绝重复的对象属性 Key 并恢复原值", async () => {
+  it("顶层只允许复杂类型且名称说明保留在行内编辑", () => {
     mount(WorkflowSchemaEditorModal, {
+      attachTo: document.body,
+      props: {
+        open: true, fieldKey: "rows", readonly: false,
+        schema: { type: "array", title: "数据行", description: "表格数据", items: { type: "number", title: "数值", description: "" } },
+      },
+    });
+
+    const basics = document.body.querySelector(".workflow-schema-modal-body > .workflow-schema-node > .workflow-schema-basics")!;
+    expect([...basics.querySelectorAll("option")].map((option) => option.textContent)).toEqual(["object", "array"]);
+    expect(basics.querySelectorAll("input")).toHaveLength(0);
+  });
+
+  it("复杂数组改为 string items 后输出标准字符串数组", async () => {
+    const wrapper = mount(WorkflowSchemaEditorModal, {
+      attachTo: document.body,
+      props: {
+        open: true, fieldKey: "rows", readonly: false,
+        schema: { type: "array", title: "数据行", description: "表格数据", items: { type: "number", title: "数值", description: "" } },
+      },
+    });
+
+    const itemType = document.body.querySelector<HTMLSelectElement>(".workflow-schema-array-items .workflow-schema-basics select")!;
+    itemType.value = "string";
+    itemType.dispatchEvent(new Event("change"));
+    await nextTick();
+    await clickButton("确认 Schema");
+    expect(wrapper.emitted("confirm")?.[0]?.[0]).toEqual({
+      type: "array", title: "数据行", description: "表格数据",
+      items: { type: "string", title: "数值", description: "" },
+    });
+  });
+
+  it("拒绝重复 Key，并在重命名和删除后同步 required", async () => {
+    const wrapper = mount(WorkflowSchemaEditorModal, {
       attachTo: document.body,
       props: {
         open: true,
@@ -78,8 +153,16 @@ describe("Workflow Schema editor", () => {
     await nextTick();
 
     expect(propertyKeys[1]!.value).toBe("status");
-    await clickButton("JSON Schema 预览");
-    expect(document.body.querySelector("pre")?.textContent).toContain('"status"');
+    propertyKeys[1]!.value = "state";
+    propertyKeys[1]!.dispatchEvent(new Event("change"));
+    await nextTick();
+    document.body.querySelectorAll<HTMLButtonElement>('button[aria-label="删除属性"]')[0]!.click();
+    await nextTick();
+    await clickButton("确认 Schema");
+    expect(wrapper.emitted("confirm")?.[0]?.[0]).toMatchObject({
+      properties: { state: expect.any(Object) },
+      required: ["state"],
+    });
   });
 
   it("JSON 固定值不匹配时警告但允许确认", async () => {

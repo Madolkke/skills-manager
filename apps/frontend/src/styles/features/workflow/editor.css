@@ -484,6 +484,10 @@
   gap: 10px;
 }
 
+.workflow-sample-output {
+  font-family: var(--mono-font);
+}
+
 .workflow-inline-empty {
   min-height: 42px;
   display: flex;

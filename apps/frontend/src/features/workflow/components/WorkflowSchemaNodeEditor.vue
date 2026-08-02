@@ -7,9 +7,19 @@ import { changeWorkflowSchemaType, newWorkflowSchema, type WorkflowSchemaType } 
 import { cloneWorkflow } from "../domain/utils";
 
 defineOptions({ name: "WorkflowSchemaNodeEditor" });
-const props = withDefaults(defineProps<{ schema: WorkflowJsonSchema; readonly: boolean; depth?: number }>(), { depth: 0 });
+type NodeSchemaType = WorkflowSchemaType | "string-array";
+const props = withDefaults(defineProps<{
+  schema: WorkflowJsonSchema;
+  readonly: boolean;
+  depth?: number;
+  allowedTypes?: NodeSchemaType[];
+  showMetadata?: boolean;
+}>(), { depth: 0, allowedTypes: () => ["string", "integer", "number", "boolean", "string-array", "object", "array"], showMetadata: true });
 const emit = defineEmits<{ change: [schema: WorkflowJsonSchema] }>();
-const schemaTypes: WorkflowSchemaType[] = ["string", "integer", "number", "boolean", "object", "array"];
+const typeLabels: Record<NodeSchemaType, string> = {
+  string: "string", integer: "integer", number: "number", boolean: "boolean",
+  "string-array": "字符串数组（string[]）", object: "object", array: "array",
+};
 
 function update(recipe: (draft: WorkflowJsonSchema) => void): void {
   const draft = cloneWorkflow(props.schema);
@@ -17,7 +27,16 @@ function update(recipe: (draft: WorkflowJsonSchema) => void): void {
   emit("change", draft);
 }
 
-function setType(type: WorkflowSchemaType): void {
+function selectedType(): NodeSchemaType | "" {
+  if (props.schema.type === "array" && props.schema.items.type === "string") return "string-array";
+  return props.schema.type ?? "";
+}
+
+function setType(type: NodeSchemaType): void {
+  if (type === "string-array") {
+    emit("change", newWorkflowSchema("array", props.schema.title ?? "", props.schema.description ?? ""));
+    return;
+  }
   emit("change", changeWorkflowSchemaType(props.schema, type));
 }
 
@@ -59,28 +78,21 @@ function removeProperty(key: string): void {
   });
 }
 
-function setRequired(key: string, required: boolean): void {
-  update((draft) => {
-    if (draft.type !== "object") return;
-    draft.required = required ? [...new Set([...draft.required, key])] : draft.required.filter((item) => item !== key);
-  });
-}
 </script>
 
 <template>
   <section class="workflow-schema-node" :style="{ '--schema-depth': props.depth }">
-    <div class="workflow-schema-basics">
-      <label><span>类型</span><select :value="props.schema.type ?? ''" :disabled="props.readonly" @change="setType(($event.target as HTMLSelectElement).value as WorkflowSchemaType)"><option v-if="!props.schema.type" value="">any（旧版）</option><option v-for="type in schemaTypes" :key="type" :value="type">{{ type }}</option></select></label>
-      <label><span>显示名称</span><input :value="props.schema.title ?? ''" :disabled="props.readonly" placeholder="字段名称" @input="update((draft) => { draft.title = ($event.target as HTMLInputElement).value; })" /></label>
-      <label class="workflow-schema-description"><span>说明</span><input :value="props.schema.description ?? ''" :disabled="props.readonly" placeholder="字段用途（可选）" @input="update((draft) => { draft.description = ($event.target as HTMLInputElement).value; })" /></label>
+    <div :class="['workflow-schema-basics', !props.showMetadata && 'type-only']">
+      <label><span>类型</span><select :value="selectedType()" :disabled="props.readonly" @change="setType(($event.target as HTMLSelectElement).value as NodeSchemaType)"><option v-if="!props.schema.type" value="">any（旧版）</option><option v-for="type in props.allowedTypes" :key="type" :value="type">{{ typeLabels[type] }}</option></select></label>
+      <label v-if="props.showMetadata"><span>显示名称</span><input :value="props.schema.title ?? ''" :disabled="props.readonly" placeholder="字段名称" @input="update((draft) => { draft.title = ($event.target as HTMLInputElement).value; })" /></label>
+      <label v-if="props.showMetadata" class="workflow-schema-description"><span>说明</span><input :value="props.schema.description ?? ''" :disabled="props.readonly" placeholder="字段用途（可选）" @input="update((draft) => { draft.description = ($event.target as HTMLInputElement).value; })" /></label>
     </div>
 
     <div v-if="props.schema.type === 'object'" class="workflow-schema-children">
       <header><div><strong>对象属性</strong><small>{{ Object.keys(props.schema.properties).length }} 个字段</small></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addProperty"><template #icon><Plus /></template>添加属性</UiButton></header>
       <article v-for="(child, key) in props.schema.properties" :key="key" class="workflow-schema-property">
         <div class="workflow-schema-property-head">
-          <label><span>Property Key</span><input :value="key" :disabled="props.readonly" @change="renameProperty(key, $event.target as HTMLInputElement)" /></label>
-          <label class="workflow-check"><input type="checkbox" :checked="props.schema.required.includes(key)" :disabled="props.readonly" @change="setRequired(key, ($event.target as HTMLInputElement).checked)" />必填</label>
+          <label><span>变量名</span><input :value="key" :disabled="props.readonly" @change="renameProperty(key, $event.target as HTMLInputElement)" /></label>
           <UiIconButton label="删除属性" size="sm" variant="danger" :disabled="props.readonly" @click="removeProperty(key)"><Trash2 /></UiIconButton>
         </div>
         <WorkflowSchemaNodeEditor :schema="child" :readonly="props.readonly" :depth="props.depth + 1" @change="updateProperty(key, $event)" />

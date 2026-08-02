@@ -97,6 +97,15 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 从 v3 迁移且无法推断元素结构的 `array`/`object` 会带 `x-skillhub-legacy-loose: true`，编辑器显示兼容警告；新建 Schema 不能产生该标记。
 
+编辑器按复杂度提供两种入口：
+
+- Workflow 全局输入、Collection 输入和 Collection 输出在界面中不提供“是否必填”开关，新建字段默认写入 `required: true`；为保持文档兼容，已有 `required: false` 不会被普通行内编辑自动覆盖。
+- `string`、`integer`、`number`、`boolean` 和字符串数组在字段行内编辑类型、显示名称及说明。字符串数组仍保存为 `type: "array"` 且 `items.type: "string"`，不是新的 Schema 类型。
+- `object` 以及 items 不是 string 的其他数组统一显示为“复杂对象”，通过 Schema 弹窗维护 object/array 根类型和递归子结构。
+- 复杂 Schema 弹窗中的对象属性统一视为必填，不提供单独开关；确认弹窗时会递归将该 Schema 内所有对象属性写入对应 `required`。取消弹窗或未打开历史 Schema 均不会触发该规范化。
+- 复杂对象切换为标量或字符串数组会删除嵌套结构，编辑器必须在修改前要求确认。标量切换为复杂对象时默认创建 `additionalProperties: false` 的空 object。
+- 只要数组的 `items.type` 为 `string`，包括仍带 legacy loose 标记的文档，编辑器都按字符串数组展示；除非作者主动切换类型，否则保存不会移除兼容标记。
+
 ### Binding
 
 | 字段 | 类型 | 必填 | 默认值 | 含义 |

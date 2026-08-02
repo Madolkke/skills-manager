@@ -162,14 +162,14 @@ describe("Workflow UI state", () => {
     expect(wrapper.findAll(".workflow-setting-field > span").map((item) => item.text())).toEqual([
       "角色 Key", "角色名称", "角色说明",
     ]);
-    expect(wrapper.get('input[aria-label="参数 Key"]').attributes("placeholder")).toBe("interface_name");
+    expect(wrapper.get('input[aria-label="参数变量名"]').attributes("placeholder")).toBe("interface_name");
     expect(wrapper.get('input[aria-label="角色 Key"]').attributes("placeholder")).toBe("primary");
-    expect(wrapper.find('.workflow-schema-field-grid input[type="checkbox"]').exists()).toBe(true);
+    expect(wrapper.find('.workflow-schema-field-grid input[type="checkbox"]').exists()).toBe(false);
     expect(wrapper.find('.workflow-setting-row.is-role input[type="checkbox"]').exists()).toBe(true);
     expect(document.activeElement).toBe(wrapper.get('[aria-labelledby="workflow-inputs-heading"]').element);
 
     await wrapper.findAll("button").find((button) => button.text().includes("添加输入"))!.trigger("click");
-    await wrapper.get('input[aria-label="参数 Key"]').setValue("interface_name");
+    await wrapper.get('input[aria-label="参数变量名"]').setValue("interface_name");
     await wrapper.get('button[aria-label="删除输入"]').trigger("click");
     await wrapper.findAll("button").find((button) => button.text().includes("添加设备角色"))!.trigger("click");
     await wrapper.get('input[aria-label="角色名称"]').setValue("主设备");

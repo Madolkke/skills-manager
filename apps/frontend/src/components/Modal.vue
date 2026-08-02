@@ -7,7 +7,7 @@ import UiIconButton from "./ui/UiIconButton.vue";
 const props = withDefaults(defineProps<{
   title: string;
   description?: string;
-  size?: "default" | "wide" | "workspace";
+  size?: "compact" | "default" | "editor" | "wide" | "workspace";
   open?: boolean;
   motion?: "default" | "workflow";
 }>(), { open: true, motion: "default", size: "default", description: undefined });
@@ -41,7 +41,7 @@ function afterLeave(): void {
       <div v-if="props.open" :class="['modal-backdrop', props.motion === 'workflow' && 'motion-workflow']" @click="emit('close')" />
     </Transition>
     <Transition :name="props.motion === 'workflow' ? 'workflow-modal-surface' : undefined" @after-leave="afterLeave">
-      <section v-if="props.open" :class="clsx('modal-card', props.size === 'wide' && 'wide', props.size === 'workspace' && 'workspace', props.motion === 'workflow' && 'motion-workflow')" role="dialog" aria-modal="true" :aria-label="props.title">
+      <section v-if="props.open" :class="clsx('modal-card', props.size !== 'default' && props.size, props.motion === 'workflow' && 'motion-workflow')" role="dialog" aria-modal="true" :aria-label="props.title">
         <header class="modal-head">
           <div>
             <h2 class="modal-title">{{ props.title }}</h2>
