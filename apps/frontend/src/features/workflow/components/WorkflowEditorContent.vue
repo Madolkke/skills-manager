@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import type { CollectionDefinition, SkillTagPayload, TagGroup, VersionedRef, WorkflowSelection } from "../../../types";
+import { computed, ref } from "vue";
+import type { CollectionDefinition, SkillTagPayload, TagGroup, VersionedRef, WorkflowBundle, WorkflowSelection } from "../../../types";
 import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
 import type { useWorkflowEditor } from "../useWorkflowEditor";
 import WorkflowCollectionLibrary from "./WorkflowCollectionLibrary.vue";
@@ -8,6 +8,7 @@ import WorkflowConclusionEditor from "./WorkflowConclusionEditor.vue";
 import WorkflowMetadataEditor from "./WorkflowMetadataEditor.vue";
 import WorkflowSettingsEditor from "./WorkflowSettingsEditor.vue";
 import WorkflowStepEditor from "./WorkflowStepEditor.vue";
+import WorkflowDebugModal from "../debug/components/WorkflowDebugModal.vue";
 import { workflowConclusions, workflowSteps } from "../domain/utils";
 
 const props = defineProps<{
@@ -17,6 +18,10 @@ const props = defineProps<{
   tagGroups: TagGroup[];
   tagBusy: boolean;
   tagError: string;
+  skillId: string;
+  savedBundle: WorkflowBundle;
+  savedRevision: number;
+  workflowDirty: boolean;
 }>();
 const emit = defineEmits<{
   select: [selection: WorkflowSelection];
@@ -33,6 +38,9 @@ const selectedStep = computed(() => {
     ? workflowSteps(props.editor.bundle.value).find((item) => item.id === selection.id)
     : undefined;
 });
+const debugStepId = ref<string | null>(null);
+const debugStep = computed(() => workflowSteps(props.savedBundle).find((item) => item.id === debugStepId.value));
+const savedSelectedStep = computed(() => workflowSteps(props.savedBundle).find((item) => item.id === selectedStep.value?.id));
 const selectedConclusion = computed(() => {
   const selection = props.editor.selection.value;
   return selection.type === "conclusion" && props.editor.bundle.value
@@ -114,8 +122,9 @@ function openWorkflowTarget(targetId: string): void {
       <WorkflowMetadataEditor v-if="props.editor.selection.value.type === 'metadata'" :metadata="props.editor.bundle.value.workflow.metadata" :readonly="props.readonly" :tags="props.tags" :tag-groups="props.tagGroups" :tag-busy="props.tagBusy" :tag-error="props.tagError" @change="props.editor.updateMetadata" @tag-change="emit('tag-change', $event)" @tag-save="emit('tag-save', $event)" />
       <WorkflowSettingsEditor v-else-if="props.editor.selection.value.type === 'inputs' || props.editor.selection.value.type === 'roles'" :inputs="props.editor.bundle.value.workflow.inputs" :roles="props.editor.bundle.value.workflow.deviceRoles" :target="props.editor.selection.value.type" :readonly="props.readonly" @add-input="props.editor.addInput" @update-input="props.editor.updateInput" @remove-input="props.editor.removeInput" @add-role="props.editor.addDeviceRole" @update-role="props.editor.updateDeviceRole" @remove-role="props.editor.removeDeviceRole" />
       <WorkflowCollectionLibrary v-else-if="props.editor.selection.value.type === 'collections' || props.editor.selection.value.type === 'collection'" :definitions="props.editor.catalog.value" :selected-ref="selectedCollectionRef" :changes="props.editor.changes.value" :referenced-definition-ids="referencedDefinitionIds" :readonly="props.readonly" @select="selectCatalog" @add="props.editor.addDefinition" @change="updateDefinition" @remove="props.editor.removeDraftDefinition" />
-      <WorkflowStepEditor v-else-if="selectedStep" :step="selectedStep" :bundle="props.editor.bundle.value" :catalog="props.editor.catalog.value" :changes="props.editor.changes.value" :issues="props.editor.issues.value" :target="props.editor.selection.value" :readonly="props.readonly" @change="props.editor.updateStep(selectedStep.id, $event)" @duplicate="props.editor.duplicateStep(selectedStep.id)" @remove="emit('request-delete', 'step', selectedStep.id)" @add-call="addExistingCall" @add-draft="addDraftCall" @call-change="(id, patch) => props.editor.updateCall(selectedStep!.id, id, patch)" @call-remove="emit('request-delete', 'call', $event, selectedStep.id)" @call-move="(id, direction) => props.editor.moveCall(selectedStep!.id, id, direction)" @call-reorder="props.editor.reorderCalls(selectedStep.id, $event)" @binding-change="(callId, inputId, binding) => props.editor.updateCallBinding(selectedStep!.id, callId, inputId, binding)" @definition-change="(callId, definition) => updateCallDefinition(selectedStep!.id, callId, definition)" @path-add="addWorkflowPath" @path-retarget="retargetWorkflowPath" @path-change="(id, patch) => props.editor.updatePath(selectedStep!.id, id, patch)" @path-remove="props.editor.removePath(selectedStep.id, $event)" @path-move="(id, direction) => props.editor.movePath(selectedStep!.id, id, direction)" @path-open-target="openWorkflowTarget" @predecessor-open="(id) => select({ type: 'step', id })" />
+      <WorkflowStepEditor v-else-if="selectedStep" :step="selectedStep" :bundle="props.editor.bundle.value" :catalog="props.editor.catalog.value" :changes="props.editor.changes.value" :issues="props.editor.issues.value" :target="props.editor.selection.value" :readonly="props.readonly" :debuggable="!props.readonly && savedSelectedStep?.stepType === 'expression'" @debug="debugStepId = selectedStep.id" @change="props.editor.updateStep(selectedStep.id, $event)" @duplicate="props.editor.duplicateStep(selectedStep.id)" @remove="emit('request-delete', 'step', selectedStep.id)" @add-call="addExistingCall" @add-draft="addDraftCall" @call-change="(id, patch) => props.editor.updateCall(selectedStep!.id, id, patch)" @call-remove="emit('request-delete', 'call', $event, selectedStep.id)" @call-move="(id, direction) => props.editor.moveCall(selectedStep!.id, id, direction)" @call-reorder="props.editor.reorderCalls(selectedStep.id, $event)" @binding-change="(callId, inputId, binding) => props.editor.updateCallBinding(selectedStep!.id, callId, inputId, binding)" @definition-change="(callId, definition) => updateCallDefinition(selectedStep!.id, callId, definition)" @path-add="addWorkflowPath" @path-retarget="retargetWorkflowPath" @path-change="(id, patch) => props.editor.updatePath(selectedStep!.id, id, patch)" @path-remove="props.editor.removePath(selectedStep.id, $event)" @path-move="(id, direction) => props.editor.movePath(selectedStep!.id, id, direction)" @path-open-target="openWorkflowTarget" @predecessor-open="(id) => select({ type: 'step', id })" />
       <WorkflowConclusionEditor v-else-if="selectedConclusion" :conclusion="selectedConclusion" :bundle="props.editor.bundle.value" :readonly="props.readonly" @change="props.editor.updateConclusion(selectedConclusion.id, $event)" @remove="emit('request-delete', 'conclusion', selectedConclusion.id)" @predecessor-open="(id) => select({ type: 'step', id })" />
     </div>
   </Transition>
+  <WorkflowDebugModal v-if="debugStep" :open="true" :skill-id="props.skillId" :bundle="props.savedBundle" :revision="props.savedRevision" :step="debugStep" :workflow-dirty="props.workflowDirty" @close="debugStepId = null" />
 </template>

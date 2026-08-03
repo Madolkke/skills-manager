@@ -20,8 +20,10 @@ from skillhub.services import (
     SkillBuilderService,
     SkillService,
     VersionService,
+    WorkflowDebugService,
     WorkflowService,
 )
+from skillhub.services.workflow_debug_runtime import WorkflowDebugSettings
 
 
 def session_dependency(request: Request) -> Iterator[Session]:
@@ -49,6 +51,12 @@ def executor_workflow_service_dependency(
     session: Session = Depends(session_dependency, scope="function"),
 ) -> ExecutorWorkflowService:
     return ExecutorWorkflowService(SkillHubStore(session))
+
+
+def workflow_debug_service_dependency(
+    session: Session = Depends(session_dependency, scope="function"),
+) -> WorkflowDebugService:
+    return WorkflowDebugService(SkillHubStore(session), WorkflowDebugSettings.from_environ(environ))
 
 
 def review_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> ReviewService:

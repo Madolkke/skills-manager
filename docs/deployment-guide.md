@@ -15,6 +15,7 @@ SkillHub 由以下组件组成：
 | PostgreSQL | 外部数据库 | 是 | Skill、版本、测评、评审、发布、权限和 artifact 元数据的事实源。 |
 | Worker | `apps/backend/skillhub_worker` | 异步任务需要 | 消费测评、AI 创建和发布任务；确认发布接口本身只负责入队。 |
 | Opencode | 外部服务 | 测评和 AI 创建需要 | SkillHub 不管理 provider key，只读取其 provider/model 配置并调用运行接口。 |
+| Workflow 执行器 | 外部服务 | 单步调试需要 | 接收严格的 Executor Workflow 投影，并提供 Step 启动、状态查询和暂停恢复接口。 |
 | Laminar | 外部服务 | 可选 | 用于记录测评 trace。未配置时不阻断测评。 |
 
 ## 2. 前置要求
@@ -76,6 +77,10 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `SKILLHUB_DATABASE_STATEMENT_TIMEOUT_MS` | `30000` | PostgreSQL 单条语句最长执行时间，单位毫秒。 |
 | `SKILLHUB_DATABASE_LOCK_TIMEOUT_MS` | `5000` | PostgreSQL 锁等待上限，单位毫秒。 |
 | `OPENCODE_BASE_URL` | 后端默认 `http://127.0.0.1:4096`，Worker 默认 `http://opencode:4096` | Opencode 服务地址。 |
+| `WORKFLOW_EXECUTOR_BASE_URL` | 无 | 外部 Workflow 执行器地址。未配置时仍可维护调试例，但启动运行返回 `503`。 |
+| `WORKFLOW_EXECUTOR_REQUEST_TIMEOUT_SECONDS` | `10` | SkillHub 调用执行器单个 HTTP 请求的超时秒数。 |
+| `WORKFLOW_DEBUG_POLL_INTERVAL_SECONDS` | `2` | Workflow 单步调试前端推进运行状态的建议轮询间隔。 |
+| `WORKFLOW_DEBUG_MAX_DURATION_SECONDS` | `300` | 单次调试从创建起允许保持活动状态的最长时间。 |
 | `EVAL_WORKDIR_HOST` | Worker 默认 `/var/lib/skillhub/eval-runs` | Worker 在宿主机上的测评工作目录。 |
 | `EVAL_WORKDIR_CONTAINER` | `/workspace/eval-runs` | 传给容器化 Opencode 时使用的容器内路径。 |
 | `EVAL_RUNNER_POLL_SECONDS` | `2` | Worker 轮询任务间隔。 |
@@ -128,7 +133,9 @@ uv run python -m skillhub.models.schema.cli check
 uv run alembic check
 ```
 
-当前正式迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators -> 0004_workflow_json_schema_v4`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。`0004` 再执行 Workflow JSON Schema v4 数据迁移。已有且已纳入 Alembic 的数据库必须从当前 revision 连续升级，禁止跳过中间 revision。
+当前正式迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators -> 0004_workflow_json_schema_v4 -> 0005_workflow_step_debug`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。`0004` 执行 Workflow JSON Schema v4 数据迁移，`0005` 新增非版本化的 Workflow 调试例与运行记录表。已有且已纳入 Alembic 的数据库必须从当前 revision 连续升级，禁止跳过中间 revision。
+
+若数据库曾在 Generator 迁移进入主链前应用历史 revision `0003_workflow_json_schema_v4`，初始化命令会在单个事务中补执行 Generator 迁移，并将已完成的 JSON Schema v4 迁移映射为当前 `0004`，随后继续升级到 head；不会重复改写 Workflow revision。其他未知 revision 仍会拒绝启动，禁止手工 stamp 绕过结构检查。
 
 空数据库会依次执行完整迁移链并写入固定发布目标。升级前必须备份数据库，升级后执行 revision、唯一 head 与 metadata drift 检查。
 

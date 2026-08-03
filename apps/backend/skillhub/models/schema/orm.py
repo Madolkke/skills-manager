@@ -20,6 +20,7 @@ from skillhub.models.schema.reviews import (
 )
 from skillhub.models.schema.runtime import Job, OpencodeAgent, SkillBuilderMessage, SkillBuilderSession, WorkerHeartbeat
 from skillhub.models.schema.skills import Skill, SkillTag, SkillVersion
+from skillhub.models.schema.workflow_debug import WorkflowDebugCase, WorkflowDebugRun
 from skillhub.models.schema.workflows import Workflow, WorkflowCollectionDefinition, WorkflowCollectionRevision, WorkflowSync
 
 ModelT = TypeVar("ModelT", bound=DeclarativeBase)
@@ -75,6 +76,8 @@ __all__ = [
     "Workflow",
     "WorkflowCollectionDefinition",
     "WorkflowCollectionRevision",
+    "WorkflowDebugCase",
+    "WorkflowDebugRun",
     "WorkflowSync",
     "entity_columns",
     "select_entity",

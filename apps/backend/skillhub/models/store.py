@@ -27,6 +27,7 @@ from skillhub.models.operations.shared.results import (
 from skillhub.models.operations.skill_builder import SkillBuilderStoreMixin
 from skillhub.models.operations.skills import SkillStoreMixin
 from skillhub.models.operations.workers import WorkerStatusMixin
+from skillhub.models.operations.workflow_debug import WorkflowDebugStoreMixin
 from skillhub.models.operations.workflows import WorkflowStoreMixin
 
 
@@ -41,6 +42,7 @@ class _StoreOperations(
     SkillBuilderStoreMixin,
     WorkerStatusMixin,
     WorkflowStoreMixin,
+    WorkflowDebugStoreMixin,
     SharedStoreMixin,
 ):
     pass
@@ -62,6 +64,7 @@ class SkillHubStore:
         self.evaluations = self._operations
         self.reviews = self._operations
         self.workflows = self._operations
+        self.workflow_debug = self._operations
         self.admin = self._operations
         self.builder = self._operations
         self.workers = self._operations

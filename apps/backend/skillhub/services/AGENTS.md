@@ -23,6 +23,11 @@
 - `skills.py`：封装 Skill 创建、导入、更新、权限和列表详情查询流程。
 - `versions.py`：封装 Skill 版本创建流程。
 - `workflows.py`：封装 Workflow Skill 原子创建、显式保存、Import Bundle 导入、元信息更新和 Catalog 读取。
+- `workflow_executor_client.py`：封装外部执行器的单步运行、状态查询、暂停输入结构读取和恢复调用，并校验其协议响应。
+- `workflow_debug.py`：组合 Workflow 单步调试案例和运行编排能力。
+- `workflow_debug_cases.py`：封装调试例 CRUD、字段清洗和当前 Workflow 引用检查。
+- `workflow_debug_runs.py`：编排调试运行启动、轮询、暂停恢复、目标判定和持久化状态流转。
+- `workflow_debug_runtime.py`：解析执行器运行配置，并提供调试历史游标和公共响应投影。
 - `workflow_syncs.py`：编排 Workflow Generator 目录、无副作用同步预览、确认摘要校验和 SkillVersion 同步。
 
 ## 依赖方向

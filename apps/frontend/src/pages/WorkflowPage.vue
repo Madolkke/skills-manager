@@ -197,8 +197,13 @@ function beforeUnload(event: BeforeUnloadEvent): void {
 
       <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="layout.graphExpanded.value" :inert="layout.graphExpanded.value">
         <WorkflowEditorContent
+          v-if="detail"
           :editor="editor"
           :readonly="readOnly"
+          :skill-id="skill.skill.id"
+          :saved-bundle="detail.document"
+          :saved-revision="detail.revision"
+          :workflow-dirty="editor.dirty.value"
           :tags="skillTags.tags.value"
           :tag-groups="skillTags.groups.value"
           :tag-busy="skillTags.busy.value"

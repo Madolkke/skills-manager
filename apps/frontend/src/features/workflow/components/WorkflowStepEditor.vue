@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Braces, Code2, Copy, Trash2 } from "lucide-vue-next";
+import { Braces, BugPlay, Code2, Copy, Trash2 } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
@@ -28,6 +28,7 @@ const props = defineProps<{
   issues: WorkflowValidationIssue[];
   target: WorkflowSelection;
   readonly: boolean;
+  debuggable?: boolean;
 }>();
 const emit = defineEmits<{
   change: [patch: Partial<WorkflowStep>];
@@ -48,6 +49,7 @@ const emit = defineEmits<{
   "path-move": [id: string, direction: -1 | 1];
   "path-open-target": [id: string];
   "predecessor-open": [id: string];
+  debug: [];
 }>();
 
 const root = ref<HTMLElement | null>(null);
@@ -111,7 +113,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
     <header class="workflow-document-head">
       <div class="workflow-step-index">STEP</div>
       <div><h2>{{ props.step.name }}</h2><p>{{ props.step.description || "尚未填写步骤说明" }}</p></div>
-      <div class="workflow-row-actions"><UiButton variant="secondary" :disabled="props.readonly" @click="emit('duplicate')"><template #icon><Copy /></template>复制</UiButton><UiIconButton label="删除步骤" variant="danger" :disabled="props.readonly" @click="emit('remove')"><Trash2 /></UiIconButton></div>
+      <div class="workflow-row-actions"><UiButton v-if="props.debuggable" variant="secondary" @click="emit('debug')"><template #icon><BugPlay /></template>单步调试</UiButton><UiButton variant="secondary" :disabled="props.readonly" @click="emit('duplicate')"><template #icon><Copy /></template>复制</UiButton><UiIconButton label="删除步骤" variant="danger" :disabled="props.readonly" @click="emit('remove')"><Trash2 /></UiIconButton></div>
     </header>
 
     <WorkflowSectionNav :active="activeSection" :sections="sections" @select="scrollTo($event)" />

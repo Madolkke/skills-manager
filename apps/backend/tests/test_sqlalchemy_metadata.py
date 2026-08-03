@@ -18,6 +18,8 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "workflow_syncs",
                 "workflow_collection_definitions",
                 "workflow_collection_revisions",
+                "workflow_debug_cases",
+                "workflow_debug_runs",
                 "eval_sets",
                 "eval_cases",
                 "eval_case_versions",

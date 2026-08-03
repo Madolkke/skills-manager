@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypeVar, cast
 
-from pydantic import ValidationError
-
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
+from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.rules.executor_workflows.references import allocate_ids, group_definitions, group_nodes, output_path
 from skillhub.models.rules.executor_workflows.schema import (
     ExecutorCollection,
@@ -289,11 +287,9 @@ class _Converter:
 
 def convert_workflow_document(document: dict[str, Any]) -> ExecutorWorkflow:
     """Convert one normalized authoring Workflow document into the executor contract."""
-    try:
-        bundle = WorkflowBundle.model_validate(document)
-    except ValidationError as exc:
-        raise InvariantError("Workflow 文档格式不正确。") from exc
-    return _Converter(bundle).convert()
+    from skillhub.models.rules.executor_workflows.projection import project_workflow_document
+
+    return project_workflow_document(document).workflow
 
 
 __all__ = ["convert_workflow_document"]

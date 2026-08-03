@@ -76,6 +76,8 @@ class SkillDeletionMixin:
             "reviews": self._ids(session, select(orm.ReviewRequest.id).where(orm.ReviewRequest.skill_id == skill_id)),
             "publish_records": self._ids(session, select(orm.PublishRecord.id).where(orm.PublishRecord.skill_id == skill_id)),
             "workflows": self._ids(session, select(orm.Workflow.id).where(orm.Workflow.skill_id == skill_id)),
+            "workflow_debug_cases": self._ids(session, select(orm.WorkflowDebugCase.id).where(orm.WorkflowDebugCase.skill_id == skill_id)),
+            "workflow_debug_runs": self._ids(session, select(orm.WorkflowDebugRun.id).where(orm.WorkflowDebugRun.skill_id == skill_id)),
             "groups": self._ids(
                 session,
                 select(orm.Group.id)
@@ -172,6 +174,8 @@ class SkillDeletionMixin:
         session.execute(delete(orm.ReviewRequest).where(orm.ReviewRequest.skill_id == skill_id))
 
         session.execute(delete(orm.WorkflowSync).where(orm.WorkflowSync.id.in_(owned["workflow_syncs"])))
+        session.execute(delete(orm.WorkflowDebugRun).where(orm.WorkflowDebugRun.skill_id == skill_id))
+        session.execute(delete(orm.WorkflowDebugCase).where(orm.WorkflowDebugCase.skill_id == skill_id))
         session.execute(delete(orm.Workflow).where(orm.Workflow.skill_id == skill_id))
         session.execute(delete(orm.SavedView).where(orm.SavedView.skill_id == skill_id))
         session.execute(delete(orm.SkillTag).where(orm.SkillTag.skill_id == skill_id))
@@ -200,6 +204,8 @@ class SkillDeletionMixin:
             "review_request": owned["reviews"],
             "publish_record": owned["publish_records"],
             "workflow": owned["workflows"],
+            "workflow_debug_case": owned["workflow_debug_cases"],
+            "workflow_debug_run": owned["workflow_debug_runs"],
             "group": owned["groups"],
         }
         notification_conditions = [

@@ -13,6 +13,7 @@
 - `responses.py`：把领域对象和 service 返回值转换成 HTTP 响应结构。
 - `workflows.py`：提供 Workflow Skill 创建、文档保存、Import Bundle 导入、元信息、Collection Catalog 和同步接口。
 - `executor_workflows.py`：提供无需 actor 的外部执行器 Workflow 只读转换接口。
+- `workflow_debug.py`：提供要求 `skill.edit` 的 Workflow 调试例、运行历史、启动和单次推进接口。
 - 其他业务文件：按资源组织 endpoint，例如 `skills.py`、`evaluations.py`、`reviews.py`。
 
 ## 依赖方向
