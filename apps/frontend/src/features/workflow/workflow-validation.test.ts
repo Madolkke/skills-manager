@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
+import type { CliCollectionSpec, CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
 import { validateWorkflow } from "./domain/validation";
 
 describe("workflow validation consistency", () => {
@@ -32,7 +32,7 @@ describe("workflow validation consistency", () => {
     step.topology[0]!.id = "";
     definition.inputs = [{ id: "", key: "", required: true, schema: stringSchema("Input") }];
     definition.outputs = [{ id: "", key: "", required: true, schema: stringSchema("Output") }];
-    definition.spec.outputSamples = [{ id: "", name: "Sample", stdout: "", inputValues: {} }];
+    (definition.spec as CliCollectionSpec).outputSamples = [{ id: "", name: "Sample", stdout: "", inputValues: {} }];
 
     const issues = validateWorkflow(bundle);
     const codes = new Set(issues.map((item) => item.code));
@@ -63,7 +63,7 @@ describe("workflow validation consistency", () => {
     const output = { id: "output-1", key: "status", required: true, schema: stringSchema("Output") };
     definition.outputs = [output, structuredClone(output)];
     const sample = { id: "sample-1", name: "Sample", stdout: "", inputValues: {} };
-    definition.spec.outputSamples = [sample, structuredClone(sample)];
+    (definition.spec as CliCollectionSpec).outputSamples = [sample, structuredClone(sample)];
     bundle.collectionSnapshots.push(structuredClone(definition));
 
     const codes = new Set(validateWorkflow(bundle).map((item) => item.code));

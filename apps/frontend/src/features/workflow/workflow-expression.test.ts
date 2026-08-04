@@ -139,7 +139,7 @@ describe("WorkflowExpressionEditor", () => {
       return { inferredType: { kind: "boolean" }, diagnostics: [] };
     });
     const wrapper = mount(WorkflowExpressionEditor, {
-      props: { value: "inputs.tenant", variables: [], environment: { inputs: { tenant: { type: "string", title: "租户", description: "" } }, outputs: {} } },
+      props: { value: "inputs.tenant", variables: [], environment: { inputs: { tenant: { type: "string", title: "租户", description: "" } }, outputs: {}, config: {} } },
     });
 
     await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(1);

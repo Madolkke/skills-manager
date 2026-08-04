@@ -51,14 +51,35 @@ export type CollectionOutput = { id: string; key: string; required: boolean; sch
 
 export type WorkflowExpressionDiagnostic = { severity: "warning"; code: string; message: string; start: number; end: number };
 export type WorkflowExpressionValidation = { inferredType: Record<string, unknown>; diagnostics: WorkflowExpressionDiagnostic[] };
-export type WorkflowExpressionEnvironment = { inputs: Record<string, WorkflowJsonSchema>; outputs: Record<string, Record<string, WorkflowJsonSchema>> };
+export type WorkflowConfigCapture = WorkflowScalarSchema;
+export type WorkflowConfigCommand = {
+  name: string;
+  unique: boolean;
+  pattern: string;
+  captures: Record<string, WorkflowConfigCapture>;
+  children: WorkflowConfigCommand[];
+};
+export type ConfigCollectionSpec = { collectionType: "config"; config: { commands: WorkflowConfigCommand[] } };
+export type WorkflowExpressionSchema = {
+  type: "string" | "integer" | "number" | "boolean" | "object" | "array" | ["object", "null"];
+  title: string;
+  description: string;
+  properties?: Record<string, WorkflowExpressionSchema>;
+  items?: WorkflowExpressionSchema;
+  required?: string[];
+};
+export type WorkflowExpressionEnvironment = {
+  inputs: Record<string, WorkflowJsonSchema>;
+  outputs: Record<string, Record<string, WorkflowJsonSchema>>;
+  config: Record<string, WorkflowExpressionSchema>;
+};
 export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; functions: Record<string, unknown>; methods: Record<string, unknown> };
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
 export type LogAggregationQuery = { id: string; name: string; sql: string; outputIds: string[] };
 export type LogOutputSample = { id: string; name: string; text: string };
 export type CliCollectionSpec = { collectionType: "cli"; commandTemplate: string; outputSamples: CliOutputSample[] };
 export type LogCollectionSpec = { collectionType: "log"; sqlDialect: "duckdb"; queries: LogAggregationQuery[]; outputSamples: LogOutputSample[] };
-export type WorkflowCollectionSpec = CliCollectionSpec | LogCollectionSpec;
+export type WorkflowCollectionSpec = CliCollectionSpec | LogCollectionSpec | ConfigCollectionSpec;
 
 export type WorkflowLogSchemaColumn = {
   name: string;

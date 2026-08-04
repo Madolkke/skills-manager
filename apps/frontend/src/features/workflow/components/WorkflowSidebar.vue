@@ -105,7 +105,7 @@ function issueCount(id: string): number {
             <button class="workflow-drag-handle" type="button" title="拖动排序" aria-label="拖动步骤排序" :disabled="props.readonly || Boolean(query)"><GripVertical :size="14" /></button>
             <button class="workflow-sidebar-node-main" type="button" :aria-current="active('step', step.id) ? 'page' : undefined" @click="emit('select', { type: 'step', id: step.id })">
               <span class="workflow-node-kind"><TerminalSquare :size="14" /></span>
-              <span><strong>{{ step.name }}</strong><small>{{ step.description || "未填写说明" }}</small></span>
+              <span><strong>{{ step.name }}</strong></span>
               <i v-if="step.isStart" title="起始步骤"><Play :size="10" /></i>
               <b v-if="issueCount(step.id)" class="workflow-node-issue"><AlertTriangle :size="10" />{{ issueCount(step.id) }}</b>
             </button>
@@ -132,7 +132,7 @@ function issueCount(id: string): number {
             <button class="workflow-drag-handle" type="button" title="拖动排序" aria-label="拖动结论排序" :disabled="props.readonly || Boolean(query)"><GripVertical :size="14" /></button>
             <button class="workflow-sidebar-node-main" type="button" :aria-current="active('conclusion', item.id) ? 'page' : undefined" @click="emit('select', { type: 'conclusion', id: item.id })">
               <span class="workflow-node-kind conclusion"><Flag :size="14" /></span>
-              <span><strong>{{ item.name }}</strong><small>{{ item.rootCause || "未填写故障根因" }}</small></span>
+              <span><strong>{{ item.name }}</strong></span>
               <b v-if="issueCount(item.id)" class="workflow-node-issue"><AlertTriangle :size="10" />{{ issueCount(item.id) }}</b>
             </button>
             <div class="workflow-sidebar-node-actions">

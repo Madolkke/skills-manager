@@ -72,6 +72,7 @@ class WorkflowExpressionEnvironmentPayload(BaseModel):
 
     inputs: dict[str, JsonSchema] = Field(default_factory=dict)
     outputs: dict[str, dict[str, JsonSchema]] = Field(default_factory=dict)
+    config: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 class WorkflowExpressionValidationPayload(BaseModel):

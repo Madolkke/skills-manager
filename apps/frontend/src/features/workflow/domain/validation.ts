@@ -2,6 +2,7 @@ import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowPar
 import { workflowSchemaIsLegacy, workflowSchemasAssignable, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { projectWorkflowGraph, reachableNodeIds } from "./graph";
 import { logCollectionIssues } from "./logValidation";
+import { configCollectionIssues } from "./configValidation";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
@@ -25,8 +26,10 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     if (definition.spec.collectionType === "cli") {
       if (!definition.spec.commandTemplate.trim()) add(issues, "MISSING_COLLECTION_COMMAND", "error", `采集“${definition.metadata.name || definition.key}”的采集命令不能为空。`, { ...selection, field: "spec.commandTemplate" });
       else if (/\r|\n/.test(definition.spec.commandTemplate)) add(issues, "MULTILINE_COLLECTION_COMMAND", "error", `采集“${definition.metadata.name || definition.key}”的采集命令必须为单行。`, { ...selection, field: "spec.commandTemplate" });
-    } else {
+    } else if (definition.spec.collectionType === "log") {
       logCollectionIssues(definition).forEach((item) => add(issues, item.code, "error", item.message, { ...selection, itemId: item.itemId, field: item.field }));
+    } else {
+      configCollectionIssues(definition).forEach((item) => add(issues, item.code, "error", item.message, { ...selection, itemId: item.itemId, field: item.field }));
     }
     duplicates(definition.inputs, "id", "MISSING_COLLECTION_INPUT_ID", "DUPLICATE_COLLECTION_INPUT_ID", "Collection 输入 ID", issues, selection);
     duplicates(definition.inputs, "key", "MISSING_COLLECTION_INPUT_KEY", "DUPLICATE_COLLECTION_INPUT_KEY", "Collection 输入 key", issues, selection);
@@ -52,7 +55,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       const definition = findCollection(catalog, call.definition);
       const callSelection: WorkflowSelection = { ...selection, section: "collections", itemId: call.id };
       const callName = call.name || definition?.metadata.name || "未命名采集";
-      if (definition?.spec.collectionType === "log" && call.sampleCount !== 1) add(issues, "LOG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", `日志采集“${callName}”的采集次数必须为 1。`, { ...callSelection, field: "sampleCount" });
+      if ((definition?.spec.collectionType === "log" || definition?.spec.collectionType === "config") && call.sampleCount !== 1) add(issues, definition.spec.collectionType === "config" ? "CONFIG_CALL_SAMPLE_COUNT_UNSUPPORTED" : "LOG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", `${definition.spec.collectionType === "config" ? "配置" : "日志"}采集“${callName}”的采集次数必须为 1。`, { ...callSelection, field: "sampleCount" });
       else if (call.sampleCount < 1) add(issues, "INVALID_SAMPLE_COUNT", "error", `采集“${callName}”的采集次数必须大于零。`, { ...callSelection, field: "sampleCount" });
       if (!definition) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”引用的定义版本不存在。`, callSelection);
       if (definition?.spec.collectionType === "log" && call.deviceRoleId) add(issues, "LOG_CALL_DEVICE_ROLE_UNSUPPORTED", "error", `日志采集“${callName}”不能绑定设备角色。`, { ...callSelection, field: "deviceRoleId" });

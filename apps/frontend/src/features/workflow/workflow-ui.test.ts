@@ -244,6 +244,9 @@ describe("Workflow UI state", () => {
 
     expect(wrapper.get('button[aria-label="添加步骤"]').attributes()).toHaveProperty("disabled");
     expect(wrapper.get('button[aria-label="添加结论"]').attributes()).toHaveProperty("disabled");
+    expect(wrapper.text()).not.toContain("Investigate timeout alarms");
+    expect(wrapper.text()).not.toContain("丢包");
+    expect(wrapper.text()).not.toContain("切换链路");
     await wrapper.get('input[aria-label="搜索工作流节点"]').setValue("TIMEOUT");
     expect(wrapper.findAll(".workflow-sidebar-node")).toHaveLength(1);
     expect(wrapper.get(".workflow-sidebar-node").text()).toContain("检查接口");

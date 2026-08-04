@@ -21,6 +21,7 @@ from skillhub.models.rules.workflows.schema import (
     CollectionCall,
     CollectionDefinition,
     Conclusion,
+    ConfigCollectionSpec,
     ExpressionStep,
     JsonSchema,
     LogCollectionSpec,
@@ -132,11 +133,12 @@ class _Converter:
             for parameter_id in call.input_bindings:
                 self._binding_value(node_index, step, call, parameter_id, base)
             return None
-        if isinstance(definition.spec, LogCollectionSpec):
+        if isinstance(definition.spec, (LogCollectionSpec, ConfigCollectionSpec)):
+            collection_label = "配置" if isinstance(definition.spec, ConfigCollectionSpec) else "日志"
             self._error(
                 f"{base}.definition.spec.collectionType",
                 "executor_workflow.unsupported_collection_type",
-                "执行器 Workflow 暂不支持日志 Collection。",
+                f"执行器 Workflow 暂不支持{collection_label} Collection。",
             )
             return None
         definition_index = self.definition_indexes[id(definition)]

@@ -427,6 +427,97 @@
   box-shadow: 0 0 0 3px rgb(70 119 176 / 12%);
 }
 
+.workflow-config-spec,
+.workflow-config-command-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-config-command-editor {
+  padding: 14px;
+  border: 1px solid #d6e0eb;
+  border-radius: 7px;
+  background: #fbfcfe;
+}
+
+.workflow-config-command-header,
+.workflow-config-command-title,
+.workflow-config-command-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-config-command-header {
+  justify-content: space-between;
+}
+
+.workflow-config-command-title code,
+.workflow-config-capture-row > code,
+.workflow-monospace {
+  font-family: var(--mono-font);
+}
+
+.workflow-config-command-fields {
+  grid-template-columns: minmax(180px, 0.75fr) minmax(320px, 1.8fr) max-content;
+  align-items: start;
+}
+
+.workflow-config-unique {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  align-self: end;
+  gap: 8px;
+  padding: 0 4px 0 2px;
+  color: #40536b;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.workflow-config-unique input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px !important;
+  margin: 0;
+  padding: 0 !important;
+  accent-color: #2f7edb;
+}
+
+.workflow-config-command-fields .field-label small {
+  min-height: 30px;
+}
+
+.workflow-config-captures {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed #cbd8e7;
+  border-radius: 6px;
+}
+
+.workflow-config-captures > .workflow-inline-empty {
+  padding: 12px;
+  font-size: 12px;
+}
+
+.workflow-config-capture-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.6fr) 130px minmax(130px, 1fr) minmax(180px, 1.5fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-config-children {
+  display: grid;
+  gap: 10px;
+  margin-left: 20px;
+  padding-left: 14px;
+  border-left: 2px solid #d9e5f2;
+}
+
 .workflow-check {
   min-height: 38px;
   display: inline-flex;
@@ -616,6 +707,11 @@
 @media (max-width: 720px) {
   .workflow-log-query > header { grid-template-columns: minmax(0, 1fr) auto; }
   .workflow-log-columns > span { flex: 1 1 130px; }
+  .workflow-config-command-fields,
+  .workflow-config-capture-row { grid-template-columns: 1fr; }
+  .workflow-config-unique { justify-self: start; }
+  .workflow-config-capture-row > code { padding-top: 5px; }
+  .workflow-config-children { margin-left: 8px; padding-left: 8px; }
 }
 
 .workflow-empty {

@@ -75,9 +75,13 @@ def append_calls(
         lines.extend([f"{'#' * (level + 1)} {call_name(call, definition)}", ""])
         if call["key"].strip():
             lines.append(f"- 调用 key: `{call['key']}`")
-        is_log = definition is not None and definition["spec"]["collectionType"] == "log"
+        collection_type = definition["spec"]["collectionType"] if definition else None
+        is_log = collection_type == "log"
+        is_config = collection_type == "config"
         if is_log:
             lines.append("- 采集类型: 全局日志")
+        elif is_config:
+            lines.append("- 采集类型: 配置匹配")
         else:
             lines.append(f"- 设备角色: {(role or {}).get('name', '单设备')}")
             lines.append(f"- 采集次数: {call['sampleCount']}")
@@ -90,6 +94,8 @@ def append_calls(
                 lines.extend(["", "```text", spec["commandTemplate"].rstrip(), "```"])
             elif spec["collectionType"] == "log":
                 append_log_queries(lines, spec["queries"], definition["outputs"])
+            elif spec["collectionType"] == "config":
+                append_config_commands(lines, spec.get("config", {}).get("commands", []), level=5)
             append_bindings(
                 lines,
                 call["inputBindings"],
@@ -107,7 +113,7 @@ def append_calls(
                     title = schema.get("title") or item["key"]
                     lines.append(f"- `{call_output_key(call, item)}` ({schema_type(schema)}, {required}): {title}{description}")
                     append_schema_children(lines, schema, indent="  ")
-            samples = [item["name"] for item in spec["outputSamples"] if item["name"].strip()]
+            samples = [item["name"] for item in spec.get("outputSamples", []) if item["name"].strip()]
             if samples:
                 heading = "回显示例" if spec["collectionType"] == "cli" else "日志输出示例"
                 lines.extend(["", f"{heading}: {'、'.join(samples)}"])
@@ -155,6 +161,24 @@ def append_log_queries(
         title = query["name"].strip() or query["id"]
         mapped = [output_keys.get(item, item) for item in query["outputIds"]]
         lines.extend([f"- 查询 `{title}` (输出: {', '.join(f'`{item}`' for item in mapped) or '无'})", "", "```sql", query["sql"].rstrip(), "```"])
+
+
+def append_config_commands(lines: list[str], commands: list[dict[str, Any]], *, level: int) -> None:
+    if not commands:
+        return
+    lines.extend(["", "配置命令树:"])
+    for command in commands:
+        append_config_command(lines, command, level=level)
+
+
+def append_config_command(lines: list[str], command: dict[str, Any], *, level: int) -> None:
+    suffix = "非唯一" if command.get("unique") is False else "唯一"
+    lines.extend([f"{'#' * level} {command['name']}（{suffix}）", f"- 模式: `{command['pattern']}`"])
+    for name, schema in command.get("captures", {}).items():
+        lines.append(f"- 捕获 `{name}` ({schema_type(schema)}): {schema.get('title') or name}")
+    lines.append("")
+    for child in command.get("children", []):
+        append_config_command(lines, child, level=level + 1)
 
 
 def named_reference(label: str, item: dict[str, Any] | None) -> str:

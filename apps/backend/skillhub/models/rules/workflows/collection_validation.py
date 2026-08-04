@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .config_validation import validate_config_spec
 from .log_sql import validate_log_query
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
@@ -26,6 +27,9 @@ def _validate_spec(definition: dict[str, Any], issues: list[dict[str, Any]], sel
     spec = definition["spec"]
     if spec["collectionType"] == "cli":
         _validate_cli_spec(spec, definition, issues, selection)
+        return
+    if spec["collectionType"] == "config":
+        validate_config_spec(spec, selection, issues)
         return
     _validate_log_spec(spec, definition, issues, selection)
 

@@ -181,8 +181,10 @@ def append_collection_definition(lines: list[str], definition: dict[str, Any], *
         command = spec["commandTemplate"]
         if command:
             lines.extend([f"{'#' * (level + 1)} 采集命令", "", "```text", command.rstrip(), "```", ""])
-    else:
+    elif spec["collectionType"] == "log":
         _append_log_spec(lines, spec, definition["outputs"], level=level + 1)
+    else:
+        _append_config_spec(lines, spec, level=level + 1)
     append_parameters(lines, "输入参数", definition["inputs"], level=level + 1)
     if definition["outputs"]:
         lines.extend([f"{'#' * (level + 1)} 输出字段", ""])
@@ -194,7 +196,7 @@ def append_collection_definition(lines: list[str], definition: dict[str, Any], *
             lines.append(f"- `{output['key']}` ({schema_type(schema)}, {required}): {title}{description}")
             append_schema_children(lines, schema, indent="  ")
         lines.append("")
-    samples = [sample["name"] for sample in spec["outputSamples"] if sample["name"].strip()]
+    samples = [sample["name"] for sample in spec.get("outputSamples", []) if sample["name"].strip()]
     if samples:
         heading = "回显示例" if spec["collectionType"] == "cli" else "日志样例"
         lines.extend([f"{'#' * (level + 1)} {heading}", ""])
@@ -220,6 +222,22 @@ def _append_log_spec(
             lines.append("")
         if query["sql"].strip():
             lines.extend(["```sql", query["sql"].rstrip(), "```", ""])
+
+
+def _append_config_spec(lines: list[str], spec: dict[str, Any], *, level: int) -> None:
+    lines.extend([f"{'#' * level} 配置匹配", "", "执行器从设备完整配置中匹配以下命令块：", ""])
+    for command in spec.get("config", {}).get("commands", []):
+        _append_config_command(lines, command, level=level + 1)
+
+
+def _append_config_command(lines: list[str], command: dict[str, Any], *, level: int) -> None:
+    suffix = "非唯一" if command.get("unique") is False else "唯一"
+    lines.extend([f"{'#' * level} {command['name']}（{suffix}）", "", f"- 模式: `{command['pattern']}`"])
+    for name, schema in command.get("captures", {}).items():
+        lines.append(f"- 捕获 `{name}` ({schema_type(schema)}): {schema.get('title') or name}")
+    lines.append("")
+    for child in command.get("children", []):
+        _append_config_command(lines, child, level=level + 1)
 
 
 def _append_step_summary(lines: list[str], step: dict[str, Any]) -> None:

@@ -129,6 +129,8 @@
 | `GET /api/skills/{skill_id}/workflow/formatted` | 返回当前 Workflow document 的特定格式表示；当前转换为原样透传。 |
 | `GET /api/skills/{skill_id}/workflow/executor` | 将当前保存的写作侧 Workflow 转换为执行器 Workflow 定义；详见[执行器 Workflow 转换接口](executor-workflow-api.md)。 |
 | `GET /api/workflow-log-schema` | 返回 Workflow schema v5 日志 SQL 使用的 DuckDB 方言、`logs`/`params` 表名和固定列目录。 |
+
+配置匹配 Collection 的结构、表达式路径和执行边界见[Workflow 配置匹配 Collection](workflow-config-matching.md)。SkillHub 不读取配置文本或执行匹配。
 | `GET /api/skills/{skill_id}/workflow/collections` | 全局 Collection Catalog 最新 revisions。 |
 
 ## 写入接口
@@ -267,6 +269,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 - 步骤内新建采集仍使用 `operation: "create"`，不存在独立即时入库接口。
 - 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。
 - 日志 Collection 的输入/输出只允许 `string`、`integer`、`number`、`boolean`；每个输出必须且只能归属一条查询，SQL 顶层 alias 必须与输出 Key 一致。日志调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。SQL AST 错误属于领域 `error`，允许保存草稿但阻止同步。
+- 配置匹配 Collection 使用 `config.commands` 命令树和单行尖括号模式；命令/捕获名、捕获 Schema、同级重复及跨调用根命名冲突属于领域 `error`。配置调用固定 `sampleCount = 1`，可按设备角色隔离上下文；结果通过 `config` 表达式根访问。当前 executor 投影对 Config 返回 `executor_workflow.unsupported_collection_type`。
 
 `POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
 

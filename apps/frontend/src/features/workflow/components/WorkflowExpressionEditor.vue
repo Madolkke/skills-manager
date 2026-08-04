@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<{
   readonly: false,
   placeholder: "可选的机器可读表达式",
   ariaLabel: "条件表达式",
-  environment: () => ({ inputs: {}, outputs: {} }),
+  environment: () => ({ inputs: {}, outputs: {}, config: {} }),
 });
 const emit = defineEmits<{ change: [value: string] }>();
 const host = ref<HTMLDivElement | null>(null);

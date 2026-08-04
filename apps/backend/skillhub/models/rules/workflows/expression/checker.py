@@ -32,6 +32,7 @@ def validate_expression(source: str, environment: dict[str, Any]) -> dict[str, A
         "outputs": object_type(
             {call: object_type({key: from_json_schema(value) for key, value in values.items()}) for call, values in environment.get("outputs", {}).items()}
         ),
+        "config": object_type({key: from_json_schema(value) for key, value in environment.get("config", {}).items()}),
     }
     checker = _Checker(source, roots)
     inferred = checker.infer(tree.body)
@@ -84,6 +85,8 @@ class _Checker:
 
     def infer_Subscript(self, node: ast.Subscript) -> TypeSpec:
         owner = self.infer(node.value)
+        if _is_config_expression(node.value) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+            self.warn(node.slice, "CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "config 只支持点号访问字段，不支持字符串下标。")
         self.infer(node.slice)
         if owner.kind == "array":
             return owner.item or ANY
@@ -235,3 +238,9 @@ class _Checker:
 
 def _offset(source: str, line: int, column: int) -> int:
     return sum(len(item) + 1 for item in source.splitlines()[: max(line - 1, 0)]) + column
+
+
+def _is_config_expression(node: ast.AST) -> bool:
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return isinstance(node, ast.Name) and node.id == "config"

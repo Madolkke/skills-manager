@@ -50,6 +50,14 @@ def union(*options: TypeSpec) -> TypeSpec:
 
 def from_json_schema(schema: dict[str, Any]) -> TypeSpec:
     schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        options = []
+        for item in schema_type:
+            if item == "null":
+                options.append(NONE)
+            else:
+                options.append(from_json_schema({**schema, "type": item}))
+        return union(*options)
     if schema_type in {"string", "integer", "number", "boolean"}:
         return {"string": STRING, "integer": INTEGER, "number": NUMBER, "boolean": BOOLEAN}[schema_type]
     if schema_type == "array":

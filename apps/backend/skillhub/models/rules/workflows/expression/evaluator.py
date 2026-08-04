@@ -33,18 +33,18 @@ class AttrMapping(dict):
         return self[name]
 
 
-def evaluate_expression(source: str, *, inputs: dict[str, Any], outputs: dict[str, Any]) -> Any:
+def evaluate_expression(source: str, *, inputs: dict[str, Any], outputs: dict[str, Any], config: dict[str, Any] | None = None) -> Any:
     """Evaluate a validated expression with trusted values and no resource budget."""
-    result = validate_expression(source, {"inputs": {}, "outputs": {}})
+    result = validate_expression(source, {"inputs": {}, "outputs": {}, "config": {}})
     blocking = [
         item
         for item in result["diagnostics"]
-        if item["code"].startswith("FORBIDDEN") or item["code"].startswith("UNREGISTERED") or item["code"] in {"PRIVATE_ACCESS", "UNSUPPORTED_EXPRESSION"}
+        if item["code"].startswith("FORBIDDEN") or item["code"].startswith("UNREGISTERED") or item["code"] in {"PRIVATE_ACCESS", "UNSUPPORTED_EXPRESSION", "CONFIG_STRING_SUBSCRIPT_FORBIDDEN"}
     ]
     if blocking:
         raise ValueError(blocking[0]["message"])
     tree = ast.parse(source, mode="eval")
-    return eval(compile(tree, "<workflow-expression>", "eval"), {"__builtins__": _BUILTINS}, {"inputs": _wrap(inputs), "outputs": _wrap(outputs)})
+    return eval(compile(tree, "<workflow-expression>", "eval"), {"__builtins__": _BUILTINS}, {"inputs": _wrap(inputs), "outputs": _wrap(outputs), "config": _wrap(config or {})})
 
 
 def _wrap(value: Any) -> Any:

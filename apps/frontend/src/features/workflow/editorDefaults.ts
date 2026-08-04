@@ -1,4 +1,4 @@
-import type { CollectionDefinition, DeviceRole, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
+import type { CollectionDefinition, ConfigCollectionSpec, DeviceRole, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
 import { createWorkflowId } from "./domain/utils";
 import { newWorkflowSchema } from "./workflowJsonSchema";
 
@@ -42,4 +42,8 @@ export function newCollection(index: number, metadata?: Pick<WorkflowMetadata, "
 
 export function newLogCollectionSpec(): LogCollectionSpec {
   return { collectionType: "log", sqlDialect: "duckdb", queries: [], outputSamples: [] };
+}
+
+export function newConfigCollectionSpec(): ConfigCollectionSpec {
+  return { collectionType: "config", config: { commands: [] } };
 }

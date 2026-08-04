@@ -162,7 +162,7 @@ DeviceRole 描述逻辑设备角色。`required` 表示未来使用 Workflow 时
 
 ### CollectionDefinition
 
-CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。`spec` 是以 `collectionType` 判别的 CLI/log 严格联合。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
+CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。`spec` 是以 `collectionType` 判别的 CLI/log/config 严格联合。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
 
 CLI spec 包含：
 
@@ -174,6 +174,8 @@ CLI spec 包含：
 
 日志 spec 固定使用 DuckDB 方言，包含多条 `queries` 和只保存名称、原始文本的 `outputSamples`。每条查询通过 `outputIds` 认领输出，SQL 顶层 alias 必须使用对应输出 Key。日志输入和输出只允许四种标量 Schema；固定 `logs`/`params` 表、SQLGlot 静态门禁和运行责任见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
 
+配置 spec 使用递归 `config.commands` 命令树。每个命令具名并通过单行 `pattern` 声明字面量和 `<name[:regex]>` 捕获，`captures` 保存四种标量 Schema，`unique: false` 表示结果数组。子命令成为父结果属性，表达式统一从 `config` 根访问。完整语法、标识符保留规则和执行边界见 [Workflow 配置匹配 Collection](workflow-config-matching.md)。
+
 ### CollectionCall
 
 CollectionCall 表示某个 Step 对 CollectionDefinition 精确版本的一次使用，保存可选调用 Key/Name、Definition 引用、设备角色、采集次数和参数绑定。未选择设备角色时表示“单设备”。调用名称为空时展示 Collection 名称；调用 Key 非空时作为输出字段命名空间，例如 `status.version`，为空时直接暴露输出字段。直接暴露的字段不得与 Workflow 全局输入或其他直接暴露输出重名。
@@ -181,6 +183,8 @@ CollectionCall 表示某个 Step 对 CollectionDefinition 精确版本的一次�
 CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_output` 只能引用同一步骤中排在当前调用之前的输出。重排后形成向前引用时允许保存草稿，但阻止同步。
 
 日志调用固定 `sampleCount = 1` 且不使用设备角色。SkillHub 不执行日志 SQL；调用只保存普通参数 Binding 和对日志 Collection 精确版本的引用。
+
+配置调用固定 `sampleCount = 1`，可以绑定设备角色以建立独立配置上下文。SkillHub 不读取或匹配配置文本，执行器负责块边界、匹配和类型转换。
 
 ### 步骤内新建 Collection
 

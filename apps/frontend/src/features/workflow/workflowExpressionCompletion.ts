@@ -13,6 +13,7 @@ import { filterWorkflowExpressionVariables } from "./workflowExpressionVariables
 const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   global: { name: "全局输入", rank: 0 },
   output: { name: "采集输出", rank: 1 },
+  config: { name: "配置匹配", rank: 2 },
 };
 const fragmentPattern = /[^\s()[\]{}"'`,;:+*/%&|!?=<>]+$/u;
 
@@ -58,7 +59,7 @@ function toCompletion(variable: WorkflowExpressionVariable): Completion {
     apply: variable.reference,
     detail: `${variable.dataType} · ${variable.source}`,
     info: variable.name,
-    type: variable.kind === "output" ? "property" : "variable",
+    type: variable.kind === "output" || variable.kind === "config" ? "property" : "variable",
     section: sections[variable.kind],
   };
 }

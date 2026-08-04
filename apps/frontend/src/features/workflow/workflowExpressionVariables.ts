@@ -1,8 +1,8 @@
-import type { WorkflowBundle, WorkflowExpressionEnvironment, WorkflowJsonSchema, WorkflowStep } from "../../types";
+import type { WorkflowBundle, WorkflowConfigCommand, WorkflowExpressionEnvironment, WorkflowExpressionSchema, WorkflowJsonSchema, WorkflowStep } from "../../types";
 import { findCollection, workflowSteps } from "./domain/utils";
 import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema";
 
-export type WorkflowExpressionVariableKind = "global" | "output";
+export type WorkflowExpressionVariableKind = "global" | "output" | "config";
 
 export type WorkflowExpressionVariable = {
   id: string;
@@ -32,6 +32,8 @@ export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId
     ? [sourceStep, ...steps.filter((step) => step.id !== sourceStep.id)]
     : steps;
   orderedSteps.forEach((step) => appendStepOutputs(variables, bundle, step));
+  const config = workflowExpressionEnvironment(bundle).config;
+  Object.entries(config).forEach(([key, schema]) => appendConfigVariables(variables, key, schema));
   return variables;
 }
 
@@ -44,7 +46,15 @@ export function workflowExpressionEnvironment(bundle: WorkflowBundle): WorkflowE
     if (!callKey || !definition) return;
     outputs[callKey] = Object.fromEntries(definition.outputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema]));
   }));
-  return { inputs, outputs };
+  const config: WorkflowExpressionEnvironment["config"] = {};
+  workflowSteps(bundle).forEach((step) => step.collectionCalls.forEach((call) => {
+    const definition = findCollection(bundle.collectionSnapshots, call.definition);
+    if (definition?.spec.collectionType !== "config") return;
+    definition.spec.config.commands.forEach((command) => {
+      if (!(command.name in config)) config[command.name] = configCommandSchema(command);
+    });
+  }));
+  return { inputs, outputs, config };
 }
 
 export function filterWorkflowExpressionVariables(
@@ -96,6 +106,30 @@ function appendSchemaVariables(
   } else if (schema.type === "array") {
     appendSchemaVariables(variables, { ...base, id: `${base.id}:item`, reference: `${base.reference}[0]`, name: `${base.name} 元素`, schema: schema.items });
   }
+}
+
+function configCommandSchema(command: WorkflowConfigCommand): WorkflowExpressionSchema {
+  const properties: Record<string, WorkflowExpressionSchema> = {};
+  Object.entries(command.captures).forEach(([key, schema]) => { properties[key] = schema; });
+  command.children.forEach((child) => { properties[child.name] = configCommandSchema(child); });
+  const object: WorkflowExpressionSchema = { type: "object", title: command.name, description: "", properties, required: Object.keys(properties) };
+  return command.unique === false ? { type: "array", title: command.name, description: "", items: object } : { type: ["object", "null"], title: command.name, description: "", properties, required: Object.keys(properties) };
+}
+
+function appendConfigVariables(variables: WorkflowExpressionVariable[], key: string, schema: WorkflowExpressionSchema, reference = `config.${key}`): void {
+  variables.push({ id: `config:${reference}`, reference, kind: "config", name: schema.title || key, dataType: expressionSchemaSummary(schema), source: "配置匹配", aliases: [key] });
+  const properties = schema.properties ?? {};
+  Object.entries(properties).forEach(([childKey, child]) => {
+    if (!pythonIdentifier(childKey)) return;
+    appendConfigVariables(variables, childKey, child, `${reference}.${childKey}`);
+  });
+  if (schema.type === "array" && schema.items) appendConfigVariables(variables, `${key} 元素`, schema.items, `${reference}[0]`);
+}
+
+function expressionSchemaSummary(schema: WorkflowExpressionSchema): string {
+  if (Array.isArray(schema.type)) return "object | null";
+  if (schema.type === "array") return `array<${schema.items ? expressionSchemaSummary(schema.items) : "any"}>`;
+  return schema.type ?? "any";
 }
 
 function pythonIdentifier(value: string): boolean {

@@ -90,7 +90,7 @@ def test_expression_contract_typecheck_and_trusted_evaluator() -> None:
 
     assert result["inferredType"]["kind"] == "boolean"
     assert result["diagnostics"] == []
-    assert expression_contract()["roots"] == ["inputs", "outputs"]
+    assert expression_contract()["roots"] == ["inputs", "outputs", "config"]
     assert evaluate_expression("inputs.region.lower()", inputs={"region": "CN"}, outputs={}) == "cn"
 
 

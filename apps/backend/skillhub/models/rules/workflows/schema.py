@@ -142,7 +142,24 @@ class LogCollectionSpec(WorkflowModel):
     output_samples: list[LogOutputSample] = Field(default_factory=list)
 
 
-CollectionSpec = Annotated[CliCollectionSpec | LogCollectionSpec, Field(discriminator="collection_type")]
+class ConfigCommand(WorkflowModel):
+    name: str
+    unique: bool = True
+    pattern: str
+    captures: dict[str, JsonSchema] = Field(default_factory=dict)
+    children: list["ConfigCommand"] = Field(default_factory=list)
+
+
+class ConfigRoot(WorkflowModel):
+    commands: list[ConfigCommand] = Field(default_factory=list)
+
+
+class ConfigCollectionSpec(WorkflowModel):
+    collection_type: Literal["config"] = "config"
+    config: ConfigRoot
+
+
+CollectionSpec = Annotated[CliCollectionSpec | LogCollectionSpec | ConfigCollectionSpec, Field(discriminator="collection_type")]
 
 
 class CollectionDefinition(WorkflowModel):

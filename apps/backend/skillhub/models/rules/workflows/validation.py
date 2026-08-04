@@ -5,6 +5,7 @@ from typing import Any
 from urllib.parse import quote
 
 from .collection_validation import validate_collection_identity
+from .config_validation import config_root_names
 from .json_schema import schema_title, schemas_assignable, value_matches_schema
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
@@ -24,6 +25,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
 
     _duplicate_issues(workflow, steps, issues)
     validate_collection_identity(snapshots, issues)
+    _validate_config_root_conflicts(steps, definitions, issues)
     if not any(step["isStart"] for step in steps):
         issues.append(issue("NO_START_STEP", "error", "工作流至少需要一个起始步骤。", {"type": "metadata"}))
 
@@ -62,6 +64,30 @@ def _duplicate_issues(workflow, steps, issues) -> None:
         append_duplicates(step["topology"], "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
 
 
+def _validate_config_root_conflicts(steps, definitions, issues) -> None:
+    contexts: dict[str, dict[str, str]] = {}
+    for step in steps:
+        for call in step["collectionCalls"]:
+            definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
+            if not definition or definition["spec"]["collectionType"] != "config":
+                continue
+            context = call.get("deviceRoleId") or "__default__"
+            names = contexts.setdefault(context, {})
+            selection = {"type": "step", "id": step["id"], "section": "collections", "itemId": call["id"]}
+            for name in config_root_names(definition["spec"]):
+                if name in names:
+                    issues.append(
+                        issue(
+                            "CONFIG_ROOT_COMMAND_CONFLICT",
+                            "error",
+                            f"同一设备上下文中的配置根命令“{name}”重复。",
+                            {**selection, "field": "definition.spec.config.commands"},
+                        )
+                    )
+                else:
+                    names[name] = call["id"]
+
+
 def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, workflow_input_keys, issues) -> None:
     selection = {"type": "step", "id": step["id"]}
     all_calls = {item["id"]: item for item in step["collectionCalls"]}
@@ -81,6 +107,11 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
                 issues.append(issue("LOG_CALL_DEVICE_ROLE_UNSUPPORTED", "error", f"日志采集“{call_label}”不能绑定设备角色。", {**call_selection, "field": "deviceRoleId"}))
             if call["sampleCount"] != 1:
                 issues.append(issue("LOG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", f"日志采集“{call_label}”的采集次数必须为 1。", {**call_selection, "field": "sampleCount"}))
+        elif definition["spec"]["collectionType"] == "config":
+            if call["sampleCount"] != 1:
+                issues.append(issue("CONFIG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", f"配置采集“{call_label}”的采集次数必须为 1。", {**call_selection, "field": "sampleCount"}))
+            if call.get("deviceRoleId") and call["deviceRoleId"] not in role_ids:
+                issues.append(issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", {**call_selection, "field": "deviceRoleId"}))
         else:
             if call["sampleCount"] < 1:
                 issues.append(issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", {**call_selection, "field": "sampleCount"}))

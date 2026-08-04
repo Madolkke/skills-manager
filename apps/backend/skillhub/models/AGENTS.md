@@ -27,6 +27,8 @@
 - `rules/workflows/`：Workflow/Collection 严格结构、文档格式迁移、领域校验和确定性 Skill 转换。
 - `rules/workflows/log_schema.py`：固定 v5 `logs`/`params` 列目录及只读 catalog。
 - `rules/workflows/log_sql.py`：DuckDB SQLGlot AST 来源、列引用和输出 alias 静态校验，不执行 SQL。
+- `rules/workflows/config_pattern.py`：配置匹配 Collection 的尖括号模板解析、转义和 Python 标识符校验。
+- `rules/workflows/config_validation.py`：配置命令树、捕获 Schema、属性冲突和根命名冲突的纯校验。
 - `rules/executor_workflows/`：外部执行器 Workflow 的严格 DTO 和无副作用写作侧转换规则。
 - `rules/bundle_diffs.py`：版本差异与同步预览共用的确定性 Bundle 文本 diff。
 - `store.py`：Model 层对 Service 层暴露的组合根，持有请求级 Session，并保留薄兼容 facade。

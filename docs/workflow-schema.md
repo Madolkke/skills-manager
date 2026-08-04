@@ -9,6 +9,7 @@
 - 领域校验：`apps/backend/skillhub/models/rules/workflows/validation.py`
 - 日志 SQL 规则：`apps/backend/skillhub/models/rules/workflows/log_sql.py`
 - 日志列目录：`apps/backend/skillhub/models/rules/workflows/log_schema.py`
+- 配置匹配语法：[Workflow 配置匹配 Collection](workflow-config-matching.md)
 
 ## 基本规则
 
