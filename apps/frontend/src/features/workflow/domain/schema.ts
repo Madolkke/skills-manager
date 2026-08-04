@@ -16,13 +16,19 @@ const role = z.object({ id: z.string(), key: z.string(), name: z.string(), descr
 const collectionMetadata = z.object({ name: z.string(), description: z.string(), industry: z.string(), device: z.string(), versions: z.array(z.string()), tags: z.array(z.string()) }).strict();
 const output = z.object({ id: z.string(), key: z.string(), required: z.boolean(), schema: jsonSchema }).strict();
 const sample = z.object({ id: z.string(), name: z.string(), stdout: z.string(), inputValues: z.record(z.string(), z.unknown()) }).strict();
+const logQuery = z.object({ id: z.string(), name: z.string(), sql: z.string(), outputIds: z.array(z.string()) }).strict();
+const logSample = z.object({ id: z.string(), name: z.string(), text: z.string() }).strict();
+const collectionSpec = z.discriminatedUnion("collectionType", [
+  z.object({ collectionType: z.literal("cli"), commandTemplate: z.string(), outputSamples: z.array(sample) }).strict(),
+  z.object({ collectionType: z.literal("log"), sqlDialect: z.literal("duckdb"), queries: z.array(logQuery), outputSamples: z.array(logSample) }).strict(),
+]);
 
 export const collectionDefinitionSchema: z.ZodType<CollectionDefinition> = z.object({
   id: z.string(),
   revision: z.number(),
   key: z.string(),
   metadata: collectionMetadata,
-  spec: z.object({ collectionType: z.literal("cli"), commandTemplate: z.string(), outputSamples: z.array(sample) }).strict(),
+  spec: collectionSpec,
   inputs: z.array(parameter),
   outputs: z.array(output),
   forkedFrom: ref.optional(),

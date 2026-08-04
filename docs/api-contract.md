@@ -128,6 +128,7 @@
 | `GET /api/skills/{skill_id}/workflow` | Workflow 当前文档、revision、校验、同步状态、保存信息和 capabilities。 |
 | `GET /api/skills/{skill_id}/workflow/formatted` | 返回当前 Workflow document 的特定格式表示；当前转换为原样透传。 |
 | `GET /api/skills/{skill_id}/workflow/executor` | 将当前保存的写作侧 Workflow 转换为执行器 Workflow 定义；详见[执行器 Workflow 转换接口](executor-workflow-api.md)。 |
+| `GET /api/workflow-log-schema` | 返回 Workflow schema v5 日志 SQL 使用的 DuckDB 方言、`logs`/`params` 表名和固定列目录。 |
 | `GET /api/skills/{skill_id}/workflow/collections` | 全局 Collection Catalog 最新 revisions。 |
 
 ## 写入接口
@@ -204,6 +205,27 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 
 `GET /api/skills/{skill_id}/workflow/executor` 是面向受信网络内执行器的无认证只读投影。它实时读取当前保存的 Workflow，不执行领域校验，不缓存或持久化结果；字段映射、Binding 路径、错误码、安全假设及不支持字段见[执行器 Workflow 转换接口](executor-workflow-api.md)。该接口不得与原样透传的 `workflow/formatted` 混用。
 
+`GET /api/workflow-log-schema` 是全局只读契约接口，使用标准 actor context，不绑定 Skill。响应严格为：
+
+```json
+{
+  "document_schema_version": 5,
+  "dialect": "duckdb",
+  "logs_table": "logs",
+  "params_table": "params",
+  "columns": [
+    { "name": "event_time", "duckdb_type": "TIMESTAMP", "nullable": true, "title": "时间", "description": "日志事件时间（无时区）" },
+    { "name": "device", "duckdb_type": "VARCHAR", "nullable": true, "title": "设备", "description": "日志来源设备" },
+    { "name": "module", "duckdb_type": "VARCHAR", "nullable": true, "title": "模块", "description": "产生日志的模块" },
+    { "name": "severity", "duckdb_type": "VARCHAR", "nullable": true, "title": "严重等级", "description": "日志严重等级" },
+    { "name": "brief", "duckdb_type": "VARCHAR", "nullable": true, "title": "简述", "description": "日志摘要" },
+    { "name": "body", "duckdb_type": "VARCHAR", "nullable": true, "title": "日志体", "description": "原始日志正文" }
+  ]
+}
+```
+
+日志 SQL 的完整字段、`params` 引用、查询输出契约和静态校验见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。SkillHub 不执行 SQL，不保存 DataFrame，也不提供日志上传或 SQL 运行接口。
+
 Workflow 校验问题统一包含 `id`、`code`、`severity`、`message` 和 `selection`。`selection` 使用 `type` 定位编辑区域，并按需携带 `id`、`revision`、`section`、`itemId` 和 `field`；采集调用相关问题必须提供 `section: "collections"`、调用 `itemId`，字段级问题还必须提供 `field`。
 
 问题 `id` 的稳定身份依次由 `code`、`selection.type`、`selection.id`、`selection.revision`、`selection.section`、`selection.itemId`、`selection.field` 组成。各部分按 RFC 3986 编码后以 `/` 连接，并追加同身份问题从 `0` 开始的局部序号。前后端必须生成相同 ID；新增其他身份的问题不得改变已有 ID。
@@ -236,7 +258,7 @@ Workflow 校验问题统一包含 `id`、`code`、`severity`、`message` 和 `se
 }
 ```
 
-Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter 与 Collection Output 使用递归 JSON Schema 描述 object、array 和标量；历史 v3 文档在读取时迁移为 v4 结构。
+Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter 与 Collection Output 使用递归 JSON Schema 描述 object、array 和标量；历史 v3/v4 文档在读取时按兼容迁移和 v5 严格联合读取，下一次正常保存才写 v5。
 
 - 服务端执行最后写入者覆盖，不接收 `expected_revision`。
 - 相同文档且没有 Collection 变更时不增加 revision。
@@ -244,6 +266,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
 - CollectionChanges 与 Workflow 在同一事务提交，服务端返回规范化文档和正式 revision。
 - 步骤内新建采集仍使用 `operation: "create"`，不存在独立即时入库接口。
 - 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。
+- 日志 Collection 的输入/输出只允许 `string`、`integer`、`number`、`boolean`；每个输出必须且只能归属一条查询，SQL 顶层 alias 必须与输出 Key 一致。日志调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。SQL AST 错误属于领域 `error`，允许保存草稿但阻止同步。
 
 `POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
 
@@ -264,7 +287,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 4`。Parameter �
 }
 ```
 
-完整目录还包含 `builtin.single-file@workflow-skill-v4` 和 `builtin.node-split@2.0.0`。内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+完整目录还包含 `builtin.single-file@workflow-skill-v5`、`builtin.three-file@3.0.0` 和 `builtin.node-split@3.0.0`。v5 Generator 会在日志 Collection 中展示 SQL、输出映射和样例名称，不输出样例原文；内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
 
 `GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`POST /api/workflow-expression-validations` 接收 `source` 和 `environment`，只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。
 

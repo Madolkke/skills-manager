@@ -236,6 +236,7 @@ describe("workflow domain", () => {
   it("reports unscoped output collisions and multiline commands", () => {
     const bundle = workflowBundle();
     const definition = bundle.collectionSnapshots[0]!;
+    if (definition.spec.collectionType !== "cli") throw new Error("expected CLI fixture");
     definition.outputs = [{ id: "output-version", key: "version", required: true, schema: { type: "string", title: "Version", description: "" } }];
     definition.spec.commandTemplate = "display version\nverbose";
     bundle.workflow.inputs = [{ id: "workflow-version", key: "version", required: true, schema: { type: "string", title: "Version", description: "" } }];
@@ -269,7 +270,9 @@ describe("workflow domain", () => {
   it("reports field targets for incomplete Collection drafts", () => {
     const bundle = workflowBundle();
     bundle.collectionSnapshots[0]!.metadata.name = "";
-    bundle.collectionSnapshots[0]!.spec.commandTemplate = "";
+    const spec = bundle.collectionSnapshots[0]!.spec;
+    if (spec.collectionType !== "cli") throw new Error("expected CLI fixture");
+    spec.commandTemplate = "";
 
     const issues = validateWorkflow(bundle, bundle.collectionSnapshots);
 

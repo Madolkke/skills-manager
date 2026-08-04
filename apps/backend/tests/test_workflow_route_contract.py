@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from skillhub.models.rules.executor_workflows import ExecutorWorkflow
-from skillhub.views.dependencies import executor_workflow_service_dependency
+from skillhub.views.dependencies import executor_workflow_service_dependency, workflow_service_dependency
 from skillhub.views.executor_workflows import register_executor_workflow_routes
 from skillhub.views.workflows import register_workflow_routes
 
@@ -26,6 +26,33 @@ def test_expression_routes_expose_validation_without_evaluation():
     assert "get" in paths["/api/workflow-expression-contract"]
     assert "post" in paths["/api/workflow-expression-validations"]
     assert "/api/workflow-expression-evaluations" not in paths
+
+
+def test_workflow_log_schema_route_is_authenticated_and_returns_fixed_catalog():
+    class StubService:
+        def log_schema(self):
+            return {
+                "document_schema_version": 5,
+                "dialect": "duckdb",
+                "logs_table": "logs",
+                "params_table": "params",
+                "columns": [],
+            }
+
+    app = FastAPI()
+    register_workflow_routes(app)
+    app.dependency_overrides[workflow_service_dependency] = StubService
+
+    response = TestClient(app).get("/api/workflow-log-schema")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "document_schema_version": 5,
+        "dialect": "duckdb",
+        "logs_table": "logs",
+        "params_table": "params",
+        "columns": [],
+    }
 
 
 def test_executor_workflow_route_is_unauthenticated_and_strictly_typed():

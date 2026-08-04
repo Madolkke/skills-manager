@@ -19,6 +19,7 @@ from .import_schema import (
     normalize_workflow_import_bundle,
     validate_workflow_import_references,
 )
+from .log_schema import workflow_log_schema_catalog
 from .renderer import GENERATOR_VERSION, render_skill_markdown
 from .schema import (
     DOCUMENT_SCHEMA_VERSION,
@@ -53,4 +54,5 @@ __all__ = [
     "render_skill_markdown",
     "validate_workflow_document",
     "validate_workflow_import_references",
+    "workflow_log_schema_catalog",
 ]

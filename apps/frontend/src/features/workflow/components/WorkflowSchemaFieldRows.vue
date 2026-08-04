@@ -13,7 +13,7 @@ import WorkflowConfirmModal from "./WorkflowConfirmModal.vue";
 import WorkflowSchemaEditorModal from "./WorkflowSchemaEditorModal.vue";
 
 type SchemaField = WorkflowParameter | CollectionOutput;
-const props = defineProps<{ items: SchemaField[]; readonly: boolean; kind: "input" | "output" }>();
+const props = withDefaults(defineProps<{ items: SchemaField[]; readonly: boolean; kind: "input" | "output"; scalarOnly?: boolean }>(), { scalarOnly: false });
 const emit = defineEmits<{ change: [id: string, patch: Partial<SchemaField>]; remove: [id: string] }>();
 const editingId = ref<string | null>(null);
 const editing = computed(() => props.items.find((item) => item.id === editingId.value));
@@ -67,7 +67,8 @@ function confirm(schema: WorkflowJsonSchema): void {
       <label class="workflow-schema-inline-field workflow-schema-type-field">
         <span>类型</span>
         <select :value="workflowSchemaEditorType(item.schema)" :aria-label="props.kind === 'input' ? '参数类型' : '字段类型'" :disabled="props.readonly" @change="changeType(item, ($event.target as HTMLSelectElement).value as WorkflowSchemaEditorType)">
-          <option v-for="type in editorTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
+          <option v-for="type in editorTypes.filter((candidate) => !props.scalarOnly || ['string', 'integer', 'number', 'boolean'].includes(candidate.value))" :key="type.value" :value="type.value">{{ type.label }}</option>
+          <option v-if="props.scalarOnly && !['string', 'integer', 'number', 'boolean'].includes(workflowSchemaEditorType(item.schema))" :value="workflowSchemaEditorType(item.schema)" disabled>当前复杂类型（不支持）</option>
         </select>
         <small v-if="workflowSchemaEditorType(item.schema) === 'complex'">{{ workflowSchemaSummary(item.schema) }}</small>
       </label>
@@ -80,7 +81,7 @@ function confirm(schema: WorkflowJsonSchema): void {
         <input :value="item.schema.description ?? ''" :aria-label="props.kind === 'input' ? '参数说明' : '字段说明'" placeholder="字段用途（可选）" :disabled="props.readonly" @input="updateSchemaMetadata(item, 'description', ($event.target as HTMLInputElement).value)" />
       </label>
       <div class="workflow-row-actions">
-        <UiIconButton v-if="workflowSchemaEditorType(item.schema) === 'complex'" :label="item.schema['x-skillhub-legacy-loose'] ? '完善 Schema' : '配置 Schema'" size="sm" variant="secondary" :disabled="props.readonly" @click="editingId = item.id"><Pencil /></UiIconButton>
+        <UiIconButton v-if="!props.scalarOnly && workflowSchemaEditorType(item.schema) === 'complex'" :label="item.schema['x-skillhub-legacy-loose'] ? '完善 Schema' : '配置 Schema'" size="sm" variant="secondary" :disabled="props.readonly" @click="editingId = item.id"><Pencil /></UiIconButton>
         <UiIconButton :label="props.kind === 'input' ? '删除输入' : '删除输出'" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove', item.id)"><Trash2 /></UiIconButton>
       </div>
     </div>

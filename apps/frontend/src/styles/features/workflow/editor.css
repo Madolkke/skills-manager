@@ -259,6 +259,8 @@
 .workflow-field-table-row select,
 .workflow-binding-row input,
 .workflow-binding-row select,
+.workflow-log-query input,
+.workflow-log-query select,
 .workflow-sample input,
 .workflow-sample textarea,
 .workflow-code-input {
@@ -278,6 +280,8 @@
 .workflow-field-table-row select,
 .workflow-binding-row input,
 .workflow-binding-row select,
+.workflow-log-query input,
+.workflow-log-query select,
 .workflow-sample input {
   min-height: 40px;
   padding: 8px 10px;
@@ -297,6 +301,8 @@
 .workflow-setting-row input:focus,
 .workflow-field-table-row input:focus,
 .workflow-binding-row input:focus,
+.workflow-log-query input:focus,
+.workflow-log-query select:focus,
 .workflow-code-input:focus {
   border-color: #4f82bd;
   outline: 0;
@@ -322,6 +328,104 @@
 
 .workflow-script-input { min-height: 250px; }
 .workflow-command-input { min-height: 40px; resize: none; }
+
+.workflow-collection-type .field-label {
+  width: min(300px, 100%);
+}
+
+.workflow-log-spec {
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-log-contract-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid #cbd8e7;
+  border-radius: 5px;
+  background: #f5f8fb;
+  color: #51667f;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.workflow-log-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid #d6e0eb;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.workflow-log-columns > strong {
+  width: 100%;
+  color: #465b74;
+  font-size: 11px;
+}
+
+.workflow-log-columns > span {
+  display: inline-grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid #dbe4ee;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.workflow-log-columns code,
+.workflow-log-query code {
+  font-family: var(--mono-font);
+}
+
+.workflow-log-columns small {
+  color: #75849a;
+  font-size: 9px;
+}
+
+.workflow-log-query {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #d6e0eb;
+  border-radius: 7px;
+  background: #fbfcfe;
+}
+
+.workflow-log-query > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.workflow-log-query select[multiple] {
+  min-height: 82px;
+  padding: 4px;
+}
+
+.workflow-log-sql-input {
+  width: 100%;
+  min-height: 150px;
+  padding: 10px 11px;
+  border: 1px solid #bdcad9;
+  border-radius: 6px;
+  background: #f7f9fc;
+  color: #203249;
+  font-family: var(--mono-font);
+  line-height: 1.55;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.workflow-log-sql-input:focus {
+  border-color: #4f82bd;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(70 119 176 / 12%);
+}
 
 .workflow-check {
   min-height: 38px;
@@ -507,6 +611,11 @@
   .workflow-sample { animation: none; }
   .workflow-section-nav button:active,
   .workflow-predecessors-list button:hover { transform: none; }
+}
+
+@media (max-width: 720px) {
+  .workflow-log-query > header { grid-template-columns: minmax(0, 1fr) auto; }
+  .workflow-log-columns > span { flex: 1 1 130px; }
 }
 
 .workflow-empty {

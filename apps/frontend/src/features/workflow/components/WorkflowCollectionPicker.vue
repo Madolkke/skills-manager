@@ -2,6 +2,7 @@
 import { Check, Search } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import type { CollectionDefinition, WorkflowCollectionChange } from "../../../types";
+import { collectionContentSummary, collectionSearchText, collectionTypeLabel } from "../domain/collectionPresentation";
 
 const props = defineProps<{ definitions: CollectionDefinition[]; changes: WorkflowCollectionChange[]; readonly: boolean }>();
 const emit = defineEmits<{ select: [definition: CollectionDefinition] }>();
@@ -20,8 +21,7 @@ const latest = computed(() => {
 });
 const filtered = computed(() => {
   const needle = query.value.trim().toLocaleLowerCase();
-  return latest.value.filter((item) => !needle || [item.metadata.name, item.key, item.spec.commandTemplate]
-    .join(" ")
+  return latest.value.filter((item) => !needle || collectionSearchText(item)
     .toLocaleLowerCase()
     .includes(needle));
 });
@@ -54,7 +54,7 @@ function closeOutside(event: PointerEvent): void {
         ref="input"
         v-model="query"
         type="search"
-        placeholder="搜索名称、Key 或命令"
+        placeholder="搜索名称、Key 或采集内容"
         aria-label="搜索共享采集"
         :disabled="props.readonly"
         @focus="open = true"
@@ -66,7 +66,7 @@ function closeOutside(event: PointerEvent): void {
       <div v-if="open && !props.readonly" class="workflow-picker-menu">
         <button v-for="item in filtered" :key="`${item.id}-${item.revision}`" type="button" @click="choose(item)">
           <span><strong>{{ item.metadata.name || "未命名采集" }}</strong><code>{{ item.key }}</code></span>
-          <small>{{ item.spec.commandTemplate || "未配置命令" }}</small>
+          <small>{{ collectionTypeLabel(item) }} · {{ collectionContentSummary(item) }}</small>
           <i v-if="pendingLabel(item.id)">{{ pendingLabel(item.id) }}</i>
           <span v-else class="workflow-picker-revision">r{{ item.revision }}</span>
           <Check :size="14" />

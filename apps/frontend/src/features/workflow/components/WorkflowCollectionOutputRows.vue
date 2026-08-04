@@ -2,7 +2,7 @@
 import type { CollectionOutput } from "../../../types";
 import WorkflowSchemaFieldRows from "./WorkflowSchemaFieldRows.vue";
 
-const props = defineProps<{ items: CollectionOutput[]; readonly: boolean }>();
+const props = withDefaults(defineProps<{ items: CollectionOutput[]; readonly: boolean; scalarOnly?: boolean }>(), { scalarOnly: false });
 const emit = defineEmits<{
   change: [id: string, patch: Partial<CollectionOutput>];
   remove: [id: string];
@@ -10,5 +10,5 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <WorkflowSchemaFieldRows kind="output" :items="props.items" :readonly="props.readonly" @change="(id, patch) => emit('change', id, patch)" @remove="emit('remove', $event)" />
+  <WorkflowSchemaFieldRows kind="output" :items="props.items" :readonly="props.readonly" :scalar-only="props.scalarOnly" @change="(id, patch) => emit('change', id, patch)" @remove="emit('remove', $event)" />
 </template>

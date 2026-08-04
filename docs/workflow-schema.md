@@ -1,17 +1,19 @@
 # Workflow 文档 Schema
 
-本文档描述 SkillHub 当前 Workflow 文档格式 **schema v4**。它是 `WorkflowBundle` 的持久化结构，字段名使用 API 中的 camelCase 形式。
+本文档描述 SkillHub 当前 Workflow 文档格式 **schema v5**。它是 `WorkflowBundle` 的持久化结构，字段名使用 API 中的 camelCase 形式。
 
 权威实现：
 
 - 后端结构定义：`apps/backend/skillhub/models/rules/workflows/schema.py`
 - 前端镜像类型：`apps/frontend/src/types/workflow.ts`
 - 领域校验：`apps/backend/skillhub/models/rules/workflows/validation.py`
+- 日志 SQL 规则：`apps/backend/skillhub/models/rules/workflows/log_sql.py`
+- 日志列目录：`apps/backend/skillhub/models/rules/workflows/log_schema.py`
 
 ## 基本规则
 
-- `document_schema_version` 存在数据库 `workflows` 表中，不写入 Bundle 内部；当前值为 `4`。
-- v3 文档会在读取或导入时迁移为 v4；v1、v2 和未知版本仍被拒绝。
+- `document_schema_version` 存在数据库 `workflows` 表中，不写入 Bundle 内部；当前值为 `5`。
+- v3 文档会先沿用既有结构迁移，v4 文档可直接按 v5 模型读取；旧文档只在下一次正常保存时写为 v5。v1、v2 和未知版本仍被拒绝。
 - 所有对象禁止未知字段，字段名使用严格类型校验。
 - Python 字段名通过 alias 转换为 camelCase，例如 `step_type` 对应 `stepType`。
 - `id` 用于身份和结构引用，创建后不应修改或复用。
@@ -83,7 +85,7 @@ Workflow Metadata 不保存 Skill 的 owner、权限、Tags、生命周期或归
 | `required` | `boolean` | 否 | `true` | 是否要求调用方提供该参数。 |
 | `schema` | `WorkflowJsonSchema` | 是 | - | 参数结构；展示名称和说明分别位于 `schema.title`、`schema.description`。 |
 
-Workflow 和 Collection 编辑器均可配置 `required`。新字段默认必填。
+Schema 和导入接口保留 `required`。编辑器新建 Workflow 输入、Collection 输入和 Collection 输出时均写入 `true`，历史 `false` 值保持兼容。
 
 ### WorkflowJsonSchema
 
@@ -177,7 +179,35 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | --- | --- | --- | --- | --- |
 | `commandTemplate` | `string` | 否 | `""` | 单行 CLI 命令模板；参数占位符由执行器或 Collection 机制解释。 |
 | `outputSamples` | `CliOutputSample[]` | 否 | `[]` | CLI 回显示例。 |
-| `collectionType` | `"cli"` | 否 | `"cli"` | Collection 类型常量，当前只支持 CLI。 |
+| `collectionType` | `"cli"` | 是 | - | 严格联合的 CLI 判别字段。 |
+
+### LogAggregationQuery
+
+| 字段 | 类型 | 必填 | 默认值 | 含义 |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | 是 | - | 查询身份，在当前日志 Collection 内唯一。 |
+| `name` | `string` | 是 | - | 作者可见的查询名称。 |
+| `sql` | `string` | 否 | `""` | DuckDB SQL；只允许一条 `SELECT` 或 `WITH ... SELECT`。空值会产生领域校验错误。 |
+| `outputIds` | `string[]` | 否 | `[]` | 本查询负责产生的 `CollectionOutput.id` 列表。 |
+
+### LogOutputSample
+
+| 字段 | 类型 | 必填 | 默认值 | 含义 |
+| --- | --- | --- | --- | --- |
+| `id` | `string` | 是 | - | 日志样例身份。 |
+| `name` | `string` | 是 | - | 日志样例名称。 |
+| `text` | `string` | 否 | `""` | 原始日志文本；仅供作者参考，不解析、不校验、不参与运行。 |
+
+### LogCollectionSpec
+
+| 字段 | 类型 | 必填 | 默认值 | 含义 |
+| --- | --- | --- | --- | --- |
+| `collectionType` | `"log"` | 是 | - | 严格联合的日志判别字段。 |
+| `sqlDialect` | `"duckdb"` | 是 | - | 首版固定 SQL 方言。 |
+| `queries` | `LogAggregationQuery[]` | 否 | `[]` | 标量聚合查询列表。 |
+| `outputSamples` | `LogOutputSample[]` | 否 | `[]` | 原始日志样例。 |
+
+日志 Collection 的 inputs/outputs 只允许 `string`、`integer`、`number` 和 `boolean`，每个输出必须且只能归属一条查询。固定 `logs`/`params` 表、alias 映射、SQL AST 门禁和运行侧责任见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
 
 ### CollectionDefinition
 
@@ -187,7 +217,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `revision` | `integer` | 是 | - | Collection 定义修订号。 |
 | `key` | `string` | 是 | - | Collection 的机器可读标识，在 Catalog 中使用。 |
 | `metadata` | `CollectionMetadata` | 是 | - | Collection 展示和适用范围信息。 |
-| `spec` | `CliCollectionSpec` | 是 | - | CLI 类型专属定义。 |
+| `spec` | `CliCollectionSpec \| LogCollectionSpec` | 是 | - | 以 `collectionType` 判别的严格类型专属定义。 |
 | `inputs` | `Parameter[]` | 否 | `[]` | 命令模板需要的输入参数。 |
 | `outputs` | `CollectionOutput[]` | 否 | `[]` | 命令执行后产生的输出字段。 |
 | `forkedFrom` | `VersionedRef \| null` | 否 | - | 该定义从哪个 Collection 版本复制而来。 |
@@ -205,6 +235,8 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `deviceRoleId` | `string \| null` | 否 | - | 执行该调用时使用的设备角色；为空表示单设备。 |
 | `sampleCount` | `integer` | 否 | `1` | 执行采集的次数。领域校验要求大于零。 |
 | `inputBindings` | `Record<string, Binding>` | 否 | `{}` | 以 Collection 输入参数 ID 为 key 的绑定映射。 |
+
+日志 Collection 调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。违反这些规则仍可保存为草稿，但会产生 validation error 并阻止同步。
 
 ## 节点与跳转
 
@@ -225,8 +257,10 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 条件表达式编辑器使用以下作者侧变量命名空间：
 
-- `global.<key>` 引用 Workflow 全局输入。
-- `output.<callKey>.<outputKey>` 引用任意步骤的采集输出；调用 Key 为空时使用 `output.<outputKey>`。
+- `inputs.<key>` 引用 Workflow 全局输入。
+- `outputs.<callKey>.<outputKey>` 引用任意步骤的采集输出；调用 Key 为空时使用 `outputs.<outputKey>`。
+
+历史文档中使用 `global.<key>` 或 `output.<...>` 的表达式应在保存前迁移到上述 `inputs`/`outputs` 根名称；新文档和补全不会再生成旧写法。
 
 补全候选包含所有步骤已经定义的采集输出，不依据拓扑区分前序或后续步骤。同名输出路径会按来源分别显示，但插入相同文本。该能力只辅助输入，不校验变量是否能在运行时取值，也不限制手动输入其他表达式。
 
@@ -343,6 +377,14 @@ GET /api/skills/{skill_id}/workflow/collections
 ```
 
 Catalog 列表不替代 `document.collectionSnapshots`；Workflow 保存和同步使用的是 Bundle 内的精确快照。
+
+获取日志 SQL 的固定列目录：
+
+```http
+GET /api/workflow-log-schema
+```
+
+该接口返回 schema v5、DuckDB 方言、`logs`/`params` 表名及六个固定日志列。完整响应和 SQL 契约见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
 
 从旧格式导入时不要直接拼装持久化 Bundle 或 `collection_changes`，应使用专用接口：
 

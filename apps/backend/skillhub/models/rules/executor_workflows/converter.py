@@ -23,6 +23,7 @@ from skillhub.models.rules.workflows.schema import (
     Conclusion,
     ExpressionStep,
     JsonSchema,
+    LogCollectionSpec,
     ScriptStep,
     WorkflowBundle,
 )
@@ -130,6 +131,13 @@ class _Converter:
         if definition is None:
             for parameter_id in call.input_bindings:
                 self._binding_value(node_index, step, call, parameter_id, base)
+            return None
+        if isinstance(definition.spec, LogCollectionSpec):
+            self._error(
+                f"{base}.definition.spec.collectionType",
+                "executor_workflow.unsupported_collection_type",
+                "执行器 Workflow 暂不支持日志 Collection。",
+            )
             return None
         definition_index = self.definition_indexes[id(definition)]
         unknown_bindings = self._unknown_bindings(call, definition, base)

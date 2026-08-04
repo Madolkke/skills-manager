@@ -156,7 +156,7 @@ ID 使用单一、连续、无重复的整数命名空间：
 - 只有 `expression` Step 可以转换；`script` Step 会拒绝整个 Workflow 转换。
 - Step `condition` 取 `description`，不重新解析或生成表达式。
 - 每个 CollectionCall 都展开为一个 Collection，不能按 Definition 去重；同一定义被调用两次会得到两个执行器 Collection。
-- 当前只支持 CLI Collection，`kind` 固定为 `command`，命令来自 `spec.commandTemplate`。
+- 当前只支持 CLI Collection，`kind` 固定为 `command`，命令来自 `spec.commandTemplate`。Workflow 包含 `log` Collection 时返回 `executor_workflow.unsupported_collection_type`；本接口不会执行或投影日志 SQL。
 - 非空 `deviceRoleId` 或 `sampleCount != 1` 无法由目标模型表达，会拒绝转换。
 - `example_outputs` 固定为 `[]`，忽略写作侧 `outputSamples`、stdout 和 inputValues。
 - Transition 保持原数组顺序；`condition` 使用 `conditionExpression`，`description` 使用 `conditionText`。空表达式是无条件跳转。

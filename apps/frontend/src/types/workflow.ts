@@ -54,13 +54,33 @@ export type WorkflowExpressionValidation = { inferredType: Record<string, unknow
 export type WorkflowExpressionEnvironment = { inputs: Record<string, WorkflowJsonSchema>; outputs: Record<string, Record<string, WorkflowJsonSchema>> };
 export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; functions: Record<string, unknown>; methods: Record<string, unknown> };
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
+export type LogAggregationQuery = { id: string; name: string; sql: string; outputIds: string[] };
+export type LogOutputSample = { id: string; name: string; text: string };
+export type CliCollectionSpec = { collectionType: "cli"; commandTemplate: string; outputSamples: CliOutputSample[] };
+export type LogCollectionSpec = { collectionType: "log"; sqlDialect: "duckdb"; queries: LogAggregationQuery[]; outputSamples: LogOutputSample[] };
+export type WorkflowCollectionSpec = CliCollectionSpec | LogCollectionSpec;
+
+export type WorkflowLogSchemaColumn = {
+  name: string;
+  duckdb_type: "TIMESTAMP" | "VARCHAR";
+  nullable: boolean;
+  title: string;
+  description: string;
+};
+export type WorkflowLogSchemaCatalog = {
+  document_schema_version: number;
+  dialect: "duckdb";
+  logs_table: "logs";
+  params_table: "params";
+  columns: WorkflowLogSchemaColumn[];
+};
 
 export type CollectionDefinition = {
   id: string;
   revision: number;
   key: string;
   metadata: CollectionMetadata;
-  spec: { collectionType: "cli"; commandTemplate: string; outputSamples: CliOutputSample[] };
+  spec: WorkflowCollectionSpec;
   inputs: WorkflowParameter[];
   outputs: CollectionOutput[];
   forkedFrom?: VersionedRef;

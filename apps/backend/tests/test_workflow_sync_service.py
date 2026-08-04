@@ -61,7 +61,7 @@ def test_confirmed_preview_passes_complete_generator_evidence_to_store() -> None
         change_summary="从 Workflow 生成。",
         expected_workflow_revision=3,
         generator_id="builtin.three-file",
-        generator_version="2.0.0",
+        generator_version="3.0.0",
         generator_options={},
         preview_digest=preview["preview_digest"],
         actor="owner",
@@ -81,9 +81,9 @@ def test_confirmed_preview_passes_complete_generator_evidence_to_store() -> None
 @pytest.mark.parametrize(
     ("revision", "generator_version", "preview_digest"),
     (
-        (4, "2.0.0", "current"),
+        (4, "3.0.0", "current"),
         (3, "1.0.0", "current"),
-        (3, "2.0.0", "0" * 64),
+        (3, "3.0.0", "0" * 64),
     ),
 )
 def test_sync_rejects_stale_or_tampered_confirmation(

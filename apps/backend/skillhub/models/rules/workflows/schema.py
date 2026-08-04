@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from copy import deepcopy
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.document_migration import migrate_collection_v3, migrate_workflow_v3, workflow_uses_v3_fields
 
-DOCUMENT_SCHEMA_VERSION = 4
+DOCUMENT_SCHEMA_VERSION = 5
 
 
 def _camel(name: str) -> str:
@@ -121,12 +122,35 @@ class CliCollectionSpec(WorkflowModel):
     collection_type: Literal["cli"] = "cli"
 
 
+class LogAggregationQuery(WorkflowModel):
+    id: str
+    name: str
+    sql: str = ""
+    output_ids: list[str] = Field(default_factory=list)
+
+
+class LogOutputSample(WorkflowModel):
+    id: str
+    name: str
+    text: str = ""
+
+
+class LogCollectionSpec(WorkflowModel):
+    collection_type: Literal["log"] = "log"
+    sql_dialect: Literal["duckdb"] = "duckdb"
+    queries: list[LogAggregationQuery] = Field(default_factory=list)
+    output_samples: list[LogOutputSample] = Field(default_factory=list)
+
+
+CollectionSpec = Annotated[CliCollectionSpec | LogCollectionSpec, Field(discriminator="collection_type")]
+
+
 class CollectionDefinition(WorkflowModel):
     id: str
     revision: int
     key: str
     metadata: CollectionMetadata
-    spec: CliCollectionSpec
+    spec: CollectionSpec
     inputs: list[Parameter] = Field(default_factory=list)
     outputs: list[CollectionOutput] = Field(default_factory=list)
     forked_from: VersionedRef | None = None
@@ -203,19 +227,21 @@ class WorkflowBundle(WorkflowModel):
 def normalize_workflow_document(value: dict[str, Any]) -> dict[str, Any]:
     if workflow_uses_v3_fields(value):
         value = migrate_workflow_v3(value)
+    value = _normalize_legacy_cli_specs(value)
     return _normalize(WorkflowBundle, value, "Workflow 文档格式不正确。")
 
 
 def normalize_collection_definition(value: dict[str, Any]) -> dict[str, Any]:
     if any("schema" not in item for item in [*value.get("inputs", []), *value.get("outputs", [])]):
         value = migrate_collection_v3(value)
+    value = _normalize_legacy_cli_specs(value)
     return _normalize(CollectionDefinition, value, "Collection 定义格式不正确。")
 
 
 def migrate_workflow_document(document_schema_version: int, value: dict[str, Any]) -> dict[str, Any]:
     if document_schema_version == 3:
         value = migrate_workflow_v3(value)
-    elif document_schema_version != DOCUMENT_SCHEMA_VERSION:
+    elif document_schema_version not in {4, DOCUMENT_SCHEMA_VERSION}:
         raise InvariantError(f"Unsupported Workflow document schema version: {document_schema_version}")
     return normalize_workflow_document(value)
 
@@ -223,7 +249,7 @@ def migrate_workflow_document(document_schema_version: int, value: dict[str, Any
 def migrate_collection_definition(document_schema_version: int, value: dict[str, Any]) -> dict[str, Any]:
     if document_schema_version == 3:
         value = migrate_collection_v3(value)
-    elif document_schema_version != DOCUMENT_SCHEMA_VERSION:
+    elif document_schema_version not in {4, DOCUMENT_SCHEMA_VERSION}:
         raise InvariantError(f"Unsupported Collection document schema version: {document_schema_version}")
     return normalize_collection_definition(value)
 
@@ -236,3 +262,14 @@ def _normalize(model, value: dict[str, Any], message: str) -> dict[str, Any]:
         path = ".".join(str(item) for item in detail.get("loc", ()))
         raise InvariantError(f"{message} {path}: {detail.get('msg', 'invalid value')}") from exc
     return parsed.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+
+def _normalize_legacy_cli_specs(value: dict[str, Any]) -> dict[str, Any]:
+    """Add the discriminator to v4 CLI documents that predate the union field."""
+    result = deepcopy(value)
+    definitions = [result] if "metadata" in result and "spec" in result else result.get("collectionSnapshots", [])
+    for definition in definitions:
+        spec = definition.get("spec")
+        if isinstance(spec, dict) and "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
+            spec["collectionType"] = "cli"
+    return result

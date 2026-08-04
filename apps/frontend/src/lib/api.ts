@@ -53,6 +53,7 @@ import type {
   WorkflowExpressionContract,
   WorkflowExpressionEnvironment,
   WorkflowExpressionValidation,
+  WorkflowLogSchemaCatalog,
 } from "../types";
 import { getActorId } from "./identity";
 
@@ -126,6 +127,7 @@ function skillApi() {
       apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/metadata`, "PATCH", payload),
     listWorkflowCollections: (skillId: string) =>
       apiGet<{ definitions: CollectionDefinition[] }>(`/api/skills/${encodeURIComponent(skillId)}/workflow/collections`),
+    getWorkflowLogSchema: () => apiGet<WorkflowLogSchemaCatalog>("/api/workflow-log-schema"),
     listWorkflowSkillGenerators: () => apiGet<WorkflowSkillGeneratorCatalog>("/api/workflow-skill-generators"),
     previewWorkflowSync: (skillId: string, payload: WorkflowSyncPreviewPayload) =>
       apiSend<WorkflowSyncPreview>(`/api/skills/${encodeURIComponent(skillId)}/workflow/sync-preview`, "POST", payload),

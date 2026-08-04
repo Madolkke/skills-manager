@@ -11,7 +11,7 @@
 - 本文定义概念、关系和不变量。
 - `apps/backend/skillhub/models/rules/workflows/schema.py` 定义服务端可接受的持久化结构。
 - `apps/frontend/src/types/workflow.ts` 和 `features/workflow/domain/schema.ts` 是前端镜像。
-- `workflows.document_schema_version` 标识持久化格式；当前只接受 schema v3，`WorkflowBundle` 内不保存格式版本。
+- `workflows.document_schema_version` 标识持久化格式；当前写入 schema v5，并兼容读取 v3/v4，`WorkflowBundle` 内不保存格式版本。
 - Workflow 只表达作者内容，不表达执行器运行状态。
 
 ## 2. 与 Skill 的关系
@@ -142,7 +142,7 @@ Bundle 只携带当前 Workflow 直接引用的 Collection 精确版本。共享
 
 Parameter 声明 Workflow 全局输入或 Collection 输入槽位，包含 `id/key/required/schema`，不保存运行时值。显示名称和说明保存在 `schema.title`、`schema.description`；Schema 可递归表达对象、数组和对象数组。Step 不再声明独立输入。
 
-编辑器新建 Workflow 全局输入时固定 `required: true` 且不提供切换控件。Schema 和导入接口仍保留 `required` 字段，Collection 输入继续允许作者配置该值。
+编辑器新建 Workflow 全局输入、Collection 输入和 Collection 输出时固定 `required: true` 且不提供切换控件。Schema 和导入接口仍保留 `required` 字段，历史 `false` 值不会被普通编辑自动覆盖。
 
 ### Binding
 
@@ -162,7 +162,7 @@ DeviceRole 描述逻辑设备角色。`required` 表示未来使用 Workflow 时
 
 ### CollectionDefinition
 
-CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。当前唯一采集类型是 CLI。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
+CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。`spec` 是以 `collectionType` 判别的 CLI/log 严格联合。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
 
 CLI spec 包含：
 
@@ -172,11 +172,15 @@ CLI spec 包含：
 
 原始 `stdout` 和 `inputValues` 只用于作者预览，不写入同步生成的 SKILL.md；生成结果只列出样例名称。
 
+日志 spec 固定使用 DuckDB 方言，包含多条 `queries` 和只保存名称、原始文本的 `outputSamples`。每条查询通过 `outputIds` 认领输出，SQL 顶层 alias 必须使用对应输出 Key。日志输入和输出只允许四种标量 Schema；固定 `logs`/`params` 表、SQLGlot 静态门禁和运行责任见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
+
 ### CollectionCall
 
 CollectionCall 表示某个 Step 对 CollectionDefinition 精确版本的一次使用，保存可选调用 Key/Name、Definition 引用、设备角色、采集次数和参数绑定。未选择设备角色时表示“单设备”。调用名称为空时展示 Collection 名称；调用 Key 非空时作为输出字段命名空间，例如 `status.version`，为空时直接暴露输出字段。直接暴露的字段不得与 Workflow 全局输入或其他直接暴露输出重名。
 
 CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_output` 只能引用同一步骤中排在当前调用之前的输出。重排后形成向前引用时允许保存草稿，但阻止同步。
+
+日志调用固定 `sampleCount = 1` 且不使用设备角色。SkillHub 不执行日志 SQL；调用只保存普通参数 Binding 和对日志 Collection 精确版本的引用。
 
 ### 步骤内新建 Collection
 
@@ -186,11 +190,11 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 2. 同时创建当前步骤的 CollectionCall，并把定义加入会话 Catalog，供其他步骤立即复用。
 3. 调用名称和 Key 默认为空；名称回退显示 Collection 名称，Key 仅在需要输出命名空间时填写。
 4. 保存前删除最后一个调用引用时，同时移除待提交定义；仍有其他步骤引用时只删除当前调用。
-5. 参数 Key/名称、Collection 名称或单行 CLI 命令缺失会产生领域 `error`：允许保存草稿，但阻止同步到 Skill。
+5. 参数 Key/名称、Collection 名称、CLI 命令或日志查询契约不合法会产生领域 `error`：允许保存草稿，但阻止同步到 Skill。
 
 ### Step、Transition 与 Conclusion
 
-- Step 是判断节点，可为 `expression` 或 `script`。跳转条件表达式支持 `global.<key>` 和 `output.<callKey>.<outputKey>` 变量补全；补全覆盖所有步骤已定义的采集输出，仅用于辅助输入，不承担运行时校验。
+- Step 是判断节点，可为 `expression` 或 `script`。跳转条件表达式支持 `inputs.<key>` 和 `outputs.<callKey>.<outputKey>` 变量补全；调用 Key 为空时使用 `outputs.<outputKey>`。历史 `global`/`output` 根名称应迁移到新写法；补全覆盖所有步骤已定义的采集输出，仅用于辅助输入，不承担运行时校验。
 - Script 只保存作者草稿，不定义运行环境、权限、超时和返回协议。
 - Transition 通过目标 ID指向 Step 或 Conclusion，只保存自然语言条件和表达式源码；在编辑器中表述为“跳转到节点”，条件说明为空时表示无条件跳转。
 - Conclusion 是终点知识节点，只保存根因和修复建议。
@@ -237,17 +241,17 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 
 同步是显式操作，且 dirty 状态禁止同步。前端只展示服务端结果，不复制转换或路径规则。服务端提供三个可版本化的纯规则 Generator：
 
-- `builtin.single-file@workflow-skill-v4`：输出递归 Schema 信息的单个 `SKILL.md`。
-- `builtin.three-file@2.0.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
-- `builtin.node-split@2.0.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
+- `builtin.single-file@workflow-skill-v5`：输出递归 Schema 信息的单个 `SKILL.md`。
+- `builtin.three-file@3.0.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
+- `builtin.node-split@3.0.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
 
 统一输出规则：
 
 - frontmatter `name` 使用同步时的 Skill slug。
 - frontmatter `description` 使用 Workflow description，并通过 YAML 序列化器输出。
-- 正文确定性渲染元信息、输入、设备角色、步骤、采集、命令模板、绑定、输出、路径、脚本草稿和结论。
+- 正文确定性渲染元信息、输入、设备角色、步骤、采集、CLI 命令或日志 SQL、绑定、输出、路径、脚本草稿和结论。
 - 节点关系使用 Name，参数和采集关系使用可读 Key/Name，不输出 opaque ID。
-- 保留作者事实，但排除 `symptom`、原始 `stdout` 和样例 `inputValues`。
+- 保留作者事实，但排除 `symptom`、CLI 原始 `stdout`、样例 `inputValues` 和日志样例原始 `text`；样例只输出名称。
 - 输出统一为 UTF-8、LF 和文件尾换行，并重新经过标准 Skill Bundle parser 的路径、根目录、frontmatter、100 文件、5 MB 和 digest 校验。
 - 按节点模式超过 Bundle 限制时停止生成，并提示改用固定三文件模式。
 - 不写入 `workflow.json`。
@@ -262,5 +266,6 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 - 独立 Workflow、后补绑定、解绑或换绑。
 - 自动保存、本地崩溃恢复、多人协作和结构化合并。
 - Workflow 执行器、运行状态、重试和并发控制。
+- 日志解析、DataFrame 持久化、DuckDB SQL 执行和查询资源调度。
 - Workflow 自身的测评、评审、发布和反向 Skill 到 Workflow 同步。
 - 可配置生成模板、导入导出、Catalog ACL 和持久化 Collection 删除。

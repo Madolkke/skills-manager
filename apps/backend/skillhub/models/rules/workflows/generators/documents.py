@@ -29,6 +29,12 @@ def collection_reference_path(definition: dict[str, Any]) -> str:
 
 def render_entry(*, slug: str, document: dict[str, Any], reference_path: str, split_nodes: bool) -> str:
     metadata = document["workflow"]["metadata"]
+    has_log_collection = any(item["spec"]["collectionType"] == "log" for item in document.get("collectionSnapshots", []))
+    collection_instruction = (
+        "2. 执行节点所列采集信息时，按参数绑定填充值，并保留结构化输出供后续判断。"
+        if has_log_collection
+        else "2. 执行节点所列采集命令时，按参数绑定填充值，并保留输出字段供后续判断。"
+    )
     lines = [*frontmatter_lines(slug, metadata), "", f"# {metadata['name'] or slug}", ""]
     append_paragraph(lines, metadata["description"])
     lines.extend(
@@ -36,7 +42,7 @@ def render_entry(*, slug: str, document: dict[str, Any], reference_path: str, sp
             "## 操作协议",
             "",
             "1. 先读取工作流参考文件，确认全局输入、设备角色、起始步骤和跳转条件。",
-            "2. 执行节点所列采集命令时，按参数绑定填充值，并保留输出字段供后续判断。",
+            collection_instruction,
             "3. 按跳转条件推进，命中结论后输出故障根因与修复建议。",
             "4. 脚本内容仅作为草稿，执行前必须结合目标环境复核。",
             "",
@@ -170,9 +176,13 @@ def append_collection_definition(lines: list[str], definition: dict[str, Any], *
             lines.append(f"- {label}: {value}")
     lines.append("")
     append_paragraph(lines, metadata["description"])
-    command = definition["spec"]["commandTemplate"]
-    if command:
-        lines.extend([f"{'#' * (level + 1)} 采集命令", "", "```text", command.rstrip(), "```", ""])
+    spec = definition["spec"]
+    if spec["collectionType"] == "cli":
+        command = spec["commandTemplate"]
+        if command:
+            lines.extend([f"{'#' * (level + 1)} 采集命令", "", "```text", command.rstrip(), "```", ""])
+    else:
+        _append_log_spec(lines, spec, definition["outputs"], level=level + 1)
     append_parameters(lines, "输入参数", definition["inputs"], level=level + 1)
     if definition["outputs"]:
         lines.extend([f"{'#' * (level + 1)} 输出字段", ""])
@@ -184,11 +194,32 @@ def append_collection_definition(lines: list[str], definition: dict[str, Any], *
             lines.append(f"- `{output['key']}` ({schema_type(schema)}, {required}): {title}{description}")
             append_schema_children(lines, schema, indent="  ")
         lines.append("")
-    samples = [sample["name"] for sample in definition["spec"]["outputSamples"] if sample["name"].strip()]
+    samples = [sample["name"] for sample in spec["outputSamples"] if sample["name"].strip()]
     if samples:
-        lines.extend([f"{'#' * (level + 1)} 回显示例", ""])
+        heading = "回显示例" if spec["collectionType"] == "cli" else "日志样例"
+        lines.extend([f"{'#' * (level + 1)} {heading}", ""])
         lines.extend(f"- {name}" for name in samples)
         lines.append("")
+
+
+def _append_log_spec(
+    lines: list[str],
+    spec: dict[str, Any],
+    outputs: list[dict[str, Any]],
+    *,
+    level: int,
+) -> None:
+    output_keys = {item["id"]: item["key"] for item in outputs}
+    lines.extend([f"{'#' * level} 日志聚合 SQL", ""])
+    for query in spec["queries"]:
+        title = query["name"].strip() or query["id"]
+        lines.extend([f"{'#' * (level + 1)} {title}", ""])
+        if query["outputIds"]:
+            mapped = [output_keys.get(item, item) for item in query["outputIds"]]
+            lines.append(f"- 输出字段: {', '.join(f'`{item}`' for item in mapped)}")
+            lines.append("")
+        if query["sql"].strip():
+            lines.extend(["```sql", query["sql"].rstrip(), "```", ""])
 
 
 def _append_step_summary(lines: list[str], step: dict[str, Any]) -> None:

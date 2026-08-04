@@ -4,7 +4,9 @@ from collections import Counter, deque
 from typing import Any
 from urllib.parse import quote
 
-from .json_schema import has_legacy_schema, schema_title, schemas_assignable, value_matches_schema
+from .collection_validation import validate_collection_identity
+from .json_schema import schema_title, schemas_assignable, value_matches_schema
+from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
 
 def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]:
@@ -16,14 +18,14 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
     issues: list[dict[str, Any]] = []
 
     if not workflow["metadata"]["name"].strip():
-        issues.append(_issue("MISSING_WORKFLOW_NAME", "error", "工作流名称不能为空。", {"type": "metadata"}))
+        issues.append(issue("MISSING_WORKFLOW_NAME", "error", "工作流名称不能为空。", {"type": "metadata"}))
     if not workflow["metadata"]["description"].strip():
-        issues.append(_issue("MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", {"type": "metadata"}))
+        issues.append(issue("MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", {"type": "metadata"}))
 
     _duplicate_issues(workflow, steps, issues)
-    _collection_identity_issues(snapshots, issues)
+    validate_collection_identity(snapshots, issues)
     if not any(step["isStart"] for step in steps):
-        issues.append(_issue("NO_START_STEP", "error", "工作流至少需要一个起始步骤。", {"type": "metadata"}))
+        issues.append(issue("NO_START_STEP", "error", "工作流至少需要一个起始步骤。", {"type": "metadata"}))
 
     node_by_id = {node["id"]: node for node in workflow["nodes"]}
     role_ids = {role["id"] for role in workflow["deviceRoles"]}
@@ -36,91 +38,28 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
     for node in [*steps, *conclusions]:
         if not node.get("isStart") and node["id"] not in reachable:
             issues.append(
-                _issue("UNREACHABLE_NODE", "warning", f"节点“{node['name']}”无法从任何起始步骤到达。", _selection(node))
+                issue("UNREACHABLE_NODE", "warning", f"节点“{node['name']}”无法从任何起始步骤到达。", _selection(node))
             )
     cycle = _cycle_members(steps)
     if cycle:
         names = [node_by_id[item]["name"] for item in cycle if item in node_by_id]
-        issues.append(_issue("POTENTIAL_CYCLE", "warning", f"检测到可能的循环路径：{' -> '.join(names)}。", {"type": "step", "id": cycle[0]}))
+        issues.append(issue("POTENTIAL_CYCLE", "warning", f"检测到可能的循环路径：{' -> '.join(names)}。", {"type": "step", "id": cycle[0]}))
     return _assign_issue_ids(issues)
 
 
 def _duplicate_issues(workflow, steps, issues) -> None:
-    _append_duplicates(workflow["nodes"], "id", "MISSING_NODE_ID", "DUPLICATE_NODE_ID", "节点 ID", issues, {"type": "metadata"})
-    _append_duplicates(workflow["inputs"], "id", "MISSING_INPUT_ID", "DUPLICATE_INPUT_ID", "全局输入 ID", issues, {"type": "inputs"})
-    _append_duplicates(workflow["inputs"], "key", "MISSING_INPUT_KEY", "DUPLICATE_INPUT_KEY", "全局输入 key", issues, {"type": "inputs"})
-    _append_missing_titles(workflow["inputs"], "全局输入名称", issues, {"type": "inputs"})
-    _append_legacy_schema_warnings(workflow["inputs"], issues, {"type": "inputs"})
-    _append_duplicates(workflow["deviceRoles"], "id", "MISSING_ROLE_ID", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, {"type": "roles"})
-    _append_duplicates(workflow["deviceRoles"], "key", "MISSING_ROLE_KEY", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
+    append_duplicates(workflow["nodes"], "id", "MISSING_NODE_ID", "DUPLICATE_NODE_ID", "节点 ID", issues, {"type": "metadata"})
+    append_duplicates(workflow["inputs"], "id", "MISSING_INPUT_ID", "DUPLICATE_INPUT_ID", "全局输入 ID", issues, {"type": "inputs"})
+    append_duplicates(workflow["inputs"], "key", "MISSING_INPUT_KEY", "DUPLICATE_INPUT_KEY", "全局输入 key", issues, {"type": "inputs"})
+    append_missing_titles(workflow["inputs"], "全局输入名称", issues, {"type": "inputs"})
+    append_legacy_schema_warnings(workflow["inputs"], issues, {"type": "inputs"})
+    append_duplicates(workflow["deviceRoles"], "id", "MISSING_ROLE_ID", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, {"type": "roles"})
+    append_duplicates(workflow["deviceRoles"], "key", "MISSING_ROLE_KEY", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
     for step in steps:
         selection = {"type": "step", "id": step["id"]}
-        _append_duplicates(step["collectionCalls"], "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
-        _append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection)
-        _append_duplicates(step["topology"], "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
-
-
-def _collection_identity_issues(definitions, issues) -> None:
-    references = [{"reference": f"{item['id']}@{item['revision']}"} for item in definitions]
-    _append_optional_duplicates(references, "reference", "DUPLICATE_COLLECTION_REFERENCE", "Collection 引用", issues, {"type": "collections"})
-    for definition in definitions:
-        selection = {"type": "collection", "id": definition["id"], "revision": definition["revision"]}
-        if not definition["metadata"]["name"].strip():
-            issues.append(_issue("MISSING_COLLECTION_NAME", "error", "采集名称不能为空。", {**selection, "field": "metadata.name"}))
-        if not definition["spec"]["commandTemplate"].strip():
-            label = definition["metadata"]["name"] or definition["key"]
-            issues.append(
-                _issue(
-                    "MISSING_COLLECTION_COMMAND",
-                    "error",
-                    f"采集“{label}”的采集命令不能为空。",
-                    {**selection, "field": "spec.commandTemplate"},
-                )
-            )
-        elif "\n" in definition["spec"]["commandTemplate"] or "\r" in definition["spec"]["commandTemplate"]:
-            issues.append(
-                _issue(
-                    "MULTILINE_COLLECTION_COMMAND",
-                    "error",
-                    f"采集“{definition['metadata']['name'] or definition['key']}”的采集命令必须为单行。",
-                    {**selection, "field": "spec.commandTemplate"},
-                )
-            )
-        _append_duplicates(definition["inputs"], "id", "MISSING_COLLECTION_INPUT_ID", "DUPLICATE_COLLECTION_INPUT_ID", "Collection 输入 ID", issues, selection)
-        _append_duplicates(definition["inputs"], "key", "MISSING_COLLECTION_INPUT_KEY", "DUPLICATE_COLLECTION_INPUT_KEY", "Collection 输入 key", issues, selection)
-        _append_missing_titles(definition["inputs"], "Collection 输入名称", issues, selection)
-        _append_legacy_schema_warnings([*definition["inputs"], *definition["outputs"]], issues, selection)
-        _append_duplicates(definition["outputs"], "id", "MISSING_COLLECTION_OUTPUT_ID", "DUPLICATE_COLLECTION_OUTPUT_ID", "Collection 输出 ID", issues, selection)
-        _append_duplicates(definition["outputs"], "key", "MISSING_COLLECTION_OUTPUT_KEY", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection)
-        _append_duplicates(definition["spec"]["outputSamples"], "id", "MISSING_COLLECTION_SAMPLE_ID", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection)
-
-
-def _append_duplicates(items, field, missing_code, duplicate_code, label, issues, selection) -> None:
-    counts = Counter(str(item.get(field, "")).strip() for item in items)
-    for value, count in counts.items():
-        if not value:
-            issues.append(_issue(missing_code, "error", f"{label}不能为空。", selection))
-        elif count > 1:
-            issues.append(_issue(duplicate_code, "error", f"{label}“{value}”重复。", selection))
-
-
-def _append_optional_duplicates(items, field, code, label, issues, selection) -> None:
-    counts = Counter(str(item.get(field, "")).strip() for item in items)
-    for value, count in counts.items():
-        if value and count > 1:
-            issues.append(_issue(code, "error", f"{label}“{value}”重复。", selection))
-
-
-def _append_missing_titles(items, label, issues, selection) -> None:
-    for item in items:
-        if not str(item.get("schema", {}).get("title", "")).strip():
-            issues.append(_issue("MISSING_PARAMETER_NAME", "error", f"{label}不能为空。", selection))
-
-
-def _append_legacy_schema_warnings(items, issues, selection) -> None:
-    for item in items:
-        if has_legacy_schema(item["schema"]):
-            issues.append(_issue("LEGACY_LOOSE_SCHEMA", "warning", f"字段“{schema_title(item)}”仍使用迁移后的宽松 Schema，建议补充详细结构。", selection))
+        append_duplicates(step["collectionCalls"], "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
+        append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection)
+        append_duplicates(step["topology"], "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
 
 
 def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, workflow_input_keys, issues) -> None:
@@ -132,18 +71,26 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
         call_selection = {**selection, "section": "collections", "itemId": call["id"]}
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
         call_label = _call_label(call, definition) if definition else call["name"] or "未命名采集"
-        if call["sampleCount"] < 1:
-            issues.append(_issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", {**call_selection, "field": "sampleCount"}))
         if definition is None:
-            issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call_label}”引用的定义版本不存在。", call_selection))
+            if call["sampleCount"] < 1:
+                issues.append(issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", {**call_selection, "field": "sampleCount"}))
+            issues.append(issue("BROKEN_REFERENCE", "error", f"采集“{call_label}”引用的定义版本不存在。", call_selection))
             continue
-        if call.get("deviceRoleId") and call["deviceRoleId"] not in role_ids:
-            issues.append(_issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", {**call_selection, "field": "deviceRoleId"}))
+        if definition["spec"]["collectionType"] == "log":
+            if call.get("deviceRoleId"):
+                issues.append(issue("LOG_CALL_DEVICE_ROLE_UNSUPPORTED", "error", f"日志采集“{call_label}”不能绑定设备角色。", {**call_selection, "field": "deviceRoleId"}))
+            if call["sampleCount"] != 1:
+                issues.append(issue("LOG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", f"日志采集“{call_label}”的采集次数必须为 1。", {**call_selection, "field": "sampleCount"}))
+        else:
+            if call["sampleCount"] < 1:
+                issues.append(issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", {**call_selection, "field": "sampleCount"}))
+            if call.get("deviceRoleId") and call["deviceRoleId"] not in role_ids:
+                issues.append(issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", {**call_selection, "field": "deviceRoleId"}))
         for parameter in definition["inputs"]:
             binding = call["inputBindings"].get(parameter["id"])
             binding_selection = {**call_selection, "field": f"binding.{parameter['id']}"}
             if parameter["required"] and not _binding_has_value(binding):
-                issues.append(_issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
+                issues.append(issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
                 _validate_binding(binding, parameter, workflow_inputs, previous_calls, all_calls, definitions, issues, binding_selection)
         if not call["key"].strip():
@@ -159,7 +106,7 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
     for transition in step["topology"]:
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
-            issues.append(_issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
+            issues.append(issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
 
 
 def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, selection) -> None:
@@ -169,7 +116,7 @@ def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, sel
             continue
         if key in reserved or key in names:
             issues.append(
-                _issue(
+                issue(
                     "UNSCOPED_OUTPUT_CONFLICT",
                     "error",
                     f"采集“{_call_label(call, definition)}”直接暴露的输出字段“{key}”与 Workflow 全局输入或其他直接输出重名，请填写调用 key 作为命名空间。",
@@ -195,19 +142,19 @@ def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, def
         valid = bool(definition and any(item["id"] == ref.get("output_id") for item in definition["outputs"]))
     if not valid:
         if kind == "collection_output" and ref.get("call_id") in all_calls:
-            issues.append(_issue("FORWARD_OUTPUT_BINDING", "error", "采集输出只能引用同一步骤中排在当前调用之前的采集。", selection))
+            issues.append(issue("FORWARD_OUTPUT_BINDING", "error", "采集输出只能引用同一步骤中排在当前调用之前的采集。", selection))
             return
-        issues.append(_issue("BROKEN_REFERENCE", "error", f"参数绑定类型“{kind}”的引用无效。", selection))
+        issues.append(issue("BROKEN_REFERENCE", "error", f"参数绑定类型“{kind}”的引用无效。", selection))
         return
     if kind == "literal" and not value_matches_schema(binding.get("value"), parameter["schema"]):
-        issues.append(_issue("LITERAL_SCHEMA_MISMATCH", "warning", f"字段“{schema_title(parameter)}”的固定值与 Schema 不匹配。", selection))
+        issues.append(issue("LITERAL_SCHEMA_MISMATCH", "warning", f"字段“{schema_title(parameter)}”的固定值与 Schema 不匹配。", selection))
     source = workflow_inputs.get(ref.get("input_id")) if kind == "workflow_input" else None
     if kind == "collection_output":
         call = calls[ref["call_id"]]
         definition = definitions[(call["definition"]["id"], call["definition"]["revision"])]
         source = next(item for item in definition["outputs"] if item["id"] == ref["output_id"])
     if source and not schemas_assignable(source["schema"], parameter["schema"]):
-        issues.append(_issue("INCOMPATIBLE_BINDING_SCHEMA", "error", f"来源字段“{schema_title(source)}”与输入“{schema_title(parameter)}”的 Schema 不兼容。", selection))
+        issues.append(issue("INCOMPATIBLE_BINDING_SCHEMA", "error", f"来源字段“{schema_title(source)}”与输入“{schema_title(parameter)}”的 Schema 不兼容。", selection))
 
 
 def _binding_has_value(binding) -> bool:
@@ -261,17 +208,13 @@ def _selection(node) -> dict[str, str]:
     return {"type": "step" if "stepType" in node else "conclusion", "id": node["id"]}
 
 
-def _issue(code: str, severity: str, message: str, selection: dict[str, str]) -> dict[str, Any]:
-    return {"id": "", "code": code, "severity": severity, "message": message, "selection": selection}
-
-
 def _assign_issue_ids(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
     fields = ("type", "id", "revision", "section", "itemId", "field")
     occurrences: Counter[str] = Counter()
-    for issue in issues:
-        parts = [issue["code"].lower(), *(str(issue["selection"].get(field, "")) for field in fields)]
+    for validation_issue in issues:
+        parts = [validation_issue["code"].lower(), *(str(validation_issue["selection"].get(field, "")) for field in fields)]
         base = "/".join(["workflow-issue", *(quote(part, safe="-._~") for part in parts)])
         occurrence = occurrences[base]
         occurrences[base] += 1
-        issue["id"] = f"{base}/{occurrence}"
+        validation_issue["id"] = f"{base}/{occurrence}"
     return issues

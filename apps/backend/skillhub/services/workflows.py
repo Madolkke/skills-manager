@@ -12,6 +12,7 @@ from skillhub.models.rules.workflows import (
     format_workflow_document,
     normalize_workflow_document,
     normalize_workflow_import_bundle,
+    workflow_log_schema_catalog,
 )
 from skillhub.models.rules.workflows.expression import expression_contract, validate_expression
 from skillhub.models.store import SkillHubStore
@@ -22,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
+    def log_schema(self) -> dict[str, Any]:
+        """Return the fixed SQL table contract for log Collections."""
+        return workflow_log_schema_catalog()
+
     def expression_contract(self) -> dict[str, Any]:
         """Return the public static-analysis contract for Workflow expressions."""
         return expression_contract()

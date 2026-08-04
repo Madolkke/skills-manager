@@ -75,14 +75,21 @@ def append_calls(
         lines.extend([f"{'#' * (level + 1)} {call_name(call, definition)}", ""])
         if call["key"].strip():
             lines.append(f"- 调用 key: `{call['key']}`")
-        lines.append(f"- 设备角色: {(role or {}).get('name', '单设备')}")
-        lines.append(f"- 采集次数: {call['sampleCount']}")
+        is_log = definition is not None and definition["spec"]["collectionType"] == "log"
+        if is_log:
+            lines.append("- 采集类型: 全局日志")
+        else:
+            lines.append(f"- 设备角色: {(role or {}).get('name', '单设备')}")
+            lines.append(f"- 采集次数: {call['sampleCount']}")
         if definition:
             lines.append(f"- Collection: {definition['metadata']['name']} (`{definition['key']}`)")
             if collection_link:
                 lines.append(f"- Collection 文件: [{definition['metadata']['name']}]({collection_link(definition)})")
-            if definition["spec"]["commandTemplate"]:
-                lines.extend(["", "```text", definition["spec"]["commandTemplate"].rstrip(), "```"])
+            spec = definition["spec"]
+            if spec["collectionType"] == "cli" and spec["commandTemplate"]:
+                lines.extend(["", "```text", spec["commandTemplate"].rstrip(), "```"])
+            elif spec["collectionType"] == "log":
+                append_log_queries(lines, spec["queries"], definition["outputs"])
             append_bindings(
                 lines,
                 call["inputBindings"],
@@ -100,9 +107,10 @@ def append_calls(
                     title = schema.get("title") or item["key"]
                     lines.append(f"- `{call_output_key(call, item)}` ({schema_type(schema)}, {required}): {title}{description}")
                     append_schema_children(lines, schema, indent="  ")
-            samples = [item["name"] for item in definition["spec"]["outputSamples"] if item["name"].strip()]
+            samples = [item["name"] for item in spec["outputSamples"] if item["name"].strip()]
             if samples:
-                lines.extend(["", f"回显示例: {'、'.join(samples)}"])
+                heading = "回显示例" if spec["collectionType"] == "cli" else "日志输出示例"
+                lines.extend(["", f"{heading}: {'、'.join(samples)}"])
         lines.append("")
 
 
@@ -132,6 +140,21 @@ def binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
         if call and output:
             return f"采集“{call_name(call, definition)}”的输出 `{call_output_key(call, output)}`"
     return "无效引用"
+
+
+def append_log_queries(
+    lines: list[str],
+    queries: list[dict[str, Any]],
+    outputs: list[dict[str, Any]],
+) -> None:
+    if not queries:
+        return
+    output_keys = {item["id"]: item["key"] for item in outputs}
+    lines.extend(["", "日志聚合 SQL:"])
+    for query in queries:
+        title = query["name"].strip() or query["id"]
+        mapped = [output_keys.get(item, item) for item in query["outputIds"]]
+        lines.extend([f"- 查询 `{title}` (输出: {', '.join(f'`{item}`' for item in mapped) or '无'})", "", "```sql", query["sql"].rstrip(), "```"])
 
 
 def named_reference(label: str, item: dict[str, Any] | None) -> str:

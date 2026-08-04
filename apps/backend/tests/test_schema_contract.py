@@ -20,14 +20,15 @@ def test_declarative_metadata_is_the_only_schema_definition() -> None:
 
 
 def test_alembic_chain_keeps_the_declarative_baseline() -> None:
-    assert expected_revision() == "0004_workflow_json_schema_v4"
-    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0004_workflow_json_schema_v4"]
+    assert expected_revision() == "0005_workflow_log_sql_v5"
+    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0005_workflow_log_sql_v5"]
     revisions = sorted((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
     assert [revision.name for revision in revisions] == [
         "0001_initial_schema.py",
         "0002_skill_identity_and_global_admin.py",
         "0003_workflow_skill_generators.py",
         "0004_workflow_json_schema_v4.py",
+        "0005_workflow_log_sql_v5.py",
     ]
     source = revisions[0].read_text(encoding="utf-8")
     for table_name in metadata.tables:

@@ -2,7 +2,7 @@
 
 本文面向负责迁移旧 Workflow 的 Agent。输入是用户提供的旧 Workflow 文件和目标 Workflow Skill ID；输出是符合本指南的 `WorkflowImportBundle`，并通过 SkillHub API 原子导入。
 
-持久化 Workflow 的完整字段语义见 [workflow-schema.md](workflow-schema.md)。本指南只描述 schema v3 的转换和导入专用格式；v2 的步骤输入、`step_input` Binding 和 Collection 输出 `name` 均不能导入。
+持久化 Workflow 的完整字段语义见 [workflow-schema.md](workflow-schema.md)。本指南描述 schema v5 的转换和导入专用格式；v3/v4 文档可由服务端兼容读取，v2 的步骤输入、`step_input` Binding 和 Collection 输出 `name` 均不能导入。
 
 ## 1. 导入接口
 
@@ -50,7 +50,7 @@ X-SkillHub-Actor: <actor>
 | `localId` | `string` | 是 | 仅在本次请求内有效的唯一引用标识。 |
 | `key` | `string` | 是 | Collection 可读 Key。 |
 | `metadata` | `CollectionMetadata` | 是 | 名称、说明、适用范围和 Tags。 |
-| `spec` | `CliCollectionSpec` | 是 | CLI 命令模板和回显示例。 |
+| `spec` | `CliCollectionSpec \| LogCollectionSpec` | 是 | 以 `collectionType` 判别的 CLI 或日志 SQL 定义。 |
 | `inputs` | `Parameter[]` | 否 | 命令模板输入参数。 |
 | `outputs` | `CollectionOutput[]` | 否 | 采集输出字段。 |
 
@@ -81,7 +81,9 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 - `DeviceRole`
 - Step 的 `id/name/description/isStart/collectionCalls/topology/stepType/script`
 - `Transition`、`NodeRef` 和 `Conclusion`
-- `CollectionMetadata`、`CliCollectionSpec`、`CollectionOutput` 和回显示例
+- `CollectionMetadata`、`CliCollectionSpec`、`LogCollectionSpec`、`CollectionOutput` 和回显示例
+
+导入日志 Collection 时，`spec.collectionType` 必须为 `log`，并同时提供 `sqlDialect: "duckdb"`、`queries` 和 `outputSamples`。查询的 `outputIds` 引用同一定义中的输出 ID；SQL alias 使用输出 Key。日志输入和输出只允许四种标量 Schema，调用必须使用 `sampleCount: 1` 且不能设置 `deviceRoleId`。这些规则属于领域校验：结构合法的无效草稿可以导入，但会阻止后续同步。
 
 ## 3. 转换算法
 

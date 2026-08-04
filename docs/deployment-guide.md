@@ -128,11 +128,13 @@ uv run python -m skillhub.models.schema.cli check
 uv run alembic check
 ```
 
-当前正式迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators -> 0004_workflow_json_schema_v4`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。`0004` 再执行 Workflow JSON Schema v4 数据迁移。已有且已纳入 Alembic 的数据库必须从当前 revision 连续升级，禁止跳过中间 revision。
+当前正式迁移链为 `0001_initial_schema -> 0002_skill_identity_global_admin -> 0003_workflow_skill_generators -> 0004_workflow_json_schema_v4 -> 0005_workflow_log_sql_v5`。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。`0004` 执行 Workflow JSON Schema v4 数据迁移，`0005` 将新记录默认版本切换为 v5，并启用日志 SQL 严格联合。已有且已纳入 Alembic 的数据库必须从当前 revision 连续升级，禁止跳过中间 revision。
 
 空数据库会依次执行完整迁移链并写入固定发布目标。升级前必须备份数据库，升级后执行 revision、唯一 head 与 metadata drift 检查。
 
 `0004_workflow_json_schema_v4` 会重写当前 Workflow JSONB，并为当前或仍被引用的 Collection 创建新的 v4 revision。该迁移不支持 downgrade；执行前必须停写、备份并完成恢复演练。具体步骤和验收 SQL 见 [Workflow JSON Schema v4 迁移手册](workflow-json-schema-v4-migration.md)。
+
+`0005_workflow_log_sql_v5` 不批量重写历史 Workflow JSON、Collection JSON、revision 或 digest，只更新数据库默认版本和迁移入口。v3/v4 文档由应用在读取时兼容迁移，下一次正常保存才写入 v5。日志 SQL 的 AST 静态校验使用后端锁定的 SQLGlot 依赖；本期不安装 DuckDB 运行引擎，不接收日志数据，也不新增日志服务。
 
 已有但未纳入 Alembic 的数据库只有在结构与当前 ORM metadata 完全一致时，初始化命令才会自动 stamp。包含 Workflow 数据的未版本化数据库不得直接 stamp 到 head，因为这会跳过 JSONB 数据迁移；必须先审计真实数据版本并建立正确的 Alembic 基线。
 

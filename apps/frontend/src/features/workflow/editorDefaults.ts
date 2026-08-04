@@ -1,4 +1,4 @@
-import type { CollectionDefinition, DeviceRole, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
+import type { CollectionDefinition, DeviceRole, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
 import { createWorkflowId } from "./domain/utils";
 import { newWorkflowSchema } from "./workflowJsonSchema";
 
@@ -38,4 +38,8 @@ export function newCollection(index: number, metadata?: Pick<WorkflowMetadata, "
     },
     spec: { collectionType: "cli", commandTemplate: "", outputSamples: [] }, inputs: [], outputs: [],
   };
+}
+
+export function newLogCollectionSpec(): LogCollectionSpec {
+  return { collectionType: "log", sqlDialect: "duckdb", queries: [], outputSamples: [] };
 }

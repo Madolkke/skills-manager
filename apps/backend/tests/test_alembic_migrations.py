@@ -74,7 +74,7 @@ def test_skill_identity_revision_upgrades_the_baseline_without_data_loss() -> No
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0004_workflow_json_schema_v4"
+        assert current_revision(engine) == "0005_workflow_log_sql_v5"
         with engine.connect() as connection:
             assert "display_name" in {column["name"] for column in inspect(connection).get_columns("skills")}
             assert connection.scalar(text("select slug from skills where id = 'skill-existing'")) == "existing-skill"
@@ -122,7 +122,7 @@ def test_workflow_migrations_preserve_history_and_mark_existing_sync_changed() -
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0004_workflow_json_schema_v4"
+        assert current_revision(engine) == "0005_workflow_log_sql_v5"
         with engine.connect() as connection:
             workflow = connection.execute(
                 text(
@@ -194,7 +194,7 @@ def test_workflow_migrations_preserve_history_and_mark_existing_sync_changed() -
         engine.dispose()
 
 
-def test_workflow_json_schema_revision_rejects_downgrade() -> None:
+def test_workflow_document_schema_revisions_reject_downgrade() -> None:
     ensure_postgres_test_database()
     engine = create_postgres_engine(resolve_database_url())
     try:
@@ -204,7 +204,7 @@ def test_workflow_json_schema_revision_rejects_downgrade() -> None:
         with pytest.raises(RuntimeError, match="irreversible"), engine.begin() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, "0003_workflow_skill_generators")
-        assert current_revision(engine) == "0004_workflow_json_schema_v4"
+        assert current_revision(engine) == "0005_workflow_log_sql_v5"
     finally:
         _reset_database(engine)
         engine.dispose()

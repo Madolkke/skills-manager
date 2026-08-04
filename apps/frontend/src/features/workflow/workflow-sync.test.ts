@@ -15,9 +15,9 @@ import type {
 import WorkflowSyncModal from "./components/WorkflowSyncModal.vue";
 
 const generators: WorkflowSkillGenerator[] = [
-  { id: "builtin.single-file", version: "workflow-skill-v4", label: "单文件（兼容模式）", default: false, options_schema: {} },
-  { id: "builtin.three-file", version: "2.0.0", label: "固定三文件", default: true, options_schema: {} },
-  { id: "builtin.node-split", version: "2.0.0", label: "按节点拆分", default: false, options_schema: {} },
+  { id: "builtin.single-file", version: "workflow-skill-v5", label: "单文件（兼容模式）", default: false, options_schema: {} },
+  { id: "builtin.three-file", version: "3.0.0", label: "固定三文件", default: true, options_schema: {} },
+  { id: "builtin.node-split", version: "3.0.0", label: "按节点拆分", default: false, options_schema: {} },
 ];
 
 const wrappers: VueWrapper[] = [];
@@ -76,7 +76,7 @@ describe("Workflow sync preview", () => {
       change_summary: "从 Workflow revision 7 同步。",
       expected_workflow_revision: 7,
       generator_id: "builtin.three-file",
-      generator_version: "2.0.0",
+      generator_version: "3.0.0",
       generator_options: { normalized: true },
       preview_digest: "preview-digest",
     }]);

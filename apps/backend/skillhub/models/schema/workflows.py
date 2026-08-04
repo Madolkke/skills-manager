@@ -25,7 +25,7 @@ class Workflow(CreatedAtMixin, UpdatedAtMixin, Base):
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     skill_id: Mapped[str] = mapped_column(Text, ForeignKey("skills.id"), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
-    document_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("4"))
+    document_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("5"))
     document: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     document_digest: Mapped[str] = mapped_column(Text, nullable=False)
     created_by: Mapped[str] = mapped_column(Text, nullable=False)
@@ -58,7 +58,7 @@ class WorkflowCollectionRevision(CreatedAtMixin, Base):
 
     definition_id: Mapped[str] = mapped_column(Text, ForeignKey("workflow_collection_definitions.id"), primary_key=True)
     revision: Mapped[int] = mapped_column(Integer, primary_key=True)
-    document_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("4"))
+    document_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("5"))
     definition: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     definition_digest: Mapped[str] = mapped_column(Text, nullable=False)
     created_by: Mapped[str] = mapped_column(Text, nullable=False)

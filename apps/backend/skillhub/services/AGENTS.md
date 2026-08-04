@@ -22,7 +22,7 @@
 - `skill_builder.py`：封装 AI 创建 Skill 会话、消息入队、工作区快照保存和最终创建 Skill 流程。
 - `skills.py`：封装 Skill 创建、导入、更新、权限和列表详情查询流程。
 - `versions.py`：封装 Skill 版本创建流程。
-- `workflows.py`：封装 Workflow Skill 原子创建、显式保存、Import Bundle 导入、元信息更新和 Catalog 读取。
+- `workflows.py`：封装 Workflow Skill 原子创建、显式保存、Import Bundle 导入、元信息更新、Collection Catalog 和固定日志 SQL 列目录读取。
 - `workflow_syncs.py`：编排 Workflow Generator 目录、无副作用同步预览、确认摘要校验和 SkillVersion 同步。
 
 ## 依赖方向

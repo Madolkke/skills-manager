@@ -9,9 +9,9 @@ from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.document_migration import migrate_output_v3, migrate_parameter_v3
 from skillhub.models.rules.workflows.schema import (
     Binding,
-    CliCollectionSpec,
     CollectionMetadata,
     CollectionOutput,
+    CollectionSpec,
     Conclusion,
     DeviceRole,
     Parameter,
@@ -27,7 +27,7 @@ class ImportCollectionDefinition(WorkflowModel):
     local_id: str
     key: str
     metadata: CollectionMetadata
-    spec: CliCollectionSpec
+    spec: CollectionSpec
     inputs: list[Parameter] = Field(default_factory=list)
     outputs: list[CollectionOutput] = Field(default_factory=list)
 
@@ -78,9 +78,16 @@ def normalize_workflow_import_bundle(value: dict[str, Any]) -> dict[str, Any]:
     workflow = value.get("workflow", {})
     workflow["inputs"] = [migrate_parameter_v3(item) if "schema" not in item else item for item in workflow.get("inputs", [])]
     for definition in value.get("collections", []):
+        _normalize_legacy_cli_spec(definition)
         definition["inputs"] = [migrate_parameter_v3(item) if "schema" not in item else item for item in definition.get("inputs", [])]
         definition["outputs"] = [migrate_output_v3(item) if "schema" not in item else item for item in definition.get("outputs", [])]
     return _normalize(WorkflowImportBundle, value, "Workflow 导入文档格式不正确。")
+
+
+def _normalize_legacy_cli_spec(definition: dict[str, Any]) -> None:
+    spec = definition.get("spec")
+    if isinstance(spec, dict) and "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
+        spec["collectionType"] = "cli"
 
 
 def validate_workflow_import_references(bundle: dict[str, Any]) -> None:

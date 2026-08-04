@@ -61,7 +61,7 @@ def test_v3_document_migrates_metadata_and_loose_structures() -> None:
 
     migrated = migrate_workflow_document(3, document)
 
-    assert DOCUMENT_SCHEMA_VERSION == 4
+    assert DOCUMENT_SCHEMA_VERSION == 5
     field = migrated["workflow"]["inputs"][0]
     assert set(field) == {"id", "key", "required", "schema"}
     assert field["schema"]["title"] == "数据行"

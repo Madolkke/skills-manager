@@ -33,6 +33,13 @@ def register_workflow_routes(app: FastAPI) -> None:
     ):
         return result_payload(service.expression_contract())
 
+    @app.get("/api/workflow-log-schema")
+    def workflow_log_schema(
+        _actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ):
+        return result_payload(service.log_schema())
+
     @app.post("/api/workflow-expression-validations")
     def workflow_expression_validation(
         payload: WorkflowExpressionValidationPayload,

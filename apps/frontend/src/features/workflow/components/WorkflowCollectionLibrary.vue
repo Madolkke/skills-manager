@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionDefinition, VersionedRef, WorkflowCollectionChange } from "../../../types";
+import { collectionContentSummary, collectionSearchText, collectionTypeLabel } from "../domain/collectionPresentation";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
 
 const props = withDefaults(defineProps<{
@@ -22,8 +23,7 @@ const emit = defineEmits<{
 const query = ref("");
 const filtered = computed(() => {
   const needle = query.value.trim().toLocaleLowerCase();
-  return props.definitions.filter((item) => !needle || [item.metadata.name, item.key, item.metadata.description, item.spec.commandTemplate]
-    .join(" ")
+  return props.definitions.filter((item) => !needle || collectionSearchText(item)
     .toLocaleLowerCase()
     .includes(needle));
 });
@@ -53,11 +53,11 @@ function changeLabel(id: string): string {
     </header>
     <div class="workflow-library-layout">
       <aside class="workflow-library-list">
-        <label class="workflow-library-search"><Search :size="15" /><input v-model="query" type="search" placeholder="搜索名称、Key 或命令" /></label>
+        <label class="workflow-library-search"><Search :size="15" /><input v-model="query" type="search" placeholder="搜索名称、Key 或采集内容" /></label>
         <button v-for="item in filtered" :key="`${item.id}-${item.revision}`" :class="['workflow-library-item', selected?.id === item.id && selected?.revision === item.revision && 'active']" type="button" @click="emit('select', { id: item.id, revision: item.revision })">
           <span><strong>{{ item.metadata.name || "未命名采集" }}</strong><i v-if="changeLabel(item.id)">{{ changeLabel(item.id) }}</i></span>
-          <code>{{ item.spec.commandTemplate || "未配置命令" }}</code>
-          <small>{{ item.key }} · {{ item.metadata.device || "未指定设备" }} · r{{ item.revision }}</small>
+          <code>{{ collectionContentSummary(item) }}</code>
+          <small>{{ collectionTypeLabel(item) }} · {{ item.key }} · r{{ item.revision }}</small>
         </button>
         <p v-if="filtered.length === 0" class="workflow-empty">没有匹配的采集定义。</p>
       </aside>

@@ -11,6 +11,7 @@
 - `skillhub_worker/`：后台 worker，消费测评和发布任务并调用 Opencode、Laminar 等执行侧能力；Agent 配置生成位于 `agent_workspace.py`，路径与压缩包安全处理位于 `workspace_files.py`。
 - `tests/`：后端单元测试、API 测试、架构约束测试和 worker 测试。
 - `migrations/`：Alembic revision，是数据库结构演进的唯一入口。
+- Workflow 日志 SQL 只允许 SQLGlot AST 静态检查；后端不执行作者 SQL、不保存 DataFrame，固定列目录由 Workflow rules 提供。
 
 ## 依赖方向
 

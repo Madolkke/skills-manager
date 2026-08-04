@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ChevronRight, CirclePlus, Plus, Trash2 } from "lucide-vue-next";
+import { ChevronRight, Plus } from "lucide-vue-next";
 import { ref } from "vue";
 import TagInput from "../../../components/TagInput.vue";
 import UiButton from "../../../components/ui/UiButton.vue";
-import UiIconButton from "../../../components/ui/UiIconButton.vue";
-import type { CollectionDefinition, CollectionOutput, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
+import type { CollectionDefinition, CollectionOutput, LogCollectionSpec, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { cloneWorkflow, createWorkflowId } from "../domain/utils";
 import { newWorkflowSchema } from "../workflowJsonSchema";
 import WorkflowCollectionInputRows from "./WorkflowCollectionInputRows.vue";
 import WorkflowCollectionOutputRows from "./WorkflowCollectionOutputRows.vue";
+import WorkflowCliSpecFields from "./WorkflowCliSpecFields.vue";
+import WorkflowConfirmModal from "./WorkflowConfirmModal.vue";
+import WorkflowLogSpecFields from "./WorkflowLogSpecFields.vue";
 
 const props = withDefaults(defineProps<{
   definition: CollectionDefinition;
@@ -19,6 +21,7 @@ const props = withDefaults(defineProps<{
 }>(), { compact: false, inlineDraft: false, issues: () => [] });
 const emit = defineEmits<{ change: [definition: CollectionDefinition] }>();
 const metadataOpen = ref(!props.inlineDraft);
+const pendingCollectionType = ref<"cli" | "log" | null>(null);
 
 function update(recipe: (draft: CollectionDefinition) => void): void {
   const draft = cloneWorkflow(props.definition);
@@ -49,6 +52,31 @@ function updateOutput(id: string, patch: Partial<CollectionOutput>): void {
 function issue(field: string): WorkflowValidationIssue | undefined {
   return props.issues.find((item) => item.selection.type === "collection" && item.selection.id === props.definition.id && item.selection.field === field);
 }
+
+function removeOutput(id: string): void {
+  update((draft) => {
+    draft.outputs = draft.outputs.filter((item) => item.id !== id);
+    if (draft.spec.collectionType === "log") {
+      draft.spec.queries.forEach((query) => { query.outputIds = query.outputIds.filter((outputId) => outputId !== id); });
+    }
+  });
+}
+
+function changeCollectionType(type: "cli" | "log"): void {
+  if (type === props.definition.spec.collectionType) return;
+  pendingCollectionType.value = type;
+}
+
+function confirmCollectionType(): void {
+  const type = pendingCollectionType.value;
+  if (!type) return;
+  update((draft) => {
+    draft.spec = type === "cli"
+      ? { collectionType: "cli", commandTemplate: "", outputSamples: [] }
+      : { collectionType: "log", sqlDialect: "duckdb", queries: [], outputSamples: [] } satisfies LogCollectionSpec;
+  });
+  pendingCollectionType.value = null;
+}
 </script>
 
 <template>
@@ -77,31 +105,33 @@ function issue(field: string): WorkflowValidationIssue | undefined {
       </Transition>
     </section>
 
-    <section :class="['workflow-field-section', issue('spec.commandTemplate') && 'field-invalid']">
-      <div class="workflow-subhead"><div><h3>采集命令</h3><p>CLI 命令模板，可引用定义中的输入参数。</p></div></div>
-      <input class="workflow-code-input workflow-command-input" type="text" spellcheck="false" :value="props.definition.spec.commandTemplate" :disabled="props.readonly" :aria-invalid="Boolean(issue('spec.commandTemplate'))" @input="update((draft) => { draft.spec.commandTemplate = ($event.target as HTMLInputElement).value; })" />
-      <small v-if="issue('spec.commandTemplate')" class="field-error">{{ issue('spec.commandTemplate')?.message }}</small>
+    <section class="workflow-field-section workflow-collection-type">
+      <label class="field-label"><span>采集类型</span><select :value="props.definition.spec.collectionType" :disabled="props.readonly" @change="changeCollectionType(($event.target as HTMLSelectElement).value as 'cli' | 'log')"><option value="cli">CLI 命令</option><option value="log">日志聚合</option></select></label>
     </section>
+
+    <WorkflowCliSpecFields v-if="props.definition.spec.collectionType === 'cli'" :definition="props.definition" :readonly="props.readonly" @change="update((draft) => { draft.spec = $event; })" />
+    <WorkflowLogSpecFields v-else :definition="props.definition" :readonly="props.readonly" @change="update((draft) => { draft.spec = $event; })" />
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>
-      <WorkflowCollectionInputRows :items="props.definition.inputs" :readonly="props.readonly" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
+      <WorkflowCollectionInputRows :items="props.definition.inputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType === 'log'" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
       <p v-if="props.definition.inputs.length === 0" class="workflow-inline-empty">当前采集不需要输入参数</p>
     </section>
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addOutput"><template #icon><Plus /></template>添加</UiButton></div>
-      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="props.readonly" @change="updateOutput" @remove="update((draft) => { draft.outputs = draft.outputs.filter((value) => value.id !== $event); })" />
+      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType === 'log'" @change="updateOutput" @remove="removeOutput" />
       <p v-if="props.definition.outputs.length === 0" class="workflow-inline-empty">尚未声明结构化输出</p>
     </section>
 
-    <section class="workflow-field-section">
-      <div class="workflow-subhead"><div><h3>回显示例</h3><p>{{ props.definition.spec.outputSamples.length }} 个样例</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="update((draft) => draft.spec.outputSamples.push({ id: createWorkflowId('sample'), name: `示例 ${draft.spec.outputSamples.length + 1}`, stdout: '', inputValues: {} }))"><template #icon><CirclePlus /></template>添加</UiButton></div>
-      <article v-for="sample in props.definition.spec.outputSamples" :key="sample.id" class="workflow-sample">
-        <div><input :value="sample.name" aria-label="样例名称" :disabled="props.readonly" @input="update((draft) => { const target = draft.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.name = ($event.target as HTMLInputElement).value; })" /><UiIconButton label="删除样例" size="sm" variant="danger" :disabled="props.readonly" @click="update((draft) => { draft.spec.outputSamples = draft.spec.outputSamples.filter((item) => item.id !== sample.id); })"><Trash2 /></UiIconButton></div>
-        <textarea class="workflow-sample-output" rows="5" spellcheck="false" :value="sample.stdout" :disabled="props.readonly" @input="update((draft) => { const target = draft.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.stdout = ($event.target as HTMLTextAreaElement).value; })" />
-      </article>
-      <p v-if="props.definition.spec.outputSamples.length === 0" class="workflow-inline-empty">尚未添加回显示例</p>
-    </section>
+    <WorkflowConfirmModal
+      v-if="pendingCollectionType"
+      title="切换采集类型"
+      description="切换类型会清空当前命令、SQL 和对应样例，但会保留元信息、输入和输出字段。"
+      confirm-label="切换类型"
+      tone="danger"
+      @close="pendingCollectionType = null"
+      @confirm="confirmCollectionType"
+    />
   </div>
 </template>
