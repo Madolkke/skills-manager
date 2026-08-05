@@ -6,8 +6,10 @@ import pytest
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows import (
+    migrate_collection_definition,
     normalize_collection_definition,
     normalize_workflow_document,
+    normalize_workflow_import_bundle,
     validate_workflow_document,
     workflow_log_schema_catalog,
 )
@@ -27,6 +29,11 @@ def test_log_collection_is_a_strict_discriminated_schema():
     invalid["spec"]["commandTemplate"] = "show version"
     with pytest.raises(InvariantError, match="Extra inputs are not permitted"):
         normalize_collection_definition(invalid)
+
+    missing_dialect = deepcopy(_log_definition())
+    del missing_dialect["spec"]["sqlDialect"]
+    with pytest.raises(InvariantError, match="sqlDialect"):
+        normalize_collection_definition(missing_dialect)
 
 
 def test_v4_cli_shape_without_discriminator_remains_readable():
@@ -51,6 +58,33 @@ def test_v4_cli_shape_without_discriminator_remains_readable():
         }
     )
     assert document["collectionSnapshots"][0]["spec"]["collectionType"] == "cli"
+
+
+def test_v4_log_migration_explicitly_fills_dialect_but_v5_normalization_does_not() -> None:
+    legacy = _log_definition()
+    del legacy["spec"]["sqlDialect"]
+    with pytest.raises(InvariantError, match="sqlDialect"):
+        normalize_collection_definition(legacy)
+
+    migrated = migrate_collection_definition(4, legacy)
+    assert migrated["spec"]["collectionType"] == "log"
+    assert migrated["spec"]["sqlDialect"] == "duckdb"
+
+
+def test_legacy_import_log_spec_gets_explicit_dialect_before_strict_parse() -> None:
+    bundle = normalize_workflow_import_bundle({
+        "documentType": "workflow_import_bundle",
+        "workflow": {"metadata": {"name": "日志", "description": ""}, "inputs": [], "deviceRoles": [], "nodes": []},
+        "collections": [{
+            "localId": "log",
+            "key": "log",
+            "metadata": {"name": "日志"},
+            "spec": {"collectionType": "log", "queries": [], "outputSamples": []},
+            "inputs": [],
+            "outputs": [],
+        }],
+    })
+    assert bundle["collections"][0]["spec"]["sqlDialect"] == "duckdb"
 
 
 def test_fixed_log_schema_catalog_is_stable_and_detached():
@@ -80,6 +114,10 @@ def test_fixed_log_schema_catalog_is_stable_and_detached():
         ("WITH selected AS (SELECT body FROM logs) SELECT count(body) AS total FROM selected", None),
         ("SELECT count(*) total FROM logs", "LOG_QUERY_OUTPUT_ALIAS_MISMATCH"),
         ("SELECT logs.* AS raw FROM logs", "LOG_QUERY_OUTPUT_ALIAS_MISMATCH"),
+        ("SELECT COLUMNS(*) AS raw FROM logs", "LOG_QUERY_OUTPUT_ALIAS_MISMATCH"),
+        ("SELECT COLUMNS(c -> c LIKE '%body%') AS raw FROM logs", "LOG_QUERY_OUTPUT_ALIAS_MISMATCH"),
+        ("SELECT ALL COLUMNS FROM logs", "LOG_QUERY_OUTPUT_ALIAS_MISMATCH"),
+        ("WITH logs AS (SELECT body AS body FROM logs) SELECT body AS total FROM logs", "LOG_QUERY_FORBIDDEN_SOURCE"),
         ("SELECT count(*) AS total FROM logs; SELECT 1 AS other", "LOG_QUERY_MULTIPLE_STATEMENTS"),
         ("DELETE FROM logs", "LOG_QUERY_SQL_INVALID"),
         ("SELECT 'unterminated AS total FROM logs", "LOG_QUERY_SQL_INVALID"),

@@ -113,8 +113,8 @@ function confirmCollectionType(): void {
     </section>
 
     <WorkflowCliSpecFields v-if="props.definition.spec.collectionType === 'cli'" :definition="props.definition" :readonly="props.readonly" @change="update((draft) => { draft.spec = $event; })" />
-    <WorkflowLogSpecFields v-else-if="props.definition.spec.collectionType === 'log'" :definition="props.definition" :readonly="props.readonly" @change="update((draft) => { draft.spec = $event; })" />
-    <WorkflowConfigSpecFields v-else :definition="props.definition" :readonly="props.readonly" @change="update((draft) => { draft.spec = $event; })" />
+    <WorkflowLogSpecFields v-else-if="props.definition.spec.collectionType === 'log'" :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
+    <WorkflowConfigSpecFields v-else :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>

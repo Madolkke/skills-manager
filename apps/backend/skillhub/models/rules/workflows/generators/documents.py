@@ -29,12 +29,15 @@ def collection_reference_path(definition: dict[str, Any]) -> str:
 
 def render_entry(*, slug: str, document: dict[str, Any], reference_path: str, split_nodes: bool) -> str:
     metadata = document["workflow"]["metadata"]
-    has_log_collection = any(item["spec"]["collectionType"] == "log" for item in document.get("collectionSnapshots", []))
-    collection_instruction = (
-        "2. 执行节点所列采集信息时，按参数绑定填充值，并保留结构化输出供后续判断。"
-        if has_log_collection
-        else "2. 执行节点所列采集命令时，按参数绑定填充值，并保留输出字段供后续判断。"
-    )
+    collection_types = {item["spec"]["collectionType"] for item in document.get("collectionSnapshots", [])}
+    if "log" in collection_types and "config" in collection_types:
+        collection_instruction = "2. 执行节点所列日志聚合和配置匹配采集，按参数绑定填充值，并保留结构化输出供后续判断。"
+    elif "log" in collection_types:
+        collection_instruction = "2. 执行节点所列日志聚合采集，按参数绑定填充值，并保留结构化输出供后续判断。"
+    elif "config" in collection_types:
+        collection_instruction = "2. 执行节点所列配置匹配采集，由执行器从设备完整配置中匹配命令块，并保留结构化输出供后续判断。"
+    else:
+        collection_instruction = "2. 执行节点所列采集命令时，按参数绑定填充值，并保留输出字段供后续判断。"
     lines = [*frontmatter_lines(slug, metadata), "", f"# {metadata['name'] or slug}", ""]
     append_paragraph(lines, metadata["description"])
     lines.extend(

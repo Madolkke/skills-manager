@@ -262,6 +262,24 @@ def test_conversion_rejects_log_collections_explicitly() -> None:
     assert error.value.field_errors[0].code == "executor_workflow.unsupported_collection_type"
 
 
+def test_conversion_rejects_config_collections_explicitly() -> None:
+    document = executor_workflow_document()
+    document["collectionSnapshots"][0]["spec"] = {
+        "collectionType": "config",
+        "config": {
+            "commands": [
+                {"name": "interface", "unique": True, "pattern": "interface <name>", "captures": {"name": {"type": "string", "title": "", "description": ""}}, "children": []}
+            ]
+        },
+    }
+
+    with pytest.raises(FieldInvariantError) as error:
+        convert_workflow_document(document)
+
+    assert error.value.field_errors[0].code == "executor_workflow.unsupported_collection_type"
+    assert "spec" in error.value.field_errors[0].field
+
+
 def test_conversion_reports_ambiguous_and_unresolvable_references() -> None:
     document = executor_workflow_document()
     document["workflow"]["inputs"][1]["id"] = "input-slot"

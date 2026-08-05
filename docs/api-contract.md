@@ -207,7 +207,7 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 
 `GET /api/skills/{skill_id}/workflow/executor` 是面向受信网络内执行器的无认证只读投影。它实时读取当前保存的 Workflow，不执行领域校验，不缓存或持久化结果；字段映射、Binding 路径、错误码、安全假设及不支持字段见[执行器 Workflow 转换接口](executor-workflow-api.md)。该接口不得与原样透传的 `workflow/formatted` 混用。
 
-`GET /api/workflow-log-schema` 是全局只读契约接口，使用标准 actor context，不绑定 Skill。响应严格为：
+`GET /api/workflow-log-schema` 是全局只读契约接口，使用标准 actor context，不绑定 Skill。接口使用严格 response model，拒绝额外字段；响应严格为：
 
 ```json
 {

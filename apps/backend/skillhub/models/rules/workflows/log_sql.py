@@ -18,6 +18,7 @@ class LogSqlDiagnostic:
 
 
 _ALLOWED_TABLES = {"logs", "params"}
+_RESERVED_CTE_NAMES = {"logs", "params"}
 _FORBIDDEN_FUNCTIONS = {
     "arrow_scan",
     "csv_scan",
@@ -71,7 +72,7 @@ def validate_log_query(
     diagnostics: list[LogSqlDiagnostic] = []
     scopes = list(traverse_scope(statement))
     _validate_sources(statement, scopes, diagnostics)
-    _validate_columns(scopes, set(input_keys), diagnostics)
+    _validate_columns(scopes, set(input_keys), diagnostics, dynamic_projection=_has_dynamic_projection(statement, text))
     _validate_output_aliases(text, statement, list(output_keys), diagnostics)
     return _unique_diagnostics(diagnostics)
 
@@ -81,6 +82,17 @@ def _validate_sources(
     scopes: list[Scope],
     diagnostics: list[LogSqlDiagnostic],
 ) -> None:
+    with_clause = statement.args.get("with_")
+    if with_clause is not None:
+        for cte in with_clause.find_all(exp.CTE):
+            name = cte.alias_or_name.lower()
+            if name in _RESERVED_CTE_NAMES:
+                diagnostics.append(
+                    LogSqlDiagnostic(
+                        "LOG_QUERY_FORBIDDEN_SOURCE",
+                        f"日志聚合 SQL 不能使用保留 CTE 名称“{name}”。",
+                    )
+                )
     for table in statement.find_all(exp.Table):
         if not isinstance(table.this, exp.Identifier) or table.db or table.catalog:
             diagnostics.append(LogSqlDiagnostic("LOG_QUERY_FORBIDDEN_SOURCE", "日志聚合 SQL 不允许文件、表函数或外部表来源。"))
@@ -105,9 +117,13 @@ def _validate_columns(
     scopes: list[Scope],
     input_keys: set[str],
     diagnostics: list[LogSqlDiagnostic],
+    *,
+    dynamic_projection: bool,
 ) -> None:
     for scope in scopes:
         for column in scope.columns:
+            if dynamic_projection and not column.table and column.name.upper() == "COLUMNS":
+                continue
             if column.name == "*" or _is_output_alias_reference(column, scope):
                 continue
             if not _column_is_known(scope, column, input_keys):
@@ -126,8 +142,21 @@ def _column_is_known(scope: Scope, column: exp.Column, input_keys: set[str]) -> 
     return False
 
 
+def _has_dynamic_projection(statement: exp.Select, sql: str) -> bool:
+    """Detect DuckDB projection syntax that expands columns dynamically."""
+    if statement.find(exp.Columns) is not None:
+        return True
+    tokens = Tokenizer().tokenize(sql)
+    return any(
+        token.token_type == TokenType.ALL and index + 1 < len(tokens) and tokens[index + 1].text.upper() == "COLUMNS"
+        for index, token in enumerate(tokens)
+    )
+
+
 def _is_output_alias_reference(column: exp.Column, scope: Scope) -> bool:
-    aliases = {projection.alias_or_name for projection in scope.expression.selects if projection.alias_or_name}
+    if not isinstance(scope.expression, exp.Select):
+        return False
+    aliases: set[str] = {projection.alias_or_name for projection in scope.expression.selects if projection.alias_or_name}
     if column.name not in aliases:
         return False
     current = column.parent
@@ -150,11 +179,13 @@ def _find_source(scope: Scope, alias: str) -> exp.Table | Scope | None:
 
 def _source_columns(source: exp.Table | Scope | None, input_keys: set[str]) -> set[str]:
     if isinstance(source, Scope):
+        if not isinstance(source.expression, exp.Select):
+            return set()
         return {projection.alias_or_name for projection in source.expression.selects if projection.alias_or_name}
     if not isinstance(source, exp.Table):
         return set()
     if source.name.lower() == "logs":
-        return set(LOG_COLUMN_NAMES)
+        return {str(name) for name in LOG_COLUMN_NAMES}
     if source.name.lower() == "params":
         return input_keys
     return set()
@@ -179,8 +210,10 @@ def _validate_output_aliases(
     diagnostics: list[LogSqlDiagnostic],
 ) -> None:
     aliases: list[str] = []
-    explicit = True
+    explicit = statement.find(exp.Columns) is None
     for projection in statement.expressions:
+        if projection.find(exp.Columns) is not None:
+            explicit = False
         if not isinstance(projection, exp.Alias):
             explicit = False
             continue

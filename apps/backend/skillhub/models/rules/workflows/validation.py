@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from .collection_validation import validate_collection_identity
 from .config_validation import config_root_names
+from .expression import command_expression_schema, config_expression_issues
 from .json_schema import schema_title, schemas_assignable, value_matches_schema
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
@@ -138,6 +139,38 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
             issues.append(issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
+        for diagnostic in config_expression_issues(transition.get("conditionExpression", ""), _step_expression_environment(step, definitions, workflow_inputs)):
+            issues.append(
+                issue(
+                    diagnostic["code"],
+                    "error",
+                    diagnostic["message"],
+                    {**selection, "section": "paths", "itemId": transition["id"], "field": "conditionExpression"},
+                )
+            )
+
+
+def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str, Any]:
+    inputs = {item["key"].strip(): item["schema"] for item in workflow_inputs.values() if item["key"].strip()}
+    outputs: dict[str, dict[str, Any]] = {}
+    config_candidates: dict[str, dict[str, Any] | None] = {}
+    for call in step["collectionCalls"]:
+        definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
+        if not definition:
+            continue
+        call_key = call["key"].strip()
+        if call_key:
+            outputs[call_key] = {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()}
+        if definition["spec"]["collectionType"] != "config":
+            continue
+        for command in definition["spec"].get("config", {}).get("commands", []):
+            schema = command_expression_schema(command)
+            if command["name"] not in config_candidates:
+                config_candidates[command["name"]] = schema
+            else:
+                config_candidates[command["name"]] = None
+    config = {name: schema for name, schema in config_candidates.items() if schema is not None}
+    return {"inputs": inputs, "outputs": outputs, "config": config}
 
 
 def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, selection) -> None:

@@ -46,14 +46,19 @@ export function workflowExpressionEnvironment(bundle: WorkflowBundle): WorkflowE
     if (!callKey || !definition) return;
     outputs[callKey] = Object.fromEntries(definition.outputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema]));
   }));
-  const config: WorkflowExpressionEnvironment["config"] = {};
+  const configCandidates = new Map<string, WorkflowExpressionSchema | null>();
   workflowSteps(bundle).forEach((step) => step.collectionCalls.forEach((call) => {
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
     if (definition?.spec.collectionType !== "config") return;
     definition.spec.config.commands.forEach((command) => {
-      if (!(command.name in config)) config[command.name] = configCommandSchema(command);
+      const schema = configCommandSchema(command);
+      if (!configCandidates.has(command.name)) configCandidates.set(command.name, schema);
+      else configCandidates.set(command.name, null);
     });
   }));
+  const config: WorkflowExpressionEnvironment["config"] = Object.fromEntries(
+    [...configCandidates.entries()].filter(([, schema]) => schema !== null) as Array<[string, WorkflowExpressionSchema]>,
+  );
   return { inputs, outputs, config };
 }
 
@@ -133,5 +138,5 @@ function expressionSchemaSummary(schema: WorkflowExpressionSchema): string {
 }
 
 function pythonIdentifier(value: string): boolean {
-  return /^[A-Za-z_]\w*$/u.test(value) && !new Set(["False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"]).has(value);
+  return /^\p{ID_Start}\p{ID_Continue}*$/u.test(value) && !new Set(["False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"]).has(value);
 }

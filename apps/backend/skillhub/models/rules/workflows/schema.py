@@ -137,7 +137,7 @@ class LogOutputSample(WorkflowModel):
 
 class LogCollectionSpec(WorkflowModel):
     collection_type: Literal["log"] = "log"
-    sql_dialect: Literal["duckdb"] = "duckdb"
+    sql_dialect: Literal["duckdb"]
     queries: list[LogAggregationQuery] = Field(default_factory=list)
     output_samples: list[LogOutputSample] = Field(default_factory=list)
 
@@ -260,6 +260,8 @@ def migrate_workflow_document(document_schema_version: int, value: dict[str, Any
         value = migrate_workflow_v3(value)
     elif document_schema_version not in {4, DOCUMENT_SCHEMA_VERSION}:
         raise InvariantError(f"Unsupported Workflow document schema version: {document_schema_version}")
+    if document_schema_version < DOCUMENT_SCHEMA_VERSION:
+        value = _normalize_legacy_log_specs(value, fill_dialect=True)
     return normalize_workflow_document(value)
 
 
@@ -268,6 +270,8 @@ def migrate_collection_definition(document_schema_version: int, value: dict[str,
         value = migrate_collection_v3(value)
     elif document_schema_version not in {4, DOCUMENT_SCHEMA_VERSION}:
         raise InvariantError(f"Unsupported Collection document schema version: {document_schema_version}")
+    if document_schema_version < DOCUMENT_SCHEMA_VERSION:
+        value = _normalize_legacy_log_specs(value, fill_dialect=True)
     return normalize_collection_definition(value)
 
 
@@ -289,4 +293,19 @@ def _normalize_legacy_cli_specs(value: dict[str, Any]) -> dict[str, Any]:
         spec = definition.get("spec")
         if isinstance(spec, dict) and "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
             spec["collectionType"] = "cli"
+    return result
+
+
+def _normalize_legacy_log_specs(value: dict[str, Any], *, fill_dialect: bool) -> dict[str, Any]:
+    """Materialize the v4 log discriminator and dialect before strict v5 parsing."""
+    result = deepcopy(value)
+    definitions = [result] if "metadata" in result and "spec" in result else result.get("collectionSnapshots", [])
+    for definition in definitions:
+        spec = definition.get("spec")
+        if not isinstance(spec, dict):
+            continue
+        if "collectionType" not in spec and ("queries" in spec or "sqlDialect" in spec):
+            spec["collectionType"] = "log"
+        if fill_dialect and spec.get("collectionType") == "log":
+            spec.setdefault("sqlDialect", "duckdb")
     return result

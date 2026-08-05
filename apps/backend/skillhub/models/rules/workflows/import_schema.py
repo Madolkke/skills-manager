@@ -88,6 +88,10 @@ def _normalize_legacy_cli_spec(definition: dict[str, Any]) -> None:
     spec = definition.get("spec")
     if isinstance(spec, dict) and "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
         spec["collectionType"] = "cli"
+    if isinstance(spec, dict) and "collectionType" not in spec and ("queries" in spec or "sqlDialect" in spec):
+        spec["collectionType"] = "log"
+    if isinstance(spec, dict) and spec.get("collectionType") == "log":
+        spec.setdefault("sqlDialect", "duckdb")
 
 
 def validate_workflow_import_references(bundle: dict[str, Any]) -> None:

@@ -13,6 +13,7 @@ from skillhub.views.schemas import (
     SaveWorkflowPayload,
     SyncWorkflowPayload,
     WorkflowExpressionValidationPayload,
+    WorkflowLogSchemaResponse,
     WorkflowMetadataPayload,
     WorkflowSyncPreviewPayload,
 )
@@ -33,7 +34,7 @@ def register_workflow_routes(app: FastAPI) -> None:
     ):
         return result_payload(service.expression_contract())
 
-    @app.get("/api/workflow-log-schema")
+    @app.get("/api/workflow-log-schema", response_model=WorkflowLogSchemaResponse)
     def workflow_log_schema(
         _actor: ActorContext = Depends(actor_dependency),
         service: WorkflowService = Depends(workflow_service_dependency),

@@ -1,5 +1,5 @@
 import type { CollectionDefinition, WorkflowConfigCommand } from "../../../types";
-import { isConfigIdentifier, parseConfigPattern } from "./configPattern";
+import { isConfigIdentifier, isConfigReservedName, parseConfigPattern } from "./configPattern";
 
 export type ConfigIssue = { code: string; message: string; itemId?: string; field: string };
 
@@ -14,13 +14,17 @@ function validateCommands(commands: WorkflowConfigCommand[], path: string, issue
   const names = new Set<string>();
   commands.forEach((command, index) => {
     const itemPath = `${path}[${index}]`;
-    if (!isConfigIdentifier(command.name)) issues.push({ code: "CONFIG_COMMAND_NAME_INVALID", message: `配置命令名“${command.name}”不是合法标识符。`, itemId: command.name, field: `${itemPath}.name` });
+    if (!isConfigIdentifier(command.name)) issues.push({ code: isConfigReservedName(command.name) ? "CONFIG_COMMAND_NAME_RESERVED" : "CONFIG_COMMAND_NAME_INVALID", message: `配置命令名“${command.name}”不是合法标识符。`, itemId: command.name, field: `${itemPath}.name` });
     if (names.has(command.name)) issues.push({ code: "CONFIG_COMMAND_NAME_DUPLICATE", message: `同一层级的配置命令名称“${command.name}”重复。`, itemId: command.name, field: `${itemPath}.name` });
     names.add(command.name);
     const parsed = parseConfigPattern(command.pattern);
-    if (parsed.error) issues.push({ code: "CONFIG_COMMAND_PATTERN_INVALID", message: parsed.error, itemId: command.name, field: `${itemPath}.pattern` });
+    if (parsed.error) issues.push({ code: parsed.code ?? "CONFIG_COMMAND_PATTERN_INVALID", message: parsed.error, itemId: command.name, field: `${itemPath}.pattern` });
     if (parsed.names.slice().sort().join("\u0000") !== Object.keys(command.captures).sort().join("\u0000")) issues.push({ code: "CONFIG_CAPTURE_SCHEMA_MISMATCH", message: "配置命令模板中的捕获名称必须与 captures map 完全一致。", itemId: command.name, field: `${itemPath}.captures` });
     const captureNames = new Set(Object.keys(command.captures));
+    Object.entries(command.captures).forEach(([captureName, schema]) => {
+      if (!isConfigIdentifier(captureName)) issues.push({ code: isConfigReservedName(captureName) ? "CONFIG_COMMAND_NAME_RESERVED" : "CONFIG_CAPTURE_NAME_INVALID", message: `捕获名称“${captureName}”不是合法标识符。`, itemId: command.name, field: `${itemPath}.captures.${captureName}` });
+      if (!["string", "integer", "number", "boolean"].includes(schema.type)) issues.push({ code: "CONFIG_CAPTURE_SCHEMA_NOT_SCALAR", message: "配置捕获字段只支持 string、integer、number、boolean。", itemId: command.name, field: `${itemPath}.captures.${captureName}` });
+    });
     command.children.forEach((child) => {
       if (captureNames.has(child.name)) issues.push({ code: "CONFIG_COMMAND_PROPERTY_CONFLICT", message: `配置命令“${command.name}”的捕获字段与子命令“${child.name}”重名。`, itemId: command.name, field: `${itemPath}.children` });
     });

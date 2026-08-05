@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CliCollectionSpec, CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
+import type { CliCollectionSpec, CollectionDefinition, ConfigCollectionSpec, WorkflowBundle, WorkflowStep } from "../../types";
 import { validateWorkflow } from "./domain/validation";
 
 describe("workflow validation consistency", () => {
@@ -92,6 +92,22 @@ describe("workflow validation consistency", () => {
     expect(issue.id).toBe("workflow-issue/missing_required_binding/step/step-start//collections/call-interface/binding.parameter-required/0");
     expect(issue.selection).toEqual({ type: "step", id: "step-start", section: "collections", itemId: "call-interface", field: "binding.parameter-required" });
   });
+
+  it("detects Config root conflicts per device context", () => {
+    const bundle = workflowBundle();
+    const config = configDefinition("collection-config", "interface");
+    const second = configDefinition("collection-config-2", "interface");
+    bundle.collectionSnapshots = [config, second];
+    const step = workflowStep(bundle);
+    step.collectionCalls = [
+      { id: "call-config-1", key: "one", name: "一", definition: { id: config.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
+      { id: "call-config-2", key: "two", name: "二", definition: { id: second.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
+    ];
+
+    const issues = validateWorkflow(bundle).filter((item) => item.code === "CONFIG_ROOT_COMMAND_CONFLICT");
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.selection).toEqual({ type: "step", id: "step-start", section: "collections", itemId: "call-config-2", field: "definition.spec.config.commands" });
+  });
 });
 
 function workflowBundle(): WorkflowBundle {
@@ -125,4 +141,13 @@ function workflowStep(bundle: WorkflowBundle): WorkflowStep {
 
 function stringSchema(title: string) {
   return { type: "string" as const, title, description: "" };
+}
+
+function configDefinition(id: string, name: string): CollectionDefinition {
+  return {
+    id, revision: 1, key: id,
+    metadata: { name: id, description: "", industry: "", device: "", versions: [], tags: [] },
+    spec: { collectionType: "config", config: { commands: [{ name, unique: true, pattern: `${name} <value>`, captures: { value: stringSchema("值") }, children: [] }] } } satisfies ConfigCollectionSpec,
+    inputs: [], outputs: [],
+  };
 }

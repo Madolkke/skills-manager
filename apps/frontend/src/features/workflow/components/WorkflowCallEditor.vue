@@ -3,7 +3,7 @@ import { AlertTriangle, ChevronDown, ChevronUp, GitFork, GripVertical, Pencil, T
 import { computed, ref, watch } from "vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionCall, CollectionDefinition, DeviceRole, WorkflowBinding, WorkflowCollectionChange, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
-import { collectionContentSummary, collectionTypeLabel, isLogCollection } from "../domain/collectionPresentation";
+import { collectionContentSummary, collectionTypeLabel, isConfigCollection, isLogCollection } from "../domain/collectionPresentation";
 import { findCollection } from "../domain/utils";
 import { parseScalarLiteral, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
@@ -47,7 +47,9 @@ const previousOutputs = computed(() => props.previousCalls.flatMap((call) => {
 }));
 
 watch(() => props.definition?.spec.collectionType, (type, previous) => {
-  if (type === "log" && previous && previous !== type && !props.readonly) emit("change", { deviceRoleId: undefined, sampleCount: 1 });
+  if ((type === "log" || type === "config") && previous && previous !== type && !props.readonly) {
+    emit("change", { ...(type === "log" ? { deviceRoleId: undefined } : {}), sampleCount: 1 });
+  }
 });
 
 function bindingKind(inputId: string): string {
@@ -118,7 +120,7 @@ function operationLabel(): string {
             <label class="field-label"><span>调用名称</span><input :value="props.call.name" :disabled="props.readonly" @input="emit('change', { name: ($event.target as HTMLInputElement).value })" /></label>
             <label class="field-label"><span>调用 Key</span><input :value="props.call.key" :disabled="props.readonly" @input="emit('change', { key: ($event.target as HTMLInputElement).value })" /></label>
             <label v-if="!isLogCollection(props.definition)" :class="['field-label', hasIssue('deviceRoleId') && 'field-invalid']"><span>设备角色</span><select :value="props.call.deviceRoleId ?? ''" :disabled="props.readonly" @change="emit('change', { deviceRoleId: ($event.target as HTMLSelectElement).value || undefined })"><option value="">单设备</option><option v-for="role in props.roles" :key="role.id" :value="role.id">{{ role.name }}</option></select></label>
-            <label v-if="!isLogCollection(props.definition)" :class="['field-label', hasIssue('sampleCount') && 'field-invalid']"><span>采集次数</span><input type="number" min="1" :value="props.call.sampleCount" :disabled="props.readonly" @input="emit('change', { sampleCount: Number(($event.target as HTMLInputElement).value) })" /></label>
+            <label v-if="!isLogCollection(props.definition) && !isConfigCollection(props.definition)" :class="['field-label', hasIssue('sampleCount') && 'field-invalid']"><span>采集次数</span><input type="number" min="1" :value="props.call.sampleCount" :disabled="props.readonly" @input="emit('change', { sampleCount: Number(($event.target as HTMLInputElement).value) })" /></label>
           </div>
         </section>
 

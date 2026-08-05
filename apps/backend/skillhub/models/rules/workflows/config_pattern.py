@@ -82,13 +82,24 @@ def parse_config_pattern(pattern: str) -> ParsedConfigPattern:
 
 def _find_capture_end(pattern: str, start: int) -> int:
     escaped = False
+    in_character_class = False
+    group_depth = 0
     for index in range(start, len(pattern)):
         character = pattern[index]
         if escaped:
             escaped = False
-        elif character == "\\":
+            continue
+        if character == "\\":
             escaped = True
-        elif character == ">":
+        elif character == "[":
+            in_character_class = True
+        elif character == "]" and in_character_class:
+            in_character_class = False
+        elif character == "(" and not in_character_class:
+            group_depth += 1
+        elif character == ")" and not in_character_class and group_depth:
+            group_depth -= 1
+        elif character == ">" and not in_character_class and group_depth == 0:
             return index
     return -1
 

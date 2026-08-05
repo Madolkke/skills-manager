@@ -448,6 +448,11 @@
   gap: 8px;
 }
 
+.workflow-config-command-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .workflow-config-command-header {
   justify-content: space-between;
 }
@@ -707,6 +712,8 @@
 @media (max-width: 720px) {
   .workflow-log-query > header { grid-template-columns: minmax(0, 1fr) auto; }
   .workflow-log-columns > span { flex: 1 1 130px; }
+  .workflow-config-command-header { align-items: flex-start; flex-wrap: wrap; }
+  .workflow-config-command-actions { width: 100%; }
   .workflow-config-command-fields,
   .workflow-config-capture-row { grid-template-columns: 1fr; }
   .workflow-config-unique { justify-self: start; }

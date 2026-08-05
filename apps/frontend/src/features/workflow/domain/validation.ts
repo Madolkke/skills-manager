@@ -1,4 +1,4 @@
-import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowParameter, WorkflowSelection, WorkflowValidationIssue } from "../../../types";
+import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowParameter, WorkflowSelection, WorkflowStep, WorkflowValidationIssue } from "../../../types";
 import { workflowSchemaIsLegacy, workflowSchemasAssignable, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { projectWorkflowGraph, reachableNodeIds } from "./graph";
 import { logCollectionIssues } from "./logValidation";
@@ -39,6 +39,8 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     duplicates(definition.outputs, "key", "MISSING_COLLECTION_OUTPUT_KEY", "DUPLICATE_COLLECTION_OUTPUT_KEY", "Collection 输出 key", issues, selection);
     if (definition.spec.collectionType === "cli") duplicates(definition.spec.outputSamples, "id", "MISSING_COLLECTION_SAMPLE_ID", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection);
   }
+
+  validateConfigRootConflicts(steps, catalog, issues);
 
   const roleIds = new Set(bundle.workflow.deviceRoles.map((item) => item.id));
   const workflowInputs = new Map(bundle.workflow.inputs.map((item) => [item.id, item]));
@@ -157,6 +159,25 @@ function legacySchemaWarnings(items: Array<{ key: string; schema: WorkflowParame
 
 function add(issues: WorkflowValidationIssue[], code: string, severity: "error" | "warning", message: string, selection: WorkflowSelection): void {
   issues.push({ id: "", code, severity, message, selection });
+}
+
+function validateConfigRootConflicts(steps: WorkflowStep[], catalog: CollectionDefinition[], issues: WorkflowValidationIssue[]): void {
+  const contexts = new Map<string, Set<string>>();
+  steps.forEach((step) => step.collectionCalls.forEach((call) => {
+    const definition = findCollection(catalog, call.definition);
+    if (definition?.spec.collectionType !== "config") return;
+    const context = call.deviceRoleId || "__default__";
+    const names = contexts.get(context) ?? new Set<string>();
+    definition.spec.config.commands.forEach((command) => {
+      if (names.has(command.name)) {
+        add(issues, "CONFIG_ROOT_COMMAND_CONFLICT", "error", `同一设备上下文中的配置根命令“${command.name}”重复。`, {
+          type: "step", id: step.id, section: "collections", itemId: call.id, field: "definition.spec.config.commands",
+        });
+      }
+      names.add(command.name);
+    });
+    contexts.set(context, names);
+  }));
 }
 
 function assignIssueIds(issues: WorkflowValidationIssue[]): WorkflowValidationIssue[] {

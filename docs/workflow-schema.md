@@ -208,7 +208,16 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `queries` | `LogAggregationQuery[]` | 否 | `[]` | 标量聚合查询列表。 |
 | `outputSamples` | `LogOutputSample[]` | 否 | `[]` | 原始日志样例。 |
 
-日志 Collection 的 inputs/outputs 只允许 `string`、`integer`、`number` 和 `boolean`，每个输出必须且只能归属一条查询。固定 `logs`/`params` 表、alias 映射、SQL AST 门禁和运行侧责任见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
+日志 Collection 的 inputs/outputs 只允许 `string`、`integer`、`number` 和 `boolean`，每个输出必须且只能归属一条查询。v5 的 `sqlDialect` 必须显式为 `duckdb`；v3/v4 通过迁移入口读取时会显式补齐该字段。固定 `logs`/`params` 表、alias 映射、SQL AST 门禁和运行侧责任见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
+
+### ConfigCollectionSpec
+
+| 字段 | 类型 | 必填 | 默认值 | 含义 |
+| --- | --- | --- | --- | --- |
+| `collectionType` | `"config"` | 是 | - | 严格联合的配置匹配判别字段。 |
+| `config` | `ConfigRoot` | 是 | - | 由执行器从设备完整配置中匹配的递归命令树。 |
+
+`ConfigCommand` 必须包含合法 Python 标识符形式的 `name`、单行 `pattern`、`captures` 和 `children`。`unique=false` 的命令结果为数组；捕获字段只允许四种标量 Schema，配置结果通过 `config` 表达式根访问。配置调用固定 `sampleCount=1`，完整语法见 [Workflow 配置匹配 Collection](workflow-config-matching.md)。
 
 ### CollectionDefinition
 
@@ -218,7 +227,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `revision` | `integer` | 是 | - | Collection 定义修订号。 |
 | `key` | `string` | 是 | - | Collection 的机器可读标识，在 Catalog 中使用。 |
 | `metadata` | `CollectionMetadata` | 是 | - | Collection 展示和适用范围信息。 |
-| `spec` | `CliCollectionSpec \| LogCollectionSpec` | 是 | - | 以 `collectionType` 判别的严格类型专属定义。 |
+| `spec` | `CliCollectionSpec \| LogCollectionSpec \| ConfigCollectionSpec` | 是 | - | 以 `collectionType` 判别的严格类型专属定义。 |
 | `inputs` | `Parameter[]` | 否 | `[]` | 命令模板需要的输入参数。 |
 | `outputs` | `CollectionOutput[]` | 否 | `[]` | 命令执行后产生的输出字段。 |
 | `forkedFrom` | `VersionedRef \| null` | 否 | - | 该定义从哪个 Collection 版本复制而来。 |

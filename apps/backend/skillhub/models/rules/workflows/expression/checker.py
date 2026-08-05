@@ -87,8 +87,10 @@ class _Checker:
         owner = self.infer(node.value)
         if _is_config_expression(node.value) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
             self.warn(node.slice, "CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "config 只支持点号访问字段，不支持字符串下标。")
-        self.infer(node.slice)
+        index = self.infer(node.slice)
         if owner.kind == "array":
+            if index.kind != "integer":
+                self.warn(node.slice, "CONFIG_ARRAY_INDEX_INVALID", "config 数组只允许使用整数下标。")
             return owner.item or ANY
         if owner.kind == "object" and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
             return owner.properties.get(node.slice.value, ANY)
@@ -210,6 +212,8 @@ class _Checker:
             if node.attr in METHODS["object"]:
                 return TypeSpec("method")
             self.warn(node, "UNKNOWN_PROPERTY", f"对象不存在属性“{node.attr}”。")
+        if owner.kind == "none":
+            return NONE
         return ANY
 
     def _return_type(self, value: str, source: ast.AST | None) -> TypeSpec:
@@ -243,4 +247,8 @@ def _offset(source: str, line: int, column: int) -> int:
 def _is_config_expression(node: ast.AST) -> bool:
     while isinstance(node, ast.Attribute):
         node = node.value
+    while isinstance(node, ast.Subscript):
+        node = node.value
+        while isinstance(node, ast.Attribute):
+            node = node.value
     return isinstance(node, ast.Name) and node.id == "config"

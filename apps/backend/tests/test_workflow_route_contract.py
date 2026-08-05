@@ -53,6 +53,8 @@ def test_workflow_log_schema_route_is_authenticated_and_returns_fixed_catalog():
         "params_table": "params",
         "columns": [],
     }
+    operation = app.openapi()["paths"]["/api/workflow-log-schema"]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("WorkflowLogSchemaResponse")
 
 
 def test_executor_workflow_route_is_unauthenticated_and_strictly_typed():

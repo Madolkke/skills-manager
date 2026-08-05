@@ -80,3 +80,23 @@ class WorkflowExpressionValidationPayload(BaseModel):
 
     source: Annotated[str, Field(max_length=20_000)]
     environment: WorkflowExpressionEnvironmentPayload = Field(default_factory=WorkflowExpressionEnvironmentPayload)
+
+
+class WorkflowLogSchemaColumnResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    duckdb_type: Literal["TIMESTAMP", "VARCHAR"]
+    nullable: bool
+    title: str
+    description: str
+
+
+class WorkflowLogSchemaResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_schema_version: int
+    dialect: Literal["duckdb"]
+    logs_table: Literal["logs"]
+    params_table: Literal["params"]
+    columns: list[WorkflowLogSchemaColumnResponse]

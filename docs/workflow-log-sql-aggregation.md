@@ -155,10 +155,12 @@ SkillHub 使用 [SQLGlot 的 DuckDB AST API](https://sqlglot.com/sqlglot) 解析
 - 只允许一条 `SELECT` 或 `WITH ... SELECT`；
 - 只允许读取 `logs`、`params` 和本条语句定义的 CTE；
 - 拒绝 DDL、DML、`ATTACH`、扩展加载、文件读取、外部表和多语句；
-- 顶层禁止 `*` 和隐式输出名，每列必须显式 alias；
+- 顶层禁止 `*`、`COLUMNS(*)`、`COLUMNS(<表达式>)`、`ALL COLUMNS` 等动态列展开和隐式输出名，每列必须显式 alias；
 - 校验对 `logs` 固定列和 `params` 输入 Key 的引用；
 - 校验 alias、`outputIds` 和 Collection 输出之间的对应关系；
 - 按文档顺序产生确定的校验问题。
+
+CTE 可以用于拆分查询，但 CTE 名称不能覆盖固定运行表 `logs` 或 `params`。这两个名称始终保留给运行侧注册的表，不能通过 CTE shadowing 改变其语义。
 
 静态校验不会执行 SQL，也不会把 SQLGlot 当成运行引擎。保存只要求 JSON 结构符合严格模型；SQL 和领域错误允许随草稿保存，但会阻止 Workflow 同步。
 
@@ -231,6 +233,7 @@ GET /api/workflow-log-schema
 
 - 新保存和新导入的 Workflow、Collection revision 写入 `document_schema_version = 5`。
 - v3 文档先沿用既有 v3 到 v4 的结构迁移，再按 v5 严格模型读取；v4 文档也可直接读取。
+- 旧 v4 日志定义在迁移入口中显式补入 `collectionType: "log"`（若旧文档使用无判别字段）和 `sqlDialect: "duckdb"`；直接按 v5 严格模型解析时缺少 `sqlDialect` 会被拒绝。
 - 读取旧文档不会重写 JSON、增加 Workflow/Collection revision 或修改 digest。
 - 旧文档下一次被正常保存或创建新 Collection revision 时写为 v5。
 - Alembic `0005_workflow_log_sql_v5` 只更新新记录的默认版本和迁移入口，不批量改写历史 JSON。

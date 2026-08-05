@@ -50,7 +50,7 @@ X-SkillHub-Actor: <actor>
 | `localId` | `string` | 是 | 仅在本次请求内有效的唯一引用标识。 |
 | `key` | `string` | 是 | Collection 可读 Key。 |
 | `metadata` | `CollectionMetadata` | 是 | 名称、说明、适用范围和 Tags。 |
-| `spec` | `CliCollectionSpec \| LogCollectionSpec` | 是 | 以 `collectionType` 判别的 CLI 或日志 SQL 定义。 |
+| `spec` | `CliCollectionSpec \| LogCollectionSpec \| ConfigCollectionSpec` | 是 | 以 `collectionType` 判别的 CLI、日志 SQL 或配置匹配定义。 |
 | `inputs` | `Parameter[]` | 否 | 命令模板输入参数。 |
 | `outputs` | `CollectionOutput[]` | 否 | 采集输出字段。 |
 
@@ -81,9 +81,11 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 - `DeviceRole`
 - Step 的 `id/name/description/isStart/collectionCalls/topology/stepType/script`
 - `Transition`、`NodeRef` 和 `Conclusion`
-- `CollectionMetadata`、`CliCollectionSpec`、`LogCollectionSpec`、`CollectionOutput` 和回显示例
+- `CollectionMetadata`、`CliCollectionSpec`、`LogCollectionSpec`、`ConfigCollectionSpec`、`ConfigCommand`、`CollectionOutput` 和回显示例
 
 导入日志 Collection 时，`spec.collectionType` 必须为 `log`，并同时提供 `sqlDialect: "duckdb"`、`queries` 和 `outputSamples`。查询的 `outputIds` 引用同一定义中的输出 ID；SQL alias 使用输出 Key。日志输入和输出只允许四种标量 Schema，调用必须使用 `sampleCount: 1` 且不能设置 `deviceRoleId`。这些规则属于领域校验：结构合法的无效草稿可以导入，但会阻止后续同步。
+
+导入配置匹配 Collection 时，`spec.collectionType` 必须为 `config`，并提供 `config.commands` 递归命令树。命令名称和捕获名称必须是合法、非保留的 Python 标识符；捕获 Schema 只允许四种标量，调用必须使用 `sampleCount: 1`。执行器负责读取设备配置和实际匹配，SkillHub 只保存结构契约。
 
 ## 3. 转换算法
 

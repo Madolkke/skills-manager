@@ -99,3 +99,34 @@ def test_expression_reports_forbidden_and_positioned_diagnostics() -> None:
 
     assert result["diagnostics"][0]["code"] == "FORBIDDEN_LAMBDA"
     assert result["diagnostics"][0]["end"] > result["diagnostics"][0]["start"]
+
+
+def test_config_expression_rejects_string_and_non_integer_subscripts() -> None:
+    environment = {
+        "inputs": {},
+        "outputs": {},
+        "config": {
+            "interfaces": {
+                "type": "array",
+                "items": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+            },
+        },
+    }
+    string_result = validate_expression('config.interfaces["name"]', environment)
+    float_result = validate_expression("config.interfaces[1.5]", environment)
+    assert string_result["diagnostics"][0]["code"] == "CONFIG_STRING_SUBSCRIPT_FORBIDDEN"
+    assert float_result["diagnostics"][0]["code"] == "CONFIG_ARRAY_INDEX_INVALID"
+
+
+def test_nullable_config_attribute_preserves_none_type() -> None:
+    result = validate_expression("config.interface.name", {"inputs": {}, "outputs": {}, "config": {
+        "interface": {"type": ["object", "null"], "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    }})
+    assert result["inferredType"] == {"kind": "union", "options": [{"kind": "string"}, {"kind": "none"}]}
+
+
+def test_config_string_subscript_is_rejected_after_array_index() -> None:
+    result = validate_expression("config.interfaces[0][\"name\"]", {"inputs": {}, "outputs": {}, "config": {
+        "interfaces": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}},
+    }})
+    assert any(item["code"] == "CONFIG_STRING_SUBSCRIPT_FORBIDDEN" for item in result["diagnostics"])
