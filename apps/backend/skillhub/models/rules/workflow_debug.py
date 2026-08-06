@@ -37,11 +37,14 @@ def build_executor_identity(
     validate_debug_case_target(document, step_id=step_id, expected_target_id=target_id)
     step_executor_id = projection.id_map.step_ids.get(step_id)
     target = _target(projection, target_id)
+    expected_transition_ids = _expected_transition_ids(projection, document, step_id=step_id, target_id=target_id)
     errors: list[FieldError] = []
     if step_executor_id is None:
         errors.append(_field_error("step_id", "调试 Step 无法映射到执行器。"))
     if target is None:
         errors.append(_field_error("expected_target_id", "预期节点无法映射到执行器。"))
+    if not expected_transition_ids:
+        errors.append(_field_error("expected_target_id", "指向预期节点的跳转无法映射到执行器。"))
 
     input_keys = dict(projection.id_map.workflow_input_keys)
     for input_id in case["workflow_inputs"]:
@@ -70,19 +73,32 @@ def build_executor_identity(
     assert step_executor_id is not None and target is not None
     return {
         "step_id": step_executor_id,
-        "expected_target": {"type": target.type, "id": target.id},
+        "expected_target": {"type": target.type, "id": target.id, "transition_ids": expected_transition_ids},
         "workflow_input_keys": input_keys,
         "collections": collections,
     }
 
 
 def target_reached(status: dict[str, Any], target: dict[str, Any]) -> bool:
+    expected_transitions = set(target.get("transition_ids", []))
+    if expected_transitions and any(_selected_transition(step) in expected_transitions for step in status["steps"]):
+        return True
     if target["type"] == "conclusion":
         return target["id"] in status["conclusion_ids"]
     return any(
         step["step_id"] == target["id"] and step["status"] in {"success", "failure"}
         for step in status["steps"]
     )
+
+
+def _selected_transition(step: dict[str, Any]) -> int | None:
+    if step.get("status") not in {"success", "failure"}:
+        return None
+    result = step.get("result")
+    if not isinstance(result, dict):
+        return None
+    selected = result.get("selected_transition_id")
+    return selected if isinstance(selected, int) and not isinstance(selected, bool) else None
 
 
 def paused_run_input(schema: dict[str, Any], *, snapshot: dict[str, Any], identity: dict[str, Any]) -> dict[str, Any]:
@@ -143,6 +159,25 @@ def _target(projection: ExecutorWorkflowProjection, target_id: str) -> DebugTarg
     if target_id in projection.id_map.conclusion_ids:
         return DebugTarget(type="conclusion", id=projection.id_map.conclusion_ids[target_id])
     return None
+
+
+def _expected_transition_ids(
+    projection: ExecutorWorkflowProjection,
+    document: dict[str, Any],
+    *,
+    step_id: str,
+    target_id: str,
+) -> list[int]:
+    bundle = WorkflowBundle.model_validate(document)
+    step = next((node for node in bundle.workflow.nodes if isinstance(node, BaseStep) and node.id == step_id), None)
+    if step is None:
+        return []
+    return [
+        executor_id
+        for transition in step.topology
+        if transition.target.id == target_id
+        and (executor_id := projection.id_map.transition_ids.get((step_id, transition.id))) is not None
+    ]
 
 
 def _reference_error(field: str, message: str) -> FieldInvariantError:

@@ -18,6 +18,11 @@ def test_projection_preserves_executor_workflow_and_source_mapping() -> None:
         ("step-prepare", "call-environment"): 4,
         ("step-prepare", "call-check"): 5,
     }
+    assert dict(projection.id_map.transition_ids) == {
+        ("step-prepare", "transition-next"): 6,
+        ("step-prepare", "transition-done"): 7,
+        ("step-confirm", "transition-confirmed"): 8,
+    }
     assert dict(projection.id_map.workflow_input_keys) == {
         "input-slot": "slot-id",
         "input-limit": "limit",

@@ -170,6 +170,47 @@ def test_step_failure_still_passes_when_expected_target_was_reached() -> None:
     assert completed["latest_executor_status"]["steps"][0]["status"] == "failure"
 
 
+def test_selected_transition_passes_without_running_the_target_step() -> None:
+    store = FakeStore(executor_workflow_document())
+    client = FakeExecutorClient()
+    service = _service(store, client)
+    started = service.start_run(case_id="case-1", actor="owner")["run"]
+    client.closed = False
+    client.statuses.append(
+        RunStatusResponse.model_validate(
+            {
+                "run_id": str(RUN_ID),
+                "status": "success",
+                "steps": [
+                    {
+                        "step_id": 2,
+                        "status": "success",
+                        "flow_run_id": str(RUN_ID),
+                        "result": {
+                            "reason": "模型判断",
+                            "status": "success",
+                            "step_id": 2,
+                            "collection_results": [],
+                            "selected_transition_id": 6,
+                        },
+                        "failure": None,
+                    }
+                ],
+                "conclusion_ids": [],
+                "message": "Completed",
+                "paused_flow_run_id": None,
+                "pause_key": None,
+            }
+        )
+    )
+
+    completed = service.advance_run(run_id=started["id"], actor="owner")
+
+    assert completed["status"] == "completed"
+    assert completed["passed"] is True
+    assert completed["latest_executor_status"]["steps"][0]["result"]["selected_transition_id"] == 6
+
+
 def test_executor_terminal_without_expected_target_is_failed_assertion() -> None:
     store = FakeStore(executor_workflow_document())
     client = FakeExecutorClient()

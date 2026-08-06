@@ -5,7 +5,7 @@ from typing import Literal, TypeAlias
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError, field_validator
 
 from skillhub.models.rules.executor_workflows import ExecutorWorkflow
 
@@ -59,7 +59,7 @@ class RunStatusResponse(ExecutorProtocolModel):
     conclusion_ids: list[int]
     message: str
     paused_flow_run_id: str | None
-    paused_key: str | None
+    paused_key: str | None = Field(validation_alias=AliasChoices("paused_key", "pause_key"))
 
     @field_validator("run_id")
     @classmethod

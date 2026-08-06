@@ -57,7 +57,7 @@ SkillHub 调用执行器时不发送认证信息，并禁用代理环境变量�
 
 运行记录保存启动时的调试例快照、Workflow revision 和 digest、`task_id`、执行器 `run_id`、最近一次原始执行器状态、错误、已恢复暂停标识及时间信息。
 
-记录只保存解释运行所需的最小映射：源 Step、预期目标、Workflow input key、CollectionCall 整数 ID 和 output key。完整 `workflow_data` 不写入数据库。
+记录只保存解释运行所需的最小映射：源 Step、预期目标、指向该目标的 Transition 整数 ID、Workflow input key、CollectionCall 整数 ID 和 output key。完整 `workflow_data` 不写入数据库。
 
 状态含义：
 
@@ -113,8 +113,8 @@ GET /api/skills/{skill_id}/workflow/executor
 
 判定顺序如下：
 
-1. 预期目标为 Step，且其 `StepRunStatus.status` 变为 `success` 或 `failure`，立即完成并设 `passed=true`。
-2. 预期目标为 Conclusion，且其整数 ID 出现在 `conclusion_ids`，立即完成并设 `passed=true`。
+1. 当前 Step 进入 `success` 或 `failure`，且 `result.selected_transition_id` 是指向预期目标的 Transition，立即完成并设 `passed=true`。
+2. 兼容会继续执行目标节点的执行器：预期 Step 状态进入 `success`/`failure`，或预期 Conclusion 出现在 `conclusion_ids`，同样视为命中。
 3. 执行器整体进入 `success` 或 `failure`，但目标未命中，完成并设 `passed=false`。
 4. pending/running 保持活动；paused 进入自动恢复流程。
 
@@ -136,7 +136,7 @@ GET /api/skills/{skill_id}/workflow/executor
 
 采集回显恢复以 `properties.value.default` 的 CollectionResult 数组为模板。SkillHub 保留模板中的 `command`、`inputs`、`device_name` 和其他字段，仅按 `collection_id` 覆盖对应 fixture 的 `raw_output` 与按 output key 转换后的 `outputs`。执行器请求的 Collection 缺少 fixture 时运行失败。
 
-每次成功恢复会记录 `paused_flow_run_id + paused_key`。执行器重复返回同一暂停时不会重复调用 resume。
+每次成功恢复会记录 `paused_flow_run_id + paused_key`。状态响应同时兼容执行器使用 `pause_key` 的写法，并在 SkillHub 内部统一为 `paused_key`。执行器重复返回同一暂停时不会重复调用 resume。
 
 ## 9. 配置
 

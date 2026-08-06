@@ -29,7 +29,7 @@ def test_debug_identity_uses_projection_without_changing_executor_workflow() -> 
     identity = build_executor_identity(projection, document=document, case=_case())
 
     assert identity["step_id"] == 2
-    assert identity["expected_target"] == {"type": "step", "id": 3}
+    assert identity["expected_target"] == {"type": "step", "id": 3, "transition_ids": [6]}
     assert identity["workflow_input_keys"]["input-slot"] == "slot-id"
     assert identity["collections"]["call-environment"] == {
         "executor_id": 4,
@@ -125,3 +125,20 @@ def test_expected_step_success_or_failure_counts_as_reached(step_status: str) ->
     status = {"steps": [{"step_id": 3, "status": step_status}], "conclusion_ids": []}
     assert target_reached(status, {"type": "step", "id": 3}) is True
     assert target_reached({"steps": [], "conclusion_ids": [9]}, {"type": "conclusion", "id": 9}) is True
+
+
+@pytest.mark.parametrize("target_type", ["step", "conclusion"])
+def test_selected_transition_counts_as_reaching_its_target(target_type: str) -> None:
+    status = {
+        "steps": [
+            {
+                "step_id": 2,
+                "status": "success",
+                "result": {"selected_transition_id": 19},
+            }
+        ],
+        "conclusion_ids": [],
+    }
+
+    assert target_reached(status, {"type": target_type, "id": 99, "transition_ids": [19]}) is True
+    assert target_reached(status, {"type": target_type, "id": 99, "transition_ids": [20]}) is False

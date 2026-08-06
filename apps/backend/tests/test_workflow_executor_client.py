@@ -104,6 +104,29 @@ def test_client_calls_all_step_run_endpoints_and_validates_responses() -> None:
     }
 
 
+def test_client_accepts_executor_pause_key_alias() -> None:
+    payload = {
+        "run_id": str(RUN_ID),
+        "status": "success",
+        "steps": [],
+        "conclusion_ids": [],
+        "message": "Completed",
+        "paused_flow_run_id": None,
+        "pause_key": None,
+    }
+    client = WorkflowExecutorClient(
+        base_url="http://executor.test",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(lambda _request: httpx.Response(200, json=payload)),
+    )
+
+    status = client.get_run_status(run_id=RUN_ID)
+
+    assert status.paused_key is None
+    assert "pause_key" not in status.model_dump(mode="json")
+    client.close()
+
+
 @pytest.mark.parametrize(
     ("exception", "expected_error"),
     [
