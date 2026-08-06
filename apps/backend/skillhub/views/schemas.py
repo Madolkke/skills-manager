@@ -10,4 +10,5 @@ from skillhub.views.request_models.misc import *  # noqa: F403
 from skillhub.views.request_models.reviews import *  # noqa: F403
 from skillhub.views.request_models.skill_builder import *  # noqa: F403
 from skillhub.views.request_models.skills import *  # noqa: F403
+from skillhub.views.request_models.workflow_debug import *  # noqa: F403
 from skillhub.views.request_models.workflows import *  # noqa: F403

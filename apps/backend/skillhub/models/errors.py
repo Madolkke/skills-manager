@@ -17,6 +17,10 @@ class ConflictError(DomainError):
     """Raised when a command conflicts with the current resource state."""
 
 
+class ServiceUnavailableError(DomainError):
+    """Raised when a required external service is not configured or unavailable."""
+
+
 @dataclass(frozen=True)
 class FieldError:
     """Machine-readable field error for API clients."""

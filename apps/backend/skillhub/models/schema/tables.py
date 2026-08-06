@@ -37,6 +37,7 @@ from skillhub.models.schema.reviews import (
 )
 from skillhub.models.schema.runtime import Job, OpencodeAgent, SkillBuilderMessage, SkillBuilderSession, WorkerHeartbeat
 from skillhub.models.schema.skills import Skill, SkillTag, SkillVersion
+from skillhub.models.schema.workflow_debug import WorkflowDebugCase, WorkflowDebugRun
 from skillhub.models.schema.workflows import Workflow, WorkflowCollectionDefinition, WorkflowCollectionRevision, WorkflowSync
 
 metadata = Base.metadata
@@ -48,6 +49,8 @@ workflows = Workflow.__table__
 workflow_collection_definitions = WorkflowCollectionDefinition.__table__
 workflow_collection_revisions = WorkflowCollectionRevision.__table__
 workflow_syncs = WorkflowSync.__table__
+workflow_debug_cases = WorkflowDebugCase.__table__
+workflow_debug_runs = WorkflowDebugRun.__table__
 eval_sets = EvalSet.__table__
 eval_cases = EvalCase.__table__
 eval_case_versions = EvalCaseVersion.__table__

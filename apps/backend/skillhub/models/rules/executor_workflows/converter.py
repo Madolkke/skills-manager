@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypeVar, cast
+from typing import Literal, TypeVar, cast
 
-from pydantic import ValidationError
-
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
-from skillhub.models.rules.executor_workflows.references import allocate_ids, group_definitions, group_nodes, output_path
+from skillhub.models.errors import FieldError, FieldInvariantError
+from skillhub.models.rules.executor_workflows.references import (
+    allocate_ids,
+    group_definitions,
+    group_nodes,
+    output_path,
+    projected_call_indexes,
+)
 from skillhub.models.rules.executor_workflows.schema import (
     ExecutorCollection,
     ExecutorConclusion,
@@ -33,7 +37,6 @@ SCALAR_TYPES = {"string", "integer", "number", "boolean"}
 ERROR_DETAIL = "Workflow 无法转换为执行器定义。"
 ReferenceT = TypeVar("ReferenceT")
 
-
 class _Converter:
     def __init__(self, bundle: WorkflowBundle) -> None:
         self.workflow = bundle.workflow
@@ -45,7 +48,12 @@ class _Converter:
         self.node_groups = group_nodes(self.workflow.nodes)
         self.definition_groups = group_definitions(bundle.collection_snapshots)
         self.definition_indexes = {id(definition): index for index, definition in enumerate(bundle.collection_snapshots)}
-        self.step_ids, self.call_ids, self.transition_ids, self.conclusion_ids = allocate_ids(self.all_steps, self.conclusions)
+        included_calls = projected_call_indexes(self.all_steps, self.definition_groups)
+        self.step_ids, self.call_ids, self.transition_ids, self.conclusion_ids = allocate_ids(
+            self.all_steps,
+            self.conclusions,
+            included_calls,
+        )
 
     def convert(self) -> ExecutorWorkflow:
         inputs = self._workflow_inputs()
@@ -116,6 +124,13 @@ class _Converter:
         call: CollectionCall,
     ) -> ExecutorCollection | None:
         base = f"workflow.nodes[{node_index}].collectionCalls[{call_index}]"
+        definition = self._definition(call, f"{base}.definition")
+        if definition is None:
+            for parameter_id in call.input_bindings:
+                self._binding_value(node_index, step, call, parameter_id, base)
+            return None
+        if isinstance(definition.spec, (LogCollectionSpec, ConfigCollectionSpec)):
+            return None
         if call.device_role_id not in (None, ""):
             self._error(
                 f"{base}.deviceRoleId",
@@ -128,19 +143,6 @@ class _Converter:
                 "executor_workflow.unsupported_sample_count",
                 "执行器 Workflow 暂只支持 sampleCount 为 1。",
             )
-        definition = self._definition(call, f"{base}.definition")
-        if definition is None:
-            for parameter_id in call.input_bindings:
-                self._binding_value(node_index, step, call, parameter_id, base)
-            return None
-        if isinstance(definition.spec, (LogCollectionSpec, ConfigCollectionSpec)):
-            collection_label = "配置" if isinstance(definition.spec, ConfigCollectionSpec) else "日志"
-            self._error(
-                f"{base}.definition.spec.collectionType",
-                "executor_workflow.unsupported_collection_type",
-                f"执行器 Workflow 暂不支持{collection_label} Collection。",
-            )
-            return None
         definition_index = self.definition_indexes[id(definition)]
         unknown_bindings = self._unknown_bindings(call, definition, base)
         for parameter_id in unknown_bindings:
@@ -295,15 +297,3 @@ class _Converter:
             return
         self.error_keys.add(key)
         self.errors.append(FieldError(field=field, code=code, message=message))
-
-
-def convert_workflow_document(document: dict[str, Any]) -> ExecutorWorkflow:
-    """Convert one normalized authoring Workflow document into the executor contract."""
-    try:
-        bundle = WorkflowBundle.model_validate(document)
-    except ValidationError as exc:
-        raise InvariantError("Workflow 文档格式不正确。") from exc
-    return _Converter(bundle).convert()
-
-
-__all__ = ["convert_workflow_document"]

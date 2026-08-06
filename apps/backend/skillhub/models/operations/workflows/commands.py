@@ -86,6 +86,12 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                     .where(orm.Workflow.id == workflow["id"])
                     .values(revision=revision, document_schema_version=DOCUMENT_SCHEMA_VERSION, document=candidate, document_digest=candidate_digest, updated_at=saved_at, last_saved_by=actor)
                 )
+                step_ids = {
+                    str(node.get("id"))
+                    for node in candidate["workflow"]["nodes"]
+                    if node.get("stepType") in {"expression", "script"} and node.get("id")
+                }
+                self.delete_removed_step_debug_cases(connection, skill_id=skill_id, step_ids=step_ids)
                 self._audit_workflow(
                     connection,
                     skill_id=skill_id,

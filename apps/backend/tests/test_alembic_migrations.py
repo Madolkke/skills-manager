@@ -1,9 +1,11 @@
 import json
+from importlib import import_module
 
 import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import inspect, text
 
 from skillhub.models.entities import digest_text
@@ -74,7 +76,7 @@ def test_skill_identity_revision_upgrades_the_baseline_without_data_loss() -> No
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0005_workflow_log_sql_v5"
+        assert current_revision(engine) == "0006_workflow_log_debug_merge"
         with engine.connect() as connection:
             assert "display_name" in {column["name"] for column in inspect(connection).get_columns("skills")}
             assert connection.scalar(text("select slug from skills where id = 'skill-existing'")) == "existing-skill"
@@ -122,7 +124,7 @@ def test_workflow_migrations_preserve_history_and_mark_existing_sync_changed() -
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0005_workflow_log_sql_v5"
+        assert current_revision(engine) == "0006_workflow_log_debug_merge"
         with engine.connect() as connection:
             workflow = connection.execute(
                 text(
@@ -204,7 +206,62 @@ def test_workflow_document_schema_revisions_reject_downgrade() -> None:
         with pytest.raises(RuntimeError, match="irreversible"), engine.begin() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, "0003_workflow_skill_generators")
-        assert current_revision(engine) == "0005_workflow_log_sql_v5"
+        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+    finally:
+        _reset_database(engine)
+        engine.dispose()
+
+
+def test_prepare_database_bridges_legacy_workflow_json_schema_revision() -> None:
+    ensure_postgres_test_database()
+    engine = create_postgres_engine(resolve_database_url())
+    try:
+        _reset_database(engine)
+        upgrade_database(engine, "0002_skill_identity_global_admin")
+        with engine.begin() as connection:
+            seed_v3_workflow_state(connection)
+            migration = import_module("migrations.versions.0004_workflow_json_schema_v4")
+            with Operations.context(MigrationContext.configure(connection)):
+                migration.upgrade()
+            connection.execute(
+                text("update alembic_version set version_num = '0003_workflow_json_schema_v4'")
+            )
+
+        prepare_database(engine)
+
+        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        with engine.connect() as connection:
+            workflow = connection.execute(
+                text("select revision, document_schema_version from workflows where id = 'workflow-v3'")
+            ).one()
+            assert workflow == (2, 4)
+            columns = {item["name"] for item in inspect(connection).get_columns("workflow_syncs")}
+            assert {"generator_id", "generator_options", "generator_options_digest", "preview_digest"} <= columns
+            assert {"workflow_debug_cases", "workflow_debug_runs"} <= set(inspect(connection).get_table_names())
+    finally:
+        _reset_database(engine)
+        engine.dispose()
+
+
+@pytest.mark.parametrize("branch_revision", ["0005_workflow_log_sql_v5", "0005_workflow_step_debug"])
+def test_workflow_merge_revision_upgrades_either_branch_to_one_head(branch_revision: str) -> None:
+    ensure_postgres_test_database()
+    engine = create_postgres_engine(resolve_database_url())
+    try:
+        _reset_database(engine)
+        upgrade_database(engine, branch_revision)
+
+        upgrade_database(engine)
+
+        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        with engine.connect() as connection:
+            assert {"workflow_debug_cases", "workflow_debug_runs"} <= set(inspect(connection).get_table_names())
+            workflow_default = next(
+                item["default"]
+                for item in inspect(connection).get_columns("workflows")
+                if item["name"] == "document_schema_version"
+            )
+            assert str(workflow_default).strip("'\"") == "5"
     finally:
         _reset_database(engine)
         engine.dispose()

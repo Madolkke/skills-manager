@@ -15,6 +15,7 @@ from skillhub.views.skill_builder import register_skill_builder_routes
 from skillhub.views.skills import register_skill_routes
 from skillhub.views.system import register_system_routes
 from skillhub.views.versions import register_version_routes
+from skillhub.views.workflow_debug import register_workflow_debug_routes
 from skillhub.views.workflows import register_workflow_routes
 
 
@@ -29,6 +30,7 @@ def register_views(app: FastAPI) -> None:
     register_version_routes(app)
     register_workflow_routes(app)
     register_executor_workflow_routes(app)
+    register_workflow_debug_routes(app)
     register_evaluation_routes(app)
     register_review_routes(app)
     register_saved_view_routes(app)

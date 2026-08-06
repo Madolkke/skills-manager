@@ -18,6 +18,8 @@
 | `Workflow` | 与 Skill 永久一对一绑定的最新作者文档。 |
 | `WorkflowSync` | 某个 Workflow revision 生成 SkillVersion 时的精确源快照和追溯记录。 |
 | `CollectionDefinition` | 全局共享采集定义；同一 ID 下 revision 不可变。 |
+| `WorkflowDebugCase` | 绑定写作侧 Step 的非版本化单步调试输入、采集 fixture 和预期直接目标。 |
+| `WorkflowDebugRun` | 单次调试的案例快照、Workflow 证据、执行器状态和命中判定。 |
 
 ## 关键字段
 
@@ -84,7 +86,7 @@
 | `role.manage` | `owner` 或 `admin` | 管理 skill role assignment。 |
 | `skill.delete` | `owner` 或 `admin` | 永久删除 Skill。 |
 | `verification.accept` | `owner` 或 `maintainer` | 接受一次 EvalRun 为验证依据。 |
-| `skill.edit` | `owner`、`maintainer` 或 `admin` | 保存 Workflow 和 Workflow 元信息。 |
+| `skill.edit` | `owner`、`maintainer` 或 `admin` | 保存 Workflow、维护调试例以及读取和推进单步调试运行。 |
 | `skill.version.create` | `owner`、`maintainer` 或 `admin` | 同步 Workflow 或重新激活其生成版本。 |
 
 ## 字段校验
@@ -132,6 +134,10 @@
 
 配置匹配 Collection 的结构、表达式路径和执行边界见[Workflow 配置匹配 Collection](workflow-config-matching.md)。SkillHub 不读取配置文本或执行匹配。
 | `GET /api/skills/{skill_id}/workflow/collections` | 全局 Collection Catalog 最新 revisions。 |
+| `GET /api/skills/{skill_id}/workflow/debug-cases` | 当前 actor 可编辑的 Workflow 调试例。 |
+| `GET /api/workflow-debug-cases/{case_id}` | 单个 Workflow 调试例。 |
+| `GET /api/workflow-debug-cases/{case_id}/runs` | 调试运行历史，使用 cursor 分页。 |
+| `GET /api/workflow-debug-runs/{run_id}` | 当前持久化的调试运行状态，不推进执行器。 |
 
 ## 写入接口
 
@@ -163,6 +169,11 @@
 | `GET /api/workflow-skill-generators` | 返回内置 Generator descriptor 和服务端默认项。 |
 | `POST /api/skills/{skill_id}/workflow/sync-preview` | 无写入地生成 Bundle、当前版本文本 diff、预计动作和确认摘要。 |
 | `POST /api/skills/{skill_id}/workflow/sync` | 重新生成并校验已确认预览，再创建或重新激活 SkillVersion。 |
+| `POST /api/skills/{skill_id}/workflow/debug-cases` | 创建绑定 Step 的非版本化调试例。 |
+| `PATCH /api/workflow-debug-cases/{case_id}` | 最后写入覆盖更新调试例。 |
+| `DELETE /api/workflow-debug-cases/{case_id}` | 无活动运行时删除调试例并级联删除历史。 |
+| `POST /api/workflow-debug-cases/{case_id}/runs` | 基于当前已保存 Workflow 启动或复用活动单步调试运行。 |
+| `POST /api/workflow-debug-runs/{run_id}/advance` | 查询一次执行器状态，并按需自动恢复一次暂停。 |
 
 `DELETE /api/skills/{skill_id}` 是破坏性接口，已替换旧版归档语义。仅 owner 或 admin 可调用：
 
@@ -205,7 +216,7 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 
 `GET /api/skills/{skill_id}/workflow/formatted` 与普通 Workflow 获取接口使用相同的 Skill、Workflow 和 actor 校验，但响应体只包含转换后的 JSON object。当前转换函数为深拷贝透传，因此响应等于普通接口的 `document` 字段；后续自定义格式只修改该转换函数，不改变接口路径。
 
-`GET /api/skills/{skill_id}/workflow/executor` 是面向受信网络内执行器的无认证只读投影。它实时读取当前保存的 Workflow，不执行领域校验，不缓存或持久化结果；字段映射、Binding 路径、错误码、安全假设及不支持字段见[执行器 Workflow 转换接口](executor-workflow-api.md)。该接口不得与原样透传的 `workflow/formatted` 混用。
+`GET /api/skills/{skill_id}/workflow/executor` 是面向受信网络内执行器的无认证只读投影。它实时读取当前保存的 Workflow，不执行领域校验，不缓存或持久化结果；Log/Config CollectionCall 被静默过滤且不占用执行器 ID，表达式和 CLI binding 对其输出的引用保持原样。字段映射、Binding 路径、错误码、安全假设及不支持字段见[执行器 Workflow 转换接口](executor-workflow-api.md)。该接口不得与原样透传的 `workflow/formatted` 混用。
 
 `GET /api/workflow-log-schema` 是全局只读契约接口，使用标准 actor context，不绑定 Skill。接口使用严格 response model，拒绝额外字段；响应严格为：
 
@@ -227,6 +238,8 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 ```
 
 日志 SQL 的完整字段、`params` 引用、查询输出契约和静态校验见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。SkillHub 不执行 SQL，不保存 DataFrame，也不提供日志上传或 SQL 运行接口。
+
+Workflow 单步调试接口均要求 `skill.edit`。启动请求在同一数据库快照内读取当前保存的 revision，并复用 executor GET 的同一纯投影入口；发送给外部执行器的 `workflow_data` 与该 revision 的 `ExecutorWorkflow` 深度相等，不包含 revision、digest、调试字段或内部 ID 映射。当前 Step 包含 Log/Config 时启动返回稳定的 `workflow_debug.unsupported_collection_type`，但案例和历史接口仍可使用。调试例、状态机、暂停恢复、分页和环境配置见[Workflow 单步调试](workflow-step-debug-api.md)。
 
 Workflow 校验问题统一包含 `id`、`code`、`severity`、`message` 和 `selection`。`selection` 使用 `type` 定位编辑区域，并按需携带 `id`、`revision`、`section`、`itemId` 和 `field`；采集调用相关问题必须提供 `section: "collections"`、调用 `itemId`，字段级问题还必须提供 `field`。
 

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from alembic.script import ScriptDirectory
@@ -20,8 +21,8 @@ def test_declarative_metadata_is_the_only_schema_definition() -> None:
 
 
 def test_alembic_chain_keeps_the_declarative_baseline() -> None:
-    assert expected_revision() == "0005_workflow_log_sql_v5"
-    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0005_workflow_log_sql_v5"]
+    assert expected_revision() == "0006_workflow_log_debug_merge"
+    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0006_workflow_log_debug_merge"]
     revisions = sorted((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
     assert [revision.name for revision in revisions] == [
         "0001_initial_schema.py",
@@ -29,10 +30,12 @@ def test_alembic_chain_keeps_the_declarative_baseline() -> None:
         "0003_workflow_skill_generators.py",
         "0004_workflow_json_schema_v4.py",
         "0005_workflow_log_sql_v5.py",
+        "0005_workflow_step_debug.py",
+        "0006_workflow_log_debug_merge.py",
     ]
-    source = revisions[0].read_text(encoding="utf-8")
+    source = "\n".join(revision.read_text(encoding="utf-8") for revision in revisions)
     for table_name in metadata.tables:
-        assert f"op.create_table('{table_name}'" in source
+        assert re.search(rf"op\.create_table\(\s*['\"]{re.escape(table_name)}['\"]", source)
 
 
 def test_skill_relationships_are_explicit_and_raise_on_implicit_load() -> None:

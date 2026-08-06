@@ -247,7 +247,7 @@ def test_conversion_rejects_complex_collection_schemas(section: str, index: int)
     assert error.value.field_errors[0].code == "executor_workflow.unsupported_schema"
 
 
-def test_conversion_rejects_log_collections_explicitly() -> None:
+def test_conversion_omits_log_collections_and_compacts_ids() -> None:
     document = executor_workflow_document()
     document["collectionSnapshots"][0]["spec"] = {
         "collectionType": "log",
@@ -256,13 +256,22 @@ def test_conversion_rejects_log_collections_explicitly() -> None:
         "outputSamples": [],
     }
 
-    with pytest.raises(FieldInvariantError) as error:
-        convert_workflow_document(document)
+    ignored_call = document["workflow"]["nodes"][0]["collectionCalls"][0]
+    ignored_call["deviceRoleId"] = "unsupported-role"
+    ignored_call["sampleCount"] = 7
+    document["collectionSnapshots"][0]["inputs"][0]["schema"] = {
+        "type": "object", "properties": {}, "required": [], "additionalProperties": False,
+    }
 
-    assert error.value.field_errors[0].code == "executor_workflow.unsupported_collection_type"
+    result = convert_workflow_document(document)
+
+    assert [collection.id for collection in result.steps[0].collections] == [4]
+    assert result.steps[0].collections[0].inputs[0].value == "outputs.memory-percentage"
+    assert [transition.id for transition in result.steps[0].transitions] == [5, 6]
+    assert result.conclusions[0].id == 8
 
 
-def test_conversion_rejects_config_collections_explicitly() -> None:
+def test_conversion_omits_config_collections() -> None:
     document = executor_workflow_document()
     document["collectionSnapshots"][0]["spec"] = {
         "collectionType": "config",
@@ -273,11 +282,9 @@ def test_conversion_rejects_config_collections_explicitly() -> None:
         },
     }
 
-    with pytest.raises(FieldInvariantError) as error:
-        convert_workflow_document(document)
+    result = convert_workflow_document(document)
 
-    assert error.value.field_errors[0].code == "executor_workflow.unsupported_collection_type"
-    assert "spec" in error.value.field_errors[0].field
+    assert [collection.command for collection in result.steps[0].collections] == ["display memory"]
 
 
 def test_conversion_reports_ambiguous_and_unresolvable_references() -> None:

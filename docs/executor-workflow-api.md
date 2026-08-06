@@ -131,7 +131,7 @@ ID 使用单一、连续、无重复的整数命名空间：
 
 1. Workflow 固定分配 `1`。
 2. 按 `workflow.nodes` 顺序为所有 Step 分配 ID。
-3. 按 Step 顺序、每个 Step 的 `collectionCalls` 顺序为 CollectionCall 分配 ID。
+3. 按 Step 顺序、每个 Step 的 `collectionCalls` 顺序为可投影的 CLI CollectionCall 分配 ID；被忽略的 Log/Config Call 不占用 ID。
 4. 按 Step 顺序、每个 Step 的 `topology` 顺序为 Transition 分配 ID。
 5. 按节点顺序为 Conclusion 分配 ID。
 
@@ -155,9 +155,10 @@ ID 使用单一、连续、无重复的整数命名空间：
 
 - 只有 `expression` Step 可以转换；`script` Step 会拒绝整个 Workflow 转换。
 - Step `condition` 取 `description`，不重新解析或生成表达式。
-- 每个 CollectionCall 都展开为一个 Collection，不能按 Definition 去重；同一定义被调用两次会得到两个执行器 Collection。
-- 当前只支持 CLI Collection，`kind` 固定为 `command`，命令来自 `spec.commandTemplate`。Workflow 包含 `log` 或 `config` Collection 时均返回 `executor_workflow.unsupported_collection_type`；本接口不会执行或投影日志 SQL或配置匹配。
-- 非空 `deviceRoleId` 或 `sampleCount != 1` 无法由目标模型表达，会拒绝转换。
+- 每个 CLI CollectionCall 都展开为一个 Collection，不能按 Definition 去重；同一定义被调用两次会得到两个执行器 Collection。
+- CLI Collection 的 `kind` 固定为 `command`，命令来自 `spec.commandTemplate`。Log/Config CollectionCall 被静默忽略，不执行或投影日志 SQL、配置匹配，也不校验该 Call 的 Schema、binding、`deviceRoleId` 或 `sampleCount`。
+- CLI CollectionCall 的非空 `deviceRoleId` 或 `sampleCount != 1` 无法由目标模型表达，会拒绝转换。
+- 表达式或 CLI binding 对被忽略采集输出的 `outputs.*` 引用保持原样；转换器不分析、删除或改写这些引用，缺值语义由执行器处理。
 - `example_outputs` 固定为 `[]`，忽略写作侧 `outputSamples`、stdout 和 inputValues。
 - Transition 保持原数组顺序；`condition` 使用 `conditionExpression`，`description` 使用 `conditionText`。空表达式是无条件跳转。
 - Transition 目标节点为 Step 时 `target_type` 为 `step`，目标为 Conclusion 时为 `conclusion`。
@@ -169,7 +170,7 @@ ID 使用单一、连续、无重复的整数命名空间：
 
 - Workflow revision、schema version，以及 metadata 中除 `name` 外的 `code`、`description`、`symptom`、`industry`、`device`、`versions`。
 - Workflow 和 Collection 字段的 `required` 标记、Schema `title`、完整递归 JSON Schema 结构。
-- DeviceRole 定义；被 CollectionCall 使用时不是静默忽略，而是因目标模型不支持设备路由而失败。
+- DeviceRole 定义；被 CLI CollectionCall 使用时会因目标模型不支持设备路由而失败，被忽略的 Log/Config Call 不校验该字段。
 - Collection metadata、tags、forkedFrom、定义 ID/revision 展示信息。
 - CollectionCall 的 `name`；调用 `key` 仅用于输出路径。
 - 原始 output samples、stdout、inputValues。

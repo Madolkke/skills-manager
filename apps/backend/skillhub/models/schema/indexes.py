@@ -36,6 +36,8 @@ from skillhub.models.schema.tables import (
     tag_values,
     worker_heartbeats,
     workflow_collection_revisions,
+    workflow_debug_cases,
+    workflow_debug_runs,
     workflow_syncs,
     workflows,
 )
@@ -86,6 +88,14 @@ Index("worker_heartbeats_last_seen_idx", worker_heartbeats.c.last_seen_at.desc()
 Index("workflows_updated_at_idx", workflows.c.updated_at.desc())
 Index("workflow_syncs_skill_version_idx", workflow_syncs.c.skill_version_id)
 Index("workflow_collection_revisions_created_at_idx", workflow_collection_revisions.c.created_at.desc())
+Index("workflow_debug_cases_skill_step_idx", workflow_debug_cases.c.skill_id, workflow_debug_cases.c.step_id)
+Index("workflow_debug_runs_case_created_idx", workflow_debug_runs.c.case_id, workflow_debug_runs.c.created_at.desc(), workflow_debug_runs.c.id.desc())
+Index(
+    "workflow_debug_runs_case_active_unique",
+    workflow_debug_runs.c.case_id,
+    unique=True,
+    postgresql_where=workflow_debug_runs.c.status.in_(("starting", "running", "paused", "external_state_unknown")),
+)
 Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
 Index("skill_tags_group_value_idx", skill_tags.c.tag_group_id, skill_tags.c.tag_value)
 Index("tag_groups_sort_idx", tag_groups.c.sort_order, tag_groups.c.id)

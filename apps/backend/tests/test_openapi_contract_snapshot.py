@@ -7,10 +7,17 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from skillhub.bootstrap.exceptions import register_exception_handlers
-from skillhub.models.errors import ConflictError, FieldError, FieldInvariantError, NotFoundError, PermissionDeniedError
+from skillhub.models.errors import (
+    ConflictError,
+    FieldError,
+    FieldInvariantError,
+    NotFoundError,
+    PermissionDeniedError,
+    ServiceUnavailableError,
+)
 from skillhub.views import register_views
 
-OPENAPI_SHA256 = "5df28a6bc249956e255c8e08b8fc6b9f3ddb55cef30df296e0334c752fcaee2f"
+OPENAPI_SHA256 = "1a597b2e1d279e7d55340e92f7b824a1b6de942fe27ef25aa0410b34621a9b32"
 
 
 def test_openapi_contract_snapshot() -> None:
@@ -19,7 +26,7 @@ def test_openapi_contract_snapshot() -> None:
 
     normalized = json.dumps(app.openapi(), ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
 
-    assert len(app.openapi()["paths"]) == 100
+    assert len(app.openapi()["paths"]) == 105
     assert hashlib.sha256(normalized).hexdigest() == OPENAPI_SHA256
 
 
@@ -43,12 +50,17 @@ def test_core_error_response_contracts() -> None:
     def denied() -> None:
         raise PermissionDeniedError("denied")
 
+    @app.get("/unavailable")
+    def unavailable() -> None:
+        raise ServiceUnavailableError("unavailable")
+
     client = TestClient(app)
 
     not_found_response = client.get("/not-found")
     invalid_response = client.get("/invalid")
     conflict_response = client.get("/conflict")
     denied_response = client.get("/denied")
+    unavailable_response = client.get("/unavailable")
 
     assert (not_found_response.status_code, not_found_response.json()) == (404, {"detail": "missing"})
     assert (invalid_response.status_code, invalid_response.json()) == (
@@ -57,3 +69,4 @@ def test_core_error_response_contracts() -> None:
     )
     assert (conflict_response.status_code, conflict_response.json()) == (409, {"detail": "conflict"})
     assert (denied_response.status_code, denied_response.json()) == (403, {"detail": "denied"})
+    assert (unavailable_response.status_code, unavailable_response.json()) == (503, {"detail": "unavailable"})
