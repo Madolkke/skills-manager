@@ -288,10 +288,13 @@ def _normalize(model, value: dict[str, Any], message: str) -> dict[str, Any]:
 def _normalize_legacy_cli_specs(value: dict[str, Any]) -> dict[str, Any]:
     """Add the discriminator to v4 CLI documents that predate the union field."""
     result = deepcopy(value)
-    definitions = [result] if "metadata" in result and "spec" in result else result.get("collectionSnapshots", [])
+    definitions = [result] if "metadata" in result and "spec" in result else result.get("collectionSnapshots", result.get("collection_snapshots", []))
     for definition in definitions:
         spec = definition.get("spec")
-        if isinstance(spec, dict) and "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
+        if not isinstance(spec, dict):
+            continue
+        _canonicalize_collection_type(spec)
+        if "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec and "sql_dialect" not in spec:
             spec["collectionType"] = "cli"
     return result
 
@@ -299,13 +302,22 @@ def _normalize_legacy_cli_specs(value: dict[str, Any]) -> dict[str, Any]:
 def _normalize_legacy_log_specs(value: dict[str, Any], *, fill_dialect: bool) -> dict[str, Any]:
     """Materialize the v4 log discriminator and dialect before strict v5 parsing."""
     result = deepcopy(value)
-    definitions = [result] if "metadata" in result and "spec" in result else result.get("collectionSnapshots", [])
+    definitions = [result] if "metadata" in result and "spec" in result else result.get("collectionSnapshots", result.get("collection_snapshots", []))
     for definition in definitions:
         spec = definition.get("spec")
         if not isinstance(spec, dict):
             continue
+        _canonicalize_collection_type(spec)
+        if "sqlDialect" not in spec and "sql_dialect" in spec:
+            spec["sqlDialect"] = spec.pop("sql_dialect")
         if "collectionType" not in spec and ("queries" in spec or "sqlDialect" in spec):
             spec["collectionType"] = "log"
         if fill_dialect and spec.get("collectionType") == "log":
             spec.setdefault("sqlDialect", "duckdb")
     return result
+
+
+def _canonicalize_collection_type(spec: dict[str, Any]) -> None:
+    """Normalize the discriminator alias before legacy type inference runs."""
+    if "collectionType" not in spec and "collection_type" in spec:
+        spec["collectionType"] = spec.pop("collection_type")

@@ -246,7 +246,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `sampleCount` | `integer` | 否 | `1` | 执行采集的次数。领域校验要求大于零。 |
 | `inputBindings` | `Record<string, Binding>` | 否 | `{}` | 以 Collection 输入参数 ID 为 key 的绑定映射。 |
 
-日志 Collection 调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。违反这些规则仍可保存为草稿，但会产生 validation error 并阻止同步。
+日志 Collection 调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`；配置 Collection 调用固定 `sampleCount = 1`。违反这些规则仍可保存为草稿，但会产生 validation error 并阻止同步。
 
 ## 节点与跳转
 

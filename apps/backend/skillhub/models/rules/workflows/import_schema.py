@@ -78,15 +78,30 @@ def normalize_workflow_import_bundle(value: dict[str, Any]) -> dict[str, Any]:
     workflow = value.get("workflow", {})
     workflow["inputs"] = [migrate_parameter_v3(item) if "schema" not in item else item for item in workflow.get("inputs", [])]
     for definition in value.get("collections", []):
+        if "localId" not in definition and "local_id" in definition:
+            definition["localId"] = definition.pop("local_id")
+        definition["localId"] = str(definition.get("localId", "")).strip()
         _normalize_legacy_cli_spec(definition)
         definition["inputs"] = [migrate_parameter_v3(item) if "schema" not in item else item for item in definition.get("inputs", [])]
         definition["outputs"] = [migrate_output_v3(item) if "schema" not in item else item for item in definition.get("outputs", [])]
+    for node in workflow.get("nodes", []):
+        for call in node.get("collectionCalls", []):
+            if "definitionLocalId" not in call and "definition_local_id" in call:
+                call["definitionLocalId"] = call.pop("definition_local_id")
+            if "definitionLocalId" in call:
+                call["definitionLocalId"] = str(call["definitionLocalId"]).strip()
     return _normalize(WorkflowImportBundle, value, "Workflow 导入文档格式不正确。")
 
 
 def _normalize_legacy_cli_spec(definition: dict[str, Any]) -> None:
     spec = definition.get("spec")
-    if isinstance(spec, dict) and "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
+    if not isinstance(spec, dict):
+        return
+    if "collectionType" not in spec and "collection_type" in spec:
+        spec["collectionType"] = spec.pop("collection_type")
+    if "sqlDialect" not in spec and "sql_dialect" in spec:
+        spec["sqlDialect"] = spec.pop("sql_dialect")
+    if "collectionType" not in spec and "queries" not in spec and "sqlDialect" not in spec:
         spec["collectionType"] = "cli"
     if isinstance(spec, dict) and "collectionType" not in spec and ("queries" in spec or "sqlDialect" in spec):
         spec["collectionType"] = "log"

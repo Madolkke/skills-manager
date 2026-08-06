@@ -131,7 +131,7 @@ function confirmCollectionType(): void {
     <WorkflowConfirmModal
       v-if="pendingCollectionType"
       title="切换采集类型"
-      description="切换类型会清空当前命令、SQL 和对应样例，但会保留元信息、输入和输出字段。"
+      description="切换类型会清空当前命令、SQL、配置树和对应样例，但会保留元信息、输入和输出字段。"
       confirm-label="切换类型"
       tone="danger"
       @close="pendingCollectionType = null"
