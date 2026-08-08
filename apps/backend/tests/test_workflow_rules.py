@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 import yaml
@@ -173,7 +174,7 @@ class WorkflowRulesTest(unittest.TestCase):
 
         call["key"] = "status"
         scoped = render_skill_markdown(slug="interface-check", document=document)
-        self.assertIn("- `status.version` (string, 必填): 版本", scoped)
+        self.assertIn("- `outputs.status.version` (string, 必填): 版本", scoped)
 
     def test_document_schema_rejects_legacy_and_unknown_versions(self):
         with self.assertRaisesRegex(InvariantError, "schema version: 1"):
@@ -242,6 +243,53 @@ class WorkflowRulesTest(unittest.TestCase):
         markdown = render_skill_markdown(slug="interface-check", document=document)
 
         self.assertIn("- 无条件 -> 排查完成", markdown)
+
+    def test_call_keys_are_step_scoped_and_multi_sample_keys_are_identifiers(self):
+        document = normalize_workflow_document(self._document())
+        first_step = document["workflow"]["nodes"][0]
+        duplicate_step = deepcopy(first_step)
+        duplicate_step["id"] = "second-step"
+        duplicate_step["isStart"] = False
+        duplicate_step["collectionCalls"][0]["id"] = "second-call"
+        duplicate_step["topology"] = []
+        document["workflow"]["nodes"].insert(1, duplicate_step)
+
+        self.assertNotIn("DUPLICATE_CALL_KEY", {item["code"] for item in validate_workflow_document(document)})
+
+        duplicate_call = deepcopy(first_step["collectionCalls"][0])
+        duplicate_call["id"] = "same-step-call"
+        first_step["collectionCalls"].append(duplicate_call)
+        self.assertIn("DUPLICATE_CALL_KEY", {item["code"] for item in validate_workflow_document(document)})
+        first_step["collectionCalls"].pop()
+
+        document["workflow"]["nodes"].pop(1)
+        call = first_step["collectionCalls"][0]
+        call["sampleCount"] = 2
+        call["key"] = ""
+        self.assertIn("MULTI_SAMPLE_CALL_KEY_REQUIRED", {item["code"] for item in validate_workflow_document(document)})
+        call["key"] = "not-valid"
+        self.assertIn("INVALID_MULTI_SAMPLE_CALL_KEY", {item["code"] for item in validate_workflow_document(document)})
+
+    def test_workflow_validation_aggregates_multi_sample_index_warnings(self):
+        document = normalize_workflow_document(self._document())
+        call = document["workflow"]["nodes"][0]["collectionCalls"][0]
+        call["sampleCount"] = 2
+        document["collectionSnapshots"][0]["outputs"] = [
+            {
+                "id": "output-status",
+                "key": "status",
+                "required": True,
+                "schema": {"type": "string", "title": "状态", "description": ""},
+            }
+        ]
+        transition = document["workflow"]["nodes"][0]["topology"][0]
+        transition["conditionExpression"] = "outputs.interface_status.status == 'up'"
+
+        warnings = [item for item in validate_workflow_document(document) if item["code"] == "SAMPLE_INDEX_REQUIRED"]
+
+        self.assertEqual(len(warnings), 1)
+        self.assertEqual(warnings[0]["severity"], "warning")
+        self.assertEqual(warnings[0]["selection"]["itemId"], "opaque-transition-id")
 
     def _document(self) -> dict:
         return {

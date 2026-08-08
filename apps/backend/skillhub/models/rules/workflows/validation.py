@@ -6,7 +6,9 @@ from urllib.parse import quote
 
 from .collection_validation import validate_collection_identity
 from .config_validation import config_root_names
-from .expression import command_expression_schema, config_expression_issues
+from .expression import command_expression_schema, validate_expression
+from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
+from .expression.environment import is_expression_identifier
 from .json_schema import schema_title, schemas_assignable, value_matches_schema
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
@@ -116,6 +118,12 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
         else:
             if call["sampleCount"] < 1:
                 issues.append(issue("INVALID_SAMPLE_COUNT", "error", f"采集“{call_label}”的采集次数必须大于零。", {**call_selection, "field": "sampleCount"}))
+            elif call["sampleCount"] > 1:
+                key = call["key"].strip()
+                if not key:
+                    issues.append(issue("MULTI_SAMPLE_CALL_KEY_REQUIRED", "error", f"多次采集“{call_label}”必须填写调用 key。", {**call_selection, "field": "key"}))
+                elif not is_expression_identifier(key):
+                    issues.append(issue("INVALID_MULTI_SAMPLE_CALL_KEY", "error", f"多次采集“{call_label}”的调用 key 必须是合法的 Python 标识符。", {**call_selection, "field": "key"}))
             if call.get("deviceRoleId") and call["deviceRoleId"] not in role_ids:
                 issues.append(issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", {**call_selection, "field": "deviceRoleId"}))
         for parameter in definition["inputs"]:
@@ -139,11 +147,18 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
             issues.append(issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
-        for diagnostic in config_expression_issues(transition.get("conditionExpression", ""), _step_expression_environment(step, definitions, workflow_inputs)):
+        expression_result = validate_expression(
+            transition.get("conditionExpression", ""),
+            _step_expression_environment(step, definitions, workflow_inputs),
+        )
+        for diagnostic in expression_result["diagnostics"]:
+            severity = _expression_diagnostic_severity(diagnostic["code"])
+            if severity is None:
+                continue
             issues.append(
                 issue(
                     diagnostic["code"],
-                    "error",
+                    severity,
                     diagnostic["message"],
                     {**selection, "section": "paths", "itemId": transition["id"], "field": "conditionExpression"},
                 )
@@ -160,7 +175,10 @@ def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str
             continue
         call_key = call["key"].strip()
         if call_key:
-            outputs[call_key] = {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()}
+            outputs[call_key] = {
+                "sampleCount": max(int(call["sampleCount"]), 1),
+                "fields": {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()},
+            }
         if definition["spec"]["collectionType"] != "config":
             continue
         for command in definition["spec"].get("config", {}).get("commands", []):
@@ -171,6 +189,14 @@ def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str
                 config_candidates[command["name"]] = None
     config = {name: schema for name, schema in config_candidates.items() if schema is not None}
     return {"inputs": inputs, "outputs": outputs, "config": config}
+
+
+def _expression_diagnostic_severity(code: str) -> str | None:
+    if code in {"CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "CONFIG_ARRAY_INDEX_INVALID"}:
+        return "error"
+    if code in SAMPLE_INDEX_DIAGNOSTIC_CODES:
+        return "warning"
+    return None
 
 
 def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, selection) -> None:

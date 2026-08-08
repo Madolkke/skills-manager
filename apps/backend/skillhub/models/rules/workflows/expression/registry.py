@@ -47,7 +47,12 @@ def expression_contract() -> dict[str, Any]:
         "contractVersion": 1,
         "language": "python-eval",
         "roots": ["inputs", "outputs", "config"],
-        "typeAlgebra": ["any", "none", "string", "integer", "number", "boolean", "array<T>", "object", "union", "TypeVar", "optional", "variadic"],
+        "typeAlgebra": ["any", "none", "string", "integer", "number", "boolean", "array<T>", "fixed-array<T>", "object", "union", "TypeVar", "optional", "variadic"],
+        "outputModel": {
+            "single": "outputs.<callKey>.<field>",
+            "multiple": "outputs.<callKey>[<index>].<field>",
+            "indexing": "zero-based Python indexing, including negative indexes",
+        },
         "functions": FUNCTIONS,
         "methods": METHODS,
     }

@@ -3,8 +3,7 @@ import { autocompletion, closeCompletion, completionKeymap, startCompletion } fr
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, placeholder as editorPlaceholder, type ViewUpdate } from "@codemirror/view";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { api } from "../../../lib/api";
-import type { WorkflowExpressionDiagnostic, WorkflowExpressionEnvironment } from "../../../types";
+import type { WorkflowExpressionDiagnostic } from "../../../types";
 import {
   acceptWorkflowExpressionCompletion,
   createWorkflowExpressionCompletionSource,
@@ -16,7 +15,7 @@ import type { WorkflowExpressionVariable } from "../workflowExpressionVariables"
 const props = withDefaults(defineProps<{
   value: string;
   variables: WorkflowExpressionVariable[];
-  environment?: WorkflowExpressionEnvironment;
+  diagnostics?: WorkflowExpressionDiagnostic[];
   readonly?: boolean;
   placeholder?: string;
   ariaLabel?: string;
@@ -24,7 +23,7 @@ const props = withDefaults(defineProps<{
   readonly: false,
   placeholder: "可选的机器可读表达式",
   ariaLabel: "条件表达式",
-  environment: () => ({ inputs: {}, outputs: {}, config: {} }),
+  diagnostics: () => [],
 });
 const emit = defineEmits<{ change: [value: string] }>();
 const host = ref<HTMLDivElement | null>(null);
@@ -33,9 +32,6 @@ const completionSource = createWorkflowExpressionCompletionSource(() => props.va
 let view: EditorView | null = null;
 let applyingExternalValue = false;
 let completionTimer: number | null = null;
-let validationTimer: number | null = null;
-let validationController: AbortController | null = null;
-const diagnostics = ref<WorkflowExpressionDiagnostic[]>([]);
 const focusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -109,12 +105,10 @@ onMounted(() => {
       ],
     }),
   });
-  scheduleValidation(props.value);
 });
 
 onBeforeUnmount(() => {
   clearAutomaticCompletionTimer();
-  clearValidation();
   view?.destroy();
   view = null;
 });
@@ -125,10 +119,7 @@ watch(() => props.value, (value) => {
   const anchor = Math.min(view.state.selection.main.head, value.length);
   view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value }, selection: { anchor } });
   applyingExternalValue = false;
-  scheduleValidation(value);
 });
-
-watch(() => props.environment, () => scheduleValidation(props.value), { deep: true });
 
 watch(() => props.readonly, (readonly) => {
   if (!view) return;
@@ -159,30 +150,6 @@ function clearAutomaticCompletionTimer(): void {
   completionTimer = null;
 }
 
-function scheduleValidation(source: string): void {
-  clearValidation();
-  if (!source.trim()) {
-    diagnostics.value = [];
-    return;
-  }
-  validationTimer = window.setTimeout(async () => {
-    validationTimer = null;
-    validationController = new AbortController();
-    try {
-      diagnostics.value = (await api.validateWorkflowExpression(source, props.environment, validationController.signal)).diagnostics;
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) diagnostics.value = [];
-    }
-  }, 300);
-}
-
-function clearValidation(): void {
-  if (validationTimer !== null) window.clearTimeout(validationTimer);
-  validationTimer = null;
-  validationController?.abort();
-  validationController = null;
-}
-
 function moveEditorFocus(currentView: EditorView, backwards: boolean): boolean {
   const elements = Array.from(currentView.dom.ownerDocument.querySelectorAll<HTMLElement>(focusableSelector))
     .filter(isVisibleFocusableElement);
@@ -207,5 +174,5 @@ function readonlyExtensions(readonly: boolean): Extension {
 </script>
 
 <template>
-  <div class="workflow-expression-field"><div ref="host" :class="['workflow-expression-editor', props.readonly && 'is-readonly', diagnostics.length && 'has-warning']" /><ul v-if="diagnostics.length" class="workflow-expression-diagnostics"><li v-for="item in diagnostics" :key="`${item.code}:${item.start}`">{{ item.message }} <small>{{ item.start + 1 }}–{{ item.end }}</small></li></ul></div>
+  <div class="workflow-expression-field"><div ref="host" :class="['workflow-expression-editor', props.readonly && 'is-readonly', props.diagnostics.length && 'has-warning']" /><ul v-if="props.diagnostics.length" class="workflow-expression-diagnostics"><li v-for="item in props.diagnostics" :key="`${item.code}:${item.start}`">{{ item.message }} <small>{{ item.start + 1 }}–{{ item.end }}</small></li></ul></div>
 </template>

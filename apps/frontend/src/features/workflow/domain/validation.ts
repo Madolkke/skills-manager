@@ -4,6 +4,7 @@ import { projectWorkflowGraph, reachableNodeIds } from "./graph";
 import { logCollectionIssues } from "./logValidation";
 import { configCollectionIssues } from "./configValidation";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
+import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
   const issues: WorkflowValidationIssue[] = [];
@@ -59,6 +60,10 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       const callName = call.name || definition?.metadata.name || "未命名采集";
       if ((definition?.spec.collectionType === "log" || definition?.spec.collectionType === "config") && call.sampleCount !== 1) add(issues, definition.spec.collectionType === "config" ? "CONFIG_CALL_SAMPLE_COUNT_UNSUPPORTED" : "LOG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", `${definition.spec.collectionType === "config" ? "配置" : "日志"}采集“${callName}”的采集次数必须为 1。`, { ...callSelection, field: "sampleCount" });
       else if (call.sampleCount < 1) add(issues, "INVALID_SAMPLE_COUNT", "error", `采集“${callName}”的采集次数必须大于零。`, { ...callSelection, field: "sampleCount" });
+      else if (definition?.spec.collectionType === "cli" && call.sampleCount > 1) {
+        if (!call.key.trim()) add(issues, "MULTI_SAMPLE_CALL_KEY_REQUIRED", "error", `多次采集“${callName}”必须填写调用 key。`, { ...callSelection, field: "key" });
+        else if (!isWorkflowExpressionIdentifier(call.key.trim())) add(issues, "INVALID_MULTI_SAMPLE_CALL_KEY", "error", `多次采集“${callName}”的调用 key 必须是合法的 Python 标识符。`, { ...callSelection, field: "key" });
+      }
       if (!definition) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”引用的定义版本不存在。`, callSelection);
       if (definition?.spec.collectionType === "log" && call.deviceRoleId) add(issues, "LOG_CALL_DEVICE_ROLE_UNSUPPORTED", "error", `日志采集“${callName}”不能绑定设备角色。`, { ...callSelection, field: "deviceRoleId" });
       else if (call.deviceRoleId && !roleIds.has(call.deviceRoleId)) add(issues, "BROKEN_REFERENCE", "error", `采集“${call.name}”引用的设备角色不存在。`, { ...callSelection, field: "deviceRoleId" });

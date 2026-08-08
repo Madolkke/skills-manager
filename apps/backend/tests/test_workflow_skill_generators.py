@@ -22,9 +22,9 @@ def test_builtin_registry_has_one_three_file_default_and_strict_empty_options():
     descriptors = list_workflow_skill_generators()
 
     assert [(item.id, item.version) for item in descriptors] == [
-        ("builtin.single-file", "workflow-skill-v5"),
-        ("builtin.three-file", "3.0.0"),
-        ("builtin.node-split", "3.0.0"),
+        ("builtin.single-file", "workflow-skill-v5.1"),
+        ("builtin.three-file", "3.1.0"),
+        ("builtin.node-split", "3.1.0"),
     ]
     assert DEFAULT_WORKFLOW_SKILL_GENERATOR_ID == "builtin.three-file"
     assert [item.id for item in descriptors if item.default] == ["builtin.three-file"]

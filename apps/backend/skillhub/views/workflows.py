@@ -12,6 +12,7 @@ from skillhub.views.schemas import (
     CreateWorkflowSkillPayload,
     SaveWorkflowPayload,
     SyncWorkflowPayload,
+    WorkflowExpressionBatchValidationPayload,
     WorkflowExpressionValidationPayload,
     WorkflowLogSchemaResponse,
     WorkflowMetadataPayload,
@@ -50,6 +51,19 @@ def register_workflow_routes(app: FastAPI) -> None:
         return result_payload(
             service.validate_expression(
                 source=payload.source,
+                environment=payload.environment.model_dump(by_alias=True),
+            )
+        )
+
+    @app.post("/api/workflow-expression-validations/batch")
+    def workflow_expression_batch_validation(
+        payload: WorkflowExpressionBatchValidationPayload,
+        _actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ):
+        return result_payload(
+            service.validate_expressions(
+                expressions=[item.model_dump() for item in payload.expressions],
                 environment=payload.environment.model_dump(by_alias=True),
             )
         )

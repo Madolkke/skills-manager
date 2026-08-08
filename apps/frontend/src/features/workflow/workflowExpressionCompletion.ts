@@ -8,7 +8,7 @@ import {
 } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
 import type { WorkflowExpressionVariable, WorkflowExpressionVariableKind } from "./workflowExpressionVariables";
-import { filterWorkflowExpressionVariables } from "./workflowExpressionVariables";
+import { expandWorkflowExpressionVariable, filterWorkflowExpressionVariables } from "./workflowExpressionVariables";
 
 const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   global: { name: "全局输入", rank: 0 },
@@ -30,8 +30,8 @@ export function shouldOpenWorkflowExpressionCompletion(
   valueBeforeCursor: string,
 ): boolean {
   if (insideQuotedLiteral(valueBeforeCursor)) return false;
-  const fragment = valueBeforeCursor.match(fragmentPattern)?.[0] ?? "";
-  return Boolean(fragment && filterWorkflowExpressionVariables(variables, fragment).length);
+  const query = completionQuery(variables, valueBeforeCursor);
+  return Boolean(query?.fragment && query.matches.length);
 }
 
 export function createWorkflowExpressionCompletionSource(
@@ -39,18 +39,100 @@ export function createWorkflowExpressionCompletionSource(
 ): CompletionSource {
   return (context: CompletionContext) => {
     if (context.state.readOnly) return null;
-    if (insideQuotedLiteral(context.state.doc.sliceString(0, context.pos))) return null;
-    const token = context.matchBefore(fragmentPattern);
-    if (!context.explicit && (!token || !token.text)) return null;
-    const fragment = token?.text ?? "";
-    const matches = filterWorkflowExpressionVariables(variables(), fragment);
-    if (!matches.length) return null;
+    const beforeCursor = context.state.doc.sliceString(0, context.pos);
+    if (insideQuotedLiteral(beforeCursor)) return null;
+    const query = completionQuery(variables(), beforeCursor);
+    if (!query) return null;
+    if (!context.explicit && !query.fragment) return null;
+    if (!query.matches.length) return null;
     return {
-      from: token?.from ?? context.pos,
-      options: matches.map(toCompletion),
+      from: query.from,
+      options: query.matches.map(toCompletion),
       filter: false,
     };
   };
+}
+
+type CompletionQuery = { from: number; fragment: string; matches: WorkflowExpressionVariable[] };
+type IndexedSampleQuery = CompletionQuery | "blocked" | null;
+type SampleIndexAnalysis = { end: number; slice: boolean };
+
+function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): CompletionQuery | null {
+  const indexed = indexedSampleQuery(variables, beforeCursor);
+  if (indexed === "blocked") return null;
+  if (indexed) return indexed;
+  if (hasUnclosedSampleIndex(variables, beforeCursor)) return null;
+  const fragment = beforeCursor.match(fragmentPattern)?.[0] ?? "";
+  return {
+    from: beforeCursor.length - fragment.length,
+    fragment,
+    matches: filterWorkflowExpressionVariables(variables, fragment),
+  };
+}
+
+function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): IndexedSampleQuery {
+  for (const variable of variables.filter((item) => (item.sampleCount ?? 1) > 1)) {
+    const from = beforeCursor.lastIndexOf(variable.reference);
+    if (from < 0 || !isReferenceBoundary(beforeCursor, from)) continue;
+    const bracketStart = from + variable.reference.length;
+    if (beforeCursor[bracketStart] !== "[") continue;
+    const index = analyzeSampleIndex(beforeCursor, bracketStart);
+    if (!index) continue;
+    const suffix = beforeCursor.slice(index.end + 1);
+    if (suffix && !/^(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[^\]]*\])*(?:\.)?$/u.test(suffix)) continue;
+    if (index.slice) return "blocked";
+    const sampleReference = beforeCursor.slice(from, index.end + 1);
+    const fragment = beforeCursor.slice(from);
+    const matches = filterWorkflowExpressionVariables(
+      expandWorkflowExpressionVariable(variable, sampleReference),
+      fragment,
+    );
+    return { from, fragment, matches };
+  }
+  return null;
+}
+
+function hasUnclosedSampleIndex(variables: WorkflowExpressionVariable[], beforeCursor: string): boolean {
+  return variables.some((variable) => {
+    if ((variable.sampleCount ?? 1) <= 1) return false;
+    const from = beforeCursor.lastIndexOf(variable.reference);
+    if (from < 0 || !isReferenceBoundary(beforeCursor, from)) return false;
+    const bracketStart = from + variable.reference.length;
+    return beforeCursor[bracketStart] === "[" && analyzeSampleIndex(beforeCursor, bracketStart) === null;
+  });
+}
+
+function analyzeSampleIndex(source: string, start: number): SampleIndexAnalysis | null {
+  const delimiters: string[] = [];
+  const closingDelimiter: Record<string, string> = { "]": "[", ")": "(", "}": "{" };
+  let quote = "";
+  let escaped = false;
+  let slice = false;
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index]!;
+    if (escaped) {
+      escaped = false;
+    } else if (character === "\\") {
+      escaped = true;
+    } else if (quote) {
+      if (character === quote) quote = "";
+    } else if (character === "\"" || character === "'") {
+      quote = character;
+    } else if (character === "[" || character === "(" || character === "{") {
+      delimiters.push(character);
+    } else if (character in closingDelimiter) {
+      if (delimiters.at(-1) !== closingDelimiter[character]) return null;
+      delimiters.pop();
+      if (delimiters.length === 0) return character === "]" ? { end: index, slice } : null;
+    } else if (character === ":" && delimiters.length === 1) {
+      slice = true;
+    }
+  }
+  return null;
+}
+
+function isReferenceBoundary(source: string, start: number): boolean {
+  return start === 0 || !/[A-Za-z0-9_.]/u.test(source[start - 1]!);
 }
 
 function toCompletion(variable: WorkflowExpressionVariable): Completion {

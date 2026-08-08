@@ -5,10 +5,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { nextTick, ref } from "vue";
+import { effectScope, nextTick, ref } from "vue";
 import { api } from "../../lib/api";
 import type { CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
 import WorkflowExpressionEditor from "./components/WorkflowExpressionEditor.vue";
+import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidation";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
 import {
   acceptWorkflowExpressionCompletion,
@@ -18,6 +19,7 @@ import {
 } from "./workflowExpressionCompletion";
 import {
   filterWorkflowExpressionVariables,
+  workflowExpressionEnvironment,
   workflowExpressionVariables,
 } from "./workflowExpressionVariables";
 
@@ -38,17 +40,15 @@ beforeAll(() => {
 afterEach(() => { document.body.innerHTML = ""; vi.restoreAllMocks(); });
 
 describe("Workflow expression variables", () => {
-  it("projects namespaced variables in scope order and keeps duplicate output paths", () => {
+  it("projects inputs and only the current step output namespace", () => {
     const variables = workflowExpressionVariables(workflowBundle(), "step-current");
 
     expect(variables.map((item) => item.reference)).toEqual([
       "inputs.tenant",
       "outputs.status.version",
-      "outputs.status.version",
     ]);
     expect(variables.filter((item) => item.reference === "outputs.status.version").map((item) => item.source)).toEqual([
       "当前检查 · 接口状态",
-      "其他检查 · 接口状态",
     ]);
     expect(variables.some((item) => item.reference.includes("other_input"))).toBe(false);
   });
@@ -57,8 +57,8 @@ describe("Workflow expression variables", () => {
     const variables = workflowExpressionVariables(workflowBundle(), "step-current");
 
     expect(filterWorkflowExpressionVariables(variables, "inputs.ten").map((item) => item.reference)).toEqual(["inputs.tenant"]);
-    expect(filterWorkflowExpressionVariables(variables, "status.ver")).toHaveLength(2);
-    expect(filterWorkflowExpressionVariables(variables, "ver").map((item) => item.kind)).toEqual(["output", "output"]);
+    expect(filterWorkflowExpressionVariables(variables, "status.ver")).toHaveLength(1);
+    expect(filterWorkflowExpressionVariables(variables, "ver").map((item) => item.kind)).toEqual(["output"]);
   });
 
   it("provides explicit completion at an empty cursor and suppresses quoted text", async () => {
@@ -70,14 +70,32 @@ describe("Workflow expression variables", () => {
     const readonlyState = EditorState.create({ extensions: EditorState.readOnly.of(true) });
     const readonlyResult = await source(new CompletionContext(readonlyState, 0, true));
 
-    expect(explicit?.options).toHaveLength(3);
-    expect(automatic?.options.map((item) => item.label)).toEqual(["outputs.status.version", "outputs.status.version"]);
+    expect(explicit?.options).toHaveLength(2);
+    expect(automatic?.options.map((item) => item.label)).toEqual(["outputs.status.version"]);
     expect(quoted).toBeNull();
     expect(readonlyResult).toBeNull();
     expect(normalizeWorkflowExpressionInput("a\r\n&&\nb")).toBe("a && b");
     expect(shouldOpenWorkflowExpressionCompletion(variables, "inputs.ten")).toBe(true);
     expect(shouldOpenWorkflowExpressionCompletion(variables, "\"inputs.ten")).toBe(false);
     expect(shouldOpenWorkflowExpressionCompletion(variables, "unknown")).toBe(false);
+  });
+
+  it("completes multi-sample fields only after a closed non-slice index", async () => {
+    const bundle = workflowBundle();
+    const current = bundle.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!;
+    current.collectionCalls[0]!.sampleCount = 3;
+    const variables = workflowExpressionVariables(bundle, current.id);
+    const source = createWorkflowExpressionCompletionSource(() => variables);
+
+    expect(variables.filter((item) => item.reference.startsWith("outputs.status")).map((item) => item.reference)).toEqual(["outputs.status"]);
+    expect(await completion(source, "outputs.status[", false)).toBeNull();
+    expect((await completion(source, "outputs.status[0].ver", false))?.options.map((item) => item.label)).toEqual(["outputs.status[0].version"]);
+    expect((await completion(source, "outputs.status[-1].", false))?.options.map((item) => item.label)).toEqual(["outputs.status[-1].version"]);
+    expect(await completion(source, "outputs.status[1:].", true)).toBeNull();
+    expect(workflowExpressionEnvironment(bundle, current.id).outputs.status).toMatchObject({
+      sampleCount: 3,
+      fields: { version: expect.any(Object) },
+    });
   });
 
   it("keeps continuous expression edits in the same history group", () => {
@@ -132,25 +150,45 @@ describe("WorkflowExpressionEditor", () => {
     wrapper.unmount();
   });
 
-  it("防抖调用后端类型检查并取消过期请求", async () => {
-    const signals: AbortSignal[] = [];
-    const validation = vi.spyOn(api, "validateWorkflowExpression").mockImplementation(async (_source, _environment, signal) => {
-      if (signal) signals.push(signal);
-      return { inferredType: { kind: "boolean" }, diagnostics: [] };
-    });
+  it("renders diagnostics supplied by workflow-level validation", () => {
+    const diagnostics = [{ severity: "warning" as const, code: "SAMPLE_INDEX_REQUIRED", message: "需要下标", start: 0, end: 10 }];
     const wrapper = mount(WorkflowExpressionEditor, {
-      props: { value: "inputs.tenant", variables: [], environment: { inputs: { tenant: { type: "string", title: "租户", description: "" } }, outputs: {}, config: {} } },
+      props: { value: "outputs.status.version", variables: [], diagnostics },
     });
+    expect(wrapper.text()).toContain("需要下标");
+    wrapper.unmount();
+  });
+});
+
+describe("Workflow expression batch validation", () => {
+  it("debounces by step, aborts stale requests, and aggregates stable sample warnings", async () => {
+    const signals: AbortSignal[] = [];
+    const validation = vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions, _environment, signal) => {
+      if (signal) signals.push(signal);
+      return { validations: expressions.map((item) => ({
+        id: item.id,
+        inferredType: { kind: "boolean" },
+        diagnostics: [{ severity: "warning", code: "SAMPLE_INDEX_REQUIRED", message: "需要下标", start: 0, end: 10 }],
+      })) };
+    });
+    const bundle = ref<WorkflowBundle | null>(workflowBundle());
+    const current = bundle.value!.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!;
+    current.collectionCalls[0]!.sampleCount = 2;
+    current.topology[0]!.conditionExpression = "outputs.status.version";
+    const scope = effectScope();
+    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
 
     await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(1);
-    await wrapper.setProps({ value: "inputs.tenant == 'a'" });
+    current.topology[0]!.conditionExpression = "outputs.status[0].version";
     await new Promise((resolve) => window.setTimeout(resolve, 50));
-    await wrapper.setProps({ value: "inputs.tenant == 'b'" });
+    current.topology[0]!.conditionExpression = "outputs.status.version";
     await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(2);
 
-    expect(validation.mock.calls[1]?.[0]).toBe("inputs.tenant == 'b'");
+    expect(validation.mock.calls[1]?.[0]).toEqual([{ id: "step-current:path-current", source: "outputs.status.version" }]);
     expect(signals[0]?.aborted).toBe(true);
-    wrapper.unmount();
+    await expect.poll(() => result.issues.value.map((item) => item.code)).toEqual(["SAMPLE_INDEX_REQUIRED"]);
+    expect(result.issues.value[0]?.id).toBe("workflow-issue/sample_index_required/step/step-current//paths/path-current/conditionExpression/0");
+    scope.stop();
   });
 });
 

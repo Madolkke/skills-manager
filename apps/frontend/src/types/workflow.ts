@@ -51,6 +51,7 @@ export type CollectionOutput = { id: string; key: string; required: boolean; sch
 
 export type WorkflowExpressionDiagnostic = { severity: "warning"; code: string; message: string; start: number; end: number };
 export type WorkflowExpressionValidation = { inferredType: Record<string, unknown>; diagnostics: WorkflowExpressionDiagnostic[] };
+export type WorkflowExpressionOutput = { sampleCount: number; fields: Record<string, WorkflowJsonSchema> };
 export type WorkflowConfigCapture = WorkflowScalarSchema;
 export type WorkflowConfigCommand = {
   name: string;
@@ -70,10 +71,13 @@ export type WorkflowExpressionSchema = {
 };
 export type WorkflowExpressionEnvironment = {
   inputs: Record<string, WorkflowJsonSchema>;
-  outputs: Record<string, Record<string, WorkflowJsonSchema>>;
+  outputs: Record<string, WorkflowExpressionOutput | Record<string, WorkflowJsonSchema>>;
   config: Record<string, WorkflowExpressionSchema>;
 };
-export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; functions: Record<string, unknown>; methods: Record<string, unknown> };
+export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; outputModel?: Record<string, string>; functions: Record<string, unknown>; methods: Record<string, unknown> };
+export type WorkflowExpressionBatchItem = { id: string; source: string };
+export type WorkflowExpressionBatchValidation = { id: string } & WorkflowExpressionValidation;
+export type WorkflowExpressionBatchResponse = { validations: WorkflowExpressionBatchValidation[] };
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
 export type LogAggregationQuery = { id: string; name: string; sql: string; outputIds: string[] };
 export type LogOutputSample = { id: string; name: string; text: string };

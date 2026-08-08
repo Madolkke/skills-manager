@@ -280,7 +280,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 - 结构错误拒绝保存；领域 `error/warning` 可保存为草稿。
 - CollectionChanges 与 Workflow 在同一事务提交，服务端返回规范化文档和正式 revision。
 - 步骤内新建采集仍使用 `operation: "create"`，不存在独立即时入库接口。
-- 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。
+- 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。多次采集必须填写当前 Step 内合法 Python 标识符形式的调用 Key；不同 Step 可以复用同名 Key。
 - 日志 Collection 的输入/输出只允许 `string`、`integer`、`number`、`boolean`；每个输出必须且只能归属一条查询，SQL 顶层 alias 必须与输出 Key 一致。日志调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。SQL AST 错误属于领域 `error`，允许保存草稿但阻止同步。
 - 配置匹配 Collection 使用 `config.commands` 命令树和单行尖括号模式；命令/捕获名、捕获 Schema、同级重复及跨调用根命名冲突属于领域 `error`。配置调用固定 `sampleCount = 1`，可按设备角色隔离上下文；结果通过 `config` 表达式根访问。当前 executor 投影对 Config 返回 `executor_workflow.unsupported_collection_type`。
 
@@ -303,9 +303,9 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 }
 ```
 
-完整目录还包含 `builtin.single-file@workflow-skill-v5`、`builtin.three-file@3.0.0` 和 `builtin.node-split@3.0.0`。v5 Generator 会在日志 Collection 中展示 SQL、输出映射和样例名称，不输出样例原文；内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
+完整目录还包含 `builtin.single-file@workflow-skill-v5.1`、`builtin.three-file@3.1.0` 和 `builtin.node-split@3.1.0`。v5.1 Generator 会在日志 Collection 中展示 SQL、输出映射和样例名称，并为多次采集输出展示索引路径，不输出样例原文；内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
 
-`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`POST /api/workflow-expression-validations` 接收 `source` 和 `environment`，只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。
+`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`environment.outputs` 使用 `{sampleCount, fields}` 描述采样结果，旧字段 map 按单次采集兼容。`POST /api/workflow-expression-validations` 和批量 `POST /api/workflow-expression-validations/batch` 只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。采样下标问题作为 Workflow warning。
 
 `POST /api/skills/{skill_id}/workflow/sync-preview`：
 

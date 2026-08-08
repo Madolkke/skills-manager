@@ -200,7 +200,7 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 
 ### Step、Transition 与 Conclusion
 
-- Step 是判断节点，可为 `expression` 或 `script`。跳转条件表达式支持 `inputs.<key>` 和 `outputs.<callKey>.<outputKey>` 变量补全；调用 Key 为空时使用 `outputs.<outputKey>`。历史 `global`/`output` 根名称应迁移到新写法；补全覆盖所有步骤已定义的采集输出，仅用于辅助输入，不承担运行时校验。
+- Step 是判断节点，可为 `expression` 或 `script`。跳转条件表达式支持 `inputs.<key>`、`outputs.<callKey>.<outputKey>` 和多次采集的 `outputs.<callKey>[i].<outputKey>`；调用 Key 为空时使用 `outputs.<outputKey>`。历史 `global`/`output` 根名称应迁移到新写法；补全只展示当前 Step 的采集输出，并通过批量 AST 校验返回采样下标 warning。
 - Script 只保存作者草稿，不定义运行环境、权限、超时和返回协议。
 - Transition 通过目标 ID指向 Step 或 Conclusion，只保存自然语言条件和表达式源码；在编辑器中表述为“跳转到节点”，条件说明为空时表示无条件跳转。
 - Conclusion 是终点知识节点，只保存根因和修复建议。
@@ -247,9 +247,9 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 
 同步是显式操作，且 dirty 状态禁止同步。前端只展示服务端结果，不复制转换或路径规则。服务端提供三个可版本化的纯规则 Generator：
 
-- `builtin.single-file@workflow-skill-v5`：输出递归 Schema 信息的单个 `SKILL.md`。
-- `builtin.three-file@3.0.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
-- `builtin.node-split@3.0.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
+- `builtin.single-file@workflow-skill-v5.1`：输出递归 Schema 与多次采集下标信息的单个 `SKILL.md`。
+- `builtin.three-file@3.1.0`：默认输出 `SKILL.md`、`references/workflow.md` 和 `references/collections.md`。
+- `builtin.node-split@3.1.0`：输出入口、`references/index.md`、逐节点文件和逐 Collection 文件；路径基于稳定 ID 的 SHA-256，不受重命名或重排影响。
 
 统一输出规则：
 
@@ -257,6 +257,7 @@ CollectionCall 数组顺序还限定参数绑定的数据依赖：`collection_ou
 - frontmatter `description` 使用 Workflow description，并通过 YAML 序列化器输出。
 - 正文确定性渲染元信息、输入、设备角色、步骤、采集、CLI 命令或日志 SQL、绑定、输出、路径、脚本草稿和结论。
 - 节点关系使用 Name，参数和采集关系使用可读 Key/Name，不输出 opaque ID。
+- 单次采集输出写为 `outputs.<callKey>.<field>`；多次采集输出写为 `outputs.<callKey>[i].<field>`，并说明 `i = 0..N-1` 及对应负数下标。采集 key 的重复性按 Step 作用域检查。
 - 保留作者事实，但排除 `symptom`、CLI 原始 `stdout`、样例 `inputValues` 和日志样例原始 `text`；样例只输出名称。
 - 输出统一为 UTF-8、LF 和文件尾换行，并重新经过标准 Skill Bundle parser 的路径、根目录、frontmatter、100 文件、5 MB 和 digest 校验。
 - 按节点模式超过 Bundle 限制时停止生成，并提示改用固定三文件模式。

@@ -25,6 +25,7 @@ def test_expression_routes_expose_validation_without_evaluation():
 
     assert "get" in paths["/api/workflow-expression-contract"]
     assert "post" in paths["/api/workflow-expression-validations"]
+    assert "post" in paths["/api/workflow-expression-validations/batch"]
     assert "/api/workflow-expression-evaluations" not in paths
 
 

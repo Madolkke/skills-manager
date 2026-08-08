@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from skillhub.models.rules.workflows.schema import JsonSchema
 from skillhub.views.request_models.common import IdentityRef, SkillSlug, SkillTagPayload, SkillVersionSemVer, VersionChangeSummary, VersionDisplayName
@@ -67,11 +67,18 @@ class WorkflowSyncPreviewPayload(BaseModel):
     generator_options: dict[str, Any]
 
 
+class WorkflowExpressionOutputPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    sample_count: Annotated[int, Field(alias="sampleCount", gt=0)]
+    fields: dict[str, JsonSchema] = Field(default_factory=dict)
+
+
 class WorkflowExpressionEnvironmentPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     inputs: dict[str, JsonSchema] = Field(default_factory=dict)
-    outputs: dict[str, dict[str, JsonSchema]] = Field(default_factory=dict)
+    outputs: dict[str, WorkflowExpressionOutputPayload | dict[str, JsonSchema]] = Field(default_factory=dict)
     config: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
@@ -80,6 +87,27 @@ class WorkflowExpressionValidationPayload(BaseModel):
 
     source: Annotated[str, Field(max_length=20_000)]
     environment: WorkflowExpressionEnvironmentPayload = Field(default_factory=WorkflowExpressionEnvironmentPayload)
+
+
+class WorkflowExpressionBatchItemPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, Field(min_length=1, max_length=200)]
+    source: Annotated[str, Field(max_length=20_000)]
+
+
+class WorkflowExpressionBatchValidationPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expressions: Annotated[list[WorkflowExpressionBatchItemPayload], Field(max_length=1000)] = Field(default_factory=list)
+    environment: WorkflowExpressionEnvironmentPayload = Field(default_factory=WorkflowExpressionEnvironmentPayload)
+
+    @model_validator(mode="after")
+    def validate_unique_ids(self) -> "WorkflowExpressionBatchValidationPayload":
+        ids = [item.id for item in self.expressions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Workflow expression batch IDs must be unique")
+        return self
 
 
 class WorkflowLogSchemaColumnResponse(BaseModel):

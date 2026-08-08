@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import pytest
+
 from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, migrate_workflow_document, normalize_collection_definition
 from skillhub.models.rules.workflows.expression import evaluate_expression, expression_contract, validate_expression
 from skillhub.models.rules.workflows.json_schema import schemas_assignable, value_matches_schema
+from skillhub.services.workflows import WorkflowService
+from skillhub.views.request_models.workflows import WorkflowExpressionBatchValidationPayload
 
 
 def test_nested_object_array_schema_is_normalized_and_sorted() -> None:
@@ -92,6 +96,60 @@ def test_expression_contract_typecheck_and_trusted_evaluator() -> None:
     assert result["diagnostics"] == []
     assert expression_contract()["roots"] == ["inputs", "outputs", "config"]
     assert evaluate_expression("inputs.region.lower()", inputs={"region": "CN"}, outputs={}) == "cn"
+
+
+def test_expression_validates_fixed_multi_sample_indexes_and_keeps_config_root() -> None:
+    environment = {
+        "inputs": {"offset": {"type": "integer"}, "label": {"type": "string"}},
+        "outputs": {
+            "status": {"sampleCount": 3, "fields": {"version": {"type": "string"}}},
+            "single": {"sampleCount": 1, "fields": {"version": {"type": "string"}}},
+        },
+        "config": {"interface": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
+    }
+
+    for source in (
+        "outputs.status[0].version",
+        "outputs.status[-3].version",
+        "outputs.status[inputs.offset].version",
+        "outputs.status[1:]",
+        "outputs.single.version",
+        "config.interface.name",
+    ):
+        assert validate_expression(source, environment)["diagnostics"] == []
+
+    expected = {
+        "outputs.status.version": "SAMPLE_INDEX_REQUIRED",
+        "outputs.single[0].version": "SAMPLE_INDEX_NOT_ALLOWED",
+        "outputs.single[:].version": "SAMPLE_INDEX_NOT_ALLOWED",
+        "outputs.status[3].version": "SAMPLE_INDEX_OUT_OF_RANGE",
+        "outputs.status[-4].version": "SAMPLE_INDEX_OUT_OF_RANGE",
+        "outputs.status[inputs.label].version": "INVALID_SAMPLE_INDEX_TYPE",
+    }
+    for source, code in expected.items():
+        assert [item["code"] for item in validate_expression(source, environment)["diagnostics"]] == [code]
+
+
+def test_expression_batch_preserves_order_and_rejects_duplicate_ids() -> None:
+    service = WorkflowService(object())  # type: ignore[arg-type]
+    environment = {"inputs": {}, "outputs": {"status": {"sampleCount": 2, "fields": {"version": {"type": "string"}}}}, "config": {}}
+    result = service.validate_expressions(
+        expressions=[
+            {"id": "second", "source": "outputs.status[0].version"},
+            {"id": "first", "source": "outputs.status.version"},
+        ],
+        environment=environment,
+    )
+
+    assert [item["id"] for item in result["validations"]] == ["second", "first"]
+    assert result["validations"][0]["diagnostics"] == []
+    assert result["validations"][1]["diagnostics"][0]["code"] == "SAMPLE_INDEX_REQUIRED"
+
+    with pytest.raises(ValueError, match="IDs must be unique"):
+        WorkflowExpressionBatchValidationPayload.model_validate({
+            "expressions": [{"id": "same", "source": "True"}, {"id": "same", "source": "False"}],
+            "environment": environment,
+        })
 
 
 def test_expression_reports_forbidden_and_positioned_diagnostics() -> None:

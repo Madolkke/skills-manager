@@ -19,9 +19,9 @@ class WorkflowSyncApiTest(ApiCommandTestCase):
         self.assertEqual(
             [(item["id"], item["version"]) for item in generators],
             [
-                ("builtin.single-file", "workflow-skill-v5"),
-                ("builtin.three-file", "3.0.0"),
-                ("builtin.node-split", "3.0.0"),
+                ("builtin.single-file", "workflow-skill-v5.1"),
+                ("builtin.three-file", "3.1.0"),
+                ("builtin.node-split", "3.1.0"),
             ],
         )
         defaults = [item for item in generators if item["default"]]
