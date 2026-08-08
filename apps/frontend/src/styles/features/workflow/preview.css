@@ -1,5 +1,5 @@
 .workflow-preview-tabs {
-  min-height: 52px;
+  min-height: 50px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 2px;
@@ -51,7 +51,11 @@
   border-radius: var(--wf-radius-sm);
   background: transparent;
   color: var(--wf-text-muted);
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: var(--wf-font-body);
   font-weight: 750;
   transition: color var(--ui-motion-fast) var(--ui-ease-standard);
 }
@@ -69,13 +73,31 @@
   color: var(--wf-accent-strong);
 }
 
+.workflow-preview-tabs button b {
+  min-width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  padding-inline: 4px;
+  border-radius: 9px;
+  background: var(--wf-warning-soft);
+  color: var(--wf-warning);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-preview-tabs button b.has-errors {
+  background: var(--wf-danger-soft);
+  color: var(--wf-danger);
+}
+
 .workflow-graph {
   --workflow-graph-node-width: 220px;
   --workflow-graph-step-height: 104px;
   --workflow-graph-conclusion-height: 92px;
   min-height: 100%;
   position: relative;
-  background-color: var(--wf-surface-subtle);
+  background-color: var(--wf-canvas);
   background-image: radial-gradient(color-mix(in srgb, var(--wf-border-strong) 58%, transparent) 0.8px, transparent 0.8px);
   background-size: 20px 20px;
 }

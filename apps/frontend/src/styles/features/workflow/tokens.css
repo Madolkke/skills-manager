@@ -1,9 +1,12 @@
-.workflow-workbench-page {
-  --wf-canvas: #f3f5f7;
+:where(.workflow-workbench-page, .modal-card.motion-workflow) {
+  --wf-canvas: #f2f4f7;
   --wf-surface: #ffffff;
   --wf-surface-subtle: #f7f8fa;
-  --wf-surface-hover: #f1f4f7;
-  --wf-surface-selected: #edf4ff;
+  --wf-surface-muted: #eef1f4;
+  --wf-surface-hover: #f0f3f6;
+  --wf-surface-selected: #edf3fb;
+  --wf-code-surface: #f5f7f9;
+  --wf-code-surface-strong: #18212f;
   --wf-text: #172033;
   --wf-text-secondary: #445268;
   --wf-text-muted: #758195;
@@ -13,12 +16,18 @@
   --wf-accent: #2563c7;
   --wf-accent-strong: #1e4f9e;
   --wf-accent-soft: #eaf2ff;
+  --wf-accent-border: #b8d0f1;
   --wf-success: #187451;
   --wf-success-soft: #eaf7f0;
+  --wf-success-border: #a9d5bf;
   --wf-warning: #a35b0b;
   --wf-warning-soft: #fff5e8;
+  --wf-warning-border: #edc98e;
   --wf-danger: #b33d38;
   --wf-danger-soft: #fff0ef;
+  --wf-danger-border: #e4b6b2;
+  --wf-info: #2563c7;
+  --wf-info-soft: #eaf2ff;
   --wf-focus-ring: 0 0 0 3px rgb(37 99 199 / 14%);
   --wf-shadow-floating: 0 12px 30px rgb(23 32 51 / 14%);
   --wf-shadow-selected: 0 4px 14px rgb(35 72 116 / 10%);
@@ -27,6 +36,22 @@
   --wf-radius-lg: 8px;
   --wf-control-height: 36px;
   --wf-input-height: 40px;
+  --wf-icon-control: 32px;
+  --wf-font-body: 13px;
+  --wf-font-label: 11px;
+  --wf-font-section: 15px;
+  --wf-font-title: 20px;
+  --wf-space-xs: 6px;
+  --wf-space-sm: 10px;
+  --wf-space-md: 16px;
+  --wf-space-lg: 24px;
+  --wf-space-xl: 32px;
+  --wf-line-soft: var(--wf-border-subtle);
+  --wf-control-border: var(--wf-border);
+  --wf-focus: var(--wf-accent);
+  --wf-icon-control-size: var(--wf-icon-control);
+  --wf-font-section-title: var(--wf-font-section);
+  --wf-font-page-title: var(--wf-font-title);
   --ink: var(--wf-text);
   --muted: var(--wf-text-muted);
   --line: var(--wf-border);
@@ -40,4 +65,7 @@
   --red-soft: var(--wf-danger-soft);
   --amber: var(--wf-warning);
   --focus-ring: var(--wf-focus-ring);
+  color: var(--wf-text);
+  font-size: var(--wf-font-body);
+  letter-spacing: 0;
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertTriangle, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, X } from "lucide-vue-next";
+import { AlertTriangle, ChevronLeft, ChevronRight, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import InlineLoading from "../components/InlineLoading.vue";
 import UiButton from "../components/ui/UiButton.vue";
@@ -193,7 +193,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
         @move="editor.moveWorkflowNode"
         @reorder="editor.reorderWorkflowNodes"
       />
-      <div :class="['workflow-panel-resizer', 'left', layout.leftCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整结构面板宽度" @pointerdown="layout.startResize('left', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" :aria-label="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" @pointerdown.stop @click.stop="layout.toggle('left')"><PanelLeftOpen v-if="layout.leftCollapsed.value" :size="14" /><PanelLeftClose v-else :size="14" /></button></div>
+      <div :class="['workflow-panel-resizer', 'left', layout.leftCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整结构面板宽度" @pointerdown="layout.startResize('left', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" :aria-label="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" @pointerdown.stop @click.stop="layout.toggle('left')"><ChevronRight v-if="layout.leftCollapsed.value" :size="16" /><ChevronLeft v-else :size="16" /></button></div>
 
       <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="layout.graphExpanded.value" :inert="layout.graphExpanded.value">
         <WorkflowEditorContent
@@ -217,7 +217,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
         />
       </main>
 
-      <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><PanelRightOpen v-if="layout.rightCollapsed.value" :size="14" /><PanelRightClose v-else :size="14" /></button></div>
+      <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><ChevronLeft v-if="layout.rightCollapsed.value" :size="16" /><ChevronRight v-else :size="16" /></button></div>
       <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
     </div>
 

@@ -118,7 +118,9 @@ describe("Workflow UI state", () => {
     await wrapper.findAll('button[role="tab"]').find((button) => button.text() === "阅读视图")!.trigger("click");
     expect(tab.value).toBe("read");
     expect(expanded.value).toBe(false);
-    await wrapper.findAll('button[role="tab"]').find((button) => button.text() === "校验 1")!.trigger("click");
+    const validationTab = wrapper.findAll('button[role="tab"]').find((button) => button.text().startsWith("校验"))!;
+    expect(validationTab.find("b.has-errors").text()).toBe("1");
+    await validationTab.trigger("click");
     expect(tab.value).toBe("validation");
     expect(wrapper.get(".workflow-validation-summary").text()).toContain("1 个错误");
     await wrapper.get(".workflow-validation-list > button").trigger("click");

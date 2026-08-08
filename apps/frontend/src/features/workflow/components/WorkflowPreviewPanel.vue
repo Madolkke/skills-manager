@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { CollectionDefinition, WorkflowBundle, WorkflowSelection, WorkflowValidationIssue } from "../../../types";
 import WorkflowGraph from "./WorkflowGraph.vue";
 import WorkflowReadPreview from "./WorkflowReadPreview.vue";
@@ -11,6 +11,8 @@ const emit = defineEmits<{ select: [selection: WorkflowSelection] }>();
 const tab = defineModel<"graph" | "read" | "validation">("tab", { default: "graph" });
 const expanded = defineModel<boolean>("expanded", { default: false });
 const direction = ref<"DOWN" | "RIGHT">("RIGHT");
+const previewPanel = ref<HTMLElement | null>(null);
+let scrollingTimer: ReturnType<typeof setTimeout> | undefined;
 const errorCount = computed(() => props.issues.filter((item) => item.severity === "error").length);
 const warningCount = computed(() => props.issues.filter((item) => item.severity === "warning").length);
 
@@ -18,12 +20,26 @@ function selectTab(next: "graph" | "read" | "validation"): void {
   if (next !== "graph") expanded.value = false;
   tab.value = next;
 }
+
+function showScrollbarWhileScrolling(): void {
+  previewPanel.value?.classList.add("is-scrolling");
+  if (scrollingTimer) clearTimeout(scrollingTimer);
+  scrollingTimer = setTimeout(() => previewPanel.value?.classList.remove("is-scrolling"), 700);
+}
+
+onMounted(() => previewPanel.value?.addEventListener("scroll", showScrollbarWhileScrolling, { passive: true }));
+onBeforeUnmount(() => {
+  if (scrollingTimer) clearTimeout(scrollingTimer);
+  previewPanel.value?.removeEventListener("scroll", showScrollbarWhileScrolling);
+});
 </script>
 
 <template>
-  <section v-bind="$attrs" class="workflow-preview-panel">
+  <section ref="previewPanel" v-bind="$attrs" class="workflow-preview-panel">
     <div :class="['workflow-preview-tabs', `is-${tab}`]" role="tablist" aria-label="Workflow 预览">
-      <button v-for="item in [{ id: 'graph', label: '流程图' }, { id: 'read', label: '阅读视图' }, { id: 'validation', label: `校验 ${props.issues.length}` }]" :key="item.id" :class="tab === item.id && 'active'" type="button" role="tab" :aria-selected="tab === item.id" @click="selectTab(item.id as typeof tab)">{{ item.label }}</button>
+      <button v-for="item in [{ id: 'graph', label: '流程图' }, { id: 'read', label: '阅读视图' }, { id: 'validation', label: '校验' }]" :key="item.id" :class="tab === item.id && 'active'" type="button" role="tab" :aria-selected="tab === item.id" @click="selectTab(item.id as typeof tab)">
+        <span>{{ item.label }}</span><b v-if="item.id === 'validation' && props.issues.length" :class="errorCount ? 'has-errors' : 'has-warnings'">{{ props.issues.length }}</b>
+      </button>
     </div>
     <Transition name="workflow-preview-switch" mode="out-in">
       <WorkflowGraph v-if="tab === 'graph'" key="graph" :bundle="props.bundle" :issues="props.issues" :selected="props.selection" :direction="direction" :compact="!expanded" allow-expand :expanded="expanded" @select="emit('select', $event)" @update:direction="direction = $event" @toggle-expand="expanded = !expanded" />

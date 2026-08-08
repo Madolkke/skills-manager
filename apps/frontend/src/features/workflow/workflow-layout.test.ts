@@ -3,7 +3,7 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent, h } from "vue";
 import { describe, expect, it } from "vitest";
-import { useWorkflowLayout, workflowInitialRightWidth } from "./useWorkflowLayout";
+import { useWorkflowLayout, workflowInitialLeftWidth, workflowInitialRightWidth } from "./useWorkflowLayout";
 
 describe("Workflow desktop layout", () => {
   it("collapses tracks without changing remembered panel widths", () => {
@@ -42,6 +42,8 @@ describe("Workflow desktop layout", () => {
   it("gives the editor more room on compact desktop workbenches", () => {
     expect(workflowInitialRightWidth(1280)).toBe(360);
     expect(workflowInitialRightWidth(1600)).toBe(440);
+    expect(workflowInitialLeftWidth(1280)).toBe(232);
+    expect(workflowInitialLeftWidth(1600)).toBe(252);
   });
 });
 

@@ -3,6 +3,47 @@
   color: var(--wf-danger, #b33d38);
 }
 
+.modal-card.motion-workflow {
+  overflow: hidden;
+  border: 1px solid var(--wf-border);
+  border-radius: var(--wf-radius-lg);
+  background: var(--wf-surface);
+  color: var(--wf-text);
+  box-shadow: var(--wf-shadow-floating);
+  letter-spacing: 0;
+}
+
+.modal-card.motion-workflow .modal-head {
+  min-height: 72px;
+  padding: 18px 22px;
+  border-bottom-color: var(--wf-line-soft);
+}
+
+.modal-card.motion-workflow .modal-title {
+  color: var(--wf-text);
+  font-size: var(--wf-font-page-title);
+  letter-spacing: 0;
+}
+
+.modal-card.motion-workflow .modal-description {
+  margin-top: 4px;
+  color: var(--wf-text-secondary);
+  font-size: var(--wf-font-body);
+  line-height: 1.5;
+}
+
+.modal-card.motion-workflow .modal-close {
+  width: var(--wf-icon-control-size);
+  height: var(--wf-icon-control-size);
+  border-radius: var(--wf-radius-md);
+  color: var(--wf-text-secondary);
+}
+
+.modal-card.motion-workflow .modal-close:hover {
+  background: var(--wf-surface-muted);
+  color: var(--wf-text);
+}
+
 .danger-button {
   min-height: var(--wf-control-height, 36px);
   padding: 0 14px;
@@ -73,7 +114,7 @@
   margin: 0 -22px -22px;
   padding: 16px 22px;
   border-top: 1px solid var(--wf-line-soft, #e8edf3);
-  background: #fbfcfe;
+  background: var(--wf-surface-subtle, #fbfcfe);
 }
 
 .workflow-confirm-actions .ui-button {

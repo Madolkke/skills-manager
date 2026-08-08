@@ -1,12 +1,12 @@
 .workflow-toolbar {
-  min-height: 66px;
+  min-height: 64px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 16px;
+  gap: 16px;
+  padding: 9px 16px;
   border-bottom: 1px solid var(--wf-border);
   background: var(--wf-surface);
-  box-shadow: 0 1px 2px rgb(23 32 51 / 4%);
+  box-shadow: 0 1px 0 rgb(23 32 51 / 3%);
   z-index: 5;
 }
 
@@ -53,7 +53,7 @@
   max-width: 250px;
   overflow: hidden;
   color: var(--wf-text);
-  font-size: 15px;
+  font-size: var(--wf-font-section);
   font-weight: 760;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -72,7 +72,7 @@
   border-radius: var(--wf-radius-sm);
   background: var(--wf-surface-subtle);
   color: var(--wf-text-muted);
-  font-size: 10px;
+  font-size: var(--wf-font-label);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -91,7 +91,7 @@
 }
 
 .workflow-toolbar-persistence {
-  min-width: 170px;
+  min-width: 184px;
   flex: 0 0 auto;
   display: grid;
   align-content: center;
@@ -105,7 +105,7 @@
 
 .workflow-toolbar-updated {
   color: var(--wf-text-muted);
-  font-size: 10px;
+  font-size: var(--wf-font-label);
   font-weight: 600;
 }
 
@@ -119,7 +119,7 @@
   display: inline-flex;
   align-items: center;
   color: var(--wf-success);
-  font-size: 11px;
+  font-size: var(--wf-font-label);
   font-weight: 750;
 }
 
@@ -138,14 +138,15 @@
 .workflow-toolbar-spacer { flex: 1; }
 
 .workflow-toolbar-tools {
-  gap: 1px;
-  padding: 2px;
+  gap: 0;
+  padding: 1px;
   border: 1px solid var(--wf-border-subtle);
   border-radius: var(--wf-radius-md);
   background: var(--wf-surface-subtle);
 }
 
 .workflow-toolbar-tools .ui-button { color: var(--wf-text-secondary); }
+.workflow-toolbar-tools .ui-button.is-icon-only { --ui-button-height: var(--wf-icon-control); }
 
 .workflow-toolbar-tools .ui-button:hover:not(:disabled):not([data-disabled="true"]) {
   background: var(--wf-surface);
@@ -227,7 +228,7 @@
   border-bottom: 1px solid #efc4c1;
   background: var(--wf-danger-soft);
   color: var(--wf-danger);
-  font-size: 12px;
+  font-size: var(--wf-font-body);
 }
 
 .workflow-action-error button { color: inherit; }

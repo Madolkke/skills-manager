@@ -4,11 +4,12 @@ const LEFT_MIN = 216;
 const LEFT_MAX = 360;
 const RIGHT_MIN = 340;
 const RIGHT_MAX = 780;
-const COMPACT_WORKBENCH_MAX = 1360;
+const COMPACT_WORKBENCH_MAX = 1439;
 
 export function useWorkflowLayout() {
-  const leftWidth = ref(252);
-  const rightWidth = ref(workflowInitialRightWidth(typeof window === "undefined" ? 1600 : window.innerWidth));
+  const viewportWidth = typeof window === "undefined" ? 1600 : window.innerWidth;
+  const leftWidth = ref(workflowInitialLeftWidth(viewportWidth));
+  const rightWidth = ref(workflowInitialRightWidth(viewportWidth));
   const leftCollapsed = ref(false);
   const rightCollapsed = ref(false);
   const graphExpanded = ref(false);
@@ -58,6 +59,10 @@ export function useWorkflowLayout() {
 
 export function workflowInitialRightWidth(viewportWidth: number): number {
   return viewportWidth <= COMPACT_WORKBENCH_MAX ? 360 : 440;
+}
+
+export function workflowInitialLeftWidth(viewportWidth: number): number {
+  return viewportWidth <= COMPACT_WORKBENCH_MAX ? 232 : 252;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

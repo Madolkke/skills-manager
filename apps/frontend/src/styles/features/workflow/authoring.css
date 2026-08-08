@@ -1,12 +1,15 @@
 .workflow-workbench-page .workflow-document {
-  gap: 28px;
+  width: 100%;
+  max-width: 1080px;
+  gap: var(--wf-space-xl);
+  margin-inline: auto;
   color: var(--wf-text);
 }
 
 .workflow-workbench-page .workflow-document-head {
   min-height: 68px;
   gap: 12px;
-  padding-bottom: 17px;
+  padding-bottom: var(--wf-space-md);
   border-color: var(--wf-border-subtle);
 }
 
@@ -22,7 +25,7 @@
 }
 
 .workflow-workbench-page .workflow-conclusion-document .workflow-document-head > span {
-  border-color: #bcdcca;
+  border-color: color-mix(in srgb, var(--wf-success) 28%, var(--wf-border));
   background: var(--wf-success-soft);
   color: var(--wf-success);
 }
@@ -36,22 +39,25 @@
 
 .workflow-workbench-page .workflow-document-head h2 {
   color: var(--wf-text);
-  font-size: 21px;
+  font-size: var(--wf-font-title);
+  letter-spacing: 0;
 }
 
 .workflow-workbench-page .workflow-document-head p,
 .workflow-workbench-page .workflow-subhead p,
 .workflow-workbench-page .workflow-section-title p {
   color: var(--wf-text-muted);
-  font-size: 12px;
+  font-size: var(--wf-font-label);
+  line-height: 1.55;
 }
 
 .workflow-workbench-page .workflow-section-nav {
-  top: -26px;
+  top: -28px;
   margin-inline: -4px;
   padding: 7px 4px;
   border-color: var(--wf-border-subtle);
-  background: rgb(255 255 255 / 96%);
+  background: color-mix(in srgb, var(--wf-surface) 96%, transparent);
+  backdrop-filter: blur(8px);
 }
 
 .workflow-workbench-page .workflow-section-nav button {
@@ -59,7 +65,7 @@
   padding-inline: 9px;
   border-radius: var(--wf-radius-sm);
   color: var(--wf-text-secondary);
-  font-size: 12px;
+  font-size: var(--wf-font-body);
   font-weight: 700;
 }
 
@@ -97,14 +103,14 @@
 .workflow-workbench-page .workflow-field-section h3,
 .workflow-workbench-page .workflow-settings-section-head h3 {
   color: var(--wf-text);
-  font-size: 15px;
+  font-size: var(--wf-font-section);
 }
 
 .workflow-workbench-page .field-label,
 .workflow-workbench-page .workflow-setting-field {
   gap: 6px;
   color: var(--wf-text-secondary);
-  font-size: 12px;
+  font-size: var(--wf-font-label);
   font-weight: 700;
 }
 
@@ -176,6 +182,20 @@
   color: var(--wf-text);
 }
 
+.workflow-workbench-page :is(
+  .workflow-key-input,
+  .workflow-code-input,
+  .workflow-call-title code,
+  .workflow-call-command,
+  .workflow-log-query textarea,
+  .workflow-config-pattern input,
+  textarea[aria-label*="回显"],
+  textarea[aria-label*="SQL"]
+) {
+  font-family: var(--mono-font);
+  letter-spacing: 0;
+}
+
 .workflow-workbench-page .workflow-expression-editor .cm-editor.cm-focused {
   border-color: var(--wf-accent);
   background: var(--wf-surface);
@@ -234,6 +254,13 @@
   transform: none;
 }
 
+.workflow-workbench-page .workflow-transition-card:focus-within,
+.workflow-workbench-page .workflow-sample:focus-within,
+.workflow-workbench-page .workflow-call-card:focus-within {
+  border-color: var(--wf-accent);
+  box-shadow: var(--wf-focus-ring);
+}
+
 .workflow-workbench-page .workflow-call-card.expanded {
   border-color: var(--wf-accent);
 }
@@ -284,4 +311,6 @@
 
 .workflow-workbench-page .field-error {
   color: var(--wf-danger);
+  font-size: var(--wf-font-label);
+  line-height: 1.45;
 }

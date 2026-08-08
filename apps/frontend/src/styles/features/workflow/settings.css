@@ -1,6 +1,6 @@
 .workflow-settings-list {
   display: grid;
-  gap: 12px;
+  gap: var(--wf-space-sm);
 }
 
 .workflow-setting-row {
@@ -24,8 +24,8 @@
 }
 
 .workflow-setting-field > span {
-  color: #596a80;
-  font-size: 11px;
+  color: var(--wf-text-secondary);
+  font-size: var(--wf-font-label);
   font-weight: 750;
 }
 
@@ -33,7 +33,7 @@
 .workflow-setting-field > select { min-width: 0; }
 
 .workflow-setting-field > input::placeholder {
-  color: #9aa6b6;
+  color: var(--wf-text-muted);
 }
 
 .workflow-setting-required {
@@ -44,7 +44,7 @@
   display: grid;
   gap: 14px;
   padding-bottom: 26px;
-  border-bottom: 1px solid #e3e8ef;
+  border-bottom: 1px solid var(--wf-border-subtle);
   outline: 0;
   scroll-margin-top: 18px;
 }
@@ -80,8 +80,8 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #26374d;
-  font-size: 15px;
+  color: var(--wf-text);
+  font-size: var(--wf-font-section);
 }
 
 .workflow-settings-section-head h3 small {
@@ -91,20 +91,20 @@
   place-items: center;
   padding: 0 5px;
   border-radius: 10px;
-  background: #edf2f8;
-  color: #66768a;
+  background: var(--wf-surface-hover);
+  color: var(--wf-text-secondary);
   font-size: 10px;
 }
 
 .workflow-settings-section-head p {
   margin-top: 3px;
-  color: #758297;
-  font-size: 11px;
+  color: var(--wf-text-muted);
+  font-size: var(--wf-font-label);
 }
 
 .workflow-settings-section.is-target:focus .workflow-settings-section-head {
-  background: #f6f9fd;
-  box-shadow: 0 0 0 6px #f6f9fd;
+  background: var(--wf-surface-subtle);
+  box-shadow: 0 0 0 6px var(--wf-surface-subtle);
 }
 
 @media (prefers-reduced-motion: reduce) {

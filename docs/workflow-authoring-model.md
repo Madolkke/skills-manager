@@ -6,6 +6,8 @@
 
 面向领域作者的问题定位流程拆解与说明要求，见[问题定位 Workflow 编写规范](workflow-diagnosis-authoring-guide.md)。
 
+写作工作台的视觉与交互基线，见 [Workflow 写作 GUI 规范](workflow-authoring-gui.md)。
+
 权威性分工：
 
 - 本文定义概念、关系和不变量。
