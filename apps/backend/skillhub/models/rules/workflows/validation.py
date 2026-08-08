@@ -174,7 +174,7 @@ def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str
         if not definition:
             continue
         call_key = call["key"].strip()
-        if call_key:
+        if call_key and call_key not in outputs:
             outputs[call_key] = {
                 "sampleCount": max(int(call["sampleCount"]), 1),
                 "fields": {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()},

@@ -8,7 +8,7 @@ import { isConfigIdentifier, parseConfigPattern, removeConfigCapture, syncConfig
 import WorkflowConfirmModal from "./WorkflowConfirmModal.vue";
 
 defineOptions({ name: "WorkflowConfigCommandEditor" });
-const props = withDefaults(defineProps<{ command: WorkflowConfigCommand; readonly: boolean; path?: number[]; siblingCount?: number; issues?: WorkflowValidationIssue[] }>(), { path: () => [], siblingCount: 1, issues: () => [] });
+const props = withDefaults(defineProps<{ command: WorkflowConfigCommand; readonly: boolean; path?: number[]; siblingCount?: number; issues?: WorkflowValidationIssue[]; commandKey?: (path: number[]) => string }>(), { path: () => [], siblingCount: 1, issues: () => [], commandKey: (path: number[]) => path.join(".") });
 const emit = defineEmits<{
   change: [payload: { path: number[]; command: WorkflowConfigCommand }];
   remove: [path: number[]];
@@ -16,7 +16,8 @@ const emit = defineEmits<{
 }>();
 const pendingCaptureRemoval = ref<string | null>(null);
 const patternError = () => parseConfigPattern(props.command.pattern).error ?? "";
-const issueFor = (field: string): WorkflowValidationIssue | undefined => props.issues?.find((item) => item.selection.type === "collection" && item.selection.itemId === props.command.name && item.selection.field?.endsWith(field));
+const issueFor = (field: string): WorkflowValidationIssue | undefined => props.issues?.find((item) => item.selection.type === "collection" && item.selection.field === `${commandPath()}${field}`);
+const commandPath = (): string => `spec.config.commands${(props.path ?? []).map((index) => `[${index}]`).join(".children")}`;
 function commit(patch: Partial<WorkflowConfigCommand>): void {
   const next = structuredClone(props.command);
   Object.assign(next, patch);
@@ -63,7 +64,7 @@ function patchCapture(name: string, patch: Partial<WorkflowConfigCapture>): void
         <UiIconButton label="删除捕获字段" size="sm" variant="danger" :disabled="props.readonly" @click="removeCapture(name)"><Trash2 /></UiIconButton>
       </div>
     </div>
-    <div v-if="props.command.children.length" class="workflow-config-children"><WorkflowConfigCommandEditor v-for="(child, childIndex) in props.command.children" :key="[...(props.path ?? []), childIndex].join('.')" :command="child" :readonly="props.readonly" :path="[...(props.path ?? []), childIndex]" :sibling-count="props.command.children.length" :issues="props.issues" @change="emit('change', $event)" @remove="emit('remove', $event)" @move="forwardMove" /></div>
+    <div v-if="props.command.children.length" class="workflow-config-children"><WorkflowConfigCommandEditor v-for="(child, childIndex) in props.command.children" :key="props.commandKey?.([...(props.path ?? []), childIndex])" :command="child" :readonly="props.readonly" :path="[...(props.path ?? []), childIndex]" :sibling-count="props.command.children.length" :issues="props.issues" :command-key="props.commandKey" @change="emit('change', $event)" @remove="emit('remove', $event)" @move="forwardMove" /></div>
     <WorkflowConfirmModal
       v-if="pendingCaptureRemoval"
       title="删除捕获字段"

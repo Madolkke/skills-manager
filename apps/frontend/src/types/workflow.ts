@@ -49,7 +49,7 @@ export type DeviceRole = { id: string; key: string; name: string; description: s
 export type CollectionMetadata = { name: string; description: string; industry: string; device: string; versions: string[]; tags: string[] };
 export type CollectionOutput = { id: string; key: string; required: boolean; schema: WorkflowJsonSchema };
 
-export type WorkflowExpressionDiagnostic = { severity: "warning"; code: string; message: string; start: number; end: number };
+export type WorkflowExpressionDiagnostic = { severity: "warning" | "error"; code: string; message: string; start: number; end: number };
 export type WorkflowExpressionValidation = { inferredType: Record<string, unknown>; diagnostics: WorkflowExpressionDiagnostic[] };
 export type WorkflowExpressionOutput = { sampleCount: number; fields: Record<string, WorkflowJsonSchema> };
 export type WorkflowConfigCapture = WorkflowScalarSchema;

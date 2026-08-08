@@ -90,7 +90,7 @@ class _Checker:
             self.warn(node, "SAMPLE_INDEX_NOT_ALLOWED", "单次采集输出不允许使用结果下标。")
             return owner
         if isinstance(node.slice, ast.Slice):
-            return array(owner.item or ANY) if owner.kind == "array" else owner
+            return array(owner.item or ANY, sample_count=owner.sample_count) if owner.kind == "array" else owner
         if owner.kind == "array":
             if owner.sample_count is not None:
                 if not _integer_index_type(index):

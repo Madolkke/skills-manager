@@ -55,7 +55,7 @@ export function createWorkflowExpressionCompletionSource(
 
 type CompletionQuery = { from: number; fragment: string; matches: WorkflowExpressionVariable[] };
 type IndexedSampleQuery = CompletionQuery | "blocked" | null;
-type SampleIndexAnalysis = { end: number; slice: boolean };
+type SampleIndexAnalysis = { end: number; slice: boolean; supported: boolean };
 
 function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): CompletionQuery | null {
   const indexed = indexedSampleQuery(variables, beforeCursor);
@@ -78,8 +78,9 @@ function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCurso
     if (beforeCursor[bracketStart] !== "[") continue;
     const index = analyzeSampleIndex(beforeCursor, bracketStart);
     if (!index) continue;
+    if (!index.supported) return "blocked";
     const suffix = beforeCursor.slice(index.end + 1);
-    if (suffix && !/^(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[^\]]*\])*(?:\.)?$/u.test(suffix)) continue;
+    if (suffix && !/^(?:\.[A-Za-z_][A-Za-z0-9_]*)*\.?$/u.test(suffix)) return "blocked";
     if (index.slice) return "blocked";
     const sampleReference = beforeCursor.slice(from, index.end + 1);
     const fragment = beforeCursor.slice(from);
@@ -123,12 +124,21 @@ function analyzeSampleIndex(source: string, start: number): SampleIndexAnalysis 
     } else if (character in closingDelimiter) {
       if (delimiters.at(-1) !== closingDelimiter[character]) return null;
       delimiters.pop();
-      if (delimiters.length === 0) return character === "]" ? { end: index, slice } : null;
+      if (delimiters.length === 0) {
+        if (character !== "]") return null;
+        const value = source.slice(start + 1, index).trim();
+        return { end: index, slice, supported: isSupportedSampleIndex(value) };
+      }
     } else if (character === ":" && delimiters.length === 1) {
       slice = true;
     }
   }
   return null;
+}
+
+function isSupportedSampleIndex(value: string): boolean {
+  if (/^(?:true|false|null|none)$/iu.test(value)) return false;
+  return /^-?\d+$/u.test(value) || /^-?[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u.test(value);
 }
 
 function isReferenceBoundary(source: string, start: number): boolean {

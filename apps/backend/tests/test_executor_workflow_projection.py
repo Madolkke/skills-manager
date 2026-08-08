@@ -74,3 +74,31 @@ def test_projection_excludes_ignored_calls_from_the_shared_identity_map() -> Non
         ("step-prepare", "call-check", "output-ok"): "ok-flag",
     }
     assert projection.workflow.conclusions[0].id == 8
+
+
+def test_projection_filters_mixed_log_and_config_calls_without_rewriting_cli_references() -> None:
+    document = executor_workflow_document()
+    step = document["workflow"]["nodes"][0]
+    step["collectionCalls"].insert(1, {
+        "id": "call-log", "key": "log_summary", "name": "日志摘要",
+        "definition": {"id": "collection-log", "revision": 1}, "sampleCount": 9,
+        "deviceRoleId": "missing-role", "inputBindings": {},
+    })
+    step["collectionCalls"].insert(2, {
+        "id": "call-config", "key": "config_result", "name": "配置匹配",
+        "definition": {"id": "collection-config", "revision": 1}, "sampleCount": 3,
+        "deviceRoleId": "missing-role", "inputBindings": {},
+    })
+    step["collectionCalls"][3]["inputBindings"]["parameter-memory"] = {
+        "kind": "collection_output", "reference": {"call_id": "call-log", "output_id": "output-log"},
+    }
+    document["collectionSnapshots"].extend([
+        {"id": "collection-log", "revision": 1, "key": "log", "metadata": {"name": "日志"}, "spec": {"collectionType": "log", "sqlDialect": "duckdb", "queries": [], "outputSamples": []}, "inputs": [], "outputs": [{"id": "output-log", "key": "count", "required": True, "schema": {"type": "integer", "title": "计数", "description": ""}}]},
+        {"id": "collection-config", "revision": 1, "key": "config", "metadata": {"name": "配置"}, "spec": {"collectionType": "config", "config": {"commands": []}}, "inputs": [], "outputs": []},
+    ])
+
+    projection = project_workflow_document(document)
+
+    assert [item.command for item in projection.workflow.steps[0].collections] == ["screen-length 0 temporary", "display memory"]
+    assert dict(projection.id_map.call_ids) == {("step-prepare", "call-environment"): 4, ("step-prepare", "call-check"): 5}
+    assert projection.workflow.steps[0].collections[1].inputs[0].value == "outputs.log_summary.count"

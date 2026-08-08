@@ -5,6 +5,7 @@ import pytest
 from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, migrate_workflow_document, normalize_collection_definition
 from skillhub.models.rules.workflows.expression import evaluate_expression, expression_contract, validate_expression
 from skillhub.models.rules.workflows.json_schema import schemas_assignable, value_matches_schema
+from skillhub.models.rules.workflows.validation import _step_expression_environment
 from skillhub.services.workflows import WorkflowService
 from skillhub.views.request_models.workflows import WorkflowExpressionBatchValidationPayload
 
@@ -129,6 +130,10 @@ def test_expression_validates_fixed_multi_sample_indexes_and_keeps_config_root()
     for source, code in expected.items():
         assert [item["code"] for item in validate_expression(source, environment)["diagnostics"]] == [code]
 
+    sliced = validate_expression("outputs.status[1:].version", environment)
+    assert [item["code"] for item in sliced["diagnostics"]] == ["SAMPLE_INDEX_REQUIRED"]
+    assert sliced["inferredType"] == {"kind": "string"}
+
 
 def test_expression_batch_preserves_order_and_rejects_duplicate_ids() -> None:
     service = WorkflowService(object())  # type: ignore[arg-type]
@@ -150,6 +155,26 @@ def test_expression_batch_preserves_order_and_rejects_duplicate_ids() -> None:
             "expressions": [{"id": "same", "source": "True"}, {"id": "same", "source": "False"}],
             "environment": environment,
         })
+
+
+def test_invalid_duplicate_call_keys_use_first_definition_for_environment_projection() -> None:
+    document = {
+        "workflow": {
+            "inputs": [],
+            "nodes": [{"id": "step", "collectionCalls": [
+                {"id": "first", "key": "status", "sampleCount": 1, "definition": {"id": "one", "revision": 1}},
+                {"id": "second", "key": "status", "sampleCount": 3, "definition": {"id": "two", "revision": 1}},
+            ]}],
+        },
+        "collectionSnapshots": [
+            {"id": "one", "revision": 1, "spec": {"collectionType": "cli"}, "outputs": [{"key": "version", "schema": {"type": "string"}}]},
+            {"id": "two", "revision": 1, "spec": {"collectionType": "cli"}, "outputs": [{"key": "count", "schema": {"type": "integer"}}]},
+        ],
+    }
+    environment = _step_expression_environment(document["workflow"]["nodes"][0], {("one", 1): document["collectionSnapshots"][0], ("two", 1): document["collectionSnapshots"][1]}, {})
+
+    assert environment["outputs"]["status"]["sampleCount"] == 1
+    assert set(environment["outputs"]["status"]["fields"]) == {"version"}
 
 
 def test_expression_reports_forbidden_and_positioned_diagnostics() -> None:
@@ -188,3 +213,11 @@ def test_config_string_subscript_is_rejected_after_array_index() -> None:
         "interfaces": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}},
     }})
     assert any(item["code"] == "CONFIG_STRING_SUBSCRIPT_FORBIDDEN" for item in result["diagnostics"])
+
+
+def test_config_array_slice_does_not_inherit_multi_sample_index_rule() -> None:
+    result = validate_expression("config.interfaces[:].name", {"inputs": {}, "outputs": {}, "config": {
+        "interfaces": {"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}},
+    }})
+
+    assert result["diagnostics"] == []

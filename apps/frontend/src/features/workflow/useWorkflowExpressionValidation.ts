@@ -14,6 +14,10 @@ const sampleIndexCodes = new Set([
   "SAMPLE_INDEX_OUT_OF_RANGE",
   "INVALID_SAMPLE_INDEX_TYPE",
 ]);
+const blockingExpressionCodes = new Set([
+  "CONFIG_STRING_SUBSCRIPT_FORBIDDEN",
+  "CONFIG_ARRAY_INDEX_INVALID",
+]);
 
 export function workflowExpressionValidationKey(stepId: string, transitionId: string): string {
   return `${stepId}:${transitionId}`;
@@ -24,6 +28,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
   let timer: number | null = null;
   let controller: AbortController | null = null;
   let generation = 0;
+  let validatedSources: Record<string, string> = {};
 
   watch(bundle, schedule, { deep: true, immediate: true });
   if (getCurrentScope()) onScopeDispose(clear);
@@ -34,7 +39,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
     const occurrences = new Map<string, number>();
     return workflowSteps(current).flatMap((step) => step.topology.flatMap((transition) => {
       const key = workflowExpressionValidationKey(step.id, transition.id);
-      return (diagnostics.value[key] ?? []).filter((item) => sampleIndexCodes.has(item.code)).map((item) => {
+      return (diagnostics.value[key] ?? []).filter((item) => sampleIndexCodes.has(item.code) || blockingExpressionCodes.has(item.code)).map((item) => {
         const selection = {
           type: "step" as const,
           id: step.id,
@@ -45,7 +50,13 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
         const base = workflowIssueBase(item.code, selection);
         const occurrence = occurrences.get(base) ?? 0;
         occurrences.set(base, occurrence + 1);
-        return { id: `${base}/${occurrence}`, code: item.code, severity: "warning" as const, message: item.message, selection };
+        return {
+          id: `${base}/${occurrence}`,
+          code: item.code,
+          severity: blockingExpressionCodes.has(item.code) ? "error" as const : "warning" as const,
+          message: item.message,
+          selection,
+        };
       });
     }));
   });
@@ -56,6 +67,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
     const current = bundle.value;
     if (!current) {
       diagnostics.value = {};
+      validatedSources = {};
       return;
     }
     const batches = workflowSteps(current).map((step) => ({
@@ -66,22 +78,41 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
     })).filter((batch) => batch.expressions.length);
     if (!batches.length) {
       diagnostics.value = {};
+      validatedSources = {};
       return;
     }
+    const activeSources = Object.fromEntries(batches.flatMap((batch) => batch.expressions.map((item) => [item.id, item.source])));
     const requestGeneration = ++generation;
     timer = window.setTimeout(async () => {
       timer = null;
       controller = new AbortController();
       try {
-        const results = await Promise.all(batches.map((batch) => api.validateWorkflowExpressions(
+        const results = await Promise.allSettled(batches.map((batch) => api.validateWorkflowExpressions(
           batch.expressions,
           workflowExpressionEnvironment(current, batch.step.id),
           controller!.signal,
         )));
         if (requestGeneration !== generation) return;
-        diagnostics.value = Object.fromEntries(results.flatMap((result) => result.validations.map((item) => [item.id, item.diagnostics])));
+        const nextDiagnostics = Object.fromEntries(
+          Object.entries(diagnostics.value).filter(([id]) => activeSources[id] === validatedSources[id]),
+        );
+        const nextValidatedSources = Object.fromEntries(
+          Object.entries(validatedSources).filter(([id, source]) => activeSources[id] === source),
+        );
+        results.forEach((result) => {
+          if (result.status !== "fulfilled") return;
+          result.value.validations.forEach((item) => {
+            nextDiagnostics[item.id] = item.diagnostics;
+            nextValidatedSources[item.id] = activeSources[item.id] ?? "";
+          });
+        });
+        diagnostics.value = nextDiagnostics;
+        validatedSources = nextValidatedSources;
       } catch (error) {
-        if (requestGeneration === generation && !isAbortError(error)) diagnostics.value = {};
+        if (requestGeneration === generation && !isAbortError(error)) {
+          diagnostics.value = Object.fromEntries(Object.entries(diagnostics.value).filter(([id]) => activeSources[id] === validatedSources[id]));
+          validatedSources = Object.fromEntries(Object.entries(validatedSources).filter(([id, source]) => activeSources[id] === source));
+        }
       }
     }, 300);
   }
@@ -97,6 +128,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
   function clear(): void {
     clearRequest();
     diagnostics.value = {};
+    validatedSources = {};
   }
 
   return { diagnostics, issues };

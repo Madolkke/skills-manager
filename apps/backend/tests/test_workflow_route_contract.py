@@ -29,6 +29,35 @@ def test_expression_routes_expose_validation_without_evaluation():
     assert "/api/workflow-expression-evaluations" not in paths
 
 
+def test_batch_expression_route_validates_payload_shape_and_preserves_request_order():
+    class StubService:
+        def validate_expressions(self, *, expressions, environment):
+            return {"validations": [{"id": item["id"], "inferredType": {"kind": "boolean"}, "diagnostics": []} for item in expressions]}
+
+    app = FastAPI()
+    register_workflow_routes(app)
+    app.dependency_overrides[workflow_service_dependency] = StubService
+    client = TestClient(app)
+    response = client.post("/api/workflow-expression-validations/batch", json={
+        "expressions": [{"id": "second", "source": "False"}, {"id": "first", "source": "True"}],
+        "environment": {"inputs": {}, "outputs": {}, "config": {}},
+    })
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["validations"]] == ["second", "first"]
+    duplicate = client.post("/api/workflow-expression-validations/batch", json={
+        "expressions": [{"id": "same", "source": "True"}, {"id": "same", "source": "False"}],
+        "environment": {"inputs": {}, "outputs": {}, "config": {}},
+    })
+    assert duplicate.status_code == 422
+
+    too_many = client.post("/api/workflow-expression-validations/batch", json={
+        "expressions": [{"id": str(index), "source": "True"} for index in range(1001)],
+        "environment": {"inputs": {}, "outputs": {}, "config": {}},
+    })
+    assert too_many.status_code == 422
+
+
 def test_workflow_log_schema_route_is_authenticated_and_returns_fixed_catalog():
     class StubService:
         def log_schema(self):

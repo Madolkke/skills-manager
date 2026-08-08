@@ -44,7 +44,9 @@ _FORBIDDEN_FUNCTIONS = {
     "read_parquet",
     "read_text",
     "read_xlsx",
+    "shell",
     "sqlite_scan",
+    "system",
 }
 _FORBIDDEN_SOURCE_EXPRESSIONS = (exp.GenerateSeries, exp.Unnest, exp.Values)
 
@@ -100,8 +102,9 @@ def _validate_sources(
         if statement.find(expression_type) is not None:
             diagnostics.append(LogSqlDiagnostic("LOG_QUERY_FORBIDDEN_SOURCE", "日志聚合 SQL 只能读取 logs、params 或本地查询结果。"))
     for function in statement.find_all(exp.Func):
-        if function.sql_name().lower() in _FORBIDDEN_FUNCTIONS:
-            diagnostics.append(LogSqlDiagnostic("LOG_QUERY_FORBIDDEN_SOURCE", f"日志聚合 SQL 不允许外部读取函数“{function.sql_name()}”。"))
+        function_name = _function_name(function)
+        if function_name in _FORBIDDEN_FUNCTIONS:
+            diagnostics.append(LogSqlDiagnostic("LOG_QUERY_FORBIDDEN_SOURCE", f"日志聚合 SQL 不允许外部读取函数“{function_name}”。"))
     for scope in scopes:
         for source in scope.sources.values():
             if isinstance(source, Scope):
@@ -111,6 +114,13 @@ def _validate_sources(
                 continue
             if source.name.lower() not in _ALLOWED_TABLES:
                 diagnostics.append(LogSqlDiagnostic("LOG_QUERY_FORBIDDEN_SOURCE", f"日志聚合 SQL 不能读取数据源“{source.name}”。"))
+
+
+def _function_name(function: exp.Func) -> str:
+    """Return an SQL function's actual name, including DuckDB anonymous functions."""
+    if isinstance(function, exp.Anonymous):
+        return function.name.lower()
+    return function.sql_name().lower()
 
 
 def _validate_columns(
