@@ -15,6 +15,7 @@ from .saved_views import SavedViewService
 from .skill_builder import SkillBuilderService
 from .skills import SkillService
 from .versions import VersionService
+from .workflow_agent import WorkflowAgentService
 from .workflow_debug import WorkflowDebugService
 from .workflows import WorkflowService
 
@@ -38,4 +39,5 @@ __all__ = [
     "VersionService",
     "WorkflowService",
     "WorkflowDebugService",
+    "WorkflowAgentService",
 ]

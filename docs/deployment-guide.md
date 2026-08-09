@@ -81,6 +81,11 @@ postgresql+psycopg://skillhub:change-me@127.0.0.1:5432/skillhub
 | `WORKFLOW_EXECUTOR_REQUEST_TIMEOUT_SECONDS` | `10` | SkillHub 调用执行器单个 HTTP 请求的超时秒数。 |
 | `WORKFLOW_DEBUG_POLL_INTERVAL_SECONDS` | `2` | Workflow 单步调试前端推进运行状态的建议轮询间隔。 |
 | `WORKFLOW_DEBUG_MAX_DURATION_SECONDS` | `300` | 单次调试从创建起允许保持活动状态的最长时间。 |
+| `WORKFLOW_AGENT_MODEL_BASE_URL` | 无 | Workflow 助手使用的 OpenAI-compatible Base URL；与 model、API key 任一缺失时助手不可运行。 |
+| `WORKFLOW_AGENT_MODEL_API_KEY` | 无 | Workflow 助手 Provider API key。只注入 API 进程，不下发前端。 |
+| `WORKFLOW_AGENT_MODEL` | 无 | 服务端固定的助手模型名称，前端不可切换。 |
+| `WORKFLOW_AGENT_TIMEOUT_SECONDS` | `300` | 单次 Agent 运行总超时秒数。 |
+| `WORKFLOW_AGENT_REASONING_EFFORT` | 空 | 可选 `none/minimal/low/medium/high/xhigh`；Provider 不支持时运行会失败并保留错误。 |
 | `EVAL_WORKDIR_HOST` | Worker 默认 `/var/lib/skillhub/eval-runs` | Worker 在宿主机上的测评工作目录。 |
 | `EVAL_WORKDIR_CONTAINER` | `/workspace/eval-runs` | 传给容器化 Opencode 时使用的容器内路径。 |
 | `EVAL_RUNNER_POLL_SECONDS` | `2` | Worker 轮询任务间隔。 |
@@ -133,7 +138,7 @@ uv run python -m skillhub.models.schema.cli check
 uv run alembic check
 ```
 
-当前正式迁移链在 `0004_workflow_json_schema_v4` 后分为 `0005_workflow_log_sql_v5` 与 `0005_workflow_step_debug` 两个分支，并由无 DDL 的 `0006_workflow_log_debug_merge` 合并为唯一 head。`0003` 为既有 WorkflowSync 回填 `generator_id = builtin.single-file`、空 options 及其 digest，并保留原 `generator_version`；随后将唯一约束切换为 Workflow revision 与 Generator identity 的复合键。`0004` 执行 Workflow JSON Schema v4 数据迁移；日志分支将新记录默认版本切换为 v5 并启用日志 SQL 严格联合，调试分支新增非版本化的 Workflow 调试例与运行记录表。已有且已纳入 Alembic 的数据库可从 `0004` 或任一 `0005` 连续升级到唯一 `0006` head，禁止跳过未应用的分支迁移。
+当前正式迁移链在 `0004_workflow_json_schema_v4` 后分为 `0005_workflow_log_sql_v5` 与 `0005_workflow_step_debug` 两个分支，并由无 DDL 的 `0006_workflow_log_debug_merge` 合并；`0007_workflow_agent_assistant` 新增 Workflow Agent 会话、运行、事件和提案表，并创建 AgentScope 专用 PostgreSQL schema `workflow_agent_scope`。已有数据库必须连续升级到唯一 `0007` head，禁止跳过未应用的分支迁移。
 
 若数据库曾在 Generator 迁移进入主链前应用历史 revision `0003_workflow_json_schema_v4`，初始化命令会在单个事务中补执行 Generator 迁移，并将已完成的 JSON Schema v4 迁移映射为当前 `0004`，随后继续升级到 head；不会重复改写 Workflow revision。其他未知 revision 仍会拒绝启动，禁止手工 stamp 绕过结构检查。
 

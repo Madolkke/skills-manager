@@ -14,6 +14,7 @@
 - `workflows.py`：提供 Workflow Skill 创建、文档保存、Import Bundle 导入、元信息、Collection Catalog、固定日志 SQL 列目录和同步接口。
 - `executor_workflows.py`：提供无需 actor 的外部执行器 Workflow 只读转换接口。
 - `workflow_debug.py`：提供要求 `skill.edit` 的 Workflow 调试例、运行历史、启动和单次推进接口。
+- `workflow_agent.py`：提供要求 `skill.edit` 的 Agent 目录、会话、运行、原生 Event SSE、取消和提案应用接口。
 - 其他业务文件：按资源组织 endpoint，例如 `skills.py`、`evaluations.py`、`reviews.py`。
 
 ## 依赖方向

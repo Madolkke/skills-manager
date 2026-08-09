@@ -28,6 +28,12 @@
 - `workflow_debug_cases.py`：封装调试例 CRUD、字段清洗和当前 Workflow 引用检查。
 - `workflow_debug_runs.py`：编排调试运行启动、轮询、暂停恢复、目标判定和持久化状态流转。
 - `workflow_debug_runtime.py`：解析执行器运行配置，并提供调试历史游标和公共响应投影。
+- `workflow_agent.py`：编排 Workflow Agent 目录、会话、运行上下文和调试例提案应用。
+- `workflow_agent_registry.py`：维护 Agent 身份、提示词版本和只读工具白名单。
+- `workflow_agent_runtime.py`：在 API 进程内运行 AgentScope 流、持久化原生事件并处理取消、超时和重启中断。
+- `workflow_agent_scope.py`：封装 AgentScope 2.0.6 SQL storage 的 session/state/message 生命周期。
+- `workflow_agent_settings.py`：解析固定 OpenAI-compatible Provider 和运行超时配置。
+- `workflow_agent_tools.py`：构建只读 Workflow 领域工具集。
 - `workflow_syncs.py`：编排 Workflow Generator 目录、无副作用同步预览、确认摘要校验和 SkillVersion 同步。
 
 ## 依赖方向

@@ -40,6 +40,7 @@
 @import "./features/workflow/sync.css";
 @import "./features/workflow/sync-responsive.css";
 @import "./features/workflow/debug.css";
+@import "./features/workflow/agent.css";
 @import "./features/workflow/preview.css";
 @import "./features/workflow/read-preview.css";
 @import "./features/workflow/validation.css";

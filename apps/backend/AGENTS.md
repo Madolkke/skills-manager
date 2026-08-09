@@ -12,6 +12,7 @@
 - `tests/`：后端单元测试、API 测试、架构约束测试和 worker 测试。
 - `migrations/`：Alembic revision，是数据库结构演进的唯一入口。
 - Workflow 日志 SQL 只允许 SQLGlot AST 静态检查；后端不执行作者 SQL、不保存 DataFrame，固定列目录由 Workflow rules 提供。
+- Workflow Agent 在 API 进程内使用固定 AgentScope 2.0.6；SkillHub 只保存会话映射、运行事件和提案，AgentScope 原生数据使用独立 PostgreSQL schema。
 
 ## 依赖方向
 

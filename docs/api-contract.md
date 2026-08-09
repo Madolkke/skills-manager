@@ -366,6 +366,20 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 - actual output 非空时写入 `actual_output` artifact。
 - `environment_tags + run_context` 会生成稳定 `run_context_hash`。
 
+## Workflow Agent 助手
+
+Workflow 写作页右侧“助手”Tab 使用独立会话 API，所有端点要求 `skill.edit`。服务端固定注册 `workflow_assistant` 与 `debug_case_generator`，Provider 和模型只能通过部署配置指定。
+
+- `GET /api/skills/{skill_id}/workflow/agents`：Agent 目录、AgentScope 固定版本与配置可用性。
+- `GET/POST /api/skills/{skill_id}/workflow/agent-sessions`：列出或取得当前 actor 的活动会话。
+- `POST /api/workflow-agent-sessions/{session_id}/runs`：提交本地规范化草稿、已保存 revision、选择位置和用户输入。
+- `GET /api/workflow-agent-runs/{run_id}/events`：SSE 返回 AgentScope 2.0.6 原生 Event；外层只增加 `event_id/session_id/run_id`，支持 `Last-Event-ID`。
+- `POST /api/workflow-agent-runs/{run_id}/cancel`：请求取消 API 进程内任务。
+- `POST /api/workflow-agent-proposals/{proposal_id}/apply`：按当前已保存 Workflow digest 原子创建所选调试例。
+- 会话归档后才能永久删除；删除同时清理提案、完整事件/reasoning 与 AgentScope 原生 session。
+
+Agent 只能调用服务端白名单内的只读领域工具，不能直接保存 Workflow、创建调试例、访问 Shell、任意数据库、外部网络或执行器。完整说明见 [Workflow Agent 助手](workflow-agent-assistant.md)。
+
 ## 持久化
 
 - API 只接受 PostgreSQL 连接串，必须通过 `SKILLHUB_DATABASE_URL` 注入。

@@ -20,6 +20,7 @@ from skillhub.models.schema.reviews import (
 )
 from skillhub.models.schema.runtime import Job, OpencodeAgent, SkillBuilderMessage, SkillBuilderSession, WorkerHeartbeat
 from skillhub.models.schema.skills import Skill, SkillTag, SkillVersion
+from skillhub.models.schema.workflow_agent import WorkflowAgentEvent, WorkflowAgentProposal, WorkflowAgentRun, WorkflowAgentSession
 from skillhub.models.schema.workflow_debug import WorkflowDebugCase, WorkflowDebugRun
 from skillhub.models.schema.workflows import Workflow, WorkflowCollectionDefinition, WorkflowCollectionRevision, WorkflowSync
 
@@ -78,6 +79,10 @@ __all__ = [
     "WorkflowCollectionRevision",
     "WorkflowDebugCase",
     "WorkflowDebugRun",
+    "WorkflowAgentEvent",
+    "WorkflowAgentProposal",
+    "WorkflowAgentRun",
+    "WorkflowAgentSession",
     "WorkflowSync",
     "entity_columns",
     "select_entity",

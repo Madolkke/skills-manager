@@ -7,3 +7,4 @@ export type * from "./types/skillBuilder";
 export type * from "./types/ui";
 export type * from "./types/workflow";
 export type * from "./types/workflowDebug";
+export type * from "./types/workflowAgent";

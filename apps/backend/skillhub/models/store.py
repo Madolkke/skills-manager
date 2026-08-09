@@ -27,6 +27,7 @@ from skillhub.models.operations.shared.results import (
 from skillhub.models.operations.skill_builder import SkillBuilderStoreMixin
 from skillhub.models.operations.skills import SkillStoreMixin
 from skillhub.models.operations.workers import WorkerStatusMixin
+from skillhub.models.operations.workflow_agent import WorkflowAgentStoreMixin
 from skillhub.models.operations.workflow_debug import WorkflowDebugStoreMixin
 from skillhub.models.operations.workflows import WorkflowStoreMixin
 
@@ -43,6 +44,7 @@ class _StoreOperations(
     WorkerStatusMixin,
     WorkflowStoreMixin,
     WorkflowDebugStoreMixin,
+    WorkflowAgentStoreMixin,
     SharedStoreMixin,
 ):
     pass

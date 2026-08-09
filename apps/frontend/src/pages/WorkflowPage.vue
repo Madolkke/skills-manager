@@ -27,7 +27,7 @@ const detail = ref<WorkflowDetail | null>(null);
 const syncOpen = ref(false);
 const confirmAction = ref<ConfirmAction | null>(null);
 const confirmOpen = ref(false);
-const previewTab = ref<"graph" | "read" | "validation">("graph");
+const previewTab = ref<"graph" | "read" | "validation" | "agent">("graph");
 const editorPane = ref<HTMLElement | null>(null);
 const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
 const editor = useWorkflowEditor(() => readOnly.value);
@@ -218,7 +218,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       </main>
 
       <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><ChevronLeft v-if="layout.rightCollapsed.value" :size="16" /><ChevronRight v-else :size="16" /></button></div>
-      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
+      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :skill-id="skill.skill.id" :revision="detail?.revision" :dirty="editor.dirty.value" :readonly="readOnly" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
     </div>
 
     <WorkflowSyncModal

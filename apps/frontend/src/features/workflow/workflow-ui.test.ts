@@ -64,7 +64,7 @@ describe("Workflow UI state", () => {
 
   it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {
     const expanded = ref(false);
-    const tab = ref<"graph" | "read" | "validation">("graph");
+    const tab = ref<"graph" | "read" | "validation" | "agent">("graph");
     const GraphStub = defineComponent({
       name: "WorkflowGraph",
       props: {

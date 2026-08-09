@@ -20,6 +20,7 @@ from skillhub.services import (
     SkillBuilderService,
     SkillService,
     VersionService,
+    WorkflowAgentService,
     WorkflowDebugService,
     WorkflowService,
 )
@@ -57,6 +58,13 @@ def workflow_debug_service_dependency(
     session: Session = Depends(session_dependency, scope="function"),
 ) -> WorkflowDebugService:
     return WorkflowDebugService(SkillHubStore(session), WorkflowDebugSettings.from_environ(environ))
+
+
+def workflow_agent_service_dependency(
+    request: Request,
+    session: Session = Depends(session_dependency, scope="function"),
+) -> WorkflowAgentService:
+    return WorkflowAgentService(SkillHubStore(session), request.app.state.workflow_agent_runtime)
 
 
 def review_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> ReviewService:

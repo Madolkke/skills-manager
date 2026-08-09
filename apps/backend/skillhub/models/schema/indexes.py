@@ -35,6 +35,10 @@ from skillhub.models.schema.tables import (
     tag_groups,
     tag_values,
     worker_heartbeats,
+    workflow_agent_events,
+    workflow_agent_proposals,
+    workflow_agent_runs,
+    workflow_agent_sessions,
     workflow_collection_revisions,
     workflow_debug_cases,
     workflow_debug_runs,
@@ -96,6 +100,23 @@ Index(
     unique=True,
     postgresql_where=workflow_debug_runs.c.status.in_(("starting", "running", "paused", "external_state_unknown")),
 )
+Index(
+    "workflow_agent_sessions_actor_skill_active_unique",
+    workflow_agent_sessions.c.actor_ref,
+    workflow_agent_sessions.c.skill_id,
+    unique=True,
+    postgresql_where=workflow_agent_sessions.c.status == "active",
+)
+Index("workflow_agent_sessions_skill_updated_idx", workflow_agent_sessions.c.skill_id, workflow_agent_sessions.c.updated_at.desc())
+Index(
+    "workflow_agent_runs_session_active_unique",
+    workflow_agent_runs.c.session_id,
+    unique=True,
+    postgresql_where=workflow_agent_runs.c.status.in_(("starting", "running")),
+)
+Index("workflow_agent_runs_session_created_idx", workflow_agent_runs.c.session_id, workflow_agent_runs.c.created_at.desc())
+Index("workflow_agent_events_run_sequence_idx", workflow_agent_events.c.run_id, workflow_agent_events.c.sequence)
+Index("workflow_agent_proposals_skill_status_idx", workflow_agent_proposals.c.skill_id, workflow_agent_proposals.c.status)
 Index("saved_views_skill_type_idx", saved_views.c.skill_id, saved_views.c.view_type)
 Index("skill_tags_group_value_idx", skill_tags.c.tag_group_id, skill_tags.c.tag_value)
 Index("tag_groups_sort_idx", tag_groups.c.sort_order, tag_groups.c.id)
