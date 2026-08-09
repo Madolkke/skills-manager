@@ -81,6 +81,8 @@ SSE data 结构：
 
 服务端要求候选覆盖所有直接目标，引用必须仍存在且总数不超过 10。用户可以编辑、取消勾选并确认。基于未保存草稿生成是允许的，但应用前必须先保存 Workflow；数据库中的当前 document digest 必须等于提案 `draft_digest`，否则提案标记为 `stale`。批量写入使用单事务，任一引用失效则全部拒绝。
 
+前端时间线只展示提案摘要、候选数量和状态，不在助手栏内展开完整表单。点击摘要后进入独立候选工作区：左侧选择候选，右侧编辑当前候选，底部统一创建所选调试例。已应用和已过期提案仍可从原运行记录重新查看，但不能再次创建。
+
 运行状态为 `starting`、`running`、`completed`、`failed`、`canceled`、`interrupted`。`starting/running` 是活动状态；Provider、配置、协议或超时错误写入 `failed`，用户取消写入 `canceled`，API 重启回收写入 `interrupted`。`response_text` 只保存最终回答，完整 thinking/tool 过程通过事件表保存。
 
 ## 配置

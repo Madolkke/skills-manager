@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Bot, Brain, CheckCircle2, CircleEllipsis, Wrench } from "lucide-vue-next";
+import { Bot, Brain, CheckCircle2, ChevronRight, CircleEllipsis, FileCheck2, Wrench } from "lucide-vue-next";
 import type { WorkflowAgentDescriptor, WorkflowAgentEvent, WorkflowAgentRun } from "../../../../types";
 import MarkdownContent from "../../../skill-builder/components/MarkdownContent.vue";
 
 const props = defineProps<{ runs: WorkflowAgentRun[]; currentRun: WorkflowAgentRun | null; events: WorkflowAgentEvent[]; agents: WorkflowAgentDescriptor[] }>();
-defineEmits<{ select: [run: WorkflowAgentRun] }>();
+defineEmits<{ select: [run: WorkflowAgentRun]; proposal: [run: WorkflowAgentRun] }>();
 const thinking = computed(() => deltas("THINKING_BLOCK_DELTA"));
 const streamingText = computed(() => deltas("TEXT_BLOCK_DELTA"));
 const tools = computed(() => props.events.filter((item) => item.event.type === "TOOL_CALL_START" || item.event.type === "TOOL_RESULT_END"));
@@ -18,6 +18,9 @@ function agentName(id: string): string {
 }
 function statusLabel(status: WorkflowAgentRun["status"]): string {
   return { starting: "准备中", running: "运行中", completed: "已完成", failed: "失败", canceled: "已取消", interrupted: "已中断" }[status];
+}
+function proposalStatusLabel(status: NonNullable<WorkflowAgentRun["proposal"]>["status"]): string {
+  return { proposed: "待确认", applied: "已创建", stale: "已过期" }[status];
 }
 </script>
 
@@ -35,6 +38,11 @@ function statusLabel(status: WorkflowAgentRun["status"]): string {
         <MarkdownContent v-if="streamingText || run.response_text" class="workflow-agent-answer" :source="streamingText || run.response_text" />
       </template>
       <MarkdownContent v-else-if="run.response_text" class="workflow-agent-answer" :source="run.response_text" />
+      <button v-if="run.proposal" type="button" class="workflow-agent-proposal-summary" @click="$emit('proposal', run)">
+        <FileCheck2 :size="17" />
+        <span><strong>{{ run.proposal.payload.candidates.length }} 个调试例候选</strong><small>{{ proposalStatusLabel(run.proposal.status) }}</small></span>
+        <ChevronRight :size="17" />
+      </button>
       <p v-if="run.error" class="workflow-agent-run-error">{{ run.error.message ?? run.error.code }}</p>
     </article>
   </div>

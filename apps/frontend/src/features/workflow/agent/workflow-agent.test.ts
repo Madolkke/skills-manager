@@ -78,6 +78,38 @@ describe("Workflow Agent assistant", () => {
     expect(wrapper.find(".workflow-agent-answer script").exists()).toBe(false);
   });
 
+  it("keeps generated proposals as a compact timeline summary", async () => {
+    const run = {
+      ...workflowAgentRun(),
+      status: "completed" as const,
+      proposal: {
+        id: "proposal-1",
+        run_id: "run-1",
+        skill_id: "skill-1",
+        kind: "debug_case_draft" as const,
+        status: "proposed" as const,
+        payload: { candidates: [debugCaseCandidate("conclusion-1"), debugCaseCandidate("step-2")] },
+        base_revision: 1,
+        draft_digest: "digest",
+        created_at: "2026-08-09T00:00:00Z",
+        updated_at: "2026-08-09T00:00:00Z",
+      },
+    };
+    const wrapper = mount(WorkflowAgentTimeline, {
+      props: {
+        runs: [run],
+        currentRun: run,
+        agents: [{ id: "workflow_assistant", name: "Workflow 助手", description: "", prompt_version: "1", tools: [], proposal_kind: null }],
+        events: [],
+      },
+    });
+
+    expect(wrapper.find(".workflow-agent-proposal-summary").text()).toContain("2 个调试例候选");
+    expect(wrapper.find(".workflow-agent-proposals").exists()).toBe(false);
+    await wrapper.find(".workflow-agent-proposal-summary").trigger("click");
+    expect(wrapper.emitted("proposal")?.[0]).toEqual([run]);
+  });
+
   it("parses replayable SSE envelopes and sends the Last-Event-ID cursor", async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -123,5 +155,16 @@ function workflowAgentRun(): WorkflowAgentRun {
     user_input: "检查当前 Workflow", response_text: "", selection: { type: "metadata" }, base_revision: 1,
     draft_digest: "digest", cancel_requested: false, usage: {}, error: null, proposal: null,
     created_at: "2026-08-09T00:00:00Z", started_at: "2026-08-09T00:00:00Z", finished_at: null,
+  };
+}
+
+function debugCaseCandidate(expectedTargetId: string) {
+  return {
+    step_id: "step-1",
+    name: `候选 ${expectedTargetId}`,
+    description: "",
+    expected_target_id: expectedTargetId,
+    workflow_inputs: {},
+    collection_fixtures: {},
   };
 }

@@ -6,8 +6,7 @@
 }
 
 .workflow-agent-header,
-.workflow-agent-composer,
-.workflow-agent-proposal-actions {
+.workflow-agent-composer {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -51,22 +50,49 @@
 .workflow-agent-tools div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; color: var(--wf-text-muted); font-size: var(--wf-font-label); }
 .workflow-agent-run-error { margin: 8px 0 0; color: var(--wf-danger); font-size: var(--wf-font-label); }
 
-.workflow-agent-proposals { max-height: 55vh; overflow: auto; border-top: 1px solid var(--wf-border-subtle); }
-.workflow-agent-proposals > header { padding: 10px 12px; position: sticky; top: 0; z-index: 2; background: var(--wf-surface); }
-.workflow-agent-proposals > header div { display: grid; gap: 2px; }
-.workflow-agent-proposals > header small { color: var(--wf-text-muted); }
-.workflow-agent-proposals > article { border-top: 1px solid var(--wf-border-subtle); }
-.workflow-agent-candidate-toggle { padding: 9px 12px; display: flex; align-items: center; gap: 6px; color: var(--wf-text-secondary); font-size: var(--wf-font-label); font-weight: 750; }
-.workflow-agent-proposals .workflow-debug-case-editor { padding: 10px 12px 16px; gap: 16px; }
-.workflow-agent-proposals .workflow-debug-case-basics { grid-template-columns: 1fr; }
-.workflow-agent-proposals .workflow-debug-case-basics .span-2 { grid-column: auto; }
-.workflow-agent-proposals .workflow-debug-value-row { grid-template-columns: minmax(0, 1fr) auto auto; }
-.workflow-agent-proposals .workflow-debug-value-row > :last-child { grid-column: 1 / -1; }
-.workflow-agent-proposal-actions { justify-content: flex-end; border-top: 1px solid var(--wf-border-subtle); border-bottom: 0; }
-.workflow-agent-proposal-actions span { margin-right: auto; color: var(--wf-warning); font-size: var(--wf-font-label); }
+.workflow-agent-proposal-summary { width: 100%; min-height: 44px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--wf-accent-border); border-radius: var(--wf-radius-md); background: var(--wf-accent-soft); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--wf-accent-strong); text-align: left; }
+.workflow-agent-proposal-summary:hover { border-color: var(--wf-accent); background: var(--wf-surface-selected); }
+.workflow-agent-proposal-summary > span { min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.workflow-agent-proposal-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--wf-font-body); }
+.workflow-agent-proposal-summary small { color: var(--wf-text-muted); font-size: var(--wf-font-label); white-space: nowrap; }
+
+.modal-card.workspace:has(> .workflow-agent-proposal-workspace) { width: min(1120px, calc(100vw - 48px)); height: min(780px, calc(100vh - 48px)); overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.workflow-agent-proposal-workspace { min-height: 0; overflow: hidden; display: grid; grid-template-rows: minmax(0, 1fr) auto; background: var(--wf-canvas); }
+.workflow-agent-proposal-layout { min-height: 0; overflow: hidden; display: grid; grid-template-columns: 250px minmax(0, 1fr); border-top: 1px solid var(--wf-line-soft); }
+.workflow-agent-candidate-list { min-width: 0; min-height: 0; overflow: auto; border-right: 1px solid var(--wf-line-soft); background: var(--wf-surface-subtle); }
+.workflow-agent-candidate-list > header { min-height: 58px; padding: 13px 14px; border-bottom: 1px solid var(--wf-line-soft); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.workflow-agent-candidate-list > header strong { font-size: var(--wf-font-section); }
+.workflow-agent-candidate-list > header span { color: var(--wf-text-muted); font-size: var(--wf-font-label); }
+.workflow-agent-candidate-list nav { padding: 8px; display: grid; gap: 4px; }
+.workflow-agent-candidate-list nav > div { min-width: 0; padding: 8px; border: 1px solid transparent; border-radius: var(--wf-radius-md); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; }
+.workflow-agent-candidate-list nav > div:hover { background: var(--wf-surface-muted); }
+.workflow-agent-candidate-list nav > div.active { border-color: var(--wf-accent-border); background: var(--wf-accent-soft); }
+.workflow-agent-candidate-list input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--wf-accent); }
+.workflow-agent-candidate-list button { min-width: 0; padding: 0; border: 0; background: transparent; display: grid; gap: 3px; color: var(--wf-text); text-align: left; }
+.workflow-agent-candidate-list button strong,
+.workflow-agent-candidate-list button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-agent-candidate-list button strong { font-size: var(--wf-font-body); }
+.workflow-agent-candidate-list button small { color: var(--wf-text-muted); font-size: var(--wf-font-label); }
+.workflow-agent-candidate-editor { min-width: 0; min-height: 0; overflow: auto; background: var(--wf-surface); }
+.workflow-agent-candidate-editor > header { position: sticky; z-index: 2; top: 0; min-height: 66px; padding: 13px 20px; border-bottom: 1px solid var(--wf-line-soft); background: rgb(255 255 255 / 96%); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.workflow-agent-candidate-editor h3 { margin: 0; font-size: var(--wf-font-section); }
+.workflow-agent-candidate-editor p { margin: 3px 0 0; color: var(--wf-text-muted); font-size: var(--wf-font-label); }
+.workflow-agent-candidate-editor > header > span { color: var(--wf-text-muted); font: 12px/1 var(--mono-font, monospace); }
+.workflow-agent-candidate-editor .workflow-debug-case-editor { padding: 20px; }
+.workflow-agent-proposal-footer { min-height: 64px; border-top: 1px solid var(--wf-line-soft); background: var(--wf-surface); }
+.workflow-agent-proposal-footer > span { margin-right: auto; color: var(--wf-warning); font-size: var(--wf-font-label); }
 
 .workflow-agent-composer { align-items: stretch; border-top: 1px solid var(--wf-border-strong); border-bottom: 0; flex-direction: column; }
 .workflow-agent-composer textarea { width: 100%; min-height: 76px; resize: vertical; padding: 9px 10px; border: 1px solid var(--wf-border); border-radius: var(--wf-radius-md); color: var(--wf-text); font: var(--wf-font-body)/1.5 var(--ui-font, sans-serif); }
 .workflow-agent-composer textarea:focus { outline: 0; border-color: var(--wf-accent); box-shadow: var(--wf-focus-ring); }
 .workflow-agent-composer > div { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .workflow-agent-composer small { margin-right: auto; color: var(--wf-text-muted); }
+
+@media (max-width: 760px) {
+  .modal-card.workspace:has(> .workflow-agent-proposal-workspace) { width: calc(100vw - 24px); height: calc(100vh - 24px); }
+  .workflow-agent-proposal-layout { overflow: auto; display: block; }
+  .workflow-agent-candidate-list { max-height: 220px; overflow: auto; border-right: 0; border-bottom: 1px solid var(--wf-line-soft); }
+  .workflow-agent-candidate-editor { overflow: visible; }
+  .workflow-agent-proposal-footer { padding: 10px 14px; flex-wrap: wrap; }
+  .workflow-agent-proposal-footer > span { width: 100%; }
+}

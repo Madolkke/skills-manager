@@ -24,6 +24,7 @@ const agent = useWorkflowAgent(() => props.skillId);
 const agentId = ref("workflow_assistant");
 const input = ref("");
 const deleteOpen = ref(false);
+const proposalOpen = ref(false);
 const selectedStep = computed(() => {
   const selection = props.selection;
   if (selection.type !== "step") return null;
@@ -51,6 +52,16 @@ async function send(): Promise<void> {
     draft: cloneWorkflow(props.bundle),
     selection: props.selection,
   });
+}
+
+function openProposal(run: typeof agent.runs.value[number]): void {
+  if (agent.currentRun.value?.id !== run.id) void agent.selectRun(run);
+  proposalOpen.value = true;
+}
+
+async function applyProposal(): Promise<void> {
+  await agent.apply();
+  if (agent.currentRun.value?.proposal?.status === "applied") proposalOpen.value = false;
 }
 
 function handleComposerKeydown(event: KeyboardEvent): void {
@@ -104,21 +115,7 @@ async function deleteSession(): Promise<void> {
     <template v-else>
       <div v-if="!agent.catalog.value?.available" class="workflow-agent-state is-warning">{{ agent.catalog.value?.unavailable_reason }}</div>
       <div class="workflow-agent-security">当前草稿及相关采集原始样例会发送给配置的外部模型 Provider；完整 thinking 和工具事件会被保存。</div>
-      <WorkflowAgentTimeline :runs="agent.runs.value" :current-run="agent.currentRun.value" :events="agent.events.value" :agents="agent.catalog.value?.agents ?? []" @select="agent.selectRun" />
-      <WorkflowAgentProposalEditor
-        v-if="proposalStep && agent.candidates.value.length"
-        :bundle="props.bundle"
-        :step="proposalStep"
-        :candidates="agent.candidates.value"
-        :selected="agent.selectedCandidates.value"
-        :disabled="agent.busy.value || agent.currentRun.value?.proposal?.status !== 'proposed'"
-        @change="agent.updateCandidate"
-        @select="(index, selected) => agent.selectedCandidates.value[index] = selected"
-      />
-      <div v-if="agent.currentRun.value?.proposal" class="workflow-agent-proposal-actions">
-        <span v-if="props.dirty">保存当前 Workflow 后才能创建调试例。</span>
-        <UiButton size="sm" :disabled="!canApply" @click="agent.apply">创建所选调试例</UiButton>
-      </div>
+      <WorkflowAgentTimeline :runs="agent.runs.value" :current-run="agent.currentRun.value" :events="agent.events.value" :agents="agent.catalog.value?.agents ?? []" @select="agent.selectRun" @proposal="openProposal" />
       <div v-if="agent.notice.value" class="workflow-agent-notice">{{ agent.notice.value }}</div>
     </template>
 
@@ -126,6 +123,22 @@ async function deleteSession(): Promise<void> {
       <textarea v-model="input" rows="3" maxlength="20000" :disabled="props.readonly || Boolean(agent.active.value)" :placeholder="generatorBlocked ? '请选择一个包含直接目标的 Step' : selectedDescriptor?.description" @keydown="handleComposerKeydown" />
       <div><small>Enter 发送 · Ctrl + Enter 换行</small><UiButton v-if="agent.active.value" size="sm" variant="secondary" :disabled="agent.busy.value" @click="agent.cancel"><template #icon><Square /></template>取消</UiButton><UiButton v-else size="sm" :disabled="!canSend" @click="send"><template #icon><Send /></template>发送</UiButton></div>
     </footer>
+    <WorkflowAgentProposalEditor
+      v-if="proposalStep && agent.currentRun.value?.proposal"
+      :open="proposalOpen"
+      :bundle="props.bundle"
+      :step="proposalStep"
+      :candidates="agent.candidates.value"
+      :selected="agent.selectedCandidates.value"
+      :proposal-status="agent.currentRun.value.proposal.status"
+      :disabled="agent.busy.value || agent.currentRun.value.proposal.status !== 'proposed'"
+      :dirty="props.dirty"
+      :can-apply="canApply"
+      @apply="applyProposal"
+      @change="agent.updateCandidate"
+      @close="proposalOpen = false"
+      @select="(index, selected) => agent.selectedCandidates.value[index] = selected"
+    />
     <WorkflowConfirmModal :open="deleteOpen" title="永久删除助手会话" description="会话、提案、完整 thinking、工具事件及 AgentScope 原生数据都将被永久删除。" confirm-label="永久删除" tone="danger" @close="deleteOpen = false" @confirm="deleteSession" />
   </section>
 </template>

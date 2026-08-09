@@ -129,7 +129,10 @@ export function useWorkflowAgent(skillId: () => string) {
     error.value = "";
     try {
       const result = await workflowAgentApi.applyProposal(proposal.id, chosen);
-      currentRun.value = { ...currentRun.value!, proposal: result.proposal };
+      const updatedRun = { ...currentRun.value!, proposal: result.proposal };
+      const runIndex = runs.value.findIndex((item) => item.id === updatedRun.id);
+      if (runIndex >= 0) runs.value[runIndex] = updatedRun;
+      currentRun.value = updatedRun;
       notice.value = `已创建 ${result.created_cases.length} 个调试例。`;
     } catch (caught) {
       error.value = message(caught);
