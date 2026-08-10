@@ -5,6 +5,7 @@ from importlib.metadata import version
 from agentscope.event import EventType, ThinkingBlockDeltaEvent, ToolCallStartEvent, ToolResultEndEvent
 from agentscope.message import ToolResultState
 
+from skillhub.services.workflow_agent_registry import workflow_agent_descriptor
 from skillhub.services.workflow_agent_scope import _agentscope_database_url
 from skillhub.services.workflow_agent_settings import WorkflowAgentSettings
 
@@ -71,3 +72,12 @@ def test_agent_settings_fall_back_to_existing_deepseek_configuration() -> None:
 def test_agentscope_uses_an_isolated_postgresql_schema() -> None:
     url = _agentscope_database_url("postgresql+psycopg://user:pass@localhost/skillhub")
     assert url.startswith("postgresql+asyncpg://")
+
+
+def test_debug_case_generator_prompt_distinguishes_transition_and_target_ids() -> None:
+    descriptor = workflow_agent_descriptor("debug_case_generator")
+
+    assert descriptor is not None
+    assert descriptor.prompt_version == "1.0.1"
+    assert "expected_target_id 只能逐字复制对应 transition.target.id" in descriptor.system_prompt
+    assert "transition.id 只是边 ID，绝对禁止写入 expected_target_id" in descriptor.system_prompt

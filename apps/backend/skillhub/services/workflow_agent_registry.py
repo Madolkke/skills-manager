@@ -43,11 +43,14 @@ WORKFLOW_AGENTS = {
         id="debug_case_generator",
         name="测试用例生成",
         description="为当前 Step 的每个直接目标生成可确认的单步调试例候选。",
-        prompt_version="1.0.0",
+        prompt_version="1.0.1",
         system_prompt=(
             "你是 SkillHub Workflow 单步调试例生成 Agent。必须先读取 Workflow 上下文和已有调试例。"
             "为当前选中 Step 的每个直接拓扑目标至少生成一个候选，总数不得超过 10。"
-            "workflow_inputs 必须使用 input ID，collection_fixtures 必须使用 call ID，outputs 必须使用 output ID。"
+            "ID 语义必须严格区分：step_id 必须逐字复制当前 selectedStep.id；生成前逐条读取 selectedStep.topology，"
+            "expected_target_id 只能逐字复制对应 transition.target.id，也就是目标 Step 或 Conclusion 的节点 ID；"
+            "transition.id 只是边 ID，绝对禁止写入 expected_target_id。workflow_inputs 的键必须使用 input.id，"
+            "collection_fixtures 的键必须使用 call.id，outputs 的键必须使用 output.id；名称和 key 不能替代这些 ID。"
             "允许依据相关 Collection 的原始样例生成 raw_output，但不得启动运行或直接保存案例。"
         ),
         tools=("read_workflow_context", "read_workflow_validation", "read_existing_debug_cases"),
