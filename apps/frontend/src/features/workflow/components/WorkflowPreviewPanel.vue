@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import type { CollectionDefinition, WorkflowBundle, WorkflowSelection, WorkflowValidationIssue } from "../../../types";
+import { useTransientScrollbar } from "../useTransientScrollbar";
 import WorkflowAgentPanel from "../agent/components/WorkflowAgentPanel.vue";
 import WorkflowGraph from "./WorkflowGraph.vue";
 import WorkflowReadPreview from "./WorkflowReadPreview.vue";
@@ -14,26 +15,15 @@ const tab = defineModel<PreviewTab>("tab", { default: "graph" });
 const expanded = defineModel<boolean>("expanded", { default: false });
 const direction = ref<"DOWN" | "RIGHT">("RIGHT");
 const previewPanel = ref<HTMLElement | null>(null);
-let scrollingTimer: ReturnType<typeof setTimeout> | undefined;
 const errorCount = computed(() => props.issues.filter((item) => item.severity === "error").length);
 const warningCount = computed(() => props.issues.filter((item) => item.severity === "warning").length);
+useTransientScrollbar(previewPanel);
 
 function selectTab(next: PreviewTab): void {
   if (next !== "graph") expanded.value = false;
   tab.value = next;
 }
 
-function showScrollbarWhileScrolling(): void {
-  previewPanel.value?.classList.add("is-scrolling");
-  if (scrollingTimer) clearTimeout(scrollingTimer);
-  scrollingTimer = setTimeout(() => previewPanel.value?.classList.remove("is-scrolling"), 700);
-}
-
-onMounted(() => previewPanel.value?.addEventListener("scroll", showScrollbarWhileScrolling, { passive: true }));
-onBeforeUnmount(() => {
-  if (scrollingTimer) clearTimeout(scrollingTimer);
-  previewPanel.value?.removeEventListener("scroll", showScrollbarWhileScrolling);
-});
 </script>
 
 <template>

@@ -45,7 +45,9 @@ function afterLeave(): void {
         <header class="modal-head">
           <div>
             <h2 class="modal-title">{{ props.title }}</h2>
-            <p v-if="props.description" class="modal-description">{{ props.description }}</p>
+            <slot name="description">
+              <p v-if="props.description" class="modal-description">{{ props.description }}</p>
+            </slot>
           </div>
           <UiIconButton v-if="props.motion === 'workflow'" label="关闭" variant="ghost" @click="emit('close')">
             <X />

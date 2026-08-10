@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { ArchiveRestore, Send, Square, Trash2 } from "lucide-vue-next";
 import UiButton from "../../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../../components/ui/UiIconButton.vue";
@@ -23,6 +23,7 @@ const props = defineProps<{
 const agent = useWorkflowAgent(() => props.skillId);
 const agentId = ref("workflow_assistant");
 const input = ref("");
+const composerInput = ref<HTMLTextAreaElement | null>(null);
 const deleteOpen = ref(false);
 const proposalOpen = ref(false);
 const selectedStep = computed(() => {
@@ -38,8 +39,19 @@ const selectedDescriptor = computed(() => agent.catalog.value?.agents.find((item
 const generatorBlocked = computed(() => selectedDescriptor.value?.proposal_kind === "debug_case_draft" && !selectedStep.value?.topology.length);
 const canSend = computed(() => Boolean(input.value.trim() && agent.session.value && agent.catalog.value?.available && !agent.active.value && !agent.busy.value && !props.readonly && !generatorBlocked.value));
 const canApply = computed(() => Boolean(agent.currentRun.value?.proposal?.status === "proposed" && agent.selectedCandidates.value.some(Boolean) && !props.dirty && !agent.busy.value));
+const sendDisabledReason = computed(() => {
+  if (props.readonly) return "当前为只读状态。";
+  if (generatorBlocked.value) return "请选择一个包含直接目标的 Step。";
+  if (!agent.catalog.value?.available) return agent.catalog.value?.unavailable_reason || "助手当前不可用。";
+  if (!agent.session.value) return "助手会话尚未就绪。";
+  return undefined;
+});
 
-onMounted(() => void agent.load());
+onMounted(() => {
+  void agent.load();
+  void nextTick(resizeComposer);
+});
+watch(input, () => void nextTick(resizeComposer));
 
 async function send(): Promise<void> {
   if (!canSend.value) return;
@@ -68,6 +80,15 @@ function handleComposerKeydown(event: KeyboardEvent): void {
   if (!shouldSendWorkflowAgentMessage(event)) return;
   event.preventDefault();
   void send();
+}
+
+function resizeComposer(): void {
+  const element = composerInput.value;
+  if (!element) return;
+  element.style.height = "auto";
+  const height = Math.min(160, Math.max(76, element.scrollHeight));
+  element.style.height = `${height}px`;
+  element.style.overflowY = element.scrollHeight > 160 ? "auto" : "hidden";
 }
 
 async function newSession(): Promise<void> {
@@ -102,26 +123,27 @@ async function deleteSession(): Promise<void> {
 
 <template>
   <section class="workflow-agent-panel">
-    <header class="workflow-agent-header">
-      <label><span>助手</span><select v-model="agentId" :disabled="agent.active.value || agent.loading.value"><option v-for="item in agent.catalog.value?.agents ?? []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
-      <div class="workflow-agent-session-actions">
-        <UiIconButton label="新建会话" size="sm" variant="ghost" :disabled="Boolean(agent.active.value)" @click="newSession"><ArchiveRestore /></UiIconButton>
-        <UiIconButton label="永久删除当前会话" size="sm" variant="ghost" :disabled="Boolean(agent.active.value)" @click="deleteOpen = true"><Trash2 /></UiIconButton>
-      </div>
-    </header>
-
-    <div v-if="agent.loading.value" class="workflow-agent-state">正在加载助手…</div>
-    <div v-else-if="agent.error.value" class="workflow-agent-state is-error">{{ agent.error.value }}</div>
+    <div v-if="agent.loading.value" class="workflow-agent-loading" aria-label="正在加载助手"><span /><span /><span /></div>
     <template v-else>
-      <div v-if="!agent.catalog.value?.available" class="workflow-agent-state is-warning">{{ agent.catalog.value?.unavailable_reason }}</div>
-      <div class="workflow-agent-security">当前草稿及相关采集原始样例会发送给配置的外部模型 Provider；完整 thinking 和工具事件会被保存。</div>
+      <div v-if="agent.catalog.value && !agent.catalog.value.available" class="workflow-agent-state is-warning">{{ agent.catalog.value.unavailable_reason }}</div>
       <WorkflowAgentTimeline :runs="agent.runs.value" :current-run="agent.currentRun.value" :events="agent.events.value" :agents="agent.catalog.value?.agents ?? []" @select="agent.selectRun" @proposal="openProposal" />
-      <div v-if="agent.notice.value" class="workflow-agent-notice">{{ agent.notice.value }}</div>
     </template>
+    <div v-if="agent.error.value" class="workflow-agent-state is-error" role="alert">{{ agent.error.value }}</div>
+    <div v-if="agent.notice.value" class="workflow-agent-notice" role="status">{{ agent.notice.value }}</div>
 
     <footer class="workflow-agent-composer">
-      <textarea v-model="input" rows="3" maxlength="20000" :disabled="props.readonly || Boolean(agent.active.value)" :placeholder="generatorBlocked ? '请选择一个包含直接目标的 Step' : selectedDescriptor?.description" @keydown="handleComposerKeydown" />
-      <div><small>Enter 发送 · Ctrl + Enter 换行</small><UiButton v-if="agent.active.value" size="sm" variant="secondary" :disabled="agent.busy.value" @click="agent.cancel"><template #icon><Square /></template>取消</UiButton><UiButton v-else size="sm" :disabled="!canSend" @click="send"><template #icon><Send /></template>发送</UiButton></div>
+      <div class="workflow-agent-composer-shell">
+        <textarea ref="composerInput" v-model="input" rows="3" maxlength="20000" :disabled="props.readonly || Boolean(agent.active.value) || agent.loading.value" :placeholder="generatorBlocked ? '请选择一个包含直接目标的 Step' : selectedDescriptor?.description" @keydown="handleComposerKeydown" />
+        <div class="workflow-agent-composer-toolbar">
+          <label class="workflow-agent-selector"><select v-model="agentId" aria-label="助手" :disabled="agent.active.value || agent.loading.value"><option v-for="item in agent.catalog.value?.agents ?? []" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+          <div class="workflow-agent-session-actions">
+            <UiIconButton label="新建会话" size="sm" variant="ghost" :disabled="Boolean(agent.active.value)" :disabled-reason="agent.active.value ? '运行期间不能新建会话。' : undefined" @click="newSession"><ArchiveRestore /></UiIconButton>
+            <UiIconButton label="永久删除当前会话" size="sm" variant="ghost" :disabled="Boolean(agent.active.value)" :disabled-reason="agent.active.value ? '运行期间不能删除会话。' : undefined" @click="deleteOpen = true"><Trash2 /></UiIconButton>
+          </div>
+          <UiButton v-if="agent.active.value" size="sm" variant="secondary" :disabled="agent.busy.value" @click="agent.cancel"><template #icon><Square /></template>取消</UiButton>
+          <UiButton v-else size="sm" :disabled="!canSend" :disabled-reason="sendDisabledReason" @click="send"><template #icon><Send /></template>发送</UiButton>
+        </div>
+      </div>
     </footer>
     <WorkflowAgentProposalEditor
       v-if="proposalStep && agent.currentRun.value?.proposal"

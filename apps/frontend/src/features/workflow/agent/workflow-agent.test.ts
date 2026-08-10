@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
-import { reactive } from "vue";
-import { mount } from "@vue/test-utils";
+import { nextTick, reactive } from "vue";
+import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { WorkflowAgentRun } from "../../../types";
-import { streamWorkflowAgentEvents } from "./api";
+import type { WorkflowAgentRun, WorkflowBundle } from "../../../types";
+import { streamWorkflowAgentEvents, workflowAgentApi } from "./api";
 import { shouldSendWorkflowAgentMessage } from "./composerKeyboard";
+import WorkflowAgentPanel from "./components/WorkflowAgentPanel.vue";
 import WorkflowAgentTimeline from "./components/WorkflowAgentTimeline.vue";
 import { cloneWorkflowAgentCandidate } from "./useWorkflowAgent";
 
@@ -30,6 +31,64 @@ describe("Workflow Agent assistant", () => {
     expect(shouldSendWorkflowAgentMessage(event({ key: "a" }))).toBe(false);
   });
 
+  it("places assistant and session controls below the composer without helper copy", async () => {
+    vi.spyOn(workflowAgentApi, "catalog").mockResolvedValue({
+      agents: [{ id: "workflow_assistant", name: "Workflow 助手", description: "解释当前 Workflow", prompt_version: "1", tools: [], proposal_kind: null }],
+      available: true,
+      unavailable_reason: "",
+      agentscope_version: "2.0.6",
+    });
+    vi.spyOn(workflowAgentApi, "listSessions").mockResolvedValue([{
+      id: "session-1", skill_id: "skill-1", actor_ref: "actor-1", title: "", status: "active",
+      created_at: "2026-08-09T00:00:00Z", updated_at: "2026-08-09T00:00:00Z",
+    }]);
+    vi.spyOn(workflowAgentApi, "listRuns").mockResolvedValue([]);
+    const wrapper = mount(WorkflowAgentPanel, {
+      props: {
+        skillId: "skill-1",
+        bundle: agentPanelBundle(),
+        revision: 1,
+        selection: { type: "metadata" },
+        dirty: false,
+        readonly: false,
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("当前草稿及相关采集原始样例会发送");
+    expect(wrapper.text()).not.toContain("Enter 发送");
+    expect(wrapper.find(".workflow-agent-header").exists()).toBe(false);
+    const textarea = wrapper.get<HTMLTextAreaElement>(".workflow-agent-composer textarea").element;
+    const toolbar = wrapper.get(".workflow-agent-composer-toolbar");
+    expect(textarea.compareDocumentPosition(toolbar.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(toolbar.get('select').element).toBeTruthy();
+    expect(toolbar.get('[aria-label="新建会话"]').element).toBeTruthy();
+    expect(toolbar.get('[aria-label="永久删除当前会话"]').element).toBeTruthy();
+    expect(toolbar.findAll("button").some((button) => button.text().includes("发送"))).toBe(true);
+
+    Object.defineProperty(textarea, "scrollHeight", { configurable: true, value: 220 });
+    await wrapper.get(".workflow-agent-composer textarea").setValue("一段足够长的输入");
+    await flushPromises();
+    expect(textarea.style.height).toBe("160px");
+    expect(textarea.style.overflowY).toBe("auto");
+  });
+
+  it("keeps history and composer visible when loading the assistant fails", async () => {
+    let rejectCatalog!: (error: Error) => void;
+    vi.spyOn(workflowAgentApi, "catalog").mockImplementation(() => new Promise((_, reject) => { rejectCatalog = reject; }));
+    const wrapper = mount(WorkflowAgentPanel, {
+      props: { skillId: "skill-1", bundle: agentPanelBundle(), revision: 1, selection: { type: "metadata" }, dirty: false, readonly: false },
+    });
+    await nextTick();
+    expect(wrapper.find(".workflow-agent-loading").exists()).toBe(true);
+    rejectCatalog(new Error("Provider 连接失败"));
+    await flushPromises();
+
+    expect(wrapper.get('[role="alert"]').text()).toContain("Provider 连接失败");
+    expect(wrapper.find(".workflow-agent-timeline").exists()).toBe(true);
+    expect(wrapper.find(".workflow-agent-composer").exists()).toBe(true);
+  });
+
   it("renders native thinking, tool, and text events without flattening the event contract", () => {
     const run = workflowAgentRun();
     const wrapper = mount(WorkflowAgentTimeline, {
@@ -38,10 +97,10 @@ describe("Workflow Agent assistant", () => {
         currentRun: run,
         agents: [{ id: "workflow_assistant", name: "Workflow 助手", description: "", prompt_version: "1", tools: [], proposal_kind: null }],
         events: [
-          envelope(1, { type: "THINKING_BLOCK_DELTA", delta: "检查表达式" }),
-          envelope(2, { type: "TOOL_CALL_START", tool_call_name: "read_workflow_validation" }),
-          envelope(3, { type: "TOOL_RESULT_END", tool_call_name: "read_workflow_validation" }),
-          envelope(4, { type: "TEXT_BLOCK_DELTA", delta: "发现一个错误。" }),
+          envelope(1, { type: "THINKING_BLOCK_DELTA", reply_id: "reply-1", block_id: "thinking-1", delta: "检查表达式" }),
+          envelope(2, { type: "TOOL_CALL_START", reply_id: "reply-1", tool_call_id: "call-1", tool_call_name: "read_workflow_validation" }),
+          envelope(3, { type: "TOOL_RESULT_END", reply_id: "reply-1", tool_call_id: "call-1", tool_call_name: "read_workflow_validation", state: "success" }),
+          envelope(4, { type: "TEXT_BLOCK_DELTA", reply_id: "reply-1", block_id: "text-1", delta: "发现一个错误。" }),
         ],
       },
     });
@@ -166,5 +225,20 @@ function debugCaseCandidate(expectedTargetId: string) {
     expected_target_id: expectedTargetId,
     workflow_inputs: {},
     collection_fixtures: {},
+  };
+}
+
+function agentPanelBundle(): WorkflowBundle {
+  return {
+    documentType: "workflow_bundle",
+    workflow: {
+      id: "workflow-1",
+      revision: 1,
+      metadata: { name: "测试工作流", code: "TEST", description: "", symptom: "", industry: "", device: "", versions: [] },
+      inputs: [],
+      deviceRoles: [],
+      nodes: [],
+    },
+    collectionSnapshots: [],
   };
 }

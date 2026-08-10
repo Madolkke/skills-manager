@@ -28,7 +28,7 @@ SkillHub API 精确锁定 `agentscope==2.0.6`，在 API 进程内使用 `Agent`�
 - 当前确定性校验问题、当前 Step 已有调试例；
 - 最近用户输入和各 Agent 的最终回答。
 
-这些内容会发送给部署配置的外部 Provider。前端必须持续展示安全提示。AgentScope 原生 session/state/message 保存在 PostgreSQL `workflow_agent_scope` schema；SkillHub 在业务表 `workflow_agent_events` 中保存完整原生 Event，包括 thinking 和工具事件，用于断线补发和审计。
+这些内容会发送给部署配置的外部 Provider。AgentScope 原生 session/state/message 保存在 PostgreSQL `workflow_agent_scope` schema；SkillHub 在业务表 `workflow_agent_events` 中保存完整原生 Event，包括 thinking 和工具事件，用于断线补发和审计。
 
 应用日志不得输出 Provider API key、上下文正文或原生 reasoning。永久删除会话会级联删除 SkillHub 会话、运行、事件、提案，并删除各 Agent 的 AgentScope session。
 
@@ -74,6 +74,10 @@ SSE data 结构：
 ```
 
 `event` 不转换为 SkillHub 自定义事件。升级 AgentScope 前必须显式更新 Event 契约快照和兼容说明。
+
+前端按 `event_id` 将原生 Event 投影为用户可见的内容流：每段 thinking、文本、结构化数据和工具调用保持首次出现顺序。thinking 默认折叠，文本继续进行安全 Markdown 渲染；并行工具按首次调用位置建立单一卡片，执行结果返回后原位更新。工具参数和结果可展开查看，其中可能包含完整 Workflow 上下文和采集样例。`REPLY_*`、`MODEL_CALL_*`、`HINT_BLOCK` 等运行基础设施事件不会展示给用户。
+
+助手保持在右侧预览栏内。当前运行展示完整事件流，其他运行压缩为 Agent、状态、用户问题和回答摘要；选择历史运行后再读取完整事件。新事件仅在用户停留于时间线底部时自动跟随，向上阅读时显示“回到最新”入口。输入框和会话操作固定在底部，长表格、代码及工具详情只在各自内容区滚动，不得撑宽整个预览栏。
 
 ## 调试例提案
 

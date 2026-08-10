@@ -11,6 +11,7 @@ const props = defineProps<{
   step: WorkflowStep;
   draft: WorkflowDebugCaseDraft;
   disabled?: boolean;
+  sectionHeadings?: boolean;
 }>();
 const emit = defineEmits<{ change: [draft: WorkflowDebugCaseDraft] }>();
 const directTargets = computed(() => [...new Set(props.step.topology.map((transition) => transition.target.id))]
@@ -41,14 +42,19 @@ function setFixture(callId: string, fixture: DebugCollectionFixture | null): voi
 
 <template>
   <div class="workflow-debug-case-editor">
-    <div class="workflow-debug-case-basics">
-      <label class="field-label"><span>调试例名称</span><input :value="props.draft.name" :disabled="props.disabled" maxlength="160" @input="patch({ name: ($event.target as HTMLInputElement).value })" /></label>
-      <label class="field-label"><span>预期跳转节点</span><select :value="props.draft.expected_target_id" :disabled="props.disabled" @change="patch({ expected_target_id: ($event.target as HTMLSelectElement).value })"><option value="" disabled>请选择直接下游节点</option><option v-for="targetId in directTargets" :key="targetId" :value="targetId">{{ workflowDebugTargetName(props.bundle, targetId) }}</option></select></label>
-      <label class="field-label span-2"><span>说明</span><textarea rows="2" :value="props.draft.description" :disabled="props.disabled" placeholder="记录此调试例覆盖的场景（可选）" @input="patch({ description: ($event.target as HTMLTextAreaElement).value })" /></label>
-    </div>
+    <section class="workflow-debug-editor-section workflow-debug-basics-section">
+      <div v-if="props.sectionHeadings" class="workflow-debug-section-title">
+        <div><h3>基础信息</h3><p>定义候选名称、预期跳转节点和场景说明。</p></div>
+      </div>
+      <div class="workflow-debug-case-basics">
+        <label class="field-label"><span>调试例名称</span><input :value="props.draft.name" :disabled="props.disabled" maxlength="160" @input="patch({ name: ($event.target as HTMLInputElement).value })" /></label>
+        <label class="field-label"><span>预期跳转节点</span><select :value="props.draft.expected_target_id" :disabled="props.disabled" @change="patch({ expected_target_id: ($event.target as HTMLSelectElement).value })"><option value="" disabled>请选择直接下游节点</option><option v-for="targetId in directTargets" :key="targetId" :value="targetId">{{ workflowDebugTargetName(props.bundle, targetId) }}</option></select></label>
+        <label class="field-label span-2"><span>说明</span><textarea rows="2" :value="props.draft.description" :disabled="props.disabled" placeholder="记录此调试例覆盖的场景（可选）" @input="patch({ description: ($event.target as HTMLTextAreaElement).value })" /></label>
+      </div>
+    </section>
 
     <section class="workflow-debug-editor-section">
-      <div class="workflow-debug-section-title"><div><h3>全局输入</h3><p>只有勾选“提供”的键会进入调试请求；可显式提交 null。</p></div></div>
+      <div class="workflow-debug-section-title"><div><h3>全局输入 <span v-if="props.sectionHeadings">{{ props.bundle.workflow.inputs.length }} 项</span></h3><p>只有勾选“提供”的键会进入调试请求；可显式提交 null。</p></div></div>
       <div v-if="props.bundle.workflow.inputs.length" class="workflow-debug-value-list">
         <WorkflowDebugScalarField
           v-for="input in props.bundle.workflow.inputs"
@@ -67,7 +73,7 @@ function setFixture(callId: string, fixture: DebugCollectionFixture | null): voi
     </section>
 
     <section class="workflow-debug-editor-section">
-      <div class="workflow-debug-section-title"><div><h3>采集信息</h3><p>按当前步骤中的采集调用提供设备回显与结构化输出。</p></div></div>
+      <div class="workflow-debug-section-title"><div><h3>采集信息 <span v-if="props.sectionHeadings">{{ props.step.collectionCalls.length }} 项</span></h3><p>按当前步骤中的采集调用提供设备回显与结构化输出。</p></div></div>
       <div v-if="props.step.collectionCalls.length" class="workflow-debug-fixtures">
         <WorkflowDebugCollectionFixture
           v-for="call in props.step.collectionCalls"
