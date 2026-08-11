@@ -1,3 +1,4 @@
+from .export_schema import export_workflow_import_bundle
 from .formatter import format_workflow_document
 from .generators.catalog import (
     DEFAULT_WORKFLOW_SKILL_GENERATOR_ID,
@@ -42,6 +43,7 @@ __all__ = [
     "WorkflowSkillGeneratorDescriptor",
     "WorkflowSkillGeneratorRegistry",
     "WorkflowSkillGeneratorResult",
+    "export_workflow_import_bundle",
     "format_workflow_document",
     "generate_workflow_skill",
     "list_workflow_skill_generators",

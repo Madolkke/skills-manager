@@ -6,6 +6,7 @@ import UiButton from "../components/ui/UiButton.vue";
 import UiIconButton from "../components/ui/UiIconButton.vue";
 import WorkflowConfirmModal from "../features/workflow/components/WorkflowConfirmModal.vue";
 import WorkflowEditorContent from "../features/workflow/components/WorkflowEditorContent.vue";
+import WorkflowImportModal from "../features/workflow/components/WorkflowImportModal.vue";
 import WorkflowPreviewPanel from "../features/workflow/components/WorkflowPreviewPanel.vue";
 import WorkflowSidebar from "../features/workflow/components/WorkflowSidebar.vue";
 import WorkflowSyncModal from "../features/workflow/components/WorkflowSyncModal.vue";
@@ -17,7 +18,8 @@ import { useWorkflowLayout } from "../features/workflow/useWorkflowLayout";
 import { useWorkflowPersistence } from "../features/workflow/useWorkflowPersistence";
 import { useWorkflowSkillTags } from "../features/workflow/useWorkflowSkillTags";
 import { useWorkflowShortcuts } from "../features/workflow/useWorkflowShortcuts";
-import type { SkillDetail, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
+import { useWorkflowTransfer } from "../features/workflow/useWorkflowTransfer";
+import type { CollectionDefinition, SkillDetail, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
 
 type ConfirmAction = { type: "discard" } | { type: "step" | "conclusion" | "call"; id: string; stepId?: string };
 
@@ -29,6 +31,7 @@ const confirmAction = ref<ConfirmAction | null>(null);
 const confirmOpen = ref(false);
 const previewTab = ref<"graph" | "read" | "validation" | "agent">("graph");
 const editorPane = ref<HTMLElement | null>(null);
+const importFileInput = ref<HTMLInputElement | null>(null);
 const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
 const editor = useWorkflowEditor(() => readOnly.value);
 const layout = useWorkflowLayout();
@@ -47,6 +50,14 @@ const skillTags = useWorkflowSkillTags({
   refresh: () => emit("refresh"),
   toast: (toast) => emit("toast", toast),
 });
+const transfer = useWorkflowTransfer({
+  skillId: () => props.skill.skill.id,
+  skillSlug: () => props.skill.skill.slug,
+  dirty: () => editor.dirty.value,
+  readonly: () => readOnly.value,
+  imported: acceptImportedWorkflow,
+  toast: (toast) => emit("toast", toast),
+});
 
 const canCreateVersion = computed(() => Boolean(detail.value?.capabilities.permissions["skill.version.create"]));
 const errors = computed(() => editor.issues.value.filter((item) => item.severity === "error"));
@@ -62,6 +73,7 @@ onBeforeUnmount(() => {
 });
 watch(() => props.skill.skill.id, () => {
   layout.setGraphExpanded(false);
+  transfer.closeImport();
   void load();
 });
 watch(editor.dirty, (dirty) => emit("dirty", dirty), { immediate: true });
@@ -105,6 +117,23 @@ function showValidation(): void {
   layout.rightCollapsed.value = false;
 }
 
+function acceptImportedWorkflow(nextDetail: WorkflowDetail, definitions: CollectionDefinition[]): void {
+  detail.value = nextDetail;
+  editor.load(nextDetail, definitions);
+  editor.selection.value = { type: "metadata" };
+  emit("refresh");
+}
+
+function openImportPicker(): void {
+  importFileInput.value?.click();
+}
+
+async function selectImportFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  await transfer.selectFile(input.files);
+  input.value = "";
+}
+
 function requestDelete(type: "step" | "conclusion" | "call", id: string, stepId?: string): void {
   confirmAction.value = { type, id, stepId };
   confirmOpen.value = true;
@@ -136,7 +165,8 @@ function finishConfirmClose(): void {
 }
 
 function closeTransientUi(): void {
-  if (confirmOpen.value) confirmOpen.value = false;
+  if (transfer.candidate.value) transfer.closeImport();
+  else if (confirmOpen.value) confirmOpen.value = false;
   else if (syncOpen.value) syncOpen.value = false;
   else if (layout.graphExpanded.value) layout.setGraphExpanded(false);
   else if (editor.selection.value.type === "step" && editor.selection.value.itemId) editor.selection.value = { type: "step", id: editor.selection.value.id, section: editor.selection.value.section };
@@ -165,6 +195,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       :can-undo="editor.canUndo.value"
       :can-redo="editor.canRedo.value"
       :can-sync="canSync"
+      :transferring="transfer.importing.value || transfer.exporting.value"
       @back="emit('back')"
       @undo="editor.undo"
       @redo="editor.redo"
@@ -172,7 +203,10 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       @save="save"
       @sync="syncOpen = true"
       @validation="showValidation"
+      @export="transfer.exportWorkflow"
+      @import="openImportPicker"
     />
+    <input ref="importFileInput" hidden type="file" accept=".json,application/json" @change="selectImportFile">
 
     <Transition name="workflow-error-strip">
       <div v-if="actionError" class="workflow-action-error"><AlertTriangle :size="15" />{{ actionError }}<UiIconButton label="关闭错误" size="sm" variant="ghost" @click="actionError = ''"><X /></UiIconButton></div>
@@ -232,6 +266,15 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       @close="syncOpen = false; syncError = ''"
       @previewed="syncError = ''"
       @submit="sync"
+    />
+    <WorkflowImportModal
+      v-if="transfer.candidate.value"
+      :candidate="transfer.candidate.value"
+      :current-workflow-name="detail?.document.workflow.metadata.name ?? skill.skill.slug"
+      :busy="transfer.importing.value"
+      :error="transfer.importError.value"
+      @close="transfer.closeImport"
+      @confirm="transfer.confirmImport"
     />
     <WorkflowConfirmModal v-if="confirmAction" :open="confirmOpen" :title="confirmAction.type === 'discard' ? '放弃未保存修改' : '确认删除'" :description="confirmAction.type === 'discard' ? '当前 Workflow 的所有未保存修改都将丢失。' : confirmAction.type === 'step' || confirmAction.type === 'conclusion' ? '节点及指向它的路径将被删除，此操作可在保存前撤销。' : '当前采集调用将被删除；若它是待入库定义的最后引用，定义也会一并清理。'" :confirm-label="confirmAction.type === 'discard' ? '放弃修改' : '删除'" tone="danger" @close="confirmOpen = false" @closed="finishConfirmClose" @confirm="confirm" />
   </section>

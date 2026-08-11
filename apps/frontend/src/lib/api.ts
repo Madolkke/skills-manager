@@ -35,6 +35,8 @@ import type {
   WorkflowSyncPreviewPayload,
   WorkflowSyncResult,
   WorkflowLogSchemaCatalog,
+  WorkflowImportBundle,
+  WorkflowImportDetail,
 } from "../types";
 import { adminApi, type AdminGroup } from "./api/adminApi";
 import { evaluationApi } from "./api/evaluationApi";
@@ -67,6 +69,10 @@ function skillApi() {
     createWorkflowSkill: (payload: { slug: string; owner_ref: string; description: string; tags?: SkillTagPayload[] }) =>
       apiSend<{ skill_id: string; skill_version_id: string; workflow_id: string }>("/api/workflows", "POST", payload),
     getWorkflow: (skillId: string) => apiGet<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow`),
+    exportWorkflow: (skillId: string) =>
+      apiGet<WorkflowImportBundle>(`/api/skills/${encodeURIComponent(skillId)}/workflow/export`),
+    importWorkflow: (skillId: string, payload: unknown) =>
+      apiSend<WorkflowImportDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/import`, "POST", payload),
     saveWorkflow: (skillId: string, payload: { document: WorkflowDetail["document"]; collection_changes: WorkflowCollectionChange[] }) =>
       apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow`, "PUT", payload),
     updateWorkflowMetadata: (skillId: string, payload: WorkflowMetadata) =>

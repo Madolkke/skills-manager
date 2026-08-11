@@ -405,3 +405,11 @@ POST /api/skills/{skill_id}/workflow/import
 ```
 
 Import Bundle 不包含 Workflow/Collection 的持久化 ID 和 revision。详细格式、转换算法和 Agent 脚本骨架见 [workflow-import-agent-guide.md](workflow-import-agent-guide.md)。
+
+当前已保存 Workflow 也可以导出为同一种可移植格式：
+
+```http
+GET /api/skills/{skill_id}/workflow/export
+```
+
+导出只包含 `document.collectionSnapshots` 中被 Call 实际引用的精确版本，并将持久化引用改写为请求内 `localId`。导出文件不包含数据库身份、revision 历史、权限、Tags 或未引用的全局 Catalog 定义，因此适合跨实例迁移，不等同于数据库备份。编辑器存在未保存修改时，前端要求先保存再执行导入或导出。

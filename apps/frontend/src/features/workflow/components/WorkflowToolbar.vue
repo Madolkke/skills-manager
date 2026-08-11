@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertTriangle, ArrowLeft, Check, LockKeyhole, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-vue-next";
+import { AlertTriangle, ArrowLeft, Check, Download, LockKeyhole, Redo2, RefreshCw, RotateCcw, Save, Undo2, Upload } from "lucide-vue-next";
 import { computed } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
@@ -18,6 +18,7 @@ const props = defineProps<{
   canUndo: boolean;
   canRedo: boolean;
   canSync: boolean;
+  transferring?: boolean;
 }>();
 const emit = defineEmits<{
   back: [];
@@ -27,6 +28,8 @@ const emit = defineEmits<{
   save: [];
   sync: [];
   validation: [];
+  export: [];
+  import: [];
 }>();
 
 const lastSavedLabel = computed(() => {
@@ -66,6 +69,9 @@ const lastSavedLabel = computed(() => {
       <UiIconButton label="撤销" tooltip="撤销 (Ctrl+Z)" variant="ghost" :disabled="!props.canUndo" disabled-reason="暂无可撤销操作" @click="emit('undo')"><Undo2 /></UiIconButton>
       <UiIconButton label="重做" tooltip="重做 (Ctrl+Shift+Z)" variant="ghost" :disabled="!props.canRedo" disabled-reason="暂无可重做操作" @click="emit('redo')"><Redo2 /></UiIconButton>
       <UiIconButton label="放弃未保存修改" variant="ghost" :disabled="!props.dirty" disabled-reason="当前没有未保存修改" @click="emit('discard')"><RotateCcw /></UiIconButton>
+      <span class="workflow-toolbar-divider" />
+      <UiIconButton label="导出 Workflow" variant="ghost" :disabled="props.dirty || props.transferring" :disabled-reason="props.dirty ? '请先保存 Workflow' : '正在处理 Workflow 文件'" @click="emit('export')"><Download /></UiIconButton>
+      <UiIconButton label="导入 Workflow" variant="ghost" :disabled="props.readonly || props.dirty || props.transferring" :disabled-reason="props.readonly ? '只读模式无法导入' : props.dirty ? '请先保存 Workflow' : '正在处理 Workflow 文件'" @click="emit('import')"><Upload /></UiIconButton>
     </div>
 
     <div class="workflow-toolbar-actions workflow-toolbar-commands">

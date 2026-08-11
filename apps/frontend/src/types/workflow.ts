@@ -147,6 +147,17 @@ export type WorkflowBundle = {
   collectionSnapshots: CollectionDefinition[];
 };
 
+export type ImportCollectionDefinition = Omit<CollectionDefinition, "id" | "revision" | "forkedFrom"> & { localId: string };
+export type ImportCollectionCall = Omit<CollectionCall, "definition"> & { definitionLocalId: string };
+export type ImportWorkflowStep = Omit<WorkflowStep, "collectionCalls"> & { collectionCalls: ImportCollectionCall[] };
+export type WorkflowImportBundle = {
+  documentType: "workflow_import_bundle";
+  workflow: Omit<WorkflowBundle["workflow"], "id" | "revision" | "nodes"> & {
+    nodes: Array<ImportWorkflowStep | WorkflowConclusion>;
+  };
+  collections: ImportCollectionDefinition[];
+};
+
 export type WorkflowEditorSection = "overview" | "script" | "collections" | "paths";
 
 export type WorkflowSelection =
@@ -189,6 +200,12 @@ export type WorkflowDetail = {
   created_by: string;
   last_saved_by: string;
   capabilities: import("./skill").SkillCapabilities;
+};
+
+export type WorkflowImportDetail = WorkflowDetail & {
+  import_result: {
+    collection_mappings: Array<{ local_id: string; definition_id: string; revision: number }>;
+  };
 };
 
 export type WorkflowCollectionChange = { operation: "create" | "revise" | "fork"; definition: CollectionDefinition };

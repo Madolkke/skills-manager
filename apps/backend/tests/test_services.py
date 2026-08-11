@@ -969,3 +969,39 @@ def test_workflow_service_import_returns_detail_and_collection_mappings() -> Non
     assert result["revision"] == 2
     assert result["import_result"]["collection_mappings"][0]["definition_id"] == "collection_1"
     assert [name for name, _ in store.calls] == ["import_workflow_bundle", "workflow_detail"]
+
+
+def test_workflow_service_exports_the_saved_document() -> None:
+    class WorkflowExportStore:
+        def workflow_detail(self, **kwargs):
+            assert kwargs == {"skill_id": "skill_1", "actor": "viewer"}
+            return {
+                "document": {
+                    "documentType": "workflow_bundle",
+                    "workflow": {
+                        "id": "workflow_1",
+                        "revision": 2,
+                        "metadata": {
+                            "name": "Exported",
+                            "code": "",
+                            "description": "Portable workflow",
+                            "symptom": "",
+                            "industry": "",
+                            "device": "",
+                            "versions": [],
+                        },
+                        "inputs": [],
+                        "deviceRoles": [],
+                        "nodes": [],
+                    },
+                    "collectionSnapshots": [],
+                }
+            }
+
+    service = WorkflowService(WorkflowExportStore())  # type: ignore[arg-type]
+
+    result = service.export_workflow_bundle(skill_id="skill_1", actor="viewer")
+
+    assert result.document_type == "workflow_import_bundle"
+    assert result.workflow.metadata.name == "Exported"
+    assert result.collections == []

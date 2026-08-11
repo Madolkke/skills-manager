@@ -385,6 +385,48 @@ class WorkflowApiTest(ApiCommandTestCase):
         self.assertTrue(repeated_mappings.isdisjoint({item["definition_id"] for item in mappings.values()}))
         self.assertEqual(len(self.client.get(f"/api/skills/{skill_id}/workflow/collections").json()["definitions"]), 4)
 
+    def test_export_bundle_round_trips_to_another_workflow_for_a_viewer(self):
+        source = self._create_workflow("export-source")
+        source_detail = self.client.get(f"/api/skills/{source['skill_id']}/workflow").json()
+        definition = self._definition()
+        saved = self.client.put(
+            f"/api/skills/{source['skill_id']}/workflow",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json={
+                "document": self._valid_document(source_detail["document"], definition),
+                "collection_changes": [{"operation": "create", "definition": definition}],
+            },
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+
+        exported = self.client.get(
+            f"/api/skills/{source['skill_id']}/workflow/export",
+            headers={"X-SkillHub-Actor": "viewer"},
+        )
+        self.assertEqual(exported.status_code, 200, exported.text)
+        bundle = exported.json()
+        self.assertEqual(bundle["documentType"], "workflow_import_bundle")
+        self.assertNotIn("id", bundle["workflow"])
+        self.assertNotIn("revision", bundle["workflow"])
+        self.assertEqual(bundle["collections"][0]["localId"], "collection_1")
+        self.assertNotIn("id", bundle["collections"][0])
+        self.assertNotIn("revision", bundle["collections"][0])
+
+        target = self._create_workflow("export-target")
+        imported = self.client.post(
+            f"/api/skills/{target['skill_id']}/workflow/import",
+            headers={"X-SkillHub-Actor": "workflow-owner"},
+            json=bundle,
+        )
+        self.assertEqual(imported.status_code, 200, imported.text)
+        result = imported.json()
+        self.assertEqual(result["document"]["workflow"]["metadata"], saved.json()["document"]["workflow"]["metadata"])
+        self.assertEqual(result["document"]["collectionSnapshots"][0]["spec"], definition["spec"])
+        self.assertNotEqual(
+            result["document"]["workflow"]["nodes"][0]["collectionCalls"][0]["definition"]["id"],
+            definition["id"],
+        )
+
     def test_import_bundle_rejects_bad_references_permissions_and_rolls_back(self):
         created = self._create_workflow("invalid-import-workflow")
         skill_id = created["skill_id"]
