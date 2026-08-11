@@ -121,6 +121,54 @@
   min-width: 104px;
 }
 
+.workflow-import-body {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.workflow-import-file,
+.workflow-import-route,
+.workflow-import-summary,
+.workflow-import-summary > div {
+  display: flex;
+  align-items: center;
+}
+
+.workflow-import-file { gap: 12px; color: var(--wf-accent-strong); }
+.workflow-import-file div,
+.workflow-import-route div { min-width: 0; display: grid; gap: 2px; }
+.workflow-import-file strong,
+.workflow-import-route strong { overflow-wrap: anywhere; color: var(--wf-text); font-size: var(--wf-font-body); }
+.workflow-import-file span,
+.workflow-import-route span { color: var(--wf-text-muted); font-size: var(--wf-font-label); }
+
+.workflow-import-route {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-block: 1px solid var(--wf-line-soft);
+}
+.workflow-import-route > div { flex: 1; }
+.workflow-import-route > svg { flex: 0 0 auto; color: var(--wf-text-muted); }
+
+.workflow-import-summary { gap: 10px; margin: 0; }
+.workflow-import-summary > div {
+  min-width: 0;
+  flex: 1;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--wf-border-subtle);
+  border-radius: var(--wf-radius-md);
+  background: var(--wf-surface-subtle);
+}
+.workflow-import-summary dt { display: inline-flex; align-items: center; gap: 6px; color: var(--wf-text-secondary); font-size: var(--wf-font-label); }
+.workflow-import-summary dd { margin: 0; color: var(--wf-text); font-weight: 750; font-variant-numeric: tabular-nums; }
+.workflow-import-warning { padding: 12px 14px; border-left: 3px solid var(--wf-warning); background: var(--wf-warning-soft); color: var(--wf-text-secondary); font-size: var(--wf-font-body); line-height: 1.55; }
+.workflow-import-actions { margin: 0; }
+.workflow-import-actions .ui-button { min-width: 104px; }
+
 @media (max-width: 560px) {
   .workflow-confirm-content {
     gap: 18px;
@@ -142,4 +190,9 @@
     min-width: 0;
     width: 100%;
   }
+
+  .workflow-import-body { padding: 18px; }
+  .workflow-import-route { align-items: flex-start; }
+  .workflow-import-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workflow-import-summary > div { display: grid; justify-items: start; }
 }

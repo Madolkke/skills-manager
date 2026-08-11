@@ -60,6 +60,28 @@ describe("Workflow UI state", () => {
     expect(save.attributes("aria-disabled")).toBe("true");
     await save.trigger("click");
     expect(wrapper.emitted("save")).toBeUndefined();
+    const importButton = wrapper.get('[aria-label="导入 Workflow"]');
+    const exportButton = wrapper.get('[aria-label="导出 Workflow"]');
+    expect(importButton.attributes("data-disabled")).toBe("true");
+    expect(exportButton.attributes("data-disabled")).toBe("true");
+  });
+
+  it("exposes import and export only for a clean editable Workflow", async () => {
+    const wrapper = mount(WorkflowToolbar, {
+      props: {
+        title: "Portable workflow", dirty: false, readonly: false, saveState: "idle", syncing: false,
+        issueCount: 0, canUndo: false, canRedo: false, canSync: false,
+      },
+    });
+
+    await wrapper.get('[aria-label="导出 Workflow"]').trigger("click");
+    await wrapper.get('[aria-label="导入 Workflow"]').trigger("click");
+    expect(wrapper.emitted("export")).toHaveLength(1);
+    expect(wrapper.emitted("import")).toHaveLength(1);
+
+    await wrapper.setProps({ dirty: true });
+    expect(wrapper.get('[aria-label="导出 Workflow"]').attributes("data-disabled")).toBe("true");
+    expect(wrapper.get('[aria-label="导入 Workflow"]').attributes("data-disabled")).toBe("true");
   });
 
   it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {

@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import Body, Depends, FastAPI
 
+from skillhub.models.rules.workflows import WorkflowImportBundle
 from skillhub.services import WorkflowService
 from skillhub.views.auth import ActorContext, actor_dependency
 from skillhub.views.dependencies import workflow_service_dependency
@@ -99,6 +100,18 @@ def register_workflow_routes(app: FastAPI) -> None:
         service: WorkflowService = Depends(workflow_service_dependency),
     ) -> dict[str, Any]:
         return result_payload(service.formatted_workflow(skill_id=skill_id, actor=actor.id))
+
+    @app.get(
+        "/api/skills/{skill_id}/workflow/export",
+        response_model=WorkflowImportBundle,
+        response_model_by_alias=True,
+    )
+    def export_workflow_bundle(
+        skill_id: str,
+        actor: ActorContext = Depends(actor_dependency),
+        service: WorkflowService = Depends(workflow_service_dependency),
+    ) -> WorkflowImportBundle:
+        return service.export_workflow_bundle(skill_id=skill_id, actor=actor.id)
 
     @app.put("/api/skills/{skill_id}/workflow")
     def save_workflow(

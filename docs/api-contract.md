@@ -165,6 +165,7 @@
 | `POST /api/workflows` | 原子创建 Workflow Skill、`0.0.1` 空白版本、Primary EvalSet、角色、Tag 和 Workflow revision 1。 |
 | `PUT /api/skills/{skill_id}/workflow` | 显式保存 Workflow 文档和本次 CollectionChanges。 |
 | `POST /api/skills/{skill_id}/workflow/import` | 使用专用 Import Bundle 覆盖 Workflow，并为全部导入 Collection 创建独立身份。 |
+| `GET /api/skills/{skill_id}/workflow/export` | 将当前已保存 Workflow 导出为可移植 Import Bundle。 |
 | `PATCH /api/skills/{skill_id}/workflow/metadata` | 显式保存 Workflow 元信息。 |
 | `GET /api/workflow-skill-generators` | 返回内置 Generator descriptor 和服务端默认项。 |
 | `POST /api/skills/{skill_id}/workflow/sync-preview` | 无写入地生成 Bundle、当前版本文本 diff、预计动作和确认摘要。 |
@@ -284,7 +285,9 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 - 日志 Collection 的输入/输出只允许 `string`、`integer`、`number`、`boolean`；每个输出必须且只能归属一条查询，SQL 顶层 alias 必须与输出 Key 一致。日志调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。SQL AST 错误属于领域 `error`，允许保存草稿但阻止同步。
 - 配置匹配 Collection 使用 `config.commands` 命令树和单行尖括号模式；命令/捕获名、捕获 Schema、同级重复及跨调用根命名冲突属于领域 `error`。配置调用固定 `sampleCount = 1`，可按设备角色隔离上下文；结果通过 `config` 表达式根访问。当前 executor 投影对 Config 返回 `executor_workflow.unsupported_collection_type`。
 
-`POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口不幂等，重复提交会创建新的 Workflow revision 和 Collection。
+`GET /api/skills/{skill_id}/workflow/export` 返回严格的 `WorkflowImportBundle`。接口读取当前服务端已保存 revision，按 Call 首次出现顺序导出实际引用的 Collection 精确版本，并使用确定性的 `collection_1`、`collection_2` 等 `localId` 重写引用。响应不包含 Workflow/Collection 持久化 ID、revision、`forkedFrom`、权限或版本历史，也不包含未引用的全局 Catalog 定义。该文件是跨实例可移植快照，不是数据库备份。
+
+`POST /api/skills/{skill_id}/workflow/import` 直接接收 `documentType: "workflow_import_bundle"`。导入 Workflow 不包含持久化 ID/revision；Collection 使用请求内 `localId`，Call 使用 `definitionLocalId`。服务端为每个导入定义生成新 ID 和 revision 1，并返回 `import_result.collection_mappings`。接口要求 `skill.edit` 且不幂等，重复提交会创建新的 Workflow revision 和 Collection；结构或引用失败时整个事务回滚。
 
 `GET /api/workflow-skill-generators` 返回固定内置目录：
 

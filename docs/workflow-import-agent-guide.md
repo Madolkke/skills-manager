@@ -4,6 +4,17 @@
 
 持久化 Workflow 的完整字段语义见 [workflow-schema.md](workflow-schema.md)。本指南描述 schema v5 的转换和导入专用格式；v3/v4 文档可由服务端兼容读取，v2 的步骤输入、`step_input` Binding 和 Collection 输出 `name` 均不能导入。
 
+## 手动导出
+
+当前已保存的 Workflow 可以直接导出为本指南定义的 Import Bundle：
+
+```http
+GET /api/skills/{skill_id}/workflow/export
+X-SkillHub-Actor: <actor>
+```
+
+导出按 Call 首次出现顺序收集实际引用的 Collection 精确版本，生成 `collection_1`、`collection_2` 等本地身份，并重写 `definitionLocalId`。未引用的 Catalog 定义、持久化 ID/revision、`forkedFrom`、权限和版本历史不会进入文件。导出的 JSON 可直接提交给导入接口；它是可移植快照，不是数据库备份。
+
 ## 1. 导入接口
 
 ```http

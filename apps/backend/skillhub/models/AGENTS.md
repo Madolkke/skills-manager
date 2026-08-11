@@ -26,6 +26,7 @@
 - `operations/shared/jobs.py`：跨领域复用的 Job 入队和状态更新辅助。
 - `operations/reviews/helpers.py`：上述评审辅助能力的兼容组合入口。
 - `rules/workflows/`：Workflow/Collection 严格结构、文档格式迁移、领域校验和确定性 Skill 转换。
+- `rules/workflows/export_schema.py`：将已保存 Workflow 及其引用的 Collection 快照转换为可移植 Import Bundle。
 - `rules/workflows/log_schema.py`：固定 v5 `logs`/`params` 列目录及只读 catalog。
 - `rules/workflows/log_sql.py`：DuckDB SQLGlot AST 来源、列引用和输出 alias 静态校验，不执行 SQL。
 - `rules/workflows/config_pattern.py`：配置匹配 Collection 的尖括号模板解析、转义和 Python 标识符校验。

@@ -17,6 +17,17 @@ def test_workflow_import_accepts_json_request_body():
     assert all(item["name"] != "payload" for item in operation.get("parameters", []))
 
 
+def test_workflow_export_has_strict_portable_bundle_response() -> None:
+    app = FastAPI()
+    register_workflow_routes(app)
+
+    operation = app.openapi()["paths"]["/api/skills/{skill_id}/workflow/export"]["get"]
+
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/WorkflowImportBundle"
+    }
+
+
 def test_expression_routes_expose_validation_without_evaluation():
     app = FastAPI()
     register_workflow_routes(app)

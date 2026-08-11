@@ -9,6 +9,8 @@ from skillhub.models.entities import new_id
 from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.models.rules.workflows import (
+    WorkflowImportBundle,
+    export_workflow_import_bundle,
     format_workflow_document,
     normalize_workflow_document,
     normalize_workflow_import_bundle,
@@ -92,6 +94,11 @@ class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
     def formatted_workflow(self, *, skill_id: str, actor: str) -> dict[str, Any]:
         detail = self.store.workflow_detail(skill_id=skill_id, actor=actor)
         return format_workflow_document(detail["document"])
+
+    def export_workflow_bundle(self, *, skill_id: str, actor: str) -> WorkflowImportBundle:
+        """Export the current saved Workflow as a portable import bundle."""
+        detail = self.store.workflow_detail(skill_id=skill_id, actor=actor)
+        return export_workflow_import_bundle(detail["document"])
 
     def list_collections(self, *, skill_id: str, actor: str) -> dict[str, Any]:
         return {"definitions": self.store.list_workflow_collections(skill_id=skill_id, actor=actor)}
