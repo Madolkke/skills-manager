@@ -15,6 +15,7 @@ export type WorkflowExpressionVariable = {
   aliases: string[];
   schema?: WorkflowJsonSchema;
   sampleCount?: number;
+  indexable?: boolean;
 };
 
 export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId: string): WorkflowExpressionVariable[] {
@@ -126,7 +127,7 @@ function appendSchemaVariables(
   value: Omit<WorkflowExpressionVariable, "dataType"> & { schema: WorkflowJsonSchema },
 ): void {
   const { schema, ...base } = value;
-  variables.push({ ...base, dataType: workflowSchemaSummary(schema) });
+  variables.push({ ...base, dataType: workflowSchemaSummary(schema), indexable: schema.type === "array" });
   if (schema.type === "object") {
     Object.entries(schema.properties).forEach(([key, child]) => {
       if (!isWorkflowExpressionIdentifier(key)) return;
@@ -156,7 +157,7 @@ function configCommandSchema(command: WorkflowConfigCommand): WorkflowExpression
 }
 
 function appendConfigVariables(variables: WorkflowExpressionVariable[], key: string, schema: WorkflowExpressionSchema, reference = `config.${key}`): void {
-  variables.push({ id: `config:${reference}`, reference, kind: "config", name: schema.title || key, dataType: expressionSchemaSummary(schema), source: "配置匹配", aliases: [key] });
+  variables.push({ id: `config:${reference}`, reference, kind: "config", name: schema.title || key, dataType: expressionSchemaSummary(schema), source: "配置匹配", aliases: [key], indexable: schema.type === "array" });
   const properties = schema.properties ?? {};
   Object.entries(properties).forEach(([childKey, child]) => {
     if (!isWorkflowExpressionIdentifier(childKey)) return;
