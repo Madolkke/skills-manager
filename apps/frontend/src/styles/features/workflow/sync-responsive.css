@@ -2,7 +2,7 @@
   .workflow-sync-shell { height: min(820px, calc(100vh - 80px)); overflow-y: auto; }
   .workflow-sync-layout {
     grid-template-columns: 1fr;
-    overflow: visible;
+    overflow: auto;
   }
 
   .workflow-sync-sidebar {

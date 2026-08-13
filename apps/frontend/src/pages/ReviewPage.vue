@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { Copy } from "lucide-vue-next";
 import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
 import { reviewManageReason } from "../lib/disabledReasons";
 import { humanDate } from "../lib/format";
+import { reviewShareUrl } from "../lib/navigation";
 import { buildReviewerSources, reviewerSourceText, selectedReviewerCount } from "../lib/reviewerSelection";
 import type { PublishTarget, ReviewerCandidateOverview, ReviewRequest, SkillDetail, ToastState } from "../types";
 import ReviewLaunchPanel from "./review/ReviewLaunchPanel.vue";
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = defineProps<{ skill: SkillDetail; selectedReviewId: string | null }>();
 const emit = defineEmits<{ toast: [toast: ToastState]; refresh: [] }>();
 
 const loading = ref(false);
@@ -38,6 +40,7 @@ const reviewerGroups = computed(() => reviewerCandidates.value?.groups ?? []);
 const explicitReviewerCount = computed(() => selectedReviewerCount(selectedReviewerGroupIds.value, directReviewerInput.value, reviewerCandidates.value));
 
 onMounted(() => void load());
+watch(() => props.selectedReviewId, () => void focusSelectedReview());
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -50,10 +53,30 @@ async function load(): Promise<void> {
     reviews.value = nextReviews;
     targets.value = publish.publish_targets.filter((target) => target.enabled);
     reviewerCandidates.value = candidates;
+    await nextTick();
+    await focusSelectedReview();
+    if (props.selectedReviewId && !nextReviews.some((review) => review.id === props.selectedReviewId)) {
+      emit("toast", { tone: "info", message: "评审链接对应的记录不存在或当前不可访问。" });
+    }
   } catch (error) {
     showError(error);
   } finally {
     loading.value = false;
+  }
+}
+
+async function focusSelectedReview(): Promise<void> {
+  if (!props.selectedReviewId) return;
+  await nextTick();
+  document.getElementById(`review-${props.selectedReviewId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function copyReviewLink(review: ReviewRequest): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(reviewShareUrl(props.skill.skill.id, review.id));
+    emit("toast", { tone: "success", message: "评审链接已复制。" });
+  } catch {
+    emit("toast", { tone: "danger", message: "复制评审链接失败，请检查浏览器权限。" });
   }
 }
 
@@ -204,14 +227,22 @@ function showError(error: unknown): void {
         </div>
 
         <div class="review-record-list">
-          <article v-for="review in orderedReviews" :key="review.id" class="review-record-card">
+          <article
+            v-for="review in orderedReviews"
+            :id="`review-${review.id}`"
+            :key="review.id"
+            :class="['review-record-card', { 'review-record-card-target': review.id === selectedReviewId }]"
+          >
             <div class="review-record-card-head">
               <div>
                 <span class="review-record-version">版本 {{ review.skill_version.version }}</span>
                 <h3>{{ reviewStatusText(review) }}</h3>
                 <p>发起 {{ humanDate(review.created_at) }} · 发起人 {{ review.created_by }}</p>
               </div>
-              <span :class="['tag-chip', review.status === 'open' ? '' : 'muted']">{{ reviewStatusText(review) }}</span>
+              <div class="review-record-card-tools">
+                <button class="icon-button compact-button" type="button" :aria-label="`复制${reviewStatusText(review)}评审链接`" title="复制评审链接" @click="copyReviewLink(review)"><Copy :size="15" /></button>
+                <span :class="['tag-chip', review.status === 'open' ? '' : 'muted']">{{ reviewStatusText(review) }}</span>
+              </div>
             </div>
 
             <div class="review-record-metrics">

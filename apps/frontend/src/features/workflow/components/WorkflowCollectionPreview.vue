@@ -6,6 +6,7 @@ import type { CollectionDefinition, WorkflowBundle } from "../../../types";
 import { findCollection, workflowSteps } from "../domain/utils";
 
 const props = defineProps<{ bundle: WorkflowBundle; catalog: CollectionDefinition[] }>();
+const emit = defineEmits<{ toast: [message: string, tone?: "success" | "error"] }>();
 const copied = ref("");
 let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -26,10 +27,15 @@ const commands = computed(() => {
 
 async function copy(value: string, key: string): Promise<void> {
   if (!value) return;
-  await navigator.clipboard.writeText(value);
-  copied.value = key;
-  if (copiedTimer) clearTimeout(copiedTimer);
-  copiedTimer = setTimeout(() => { copied.value = ""; }, 1200);
+  try {
+    await navigator.clipboard.writeText(value);
+    copied.value = key;
+    emit("toast", "命令已复制到剪贴板。", "success");
+    if (copiedTimer) clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => { copied.value = ""; }, 1200);
+  } catch {
+    emit("toast", "复制失败，请检查浏览器剪贴板权限。", "error");
+  }
 }
 </script>
 

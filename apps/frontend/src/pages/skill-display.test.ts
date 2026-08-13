@@ -6,7 +6,7 @@ import DropdownSelect from "../components/DropdownSelect.vue";
 import TaskCenterPanel from "../components/TaskCenterPanel.vue";
 import Tabs from "../components/Tabs.vue";
 import { api } from "../lib/api";
-import { readRoute, replaceRoute } from "../lib/navigation";
+import { readRoute, replaceRoute, reviewShareUrl } from "../lib/navigation";
 import type { SkillDetail, SkillRecord, SkillSummary, SkillVersion } from "../types";
 import HubPage from "./HubPage.vue";
 import OverviewPage from "./OverviewPage.vue";
@@ -72,6 +72,27 @@ describe("Skill display copy", () => {
 
     card.unmount();
     overview.unmount();
+  });
+
+  it("shows current-version review and publish status badges", () => {
+    const detail = skillDetail("Review authorization boundaries.");
+    const item = skillSummary(detail);
+    item.summary.review_status = "open";
+    item.summary.publish_status = "released";
+
+    const card = mount(HubSkillCard, { props: { item } });
+
+    expect(card.text()).toContain("评审中");
+    expect(card.text()).toContain("已发布");
+    expect(card.get('[aria-label="评审状态：评审中"]').text()).toBe("评审中");
+    expect(card.get('[aria-label="发布状态：已发布"]').text()).toBe("已发布");
+  });
+
+  it("preserves a selected review in share links and routes", () => {
+    window.history.replaceState({}, "", "/skills?section=skills&skill=skill-1&tab=reviews&review=review-9");
+
+    expect(readRoute()).toMatchObject({ tab: "reviews", selectedReviewId: "review-9" });
+    expect(reviewShareUrl("skill-1", "review-9")).toContain("section=skills&skill=skill-1&tab=reviews&review=review-9");
   });
 
   it("labels the history tab as evaluation history", () => {

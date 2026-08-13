@@ -12,6 +12,7 @@ export type RouteState = {
   selectedEvalSetId: string | null;
   selectedVersionId: string | null;
   selectedRunId: string | null;
+  selectedReviewId?: string | null;
 };
 
 /**
@@ -88,6 +89,7 @@ export function readRoute(evaluationsVisible = appFeatures.evaluationsVisible): 
     selectedEvalSetId: url.searchParams.get("evalSet"),
     selectedVersionId: url.searchParams.get("version"),
     selectedRunId: url.searchParams.get("run"),
+    ...(url.searchParams.get("review") ? { selectedReviewId: url.searchParams.get("review") } : {}),
   }, evaluationsVisible);
 }
 
@@ -99,6 +101,18 @@ export function writeRoute(next: Partial<RouteState>, evaluationsVisible = appFe
 
 export function replaceRoute(route: RouteState, evaluationsVisible = appFeatures.evaluationsVisible): RouteState {
   return updateBrowserRoute(normalizeRouteForFeatures(route, evaluationsVisible), "replace");
+}
+
+/** Builds an absolute, identity-preserving link without changing the active route. */
+export function reviewShareUrl(skillId: string, reviewId: string): string {
+  const url = new URL(window.location.href);
+  url.pathname = withAppBase("/skills");
+  url.search = "";
+  url.searchParams.set("section", "skills");
+  url.searchParams.set("skill", skillId);
+  url.searchParams.set("tab", "reviews");
+  url.searchParams.set("review", reviewId);
+  return url.toString();
 }
 
 export function normalizeRouteForFeatures(route: RouteState, evaluationsVisible: boolean): RouteState {
@@ -145,6 +159,7 @@ function updateBrowserRoute(route: RouteState, mode: "push" | "replace"): RouteS
   if (route.selectedCaseId) url.searchParams.set("case", route.selectedCaseId);
   if (route.selectedVersionId) url.searchParams.set("version", route.selectedVersionId);
   if (route.selectedRunId) url.searchParams.set("run", route.selectedRunId);
+  if (route.tab === "reviews" && route.selectedReviewId) url.searchParams.set("review", route.selectedReviewId);
   writeHistory(mode, route, url);
   return route;
 }

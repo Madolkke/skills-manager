@@ -149,7 +149,7 @@ function openSkill(skillId: string): void {
 }
 
 function setTab(tab: SkillTab): void {
-  navigate({ section: "skills", tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null });
+  navigate({ section: "skills", tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null, selectedReviewId: null });
 }
 
 function goHome(): void {
@@ -178,7 +178,7 @@ function handleIdentityChanged(nextActor: string): void {
 function handleSkillCreated(skillId: string): void {
   newSkillOpen.value = false;
   toast.value = { tone: "success", message: "Skill 已创建。" };
-  navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null });
+  navigate({ section: "skills", skillId, tab: "overview", selectedCaseId: null, selectedEvalSetId: null, selectedRunId: null, selectedVersionId: null, selectedReviewId: null });
 }
 
 function handleSkillDeleted(): void {

@@ -19,6 +19,9 @@ class ListReadModelMixin:
             skill_ids = [str(row["id"]) for row in rows]
             tags = self._list_skill_tags(connection, skill_ids)
             versions = self._list_current_versions(connection, rows)
+            current_version_ids = [str(row["current_version_id"]) for row in rows if row["current_version_id"]]
+            review_statuses = self._list_review_statuses(connection, current_version_ids)
+            publish_statuses = self._list_publish_statuses(connection, current_version_ids)
             eval_sets = self._list_primary_eval_sets(connection, skill_ids)
             latest_runs = self._list_latest_eval_runs(connection, versions, eval_sets)
             workflows = self._list_workflow_summaries(connection, rows)
@@ -30,6 +33,8 @@ class ListReadModelMixin:
                         "current_version": versions.get(str(row["current_version_id"])),
                         "primary_eval_set": eval_sets.get(str(row["id"])),
                         "latest_accepted_eval_run": latest_runs.get(str(row["id"])),
+                        "review_status": review_statuses.get(str(row["current_version_id"]), "unreviewed"),
+                        "publish_status": publish_statuses.get(str(row["current_version_id"]), "unpublished"),
                     },
                     "workflow": workflows.get(str(row["id"])),
                 }
@@ -51,7 +56,13 @@ class ListReadModelMixin:
                 (orm.TagValue.tag_group_id == orm.SkillTag.tag_group_id) & (orm.TagValue.value == orm.SkillTag.tag_value),
             )
             .where(orm.SkillTag.skill_id.in_(skill_ids))
-            .order_by(orm.TagGroup.sort_order, orm.SkillTag.tag_group_id, orm.TagValue.sort_order, orm.SkillTag.tag_value)
+            .order_by(
+                orm.TagGroup.sort_order,
+                orm.TagGroup.display_name,
+                orm.TagGroup.id,
+                orm.TagValue.sort_order,
+                orm.SkillTag.tag_value,
+            )
         ).mappings().all()
         if not rows:
             return {}
@@ -127,6 +138,48 @@ class ListReadModelMixin:
                     detail["bundle_files"] = self._bundle_files_from_artifact(artifact)
             result[str(row["id"])] = detail
         return result
+
+    def _list_review_statuses(self, connection, version_ids: list[str]) -> dict[str, str]:
+        if not version_ids:
+            return {}
+        rows = connection.execute(
+            orm.select_entity(orm.ReviewRequest)
+            .where(orm.ReviewRequest.skill_version_id.in_(version_ids))
+            .order_by(desc(orm.ReviewRequest.created_at), desc(orm.ReviewRequest.id))
+        ).mappings().all()
+        result: dict[str, str] = {}
+        for row in rows:
+            version_id = str(row["skill_version_id"])
+            result.setdefault(version_id, str(row["status"]))
+        return result
+
+    def _list_publish_statuses(self, connection, version_ids: list[str]) -> dict[str, str]:
+        if not version_ids:
+            return {}
+        rows = connection.execute(
+            orm.select_entity(orm.PublishRecord).where(orm.PublishRecord.skill_version_id.in_(version_ids))
+        ).mappings().all()
+        statuses_by_version: dict[str, set[str]] = defaultdict(set)
+        for row in rows:
+            statuses_by_version[str(row["skill_version_id"])].add(str(row["status"]))
+        return {
+            version_id: self._publish_status(statuses)
+            for version_id, statuses in statuses_by_version.items()
+        }
+
+    @staticmethod
+    def _publish_status(statuses: set[str]) -> str:
+        if "released" in statuses:
+            return "released"
+        if "releasing" in statuses:
+            return "releasing"
+        if statuses & {"pending_confirmation", "queued"}:
+            return "pending"
+        if "failed" in statuses:
+            return "failed"
+        if "cancelled" in statuses:
+            return "cancelled"
+        return "unpublished"
 
     def _list_primary_eval_sets(self, connection, skill_ids: list[str]) -> dict[str, dict[str, Any]]:
         rows = connection.execute(

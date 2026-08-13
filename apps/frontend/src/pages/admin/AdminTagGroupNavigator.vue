@@ -36,7 +36,7 @@ const visibleOptions = computed(() => {
       >
         <strong>{{ option.group.display_name }}</strong>
         <span>{{ option.path }}</span>
-        <small>{{ option.group.id }}<template v-if="!option.valid"> · 路径失效</template></small>
+        <small>{{ option.group.id }} · 排序 {{ option.group.sort_order }}<template v-if="!option.valid"> · 路径失效</template></small>
         <AlertTriangle v-if="!option.valid" :size="15" class="warning-icon" />
       </button>
       <p v-if="!visibleOptions.length" class="field-help">没有匹配的 Tag Group。</p>

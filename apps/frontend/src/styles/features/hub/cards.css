@@ -136,6 +136,26 @@
   white-space: nowrap;
 }
 
+.skill-state-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px;
+  border: 1px solid var(--soft-line);
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.skill-state-badge.review-open,
+.skill-state-badge.publish-releasing { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.skill-state-badge.review-closed,
+.skill-state-badge.publish-released { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.skill-state-badge.publish-pending { border-color: #fde68a; background: #fffbeb; color: #a16207; }
+.skill-state-badge.publish-failed { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+
 .card-body h3 {
   font-size: 21px;
   line-height: 1.2;

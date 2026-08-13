@@ -100,6 +100,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(310px, 360px);
+  overflow: hidden;
 }
 
 .workflow-sync-preview-region {
@@ -107,6 +108,7 @@
   min-height: 0;
   padding: 20px;
   background: var(--wf-canvas);
+  overflow: hidden;
 }
 
 .workflow-skill-preview {

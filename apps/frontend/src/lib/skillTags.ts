@@ -17,7 +17,7 @@ export function tagKey(tag: SkillTag | SkillTagPayload): string {
 }
 
 export function sortTagGroupsForPicker(groups: TagGroup[]): TagGroup[] {
-  return [...groups].sort((a, b) => Number(b.required) - Number(a.required) || a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name));
+  return [...groups].sort((a, b) => a.sort_order - b.sort_order || a.display_name.localeCompare(b.display_name) || a.id.localeCompare(b.id));
 }
 
 export function missingRequiredTagGroups(tags: SkillTagPayload[], groups: TagGroup[]): TagGroup[] {

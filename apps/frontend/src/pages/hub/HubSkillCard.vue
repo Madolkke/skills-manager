@@ -14,6 +14,24 @@ const visibleTags = computed(() => activeTags.value.slice(0, 3));
 const hiddenTags = computed(() => activeTags.value.slice(3));
 const hiddenTagTitle = computed(() => hiddenTags.value.map((tag) => tagLabel(tag)).join("、"));
 const secondaryName = computed(() => skillSecondaryName(props.item.skill));
+const reviewStatus = computed(() => reviewStatusMeta(props.item.summary.review_status));
+const publishStatus = computed(() => publishStatusMeta(props.item.summary.publish_status));
+
+function reviewStatusMeta(status: SkillSummary["summary"]["review_status"] | undefined): { label: string; tone: string } {
+  if (status === "open") return { label: "评审中", tone: "review-open" };
+  if (status === "closed") return { label: "已评审", tone: "review-closed" };
+  if (status === "cancelled") return { label: "评审已取消", tone: "review-cancelled" };
+  return { label: "未评审", tone: "review-unreviewed" };
+}
+
+function publishStatusMeta(status: SkillSummary["summary"]["publish_status"] | undefined): { label: string; tone: string } {
+  if (status === "released") return { label: "已发布", tone: "publish-released" };
+  if (status === "releasing") return { label: "发布中", tone: "publish-releasing" };
+  if (status === "pending") return { label: "待确认发布", tone: "publish-pending" };
+  if (status === "failed") return { label: "发布失败", tone: "publish-failed" };
+  if (status === "cancelled") return { label: "发布已取消", tone: "publish-cancelled" };
+  return { label: "未发布", tone: "publish-unpublished" };
+}
 </script>
 
 <template>
@@ -31,6 +49,8 @@ const secondaryName = computed(() => skillSecondaryName(props.item.skill));
               <small v-if="secondaryName">{{ secondaryName }}</small>
             </span>
             <span v-if="item.workflow" class="workflow-skill-badge"><Workflow :size="12" />Workflow</span>
+            <span :class="['skill-state-badge', reviewStatus.tone]" :aria-label="`评审状态：${reviewStatus.label}`">{{ reviewStatus.label }}</span>
+            <span :class="['skill-state-badge', publishStatus.tone]" :aria-label="`发布状态：${publishStatus.label}`">{{ publishStatus.label }}</span>
           </div>
         </div>
         <p>{{ compactText(item.summary.current_version?.description, "尚未填写 Skill 描述。") }}</p>

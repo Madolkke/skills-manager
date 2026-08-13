@@ -74,7 +74,7 @@ class AdminTagGroupPayload(BaseModel):
     id: TagGroupId
     display_name: Annotated[str, Field(min_length=1, max_length=120)]
     description: Annotated[str, Field(max_length=1000)] = ""
-    sort_order: int = 0
+    sort_order: Annotated[int, Field(strict=True)] = 0
     required: bool = False
     free_form: bool = False
 
@@ -82,7 +82,7 @@ class AdminTagGroupPayload(BaseModel):
 class AdminTagGroupUpdatePayload(BaseModel):
     display_name: Annotated[str, Field(min_length=1, max_length=120)]
     description: Annotated[str, Field(max_length=1000)] = ""
-    sort_order: int = 0
+    sort_order: Annotated[int, Field(strict=True)] = 0
     required: bool = False
     free_form: bool = False
 
@@ -91,7 +91,7 @@ class AdminTagValuePayload(BaseModel):
     value: TagValue
     display_name: Annotated[str, Field(max_length=120)] | None = None
     description: Annotated[str, Field(max_length=1000)] = ""
-    sort_order: int = 0
+    sort_order: Annotated[int, Field(strict=True)] = 0
 
 
 class AdminTagCascadePayload(BaseModel):

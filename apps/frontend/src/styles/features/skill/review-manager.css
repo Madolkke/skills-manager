@@ -196,6 +196,17 @@
   box-shadow: var(--shadow-soft);
 }
 
+.review-record-card-target {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 12%);
+}
+
+.review-record-card-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .review-record-card-head {
   display: flex;
   justify-content: space-between;

@@ -370,7 +370,7 @@ describe("skill evidence helpers", () => {
       { id: "risk", display_name: "风险等级", description: "", sort_order: 2, required: true, values: [{ tag_group_id: "risk", value: "high", description: "", sort_order: 0 }] },
     ] as never;
 
-    expect(sortTagGroupsForPicker(groups).map((group) => group.id)).toEqual(["risk", "domain", "team"]);
+    expect(sortTagGroupsForPicker(groups).map((group) => group.id)).toEqual(["team", "risk", "domain"]);
     expect(missingRequiredTagGroups([{ group_id: "domain", value: "api" }], groups).map((group) => group.id)).toEqual(["risk"]);
     expect(requiredTagMissingMessage([], groups)).toBe("请为必选 Tag Group 选择 Tag：风险等级、业务领域");
     expect(requiredTagMissingMessage([{ group_id: "domain", value: "api" }, { group_id: "risk", value: "high" }], groups)).toBe("");

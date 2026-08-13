@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 class TagCatalogMixin(TagCatalogHelperMixin):
     def list_tag_groups(self) -> list[dict[str, Any]]:
         with self._read_session() as connection:
-            rows = connection.execute(orm.select_entity(orm.TagGroup).order_by(orm.TagGroup.sort_order, orm.TagGroup.id)).mappings().all()
+            rows = connection.execute(
+                orm.select_entity(orm.TagGroup).order_by(orm.TagGroup.sort_order, orm.TagGroup.display_name, orm.TagGroup.id)
+            ).mappings().all()
             return [self._tag_group_payload(connection, row) for row in rows]
 
     def create_tag_group(

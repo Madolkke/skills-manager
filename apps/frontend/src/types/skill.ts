@@ -127,6 +127,8 @@ export type SkillSummary = {
     current_version: SkillVersion | null;
     primary_eval_set: EvalSetSummary | null;
     latest_accepted_eval_run: EvalRunRecord | null;
+    review_status?: "unreviewed" | "open" | "closed" | "cancelled";
+    publish_status?: "unpublished" | "pending" | "releasing" | "released" | "failed" | "cancelled";
   };
   workflow: import("./workflow").WorkflowSummary | null;
 };

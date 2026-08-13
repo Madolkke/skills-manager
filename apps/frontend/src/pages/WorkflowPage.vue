@@ -259,7 +259,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       </main>
 
       <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><ChevronLeft v-if="layout.rightCollapsed.value" :size="16" /><ChevronRight v-else :size="16" /></button></div>
-      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" @navigate="navigateIssue" />
+      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" @navigate="navigateIssue" @toast="(message, tone) => emit('toast', { tone: tone === 'error' ? 'danger' : tone ?? 'info', message })" />
     </div>
 
     <WorkflowSyncModal

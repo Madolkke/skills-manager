@@ -106,6 +106,7 @@ function finishUpload(): void {
         v-else-if="tab === 'reviews'"
         key="reviews"
         :skill="skill"
+        :selected-review-id="route.selectedReviewId ?? null"
         @refresh="emit('refresh')"
         @toast="emit('toast', $event)"
       />

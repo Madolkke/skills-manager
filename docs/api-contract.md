@@ -114,7 +114,7 @@
 | --- | --- |
 | `GET /health` | 健康状态。 |
 | `GET /api/session` | 当前 actor。 |
-| `GET /api/skills` | Hub Skill 摘要列表。 |
+| `GET /api/skills` | Hub Skill 摘要列表，`summary` 额外投影当前版本的 `review_status` 和 `publish_status`。 |
 | `GET /api/skills/{skill_id}` | Skill 详情、versions、eval sets、latest runs、roles、audit events。 |
 | `GET /api/skills/{skill_id}/capabilities` | 当前 actor 在该 Skill 上的 permissions。 |
 | `GET /api/skills/{skill_id}/role-assignments` | Skill role assignments。 |
@@ -199,6 +199,10 @@
 
 slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifest 与根目录 `SKILL.md` 的 `name`，创建下一个 Patch SemVer 并设为当前版本。历史版本不会修改。存在活动任务、当前版本不是有效 Artifact Bundle、slug 重复或 `expected_slug` 已过期时返回 `409`，整个更新回滚。只修改 `display_name` 不会创建版本。
 
+`GET /api/skills` 的状态字段只关联 `current_version_id`：`review_status` 为 `unreviewed`、`open`、`closed` 或 `cancelled`；`publish_status` 为 `unpublished`、`pending`、`releasing`、`released`、`failed` 或 `cancelled`。同一当前版本存在多个发布目标时，任一目标为 `released` 即汇总为 `released`；否则依次优先 `releasing`、待处理、`failed`、`cancelled`。历史版本记录不会影响该摘要。
+
+评审页支持站内定位链接：`/skills?section=skills&skill=<skill_id>&tab=reviews&review=<review_id>`。链接仅携带资源标识，不授予额外权限；客户端会定位并高亮对应记录。
+
 后台通用角色接口支持下列固定的全局 Skill admin 授权；其他 `global` 组合会被数据库约束拒绝：
 
 ```json
@@ -214,6 +218,8 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 该授权对全部当前及未来 Skill 生效，但不能代替 `SKILLHUB_ADMIN_CONSOLE_KEY`，也不会开放 `/api/admin/*`。
 
 ## Workflow 接口约束
+
+CLI Collection 可选返回 `spec.commandParameterSyntax: "angle-v1"`。启用后，`commandTemplate` 中每个 `<name>` 必须对应唯一同名输入；无效尖括号语法和缺失输入作为 Workflow validation error 返回。字段缺失表示历史兼容模式，读取和未修改保存不会自动启用。
 
 `GET /api/skills/{skill_id}/workflow/formatted` 与普通 Workflow 获取接口使用相同的 Skill、Workflow 和 actor 校验，但响应体只包含转换后的 JSON object。当前转换函数为深拷贝透传，因此响应等于普通接口的 `document` 字段；后续自定义格式只修改该转换函数，不改变接口路径。
 
