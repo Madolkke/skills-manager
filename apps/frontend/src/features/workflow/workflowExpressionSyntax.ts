@@ -6,5 +6,5 @@ const pythonKeywords = new Set([
 ]);
 
 export function isWorkflowExpressionIdentifier(value: string): boolean {
-  return /^\p{ID_Start}\p{ID_Continue}*$/u.test(value) && !pythonKeywords.has(value);
+  return /^[_\p{ID_Start}][_\p{ID_Continue}]*$/u.test(value) && !pythonKeywords.has(value);
 }

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .cli_command_parameters import parse_cli_command_parameters
 from .config_validation import validate_config_spec
 from .log_sql import validate_log_query
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
@@ -41,6 +42,22 @@ def _validate_cli_spec(spec, definition, issues, selection) -> None:
         issues.append(issue("MISSING_COLLECTION_COMMAND", "error", f"采集“{label}”的采集命令不能为空。", {**selection, "field": "spec.commandTemplate"}))
     elif "\n" in command or "\r" in command:
         issues.append(issue("MULTILINE_COLLECTION_COMMAND", "error", "采集命令必须为单行。", {**selection, "field": "spec.commandTemplate"}))
+    if spec.get("commandParameterSyntax") == "angle-v1":
+        parsed = parse_cli_command_parameters(command)
+        if parsed.error:
+            issues.append(issue("CLI_COMMAND_PARAMETER_SYNTAX_INVALID", "error", parsed.error, {**selection, "field": "spec.commandTemplate"}))
+        else:
+            input_keys = [item["key"] for item in definition["inputs"]]
+            missing = next((name for name in parsed.names if input_keys.count(name) != 1), None)
+            if missing:
+                issues.append(
+                    issue(
+                        "CLI_COMMAND_PARAMETER_INPUT_MISSING",
+                        "error",
+                        f"采集命令参数“{missing}”必须对应一个同名输入参数。",
+                        {**selection, "field": "spec.commandTemplate"},
+                    )
+                )
     append_duplicates(spec["outputSamples"], "id", "MISSING_COLLECTION_SAMPLE_ID", "DUPLICATE_COLLECTION_SAMPLE_ID", "回显示例 ID", issues, selection)
 
 

@@ -13,7 +13,7 @@ import WorkflowConfirmModal from "./WorkflowConfirmModal.vue";
 import WorkflowSchemaEditorModal from "./WorkflowSchemaEditorModal.vue";
 
 type SchemaField = WorkflowParameter | CollectionOutput;
-const props = withDefaults(defineProps<{ items: SchemaField[]; readonly: boolean; kind: "input" | "output"; scalarOnly?: boolean }>(), { scalarOnly: false });
+const props = withDefaults(defineProps<{ items: SchemaField[]; readonly: boolean; kind: "input" | "output"; scalarOnly?: boolean; highlightedKeys?: string[] }>(), { scalarOnly: false, highlightedKeys: () => [] });
 const emit = defineEmits<{ change: [id: string, patch: Partial<SchemaField>]; remove: [id: string] }>();
 const editingId = ref<string | null>(null);
 const editing = computed(() => props.items.find((item) => item.id === editingId.value));
@@ -59,12 +59,12 @@ function confirm(schema: WorkflowJsonSchema): void {
     <div class="workflow-field-table-head workflow-schema-field-grid" aria-hidden="true">
       <span>变量名</span><span>类型</span><span>显示名称</span><span>说明</span><span></span>
     </div>
-    <div v-for="item in props.items" :key="item.id" class="workflow-field-table-row workflow-schema-field-grid">
-      <label class="workflow-schema-inline-field">
-        <span>变量名</span>
+    <div v-for="(item, itemIndex) in props.items" :key="item.id" :data-workflow-item="item.id" :data-workflow-index="itemIndex" :class="['workflow-field-table-row workflow-schema-field-grid', props.highlightedKeys.includes(item.key) && 'is-command-parameter']">
+      <label class="workflow-schema-inline-field" :data-workflow-field="`key.${item.id}`">
+        <span>变量名 <em v-if="props.highlightedKeys.includes(item.key)" class="workflow-command-parameter-badge">命令参数</em></span>
         <input class="workflow-key-input" :value="item.key" :aria-label="props.kind === 'input' ? '参数变量名' : '输出变量名'" :placeholder="props.kind === 'input' ? 'interface_name' : 'version'" :disabled="props.readonly" @input="emit('change', item.id, { key: ($event.target as HTMLInputElement).value })" />
       </label>
-      <label class="workflow-schema-inline-field workflow-schema-type-field">
+      <label class="workflow-schema-inline-field workflow-schema-type-field" :data-workflow-field="`schema.${item.id}`">
         <span>类型</span>
         <select :value="workflowSchemaEditorType(item.schema)" :aria-label="props.kind === 'input' ? '参数类型' : '字段类型'" :disabled="props.readonly" @change="changeType(item, ($event.target as HTMLSelectElement).value as WorkflowSchemaEditorType)">
           <option v-for="type in editorTypes.filter((candidate) => !props.scalarOnly || ['string', 'integer', 'number', 'boolean'].includes(candidate.value))" :key="type.value" :value="type.value">{{ type.label }}</option>
@@ -72,11 +72,11 @@ function confirm(schema: WorkflowJsonSchema): void {
         </select>
         <small v-if="workflowSchemaEditorType(item.schema) === 'complex'">{{ workflowSchemaSummary(item.schema) }}</small>
       </label>
-      <label class="workflow-schema-inline-field">
+      <label class="workflow-schema-inline-field" :data-workflow-field="`schema.title.${item.id}`">
         <span>显示名称</span>
         <input :value="item.schema.title ?? ''" :aria-label="props.kind === 'input' ? '参数显示名称' : '字段显示名称'" placeholder="字段名称" :disabled="props.readonly" @input="updateSchemaMetadata(item, 'title', ($event.target as HTMLInputElement).value)" />
       </label>
-      <label class="workflow-schema-inline-field">
+      <label class="workflow-schema-inline-field" :data-workflow-field="`schema.description.${item.id}`">
         <span>说明</span>
         <input :value="item.schema.description ?? ''" :aria-label="props.kind === 'input' ? '参数说明' : '字段说明'" placeholder="字段用途（可选）" :disabled="props.readonly" @input="updateSchemaMetadata(item, 'description', ($event.target as HTMLInputElement).value)" />
       </label>

@@ -90,7 +90,7 @@ function operationLabel(): string {
 </script>
 
 <template>
-  <article :class="['workflow-call-card', props.expanded && 'expanded', issueCount && 'has-issues']" :data-sort-id="props.call.id">
+  <article :class="['workflow-call-card', props.expanded && 'expanded', issueCount && 'has-issues']" :data-sort-id="props.call.id" :data-workflow-item="props.call.id" :data-workflow-index="props.index">
     <header class="workflow-call-summary">
       <button class="workflow-drag-handle" type="button" title="拖动排序" aria-label="拖动采集排序" :disabled="props.readonly"><GripVertical :size="15" /></button>
       <button class="workflow-call-summary-main" type="button" @click="emit('toggle')">

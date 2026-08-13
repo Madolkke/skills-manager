@@ -171,6 +171,7 @@ CLI spec 包含：
 - `commandTemplate`
 - `outputSamples`
 - `collectionType: "cli"`
+- 可选 `commandParameterSyntax: "angle-v1"`，表示命令中的 `<name>` 自动关联同名 Collection 输入。新建 CLI 采集默认启用；旧采集仅在修改命令后启用。
 
 原始 `stdout` 和 `inputValues` 只用于作者预览，不写入同步生成的 SKILL.md；生成结果只列出样例名称。
 

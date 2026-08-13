@@ -22,9 +22,9 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
     issues: list[dict[str, Any]] = []
 
     if not workflow["metadata"]["name"].strip():
-        issues.append(issue("MISSING_WORKFLOW_NAME", "error", "工作流名称不能为空。", {"type": "metadata"}))
+        issues.append(issue("MISSING_WORKFLOW_NAME", "error", "工作流名称不能为空。", {"type": "metadata", "field": "name"}))
     if not workflow["metadata"]["description"].strip():
-        issues.append(issue("MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", {"type": "metadata"}))
+        issues.append(issue("MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", {"type": "metadata", "field": "description"}))
 
     _duplicate_issues(workflow, steps, issues)
     validate_collection_identity(snapshots, issues)
@@ -62,9 +62,9 @@ def _duplicate_issues(workflow, steps, issues) -> None:
     append_duplicates(workflow["deviceRoles"], "key", "MISSING_ROLE_KEY", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, {"type": "roles"})
     for step in steps:
         selection = {"type": "step", "id": step["id"]}
-        append_duplicates(step["collectionCalls"], "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection)
-        append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection)
-        append_duplicates(step["topology"], "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection)
+        append_duplicates(step["collectionCalls"], "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, {**selection, "section": "collections"})
+        append_optional_duplicates(step["collectionCalls"], "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, {**selection, "section": "collections"})
+        append_duplicates(step["topology"], "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, {**selection, "section": "paths"})
 
 
 def _validate_config_root_conflicts(steps, definitions, issues) -> None:

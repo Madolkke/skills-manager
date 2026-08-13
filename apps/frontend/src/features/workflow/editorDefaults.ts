@@ -36,7 +36,7 @@ export function newCollection(index: number, metadata?: Pick<WorkflowMetadata, "
       versions: [...(metadata?.versions ?? [])],
       tags: [],
     },
-    spec: { collectionType: "cli", commandTemplate: "", outputSamples: [] }, inputs: [], outputs: [],
+    spec: { collectionType: "cli", commandTemplate: "", outputSamples: [], commandParameterSyntax: "angle-v1" }, inputs: [], outputs: [],
   };
 }
 

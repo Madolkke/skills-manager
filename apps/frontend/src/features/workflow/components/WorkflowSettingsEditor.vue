@@ -31,6 +31,18 @@ function focusSection(target: "inputs" | "roles"): void {
   section?.focus({ preventScroll: true });
   section?.scrollIntoView?.({ block: "nearest" });
 }
+
+function addInput(): void {
+  const previousIds = new Set(props.inputs.map((item) => item.id));
+  emit("add-input");
+  void nextTick(() => {
+    const added = props.inputs.find((item) => !previousIds.has(item.id));
+    if (!added) return;
+    const input = inputSection.value?.querySelector<HTMLInputElement>(`[data-workflow-item="${CSS.escape(added.id)}"] input`);
+    input?.focus();
+    input?.scrollIntoView({ block: "nearest" });
+  });
+}
 </script>
 
 <template>
@@ -47,7 +59,7 @@ function focusSection(target: "inputs" | "roles"): void {
     <section ref="inputSection" :class="['workflow-settings-section', props.target === 'inputs' && 'is-target']" tabindex="-1" aria-labelledby="workflow-inputs-heading">
       <header class="workflow-settings-section-head">
         <div><Braces :size="16" /><span><h3 id="workflow-inputs-heading">输入参数 <small>{{ props.inputs.length }}</small></h3><p>可被步骤和采集参数绑定的流程级输入。</p></span></div>
-        <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-input')"><template #icon><Plus /></template>添加输入</UiButton>
+        <UiButton variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加输入</UiButton>
       </header>
       <div class="workflow-settings-list">
         <WorkflowSchemaFieldRows kind="input" :items="props.inputs" :readonly="props.readonly" @change="(id, patch) => emit('update-input', id, patch)" @remove="emit('remove-input', $event)" />
@@ -61,7 +73,7 @@ function focusSection(target: "inputs" | "roles"): void {
         <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-role')"><template #icon><Plus /></template>添加设备角色</UiButton>
       </header>
       <div class="workflow-settings-list">
-        <div v-for="item in props.roles" :key="item.id" class="workflow-setting-row is-role">
+        <div v-for="(item, itemIndex) in props.roles" :key="item.id" :data-workflow-item="item.id" :data-workflow-index="itemIndex" class="workflow-setting-row is-role">
           <label class="workflow-setting-field"><span>角色 Key</span><input class="workflow-key-input" :value="item.key" aria-label="角色 Key" placeholder="primary" :disabled="props.readonly" @input="emit('update-role', item.id, { key: ($event.target as HTMLInputElement).value })" /></label>
           <label class="workflow-setting-field"><span>角色名称</span><input :value="item.name" aria-label="角色名称" placeholder="主设备" :disabled="props.readonly" @input="emit('update-role', item.id, { name: ($event.target as HTMLInputElement).value })" /></label>
           <label class="workflow-setting-field"><span>角色说明</span><input :value="item.description" aria-label="角色说明" placeholder="角色用途（可选）" :disabled="props.readonly" @input="emit('update-role', item.id, { description: ($event.target as HTMLInputElement).value })" /></label>

@@ -5,13 +5,14 @@ import { logCollectionIssues } from "./logValidation";
 import { configCollectionIssues } from "./configValidation";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
+import { parseCliCommandParameters } from "./cliCommandParameters";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
   const issues: WorkflowValidationIssue[] = [];
   const steps = workflowSteps(bundle);
   const nodes = new Map(bundle.workflow.nodes.map((item) => [item.id, item]));
-  if (!bundle.workflow.metadata.name.trim()) add(issues, "MISSING_WORKFLOW_NAME", "error", "工作流名称不能为空。", { type: "metadata" });
-  if (!bundle.workflow.metadata.description.trim()) add(issues, "MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", { type: "metadata" });
+  if (!bundle.workflow.metadata.name.trim()) add(issues, "MISSING_WORKFLOW_NAME", "error", "工作流名称不能为空。", { type: "metadata", field: "name" });
+  if (!bundle.workflow.metadata.description.trim()) add(issues, "MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", { type: "metadata", field: "description" });
   if (!steps.some((step) => step.isStart)) add(issues, "NO_START_STEP", "error", "工作流至少需要一个起始步骤。", { type: "metadata" });
   duplicates(bundle.workflow.nodes, "id", "MISSING_NODE_ID", "DUPLICATE_NODE_ID", "节点 ID", issues, { type: "metadata" });
   duplicates(bundle.workflow.inputs, "id", "MISSING_INPUT_ID", "DUPLICATE_INPUT_ID", "全局输入 ID", issues, { type: "inputs" });
@@ -27,6 +28,14 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     if (definition.spec.collectionType === "cli") {
       if (!definition.spec.commandTemplate.trim()) add(issues, "MISSING_COLLECTION_COMMAND", "error", `采集“${definition.metadata.name || definition.key}”的采集命令不能为空。`, { ...selection, field: "spec.commandTemplate" });
       else if (/\r|\n/.test(definition.spec.commandTemplate)) add(issues, "MULTILINE_COLLECTION_COMMAND", "error", `采集“${definition.metadata.name || definition.key}”的采集命令必须为单行。`, { ...selection, field: "spec.commandTemplate" });
+      if (definition.spec.commandParameterSyntax === "angle-v1") {
+        const parsed = parseCliCommandParameters(definition.spec.commandTemplate);
+        if (parsed.error) add(issues, "CLI_COMMAND_PARAMETER_SYNTAX_INVALID", "error", parsed.error, { ...selection, field: "spec.commandTemplate" });
+        else {
+          const missing = parsed.names.find((name) => definition.inputs.filter((input) => input.key === name).length !== 1);
+          if (missing) add(issues, "CLI_COMMAND_PARAMETER_INPUT_MISSING", "error", `采集命令参数“${missing}”必须对应一个同名输入参数。`, { ...selection, field: "spec.commandTemplate" });
+        }
+      }
     } else if (definition.spec.collectionType === "log") {
       logCollectionIssues(definition).forEach((item) => add(issues, item.code, "error", item.message, { ...selection, itemId: item.itemId, field: item.field }));
     } else {
@@ -48,9 +57,9 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
   for (const step of steps) {
     const selection: WorkflowSelection = { type: "step", id: step.id };
-    duplicates(step.collectionCalls, "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, selection);
-    optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, selection);
-    duplicates(step.topology, "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, selection);
+    duplicates(step.collectionCalls, "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, { ...selection, section: "collections" });
+    optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, { ...selection, section: "collections" });
+    duplicates(step.topology, "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, { ...selection, section: "paths" });
     const allCalls = new Map(step.collectionCalls.map((item) => [item.id, item]));
     const previousCalls = new Map<string, typeof step.collectionCalls[number]>();
     const unscopedOutputKeys = new Set<string>();
@@ -133,9 +142,12 @@ function bindingProblem(
 function duplicates(items: Array<Record<string, unknown>>, field: string, missingCode: string, duplicateCode: string, label: string, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
   const counts = new Map<string, number>();
   items.forEach((item) => counts.set(String(item[field] ?? "").trim(), (counts.get(String(item[field] ?? "").trim()) ?? 0) + 1));
-  counts.forEach((count, value) => {
-    if (!value) add(issues, missingCode, "error", `${label}不能为空。`, selection);
-    else if (count > 1) add(issues, duplicateCode, "error", `${label}“${value}”重复。`, selection);
+  items.forEach((item, index) => {
+    const value = String(item[field] ?? "").trim();
+    const itemId = String(item.id ?? "");
+    const located = { ...selection, itemId, field: itemId && field !== "id" ? `${field}.${itemId}` : `${field}[${index}]` } as WorkflowSelection;
+    if (!value) add(issues, missingCode, "error", `${label}不能为空。`, located);
+    else if ((counts.get(value) ?? 0) > 1) add(issues, duplicateCode, "error", `${label}“${value}”重复。`, located);
   });
 }
 
@@ -145,20 +157,22 @@ function optionalDuplicates(items: Array<Record<string, unknown>>, field: string
     const value = String(item[field] ?? "").trim();
     if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
   });
-  counts.forEach((count, value) => {
-    if (count > 1) add(issues, code, "error", `${label}“${value}”重复。`, selection);
+  items.forEach((item, index) => {
+    const value = String(item[field] ?? "").trim();
+    const itemId = String(item.id ?? "");
+    if (value && (counts.get(value) ?? 0) > 1) add(issues, code, "error", `${label}“${value}”重复。`, { ...selection, itemId, field: itemId ? `${field}.${itemId}` : `${field}[${index}]` } as WorkflowSelection);
   });
 }
 
 function missingTitles(items: WorkflowParameter[], label: string, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
-  items.forEach((item) => {
-    if (!item.schema.title?.trim()) add(issues, "MISSING_PARAMETER_NAME", "error", `${label}不能为空。`, selection);
+  items.forEach((item, index) => {
+    if (!item.schema.title?.trim()) add(issues, "MISSING_PARAMETER_NAME", "error", `${label}不能为空。`, { ...selection, itemId: item.id, field: item.id ? `schema.title.${item.id}` : `schema.title[${index}]` } as WorkflowSelection);
   });
 }
 
-function legacySchemaWarnings(items: Array<{ key: string; schema: WorkflowParameter["schema"] }>, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
-  items.forEach((item) => {
-    if (workflowSchemaIsLegacy(item.schema)) add(issues, "LEGACY_LOOSE_SCHEMA", "warning", `字段“${workflowSchemaTitle(item.schema, item.key)}”仍使用迁移后的宽松 Schema，建议补充详细结构。`, selection);
+function legacySchemaWarnings(items: Array<{ id: string; key: string; schema: WorkflowParameter["schema"] }>, issues: WorkflowValidationIssue[], selection: WorkflowSelection): void {
+  items.forEach((item, index) => {
+    if (workflowSchemaIsLegacy(item.schema)) add(issues, "LEGACY_LOOSE_SCHEMA", "warning", `字段“${workflowSchemaTitle(item.schema, item.key)}”仍使用迁移后的宽松 Schema，建议补充详细结构。`, { ...selection, itemId: item.id, field: item.id ? `schema.${item.id}` : `schema[${index}]` } as WorkflowSelection);
   });
 }
 

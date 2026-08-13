@@ -120,6 +120,7 @@ class CliCollectionSpec(WorkflowModel):
     command_template: str = ""
     output_samples: list[CliOutputSample] = Field(default_factory=list)
     collection_type: Literal["cli"] = "cli"
+    command_parameter_syntax: Literal["angle-v1"] | None = None
 
 
 class LogAggregationQuery(WorkflowModel):

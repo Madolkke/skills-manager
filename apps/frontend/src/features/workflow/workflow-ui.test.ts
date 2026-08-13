@@ -3,7 +3,7 @@
 
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick, ref } from "vue";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkflowBundle, WorkflowParameter } from "../../types";
 import WorkflowMetadataEditor from "./components/WorkflowMetadataEditor.vue";
 import WorkflowSettingsEditor from "./components/WorkflowSettingsEditor.vue";
@@ -12,6 +12,9 @@ import WorkflowSidebar from "./components/WorkflowSidebar.vue";
 import WorkflowToolbar from "./components/WorkflowToolbar.vue";
 
 describe("Workflow UI state", () => {
+  beforeEach(() => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+  });
   it("keeps save success visible after dirty state clears", async () => {
     const wrapper = mount(WorkflowToolbar, {
       props: {
@@ -86,7 +89,7 @@ describe("Workflow UI state", () => {
 
   it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {
     const expanded = ref(false);
-    const tab = ref<"graph" | "read" | "validation">("graph");
+    const tab = ref<"graph" | "read" | "collections" | "validation">("graph");
     const GraphStub = defineComponent({
       name: "WorkflowGraph",
       props: {
@@ -146,7 +149,7 @@ describe("Workflow UI state", () => {
     expect(tab.value).toBe("validation");
     expect(wrapper.get(".workflow-validation-summary").text()).toContain("1 个错误");
     await wrapper.get(".workflow-validation-list > button").trigger("click");
-    expect(wrapper.findComponent(WorkflowPreviewPanel).emitted("select")?.at(-1)).toEqual([issue.selection]);
+    expect(wrapper.findComponent(WorkflowPreviewPanel).emitted("navigate")?.at(-1)).toEqual([issue.selection]);
 
     wrapper.unmount();
   });
@@ -166,6 +169,24 @@ describe("Workflow UI state", () => {
     expect(wrapper.get(".workflow-validation-summary strong").text()).toBe("0 个错误");
     expect(wrapper.get(".workflow-validation-summary strong").classes()).toContain("is-clear");
     expect(wrapper.get(".workflow-validation-summary span").classes()).toContain("has-warnings");
+  });
+
+  it("按精确定义版本去重展示并复制全部 CLI 命令", async () => {
+    const bundle = workflowBundle();
+    const first = { id: "collection-status", revision: 1, key: "status", metadata: { name: "状态 r1", description: "", industry: "", device: "", versions: [], tags: [] }, spec: { collectionType: "cli" as const, commandTemplate: "display status", outputSamples: [] }, inputs: [], outputs: [] };
+    const second = { ...structuredClone(first), revision: 2, metadata: { ...first.metadata, name: "状态 r2" }, spec: { ...first.spec, commandTemplate: "display status verbose" } };
+    bundle.workflow.nodes.push({
+      id: "step-1", name: "检查状态", description: "", isStart: true, stepType: "expression", topology: [], collectionCalls: [
+      { id: "call-1", key: "", name: "", definition: { id: first.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
+      { id: "call-2", key: "", name: "", definition: { id: first.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
+      { id: "call-3", key: "", name: "", definition: { id: second.id, revision: 2 }, sampleCount: 1, inputBindings: {} },
+      ],
+    });
+    const wrapper = mount(WorkflowPreviewPanel, { props: { bundle, catalog: [first, second], issues: [], tab: "collections" } });
+
+    expect(wrapper.findAll(".workflow-command-list article")).toHaveLength(2);
+    await wrapper.findAll(".workflow-command-preview > header button")[0].trigger("click");
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("display status\ndisplay status verbose");
   });
 
   it("shows inputs and device roles in one editor and keeps their actions separate", async () => {

@@ -19,6 +19,7 @@ import { useWorkflowPersistence } from "../features/workflow/useWorkflowPersiste
 import { useWorkflowSkillTags } from "../features/workflow/useWorkflowSkillTags";
 import { useWorkflowShortcuts } from "../features/workflow/useWorkflowShortcuts";
 import { useWorkflowTransfer } from "../features/workflow/useWorkflowTransfer";
+import { useWorkflowIssueNavigation } from "../features/workflow/useWorkflowIssueNavigation";
 import type { CollectionDefinition, SkillDetail, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
 
 type ConfirmAction = { type: "discard" } | { type: "step" | "conclusion" | "call"; id: string; stepId?: string };
@@ -29,12 +30,13 @@ const detail = ref<WorkflowDetail | null>(null);
 const syncOpen = ref(false);
 const confirmAction = ref<ConfirmAction | null>(null);
 const confirmOpen = ref(false);
-const previewTab = ref<"graph" | "read" | "validation">("graph");
+const previewTab = ref<"graph" | "read" | "collections" | "validation">("graph");
 const editorPane = ref<HTMLElement | null>(null);
 const importFileInput = ref<HTMLInputElement | null>(null);
 const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
 const editor = useWorkflowEditor(() => readOnly.value);
 const layout = useWorkflowLayout();
+const issueNavigation = useWorkflowIssueNavigation(editorPane);
 const { loading, saving, saveFeedback, syncing, loadError, actionError, syncError, syncConflictKey, load, save, sync } = useWorkflowPersistence({
   skillId: () => props.skill.skill.id,
   detail,
@@ -95,6 +97,11 @@ useWorkflowShortcuts({
 
 function select(selection: WorkflowSelection): void {
   editor.selection.value = resolveSelection(selection);
+}
+
+function navigateIssue(selection: WorkflowSelection): void {
+  editor.selection.value = resolveSelection(selection);
+  void issueNavigation.navigate(editor.selection.value);
 }
 
 function selectCatalog(reference: VersionedRef): void {
@@ -252,7 +259,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       </main>
 
       <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><ChevronLeft v-if="layout.rightCollapsed.value" :size="16" /><ChevronRight v-else :size="16" /></button></div>
-      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" />
+      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" @navigate="navigateIssue" />
     </div>
 
     <WorkflowSyncModal

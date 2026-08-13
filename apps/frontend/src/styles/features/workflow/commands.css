@@ -1,0 +1,80 @@
+.workflow-command-preview {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-command-preview > header,
+.workflow-command-preview > header > div,
+.workflow-command-content,
+.workflow-command-content > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-command-preview > header { justify-content: space-between; }
+.workflow-command-preview > header > div { display: grid; gap: 2px; }
+.workflow-command-preview > header span,
+.workflow-command-content span { color: var(--wf-text-muted); font-size: 11px; }
+.workflow-command-preview > header button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--wf-border);
+  border-radius: 6px;
+  background: var(--wf-surface);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workflow-command-list { display: grid; border-top: 1px solid var(--wf-line-soft); }
+.workflow-command-list article {
+  min-width: 0;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--wf-line-soft);
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 32px;
+  align-items: start;
+  gap: 9px;
+}
+.workflow-command-list article.is-empty { opacity: 0.62; }
+.workflow-command-index { padding-top: 3px; color: var(--wf-text-muted); font: 11px var(--mono-font); }
+.workflow-command-content { display: grid; gap: 7px; }
+.workflow-command-content > div { justify-content: space-between; }
+.workflow-command-content code {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--wf-line-soft);
+  border-radius: 5px;
+  background: var(--wf-surface-muted);
+  color: var(--wf-text-secondary);
+  font-family: var(--mono-font);
+  overflow-wrap: anywhere;
+}
+
+.workflow-field-table-row.is-command-parameter {
+  border-left: 2px solid var(--wf-accent);
+  background: var(--wf-accent-soft);
+}
+.workflow-command-parameter-badge {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--wf-accent-soft);
+  color: var(--wf-accent-strong);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.is-issue-target {
+  animation: workflow-issue-pulse 430ms ease-out 2;
+  border-radius: 6px;
+}
+@keyframes workflow-issue-pulse {
+  50% { background: var(--wf-danger-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wf-danger) 18%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-issue-target { animation: none; background: var(--wf-danger-soft); box-shadow: 0 0 0 2px var(--wf-danger-border); }
+}

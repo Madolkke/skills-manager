@@ -60,8 +60,10 @@ export function useWorkflowEditor(readonly: () => boolean) {
     commit((draft) => Object.assign(draft.bundle.workflow.metadata, patch), fieldGroup("metadata", patch));
   }
 
-  function addInput(): void {
-    commit((draft) => draft.bundle.workflow.inputs.push(newParameter()));
+  function addInput(): string {
+    const input = newParameter();
+    commit((draft) => draft.bundle.workflow.inputs.push(input));
+    return input.id;
   }
 
   function updateInput(id: string, patch: Record<string, unknown>): void {
@@ -143,10 +145,13 @@ export function useWorkflowEditor(readonly: () => boolean) {
     commit((draft) => {
       const definition = findCollection(draft.catalog, reference);
       if (!definition) return;
+      const previousInputIds = new Set(definition.inputs.map((input) => input.id));
       mutate(definition);
+      const removedInputIds = [...previousInputIds].filter((id) => !definition.inputs.some((input) => input.id === id));
       upsertChange(draft, draft.changes.find((item) => item.definition.id === reference.id)?.operation ?? "revise", definition);
       workflowSteps(draft.bundle).forEach((step) => step.collectionCalls.forEach((call) => {
-        if (call.definition.id !== definition.id) return;
+        if (call.definition.id !== reference.id || call.definition.revision !== reference.revision) return;
+        removedInputIds.forEach((id) => delete call.inputBindings[id]);
         const linked = linkedCallFields.get(call.id);
         if (linked?.name) call.name = definition.metadata.name;
         if (linked?.key) call.key = nextUniqueKey(step.collectionCalls.filter((item) => item.id !== call.id).map((item) => item.key), definition.key);
@@ -248,6 +253,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
       return false;
     }
     const fork = cloneWorkflow(source);
+    const previousInputIds = new Set(fork.inputs.map((input) => input.id));
     const forkId = createWorkflowId("collection");
     const defaultForkKey = nextUniqueKey(catalog.value.map((item) => item.key), `${source.key}_copy`);
     fork.id = forkId;
@@ -255,6 +261,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
     fork.key = defaultForkKey;
     fork.forkedFrom = { id: source.id, revision: source.revision };
     mutate(fork);
+    const removedInputIds = [...previousInputIds].filter((id) => !fork.inputs.some((input) => input.id === id));
     fork.id = forkId;
     fork.revision = 1;
     fork.key = !fork.key.trim() || fork.key === source.key
@@ -265,7 +272,10 @@ export function useWorkflowEditor(readonly: () => boolean) {
       draft.catalog.push(fork);
       upsertChange(draft, "fork", fork);
       const draftCall = findCall(draft.bundle, stepId, callId);
-      if (draftCall) draftCall.definition = { id: fork.id, revision: 1 };
+      if (draftCall) {
+        draftCall.definition = { id: fork.id, revision: 1 };
+        removedInputIds.forEach((id) => delete draftCall.inputBindings[id]);
+      }
     });
     return true;
   }

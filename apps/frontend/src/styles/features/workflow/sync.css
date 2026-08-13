@@ -1,5 +1,8 @@
 .workflow-sync-shell {
+  height: min(760px, calc(100vh - 112px));
+  min-height: 0;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
 }
 
@@ -94,23 +97,28 @@
 }
 
 .workflow-sync-layout {
-  min-height: min(610px, calc(100vh - 250px));
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(310px, 360px);
 }
 
 .workflow-sync-preview-region {
   min-width: 0;
+  min-height: 0;
   padding: 20px;
   background: var(--wf-canvas);
 }
 
 .workflow-skill-preview {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   border: 1px solid var(--wf-border);
   border-radius: var(--wf-radius-lg);
   background: var(--wf-surface);
   overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 .workflow-preview-summary {
@@ -201,8 +209,9 @@
 }
 
 .workflow-skill-preview .bundle-browser {
-  min-height: 440px;
-  max-height: calc(100vh - 390px);
+  min-height: 0;
+  height: 100%;
+  max-height: none;
   grid-template-columns: minmax(210px, 28%) minmax(0, 1fr);
 }
 
@@ -213,12 +222,18 @@
 
 .workflow-sync-sidebar {
   min-width: 0;
+  min-height: 0;
   padding: 20px;
   border-left: 1px solid var(--wf-line-soft);
   display: flex;
   flex-direction: column;
   gap: 18px;
+  overflow-y: auto;
 }
+
+.workflow-skill-preview .bundle-tree,
+.workflow-skill-preview .bundle-content,
+.workflow-skill-preview .code-preview { min-height: 0; }
 
 .workflow-sync-version-fields .version-bump-grid {
   grid-template-columns: 1fr;

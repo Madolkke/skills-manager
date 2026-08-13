@@ -81,7 +81,12 @@ export type WorkflowExpressionBatchResponse = { validations: WorkflowExpressionB
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
 export type LogAggregationQuery = { id: string; name: string; sql: string; outputIds: string[] };
 export type LogOutputSample = { id: string; name: string; text: string };
-export type CliCollectionSpec = { collectionType: "cli"; commandTemplate: string; outputSamples: CliOutputSample[] };
+export type CliCollectionSpec = {
+  collectionType: "cli";
+  commandTemplate: string;
+  outputSamples: CliOutputSample[];
+  commandParameterSyntax?: "angle-v1";
+};
 export type LogCollectionSpec = { collectionType: "log"; sqlDialect: "duckdb"; queries: LogAggregationQuery[]; outputSamples: LogOutputSample[] };
 export type WorkflowCollectionSpec = CliCollectionSpec | LogCollectionSpec | ConfigCollectionSpec;
 

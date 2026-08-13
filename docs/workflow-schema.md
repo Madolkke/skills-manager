@@ -183,6 +183,9 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `commandTemplate` | `string` | 否 | `""` | 单行 CLI 命令模板；参数占位符由执行器或 Collection 机制解释。 |
 | `outputSamples` | `CliOutputSample[]` | 否 | `[]` | CLI 回显示例。 |
 | `collectionType` | `"cli"` | 是 | - | 严格联合的 CLI 判别字段。 |
+| `commandParameterSyntax` | `"angle-v1"` | 否 | - | 启用 `<name>` 命令参数语法。旧定义保持缺失，首次修改命令时写入。 |
+
+启用 `angle-v1` 后，名称必须是合法且非关键字的 Python 标识符。同名占位符只对应一个 Collection 输入；命令合法时，编辑器自动增加同名 `string` 输入，并在占位符删除时清理对应输入、样例输入值和调用绑定。暂态非法命令保留原文并产生校验错误，不执行破坏性同步。当前版本不支持字面尖括号转义。
 
 ### LogAggregationQuery
 
