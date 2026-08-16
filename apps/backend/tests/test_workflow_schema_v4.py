@@ -4,10 +4,11 @@ import pytest
 
 from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, migrate_workflow_document, normalize_collection_definition
 from skillhub.models.rules.workflows.expression import evaluate_expression, expression_contract, validate_expression
+from skillhub.models.rules.workflows.expression.environment import workflow_expression_environment
 from skillhub.models.rules.workflows.json_schema import schemas_assignable, value_matches_schema
 from skillhub.models.rules.workflows.validation import _step_expression_environment
 from skillhub.services.workflows import WorkflowService
-from skillhub.views.request_models.workflows import WorkflowExpressionBatchValidationPayload
+from skillhub.views.request_models.workflows import WorkflowExpressionBatchValidationPayload, WorkflowExpressionEnvironmentPayload
 
 
 def test_nested_object_array_schema_is_normalized_and_sorted() -> None:
@@ -175,6 +176,77 @@ def test_invalid_duplicate_call_keys_use_first_definition_for_environment_projec
 
     assert environment["outputs"]["status"]["sampleCount"] == 1
     assert set(environment["outputs"]["status"]["fields"]) == {"version"}
+
+
+def test_unscoped_output_schema_is_projected_as_direct_expression_value() -> None:
+    environment = {
+        "inputs": {},
+        "outputs": {
+            "state": {"sampleCount": 1, "fields": {}, "schema": {"type": "string"}},
+            "details": {
+                "sampleCount": 1,
+                "fields": {},
+                "schema": {
+                    "type": "object",
+                    "title": "详情",
+                    "description": "",
+                    "properties": {"status": {"type": "string"}},
+                    "required": ["status"],
+                    "additionalProperties": False,
+                },
+            },
+            "samples": {"sampleCount": 2, "fields": {}, "schema": {"type": "string"}},
+        },
+    }
+
+    assert validate_expression("outputs.state == 'up'", environment)["diagnostics"] == []
+    assert validate_expression("outputs.details.status == 'up'", environment)["diagnostics"] == []
+    assert validate_expression("outputs.samples[0] == 'up'", environment)["diagnostics"] == []
+    assert validate_expression("outputs.samples", environment)["inferredType"]["kind"] == "array"
+    direct_only_environment = {"outputs": {"state": {"sampleCount": 1, "schema": {"type": "string"}}}}
+    assert validate_expression("outputs.state == 'up'", direct_only_environment)["diagnostics"] == []
+
+    payload = WorkflowExpressionEnvironmentPayload.model_validate(environment)
+    assert payload.outputs["state"].schema_.type == "string"  # type: ignore[union-attr]
+
+
+def test_unscoped_output_document_projection_uses_unique_direct_fields() -> None:
+    document = {
+        "workflow": {
+            "inputs": [],
+            "nodes": [{"id": "step", "stepType": "expression", "collectionCalls": [
+                {"id": "direct", "key": "", "sampleCount": 1, "definition": {"id": "one", "revision": 1}},
+                {"id": "duplicate", "key": "", "sampleCount": 1, "definition": {"id": "two", "revision": 1}},
+            ]}],
+        },
+        "collectionSnapshots": [
+            {"id": "one", "revision": 1, "spec": {"collectionType": "cli"}, "outputs": [
+                {"key": "state", "schema": {"type": "string"}},
+                {
+                    "key": "details",
+                    "schema": {
+                        "type": "object",
+                        "title": "详情",
+                        "description": "",
+                        "properties": {"status": {"type": "string"}},
+                        "required": ["status"],
+                        "additionalProperties": False,
+                    },
+                },
+            ]},
+            {"id": "two", "revision": 1, "spec": {"collectionType": "cli"}, "outputs": [
+                {"key": "state", "schema": {"type": "boolean"}},
+            ]},
+        ],
+    }
+
+    environment = workflow_expression_environment(document)
+    assert set(environment["outputs"]) == {"details"}
+    assert environment["outputs"]["details"]["schema"]["type"] == "object"
+
+    definitions = {(item["id"], item["revision"]): item for item in document["collectionSnapshots"]}
+    step_environment = _step_expression_environment(document["workflow"]["nodes"][0], definitions, {})
+    assert validate_expression("outputs.details.status == 'up'", step_environment)["diagnostics"] == []
 
 
 def test_expression_reports_forbidden_and_positioned_diagnostics() -> None:

@@ -51,7 +51,7 @@ export type CollectionOutput = { id: string; key: string; required: boolean; sch
 
 export type WorkflowExpressionDiagnostic = { severity: "warning" | "error"; code: string; message: string; start: number; end: number };
 export type WorkflowExpressionValidation = { inferredType: Record<string, unknown>; diagnostics: WorkflowExpressionDiagnostic[] };
-export type WorkflowExpressionOutput = { sampleCount: number; fields: Record<string, WorkflowJsonSchema> };
+export type WorkflowExpressionOutput = { sampleCount: number; fields: Record<string, WorkflowJsonSchema>; schema?: WorkflowJsonSchema };
 export type WorkflowConfigCapture = WorkflowScalarSchema;
 export type WorkflowConfigCommand = {
   name: string;

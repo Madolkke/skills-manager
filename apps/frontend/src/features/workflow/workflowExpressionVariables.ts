@@ -1,4 +1,12 @@
-import type { WorkflowBundle, WorkflowConfigCommand, WorkflowExpressionEnvironment, WorkflowExpressionSchema, WorkflowJsonSchema, WorkflowStep } from "../../types";
+import type {
+  WorkflowBundle,
+  WorkflowConfigCommand,
+  WorkflowExpressionEnvironment,
+  WorkflowExpressionOutput,
+  WorkflowExpressionSchema,
+  WorkflowJsonSchema,
+  WorkflowStep,
+} from "../../types";
 import { findCollection, workflowSteps } from "./domain/utils";
 import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema";
 import { isWorkflowExpressionIdentifier } from "./workflowExpressionSyntax";
@@ -41,16 +49,33 @@ export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId
 export function workflowExpressionEnvironment(bundle: WorkflowBundle, sourceStepId?: string): WorkflowExpressionEnvironment {
   const inputs = Object.fromEntries(bundle.workflow.inputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema]));
   const outputs: WorkflowExpressionEnvironment["outputs"] = {};
+  const directCandidates = new Map<string, WorkflowExpressionOutput | null>();
   const steps = sourceStepId ? workflowSteps(bundle).filter((step) => step.id === sourceStepId) : workflowSteps(bundle);
   steps.forEach((step) => step.collectionCalls.forEach((call) => {
     const callKey = call.key.trim();
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
-    if (!callKey || !definition || outputs[callKey]) return;
-    outputs[callKey] = {
-      sampleCount: Math.max(call.sampleCount, 1),
-      fields: Object.fromEntries(definition.outputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema])),
-    };
+    if (!definition) return;
+    const sampleCount = Math.max(call.sampleCount, 1);
+    if (callKey) {
+      if (outputs[callKey]) return;
+      outputs[callKey] = {
+        sampleCount,
+        fields: Object.fromEntries(definition.outputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema])),
+      };
+      return;
+    }
+    definition.outputs.forEach((item) => {
+      const outputKey = item.key.trim();
+      if (!isWorkflowExpressionIdentifier(outputKey) || inputs[outputKey] || directCandidates.has(outputKey)) {
+        if (outputKey && directCandidates.has(outputKey)) directCandidates.set(outputKey, null);
+        return;
+      }
+      directCandidates.set(outputKey, { sampleCount, fields: {}, schema: item.schema });
+    });
   }));
+  directCandidates.forEach((output, key) => {
+    if (output && !outputs[key]) outputs[key] = output;
+  });
   const configCandidates = new Map<string, WorkflowExpressionSchema | null>();
   steps.forEach((step) => step.collectionCalls.forEach((call) => {
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
@@ -84,13 +109,23 @@ function appendStepOutputs(
   bundle: WorkflowBundle,
   step: WorkflowStep,
 ): void {
+  const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
+  const directOutputCounts = new Map<string, number>();
+  step.collectionCalls.forEach((call) => {
+    if (call.key.trim()) return;
+    const definition = findCollection(bundle.collectionSnapshots, call.definition);
+    definition?.outputs.forEach((output) => {
+      const key = output.key.trim();
+      if (isWorkflowExpressionIdentifier(key)) directOutputCounts.set(key, (directOutputCounts.get(key) ?? 0) + 1);
+    });
+  });
   step.collectionCalls.forEach((call) => {
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
     if (!definition) return;
     const callKey = call.key.trim();
     const callName = call.name.trim() || definition.metadata.name.trim() || definition.key.trim() || "未命名采集";
-    if (!isWorkflowExpressionIdentifier(callKey)) return;
-    if (call.sampleCount > 1) {
+    if (callKey && !isWorkflowExpressionIdentifier(callKey)) return;
+    if (callKey && call.sampleCount > 1) {
       const properties = Object.fromEntries(
         definition.outputs
           .filter((candidate) => isWorkflowExpressionIdentifier(candidate.key.trim()))
@@ -112,11 +147,13 @@ function appendStepOutputs(
     definition.outputs.forEach((output) => {
       const outputKey = output.key.trim();
       if (!isWorkflowExpressionIdentifier(outputKey)) return;
-      const outputPath = `${callKey}.${outputKey}`;
+      if (!callKey && (workflowInputKeys.has(outputKey) || directOutputCounts.get(outputKey) !== 1)) return;
+      const outputPath = callKey ? `${callKey}.${outputKey}` : outputKey;
       appendSchemaVariables(variables, {
         id: `output:${step.id}:${call.id}:${output.id}`, reference: `outputs.${outputPath}`, kind: "output",
         name: workflowSchemaTitle(output.schema, outputKey), source: `${step.name || "未命名步骤"} · ${callName}`,
-        aliases: [outputPath, callKey, outputKey, callName, step.name], schema: output.schema,
+        aliases: [outputPath, callKey, outputKey, callName, step.name].filter(Boolean), schema: output.schema,
+        sampleCount: !callKey && call.sampleCount > 1 ? call.sampleCount : undefined,
       });
     });
   });
@@ -131,10 +168,23 @@ function appendSchemaVariables(
   if (schema.type === "object") {
     Object.entries(schema.properties).forEach(([key, child]) => {
       if (!isWorkflowExpressionIdentifier(key)) return;
-      appendSchemaVariables(variables, { ...base, id: `${base.id}:${key}`, reference: `${base.reference}.${key}`, name: workflowSchemaTitle(child, key), aliases: [...base.aliases, key], schema: child });
+      appendSchemaVariables(variables, {
+        ...base,
+        id: `${base.id}:${key}`,
+        reference: `${base.reference}.${key}`,
+        name: workflowSchemaTitle(child, key),
+        aliases: [...base.aliases, key],
+        schema: child,
+      });
     });
   } else if (schema.type === "array") {
-    appendSchemaVariables(variables, { ...base, id: `${base.id}:item`, reference: `${base.reference}[0]`, name: `${base.name} 元素`, schema: schema.items });
+    appendSchemaVariables(variables, {
+      ...base,
+      id: `${base.id}:item`,
+      reference: `${base.reference}[0]`,
+      name: `${base.name} 元素`,
+      schema: schema.items,
+    });
   }
 }
 
@@ -144,7 +194,13 @@ export function expandWorkflowExpressionVariable(
 ): WorkflowExpressionVariable[] {
   if (!variable.schema) return [];
   const values: WorkflowExpressionVariable[] = [];
-  appendSchemaVariables(values, { ...variable, id: `${variable.id}:sample`, reference, sampleCount: undefined, schema: variable.schema });
+  appendSchemaVariables(values, {
+    ...variable,
+    id: `${variable.id}:sample`,
+    reference,
+    sampleCount: undefined,
+    schema: variable.schema,
+  });
   return values.slice(1);
 }
 

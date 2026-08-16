@@ -72,6 +72,7 @@ class WorkflowExpressionOutputPayload(BaseModel):
 
     sample_count: Annotated[int, Field(alias="sampleCount", gt=0)]
     fields: dict[str, JsonSchema] = Field(default_factory=dict)
+    schema_: JsonSchema | None = Field(default=None, alias="schema")
 
 
 class WorkflowExpressionEnvironmentPayload(BaseModel):

@@ -46,6 +46,7 @@ describe("Workflow expression variables", () => {
     expect(variables.map((item) => item.reference)).toEqual([
       "inputs.tenant",
       "outputs.status.version",
+      "outputs.version",
     ]);
     expect(variables.filter((item) => item.reference === "outputs.status.version").map((item) => item.source)).toEqual([
       "当前检查 · 接口状态",
@@ -58,7 +59,7 @@ describe("Workflow expression variables", () => {
 
     expect(filterWorkflowExpressionVariables(variables, "inputs.ten").map((item) => item.reference)).toEqual(["inputs.tenant"]);
     expect(filterWorkflowExpressionVariables(variables, "status.ver")).toHaveLength(1);
-    expect(filterWorkflowExpressionVariables(variables, "ver").map((item) => item.kind)).toEqual(["output"]);
+    expect(filterWorkflowExpressionVariables(variables, "ver").map((item) => item.kind)).toEqual(["output", "output"]);
   });
 
   it("provides explicit completion at an empty cursor and suppresses quoted text", async () => {
@@ -70,7 +71,7 @@ describe("Workflow expression variables", () => {
     const readonlyState = EditorState.create({ extensions: EditorState.readOnly.of(true) });
     const readonlyResult = await source(new CompletionContext(readonlyState, 0, true));
 
-    expect(explicit?.options).toHaveLength(2);
+    expect(explicit?.options).toHaveLength(3);
     expect(automatic?.options.map((item) => item.label)).toEqual(["outputs.status.version"]);
     expect(quoted).toBeNull();
     expect(readonlyResult).toBeNull();
@@ -78,6 +79,48 @@ describe("Workflow expression variables", () => {
     expect(shouldOpenWorkflowExpressionCompletion(variables, "inputs.ten")).toBe(true);
     expect(shouldOpenWorkflowExpressionCompletion(variables, "\"inputs.ten")).toBe(false);
     expect(shouldOpenWorkflowExpressionCompletion(variables, "unknown")).toBe(false);
+  });
+
+  it("exposes unique unscoped output fields and suppresses conflicts", async () => {
+    const bundle = workflowBundle();
+    const variables = workflowExpressionVariables(bundle, "step-current");
+    const source = createWorkflowExpressionCompletionSource(() => variables);
+
+    expect((await completion(source, "outputs.ver", false))?.options.map((item) => item.label)).toEqual(["outputs.version"]);
+    expect(workflowExpressionEnvironment(bundle, "step-current").outputs.version).toMatchObject({
+      sampleCount: 1,
+      schema: { type: "string" },
+    });
+
+    const definition = bundle.collectionSnapshots[0]!;
+    definition.outputs.push({
+      id: "output-details",
+      key: "details",
+      required: true,
+      schema: {
+        type: "object",
+        title: "详情",
+        description: "",
+        properties: { status: { type: "string", title: "状态", description: "" } },
+        required: ["status"],
+        additionalProperties: false,
+      },
+    });
+    const withObject = workflowExpressionVariables(bundle, "step-current");
+    expect(withObject.map((item) => item.reference)).toContain("outputs.details.status");
+
+    bundle.workflow.inputs.push(parameter("global-version", "version"));
+    expect(workflowExpressionVariables(bundle, "step-current").map((item) => item.reference)).not.toContain("outputs.version");
+
+    bundle.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!.collectionCalls.push({
+      id: "call-unscoped-duplicate",
+      key: "",
+      name: "重复直接输出",
+      definition: { id: definition.id, revision: definition.revision },
+      sampleCount: 1,
+      inputBindings: {},
+    });
+    expect(workflowExpressionVariables(bundle, "step-current").map((item) => item.reference)).not.toContain("outputs.details");
   });
 
   it("completes multi-sample fields only after a supported closed non-slice index", async () => {

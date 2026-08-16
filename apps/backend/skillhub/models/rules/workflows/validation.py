@@ -168,17 +168,28 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
 def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str, Any]:
     inputs = {item["key"].strip(): item["schema"] for item in workflow_inputs.values() if item["key"].strip()}
     outputs: dict[str, dict[str, Any]] = {}
+    direct_candidates: dict[str, dict[str, Any] | None] = {}
     config_candidates: dict[str, dict[str, Any] | None] = {}
     for call in step["collectionCalls"]:
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
         if not definition:
             continue
         call_key = call["key"].strip()
+        sample_count = max(int(call["sampleCount"]), 1)
         if call_key and call_key not in outputs:
             outputs[call_key] = {
-                "sampleCount": max(int(call["sampleCount"]), 1),
+                "sampleCount": sample_count,
                 "fields": {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()},
             }
+        elif not call_key:
+            for item in definition["outputs"]:
+                output_key = item["key"].strip()
+                if not is_expression_identifier(output_key) or output_key in inputs:
+                    continue
+                if output_key in direct_candidates:
+                    direct_candidates[output_key] = None
+                else:
+                    direct_candidates[output_key] = {"sampleCount": sample_count, "fields": {}, "schema": item["schema"]}
         if definition["spec"]["collectionType"] != "config":
             continue
         for command in definition["spec"].get("config", {}).get("commands", []):
@@ -188,6 +199,9 @@ def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str
             else:
                 config_candidates[command["name"]] = None
     config = {name: schema for name, schema in config_candidates.items() if schema is not None}
+    for output_key, value in direct_candidates.items():
+        if value is not None and output_key not in outputs:
+            outputs[output_key] = value
     return {"inputs": inputs, "outputs": outputs, "config": config}
 
 

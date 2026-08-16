@@ -314,7 +314,9 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 
 完整目录还包含 `builtin.single-file@workflow-skill-v5.1`、`builtin.three-file@3.1.0` 和 `builtin.node-split@3.1.0`。v5.1 Generator 会在日志 Collection 中展示 SQL、输出映射和样例名称，并为多次采集输出展示索引路径，不输出样例原文；内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
 
-`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`environment.outputs` 使用 `{sampleCount, fields}` 描述采样结果，旧字段 map 按单次采集兼容。`POST /api/workflow-expression-validations` 和批量 `POST /api/workflow-expression-validations/batch` 只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。采样下标问题作为 Workflow warning。
+`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。`environment.outputs` 的命名采集使用 `{sampleCount, fields}` 描述采样结果；无 `callKey` 的直接输出使用 `{sampleCount, schema}` 表示 `outputs.<outputKey>` 本身的值类型；旧字段 map 按单次采集兼容。
+
+`POST /api/workflow-expression-validations` 和批量 `POST /api/workflow-expression-validations/batch` 只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。采样下标问题作为 Workflow warning。
 
 `POST /api/skills/{skill_id}/workflow/sync-preview`：
 
