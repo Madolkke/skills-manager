@@ -1,0 +1,90 @@
+{
+  "documentType": "workflow_import_bundle",
+  "workflow": {
+    "metadata": {
+      "name": "系统状态检查",
+      "description": "根据目标主机名检查系统状态。"
+    },
+    "inputs": [
+      {
+        "id": "input-hostname",
+        "key": "hostname",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "title": "目标主机名",
+          "description": "需要检查的设备主机名。"
+        }
+      }
+    ],
+    "deviceRoles": [],
+    "nodes": [
+      {
+        "id": "step-inspect-system-status",
+        "name": "检查系统状态",
+        "description": "执行待补全的系统状态采集。",
+        "isStart": true,
+        "collectionCalls": [
+          {
+            "id": "call-inspect-system-status",
+            "key": "system_status",
+            "name": "检查系统状态",
+            "definitionLocalId": "inspect-system-status",
+            "sampleCount": 1,
+            "inputBindings": {
+              "input-inspect-system-hostname": {
+                "kind": "workflow_input",
+                "reference": {"input_id": "input-hostname"}
+              }
+            }
+          }
+        ],
+        "topology": [
+          {
+            "id": "transition-inspect-to-review",
+            "target": {"id": "conclusion-review-result"},
+            "conditionText": "采集完成后人工查看结果",
+            "conditionExpression": ""
+          }
+        ],
+        "stepType": "expression"
+      },
+      {
+        "id": "conclusion-review-result",
+        "name": "需要人工查看结果",
+        "rootCause": "流程说明未提供可自动判断的状态字段。",
+        "repairRecommendation": "补充执行命令、输出 Schema 和判断条件后启用自动分支。",
+        "nodeType": "conclusion"
+      }
+    ]
+  },
+  "collections": [
+    {
+      "localId": "inspect-system-status",
+      "key": "inspect_system_status",
+      "metadata": {
+        "name": "检查系统状态",
+        "description": "待补充执行命令和输出契约。",
+        "tags": ["placeholder", "system-status"]
+      },
+      "spec": {
+        "collectionType": "cli",
+        "commandTemplate": "",
+        "outputSamples": []
+      },
+      "inputs": [
+        {
+          "id": "input-inspect-system-hostname",
+          "key": "hostname",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "目标主机名",
+            "description": "需要检查的设备主机名。"
+          }
+        }
+      ],
+      "outputs": []
+    }
+  ]
+}

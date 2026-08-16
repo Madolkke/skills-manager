@@ -1,0 +1,4 @@
+interface:
+  display_name: "文档工作流导入"
+  short_description: "将流程说明转换为可导入工作流并生成审阅报告和结构校验结果"
+  default_prompt: "使用 $workflow-import-generator 根据此流程说明生成并校验可导入工作流。"
