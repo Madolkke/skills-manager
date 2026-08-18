@@ -10,6 +10,7 @@ from skillhub.models.store import SkillHubStore
 from skillhub.services import (
     AdminService,
     ArtifactService,
+    CommandLibraryService,
     EvaluationReadService,
     EvaluationService,
     ExecutorWorkflowService,
@@ -69,6 +70,10 @@ def evaluation_service_dependency(session: Session = Depends(session_dependency,
 
 def admin_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> AdminService:
     return AdminService(SkillHubStore(session))
+
+
+def command_library_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> CommandLibraryService:
+    return CommandLibraryService(SkillHubStore(session))
 
 
 def external_skill_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> ExternalSkillService:

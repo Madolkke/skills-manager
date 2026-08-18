@@ -176,6 +176,7 @@ class SkillDeletionMixin:
         session.execute(delete(orm.WorkflowSync).where(orm.WorkflowSync.id.in_(owned["workflow_syncs"])))
         session.execute(delete(orm.WorkflowDebugRun).where(orm.WorkflowDebugRun.skill_id == skill_id))
         session.execute(delete(orm.WorkflowDebugCase).where(orm.WorkflowDebugCase.skill_id == skill_id))
+        session.execute(delete(orm.UserCommandLibraryEntry).where(orm.UserCommandLibraryEntry.workflow_id.in_(owned["workflows"])))
         session.execute(delete(orm.Workflow).where(orm.Workflow.skill_id == skill_id))
         session.execute(delete(orm.SavedView).where(orm.SavedView.skill_id == skill_id))
         session.execute(delete(orm.SkillTag).where(orm.SkillTag.skill_id == skill_id))

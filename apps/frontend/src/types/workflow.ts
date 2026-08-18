@@ -89,6 +89,7 @@ export type CliCollectionSpec = {
 };
 export type LogCollectionSpec = { collectionType: "log"; sqlDialect: "duckdb"; queries: LogAggregationQuery[]; outputSamples: LogOutputSample[] };
 export type WorkflowCollectionSpec = CliCollectionSpec | LogCollectionSpec | ConfigCollectionSpec;
+export type CollectionType = WorkflowCollectionSpec["collectionType"];
 
 export type WorkflowLogSchemaColumn = {
   name: string;
@@ -114,6 +115,7 @@ export type CollectionDefinition = {
   inputs: WorkflowParameter[];
   outputs: CollectionOutput[];
   forkedFrom?: VersionedRef;
+  sourceSystemCommandId?: string | null;
 };
 
 export type CollectionCall = {
@@ -152,7 +154,7 @@ export type WorkflowBundle = {
   collectionSnapshots: CollectionDefinition[];
 };
 
-export type ImportCollectionDefinition = Omit<CollectionDefinition, "id" | "revision" | "forkedFrom"> & { localId: string };
+export type ImportCollectionDefinition = Omit<CollectionDefinition, "id" | "revision" | "forkedFrom" | "sourceSystemCommandId"> & { localId: string };
 export type ImportCollectionCall = Omit<CollectionCall, "definition"> & { definitionLocalId: string };
 export type ImportWorkflowStep = Omit<WorkflowStep, "collectionCalls"> & { collectionCalls: ImportCollectionCall[] };
 export type WorkflowImportBundle = {
@@ -213,7 +215,11 @@ export type WorkflowImportDetail = WorkflowDetail & {
   };
 };
 
-export type WorkflowCollectionChange = { operation: "create" | "revise" | "fork"; definition: CollectionDefinition };
+export type WorkflowCollectionChange = {
+  operation: "create" | "revise" | "fork";
+  definition: CollectionDefinition;
+  sourceSystemCommandId?: string | null;
+};
 
 export type WorkflowSkillGenerator = {
   id: string;

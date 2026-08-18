@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import insert, update
+from sqlalchemy import insert, select, update
 
 from skillhub.models.entities import digest_text
 from skillhub.models.errors import InvariantError
@@ -24,7 +24,11 @@ class WorkflowCatalogMixin:
         seen: set[str] = set()
         for change in changes:
             operation = change["operation"]
+            source_system_command_id = change.get("source_system_command_id")
             definition = normalize_collection_definition(change["definition"])
+            source_system_command_id = source_system_command_id or definition.get("sourceSystemCommandId")
+            if source_system_command_id:
+                definition["sourceSystemCommandId"] = source_system_command_id
             definition_id = definition["id"].strip()
             requested_revision = int(definition["revision"])
             if not definition_id or definition_id in seen:
@@ -43,6 +47,20 @@ class WorkflowCatalogMixin:
                     self._collection_revision(connection, source["id"], source["revision"])
                 elif definition.get("forkedFrom"):
                     raise InvariantError("New Collection cannot set forkedFrom without fork operation.")
+                if source_system_command_id:
+                    if definition.get("spec", {}).get("collectionType") != "cli":
+                        raise InvariantError("Only CLI Collections can reference a system command.")
+                    source_row = connection.execute(
+                        select(orm.SystemCommand).where(orm.SystemCommand.id == source_system_command_id)
+                    ).scalar_one_or_none()
+                    if source_row is None:
+                        raise InvariantError(f"System command does not exist: {source_system_command_id}")
+                    # The source row is authoritative.  Do not compare the
+                    # client draft here: an administrator may have updated
+                    # the system expression after the picker created this
+                    # draft.  ``sync_system_sources`` materializes the latest
+                    # source and performs the compatibility checks in the
+                    # same transaction.
                 revision = 1
                 connection.execute(
                     insert(orm.WorkflowCollectionDefinition).values(
@@ -51,11 +69,16 @@ class WorkflowCatalogMixin:
                         created_at=created_at,
                         updated_at=created_at,
                         created_by=actor,
+                        source_system_command_id=source_system_command_id,
                     )
                 )
             elif operation == "revise":
                 if existing is None:
                     raise InvariantError(f"Collection does not exist: {definition_id}")
+                if existing["source_system_command_id"]:
+                    raise InvariantError("System source Collections are read-only and cannot be revised directly.")
+                if source_system_command_id:
+                    raise InvariantError("A user Collection cannot be converted into a system-source Collection.")
                 revision = int(existing["latest_revision"]) + 1
                 connection.execute(
                     update(orm.WorkflowCollectionDefinition)
@@ -78,7 +101,14 @@ class WorkflowCatalogMixin:
                 )
             )
             mappings[(definition_id, requested_revision)] = (definition_id, revision)
-            applied.append({"operation": operation, "definition_id": definition_id, "revision": revision})
+            applied.append(
+                {
+                    "operation": operation,
+                    "definition_id": definition_id,
+                    "revision": revision,
+                    "source_system_command_id": source_system_command_id,
+                }
+            )
         return mappings, applied
 
     def _canonicalize_collection_snapshots(self, connection, document: dict[str, Any], mappings: dict[tuple[str, int], tuple[str, int]]) -> dict[str, Any]:

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from skillhub.views.admin import register_admin_routes
 from skillhub.views.artifacts import register_artifact_routes
+from skillhub.views.command_library import register_command_library_routes
 from skillhub.views.evaluations import register_evaluation_routes
 from skillhub.views.executor_workflows import register_executor_workflow_routes
 from skillhub.views.external import register_external_routes
@@ -29,6 +30,7 @@ def register_views(app: FastAPI) -> None:
     register_skill_routes(app)
     register_version_routes(app)
     register_workflow_routes(app)
+    register_command_library_routes(app)
     register_executor_workflow_routes(app)
     register_workflow_debug_routes(app)
     register_evaluation_routes(app)

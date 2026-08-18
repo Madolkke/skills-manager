@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import insert, update
+from sqlalchemy import delete, insert, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.models.entities import digest_text, new_id, utc_now
@@ -31,9 +31,19 @@ class WorkflowImportMixin:
                 self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.edit")
                 workflow = self._workflow_row(connection, skill_id=skill_id)
                 validate_workflow_import_references(normalized)
+                # The imported document replaces the current Workflow.  Drop
+                # its previous user-command projection before writing the new
+                # Collection set so removed CLI Collections cannot remain in
+                # global user search.
+                connection.execute(
+                    delete(orm.UserCommandLibraryEntry).where(
+                        orm.UserCommandLibraryEntry.workflow_id == workflow["id"]
+                    )
+                )
                 mappings = self._insert_imported_collections(
                     connection,
                     definitions=normalized["collections"],
+                    workflow_id=workflow["id"],
                     actor=actor,
                     created_at=imported_at,
                 )
@@ -93,7 +103,7 @@ class WorkflowImportMixin:
         )
         return {"revision": revision, "collection_mappings": collection_mappings}
 
-    def _insert_imported_collections(self, connection, *, definitions, actor: str, created_at) -> dict[str, tuple[str, int]]:
+    def _insert_imported_collections(self, connection, *, definitions, workflow_id: str, actor: str, created_at) -> dict[str, tuple[str, int]]:
         mappings: dict[str, tuple[str, int]] = {}
         for imported in definitions:
             definition_id = new_id("collection")
@@ -128,6 +138,16 @@ class WorkflowImportMixin:
                     created_at=created_at,
                     created_by=actor,
                 )
+            )
+            self._sync_user_command_from_collection(
+                connection,
+                owner_ref=actor,
+                definition=definition,
+                collection_id=definition_id,
+                collection_revision=revision,
+                actor=actor,
+                created_at=created_at,
+                workflow_id=workflow_id,
             )
             mappings[imported["localId"]] = (definition_id, revision)
         return mappings

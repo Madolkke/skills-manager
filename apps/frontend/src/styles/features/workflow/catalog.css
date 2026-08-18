@@ -43,6 +43,33 @@
   background: transparent;
 }
 
+.workflow-command-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 3px 8px;
+  color: #53647a;
+  font-size: 11px;
+}
+
+.workflow-command-error {
+  margin: 0.35rem 0;
+  color: var(--danger, #b42318);
+  font-size: 0.78rem;
+}
+
+.workflow-command-results {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #dce3ec;
+}
+
+.workflow-command-item {
+  border-color: #d8e7dc;
+  background: #f4faf6;
+}
+
 .workflow-library-item {
   display: grid;
   gap: 5px;
@@ -164,6 +191,10 @@
   background: transparent;
   color: #263348;
   font-size: 12px;
+}
+
+.workflow-collection-picker > .workflow-command-toggle {
+  margin-top: 4px;
 }
 
 .workflow-picker-menu {

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import insert, update
+from sqlalchemy import delete, insert, update
 from sqlalchemy.exc import IntegrityError
 
 from skillhub.models.entities import ContentRef, digest_text, new_id, utc_now
@@ -72,7 +72,39 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
             if candidate["workflow"]["id"] != workflow["id"]:
                 raise InvariantError("Workflow ID cannot be changed.")
             mappings, applied_changes = self._apply_collection_changes(connection, changes=collection_changes, actor=actor, created_at=saved_at)
+            source_mappings = self.sync_system_sources(connection, document=candidate, actor=actor, created_at=saved_at)
+            mappings.update(source_mappings)
             candidate = self._canonicalize_collection_snapshots(connection, candidate, mappings)
+            for snapshot in candidate.get("collectionSnapshots", []):
+                self._sync_user_command_from_collection(
+                    connection,
+                    owner_ref=actor,
+                    definition=snapshot,
+                    collection_id=snapshot["id"],
+                    collection_revision=int(snapshot["revision"]),
+                    actor=actor,
+                    created_at=saved_at,
+                    workflow_id=workflow["id"],
+                )
+            # 系统来源只属于执行层 Collection，不应出现在用户命令库投影中。
+            connection.execute(
+                delete(orm.UserCommandLibraryEntry)
+                .where(orm.UserCommandLibraryEntry.workflow_id == workflow["id"])
+                .where(orm.UserCommandLibraryEntry.source_system_command_id.is_not(None))
+            )
+            active_collection_ids = {
+                str(snapshot.get("id"))
+                for snapshot in candidate.get("collectionSnapshots", [])
+                if snapshot.get("id")
+            }
+            stale_user_commands = delete(orm.UserCommandLibraryEntry).where(
+                orm.UserCommandLibraryEntry.workflow_id == workflow["id"]
+            )
+            if active_collection_ids:
+                stale_user_commands = stale_user_commands.where(
+                    orm.UserCommandLibraryEntry.collection_id.not_in(active_collection_ids)
+                )
+            connection.execute(stale_user_commands)
             candidate["workflow"]["revision"] = int(workflow["revision"])
             current_digest = workflow["document_digest"]
             candidate_digest = self._document_digest(candidate)

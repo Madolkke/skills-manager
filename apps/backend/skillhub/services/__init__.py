@@ -5,6 +5,7 @@ from .admin_access import AdminAccessService
 from .admin_catalog import AdminCatalogService
 from .admin_runtime import AdminRuntimeService
 from .artifacts import ArtifactDownload, ArtifactService, QuickPublishResult
+from .command_library import CommandLibraryService
 from .evaluation_reads import EvaluationReadService
 from .evaluations import EvaluationService
 from .executor_workflows import ExecutorWorkflowService
@@ -23,6 +24,7 @@ __all__ = [
     "AdminAccessService",
     "AdminCatalogService",
     "AdminRuntimeService",
+    "CommandLibraryService",
     "ArtifactDownload",
     "ArtifactService",
     "QuickPublishResult",

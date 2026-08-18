@@ -1,4 +1,4 @@
-import type { CollectionDefinition, ConfigCollectionSpec, DeviceRole, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
+import type { CollectionDefinition, CollectionType, ConfigCollectionSpec, DeviceRole, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
 import { createWorkflowId } from "./domain/utils";
 import { newWorkflowSchema } from "./workflowJsonSchema";
 
@@ -25,18 +25,26 @@ export function newTransition(target: { id: string }): WorkflowTransition {
   return { id: createWorkflowId("transition"), target, conditionText: "", conditionExpression: "" };
 }
 
-export function newCollection(index: number, metadata?: Pick<WorkflowMetadata, "industry" | "device" | "versions">): CollectionDefinition {
+export function newCollection(
+  index: number,
+  metadata?: Pick<WorkflowMetadata, "industry" | "device" | "versions">,
+  collectionType: CollectionType = "cli",
+): CollectionDefinition {
+  const label = collectionType === "cli" ? "CLI" : collectionType === "log" ? "日志" : "配置";
   return {
     id: createWorkflowId("collection"), revision: 1, key: `collection_${index}`,
     metadata: {
-      name: `CLI 采集 ${index}`,
+      name: `${label}采集 ${index}`,
       description: "",
       industry: metadata?.industry ?? "",
       device: metadata?.device ?? "",
       versions: [...(metadata?.versions ?? [])],
       tags: [],
     },
-    spec: { collectionType: "cli", commandTemplate: "", outputSamples: [], commandParameterSyntax: "angle-v1" }, inputs: [], outputs: [],
+    spec: collectionType === "cli"
+      ? { collectionType: "cli", commandTemplate: "", outputSamples: [], commandParameterSyntax: "angle-v1" }
+      : collectionType === "log" ? newLogCollectionSpec() : newConfigCollectionSpec(),
+    inputs: [], outputs: [],
   };
 }
 

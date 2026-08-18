@@ -31,10 +31,13 @@ from skillhub.models.schema.tables import (
     skill_builder_sessions,
     skill_tags,
     skill_versions,
+    system_command_library_entries,
     tag_group_cascades,
     tag_groups,
     tag_values,
+    user_command_library_entries,
     worker_heartbeats,
+    workflow_collection_definitions,
     workflow_collection_revisions,
     workflow_debug_cases,
     workflow_debug_runs,
@@ -88,6 +91,7 @@ Index("worker_heartbeats_last_seen_idx", worker_heartbeats.c.last_seen_at.desc()
 Index("workflows_updated_at_idx", workflows.c.updated_at.desc())
 Index("workflow_syncs_skill_version_idx", workflow_syncs.c.skill_version_id)
 Index("workflow_collection_revisions_created_at_idx", workflow_collection_revisions.c.created_at.desc())
+Index("workflow_collection_definitions_source_system_command_idx", workflow_collection_definitions.c.source_system_command_id)
 Index("workflow_debug_cases_skill_step_idx", workflow_debug_cases.c.skill_id, workflow_debug_cases.c.step_id)
 Index("workflow_debug_runs_case_created_idx", workflow_debug_runs.c.case_id, workflow_debug_runs.c.created_at.desc(), workflow_debug_runs.c.id.desc())
 Index(
@@ -107,3 +111,7 @@ Index("jobs_status_created_at_idx", jobs.c.status, jobs.c.created_at)
 Index("role_assignments_subject_idx", role_assignments.c.subject_type, role_assignments.c.subject_id)
 Index("role_assignments_resource_idx", role_assignments.c.resource_type, role_assignments.c.resource_id)
 Index("audit_events_resource_idx", audit_events.c.resource_type, audit_events.c.resource_id, audit_events.c.created_at.desc())
+Index("system_command_library_entries_enabled_key_idx", system_command_library_entries.c.enabled, system_command_library_entries.c.key)
+Index("system_command_library_entries_expression_idx", system_command_library_entries.c.normalized_expression)
+Index("user_command_library_entries_owner_enabled_idx", user_command_library_entries.c.owner_ref, user_command_library_entries.c.enabled)
+Index("user_command_library_entries_source_idx", user_command_library_entries.c.source_system_command_id)

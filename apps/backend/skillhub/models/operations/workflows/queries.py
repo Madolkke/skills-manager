@@ -44,7 +44,11 @@ class WorkflowQueryMixin(WorkflowHelperMixin):
             self._skill_capabilities(connection, skill_id=skill_id, actor=actor)
             rows = (
                 connection.execute(
-                    select(orm.WorkflowCollectionRevision.document_schema_version, orm.WorkflowCollectionRevision.definition)
+                    select(
+                        orm.WorkflowCollectionRevision.document_schema_version,
+                        orm.WorkflowCollectionRevision.definition,
+                        orm.WorkflowCollectionDefinition.source_system_command_id,
+                    )
                     .join(
                         orm.WorkflowCollectionDefinition,
                         (orm.WorkflowCollectionDefinition.id == orm.WorkflowCollectionRevision.definition_id)
@@ -54,7 +58,16 @@ class WorkflowQueryMixin(WorkflowHelperMixin):
                 )
                 .all()
             )
-            return [migrate_collection_definition(int(item.document_schema_version), dict(item.definition)) for item in rows]
+            result = []
+            for item in rows:
+                definition = migrate_collection_definition(int(item.document_schema_version), dict(item.definition))
+                if item.source_system_command_id:
+                    definition["sourceSystemCommandId"] = item.source_system_command_id
+                else:
+                    definition.pop("sourceSystemCommandId", None)
+                    definition.pop("source_system_command_id", None)
+                result.append(definition)
+            return result
 
     def workflow_sync_source(self, *, skill_version_id: str) -> dict[str, Any] | None:
         with self._read_session() as connection:

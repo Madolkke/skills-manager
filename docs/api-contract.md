@@ -18,6 +18,8 @@
 | `Workflow` | 与 Skill 永久一对一绑定的最新作者文档。 |
 | `WorkflowSync` | 某个 Workflow revision 生成 SkillVersion 时的精确源快照和追溯记录。 |
 | `CollectionDefinition` | 全局共享采集定义；同一 ID 下 revision 不可变。 |
+| `SystemCommandLibraryEntry` | 仅管理员维护的 CLI 命令来源；按规范化命令表达式检索，更新采用最后写入覆盖。 |
+| `UserCommandLibraryEntry` | 由 Workflow 的非系统 CLI Collection 投影出的全局可搜索命令记录；身份按 `workflow_id + collection_id` 隔离。 |
 | `WorkflowDebugCase` | 绑定写作侧 Step 的非版本化单步调试输入、采集 fixture 和预期直接目标。 |
 | `WorkflowDebugRun` | 单次调试的案例快照、Workflow 证据、执行器状态和命中判定。 |
 
@@ -131,6 +133,7 @@
 | `GET /api/skills/{skill_id}/workflow/formatted` | 返回当前 Workflow document 的特定格式表示；当前转换为原样透传。 |
 | `GET /api/skills/{skill_id}/workflow/executor` | 将当前保存的写作侧 Workflow 转换为执行器 Workflow 定义；详见[执行器 Workflow 转换接口](executor-workflow-api.md)。 |
 | `GET /api/workflow-log-schema` | 返回 Workflow schema v5 日志 SQL 使用的 DuckDB 方言、`logs`/`params` 表名和固定列目录。 |
+| `POST /api/command-library/search` | 按原始 CLI 命令搜索系统命令；`includeUser=true` 时合并所有 Workflow 投影的用户命令。 |
 
 配置匹配 Collection 的结构、表达式路径和执行边界见[Workflow 配置匹配 Collection](workflow-config-matching.md)。SkillHub 不读取配置文本或执行匹配。
 | `GET /api/skills/{skill_id}/workflow/collections` | 全局 Collection Catalog 最新 revisions。 |
@@ -175,6 +178,29 @@
 | `DELETE /api/workflow-debug-cases/{case_id}` | 无活动运行时删除调试例并级联删除历史。 |
 | `POST /api/workflow-debug-cases/{case_id}/runs` | 基于当前已保存 Workflow 启动或复用活动单步调试运行。 |
 | `POST /api/workflow-debug-runs/{run_id}/advance` | 查询一次执行器状态，并按需自动恢复一次暂停。 |
+| `GET /api/admin/system-commands` | 使用 `X-SkillHub-Admin-Key` 读取系统 CLI 命令库。 |
+| `POST /api/admin/system-commands` | 使用 `X-SkillHub-Admin-Key` 新建系统 CLI 命令。 |
+| `GET/PUT/PATCH/DELETE /api/admin/system-commands/{id}` | 使用 `X-SkillHub-Admin-Key` 读取、覆盖更新或删除系统 CLI 命令；被 Workflow 来源引用时拒绝删除。 |
+
+## CLI 命令库
+
+系统命令库与用户命令库使用独立数据表，不改变 Workflow Collection Catalog 的执行语义。系统命令包含元数据、命令行表达式、多个回显示例、根输出 JSON Schema 和原始 TTP 文本。根输出 Schema 必须为 `object`；属性将投影为 CLI Collection 的 `outputs`，`required` 决定输出必填性。适用版本只记录在 `metadata.versions`，空数组表示全版本；命令表不维护另一套业务版本号。
+
+`POST /api/command-library/search` 请求体为：
+
+```json
+{
+  "command": "display int",
+  "includeUser": false,
+  "targetVersion": "V200R"
+}
+```
+
+返回全部命中，包含 `source`、命令表达式、版本元数据、`complete`、已捕获参数、服务端推导的 `captureSchema`、下一步 token 提示与 `ambiguous`；存在多个合法捕获路径时，`alternatives` 保留全部捕获结果。关键字大小写不敏感，输入关键字可为表达式关键字前缀；双引号中的输入保留为单个参数 token。`targetVersion` 对 `metadata.versions` 做大小写不敏感的包含匹配，空版本列表表示全版本。
+
+表达式按空白和双引号 token 化（不解释转义）：普通 token 是关键字，`<name>` 是参数；`[ ... ]` 是可选组，`{ x | y }` 是必选选项，`[ x | y ]` 是可选选项，组后的 `*` 支持重复，`<name>&<1-n>` 支持有界重复参数。多选组按表达式中声明的分支顺序匹配；输入关键字支持大小写不敏感前缀。保存时后端规范化表达式并以规范化 AST 语义检索；前端只展示服务端诊断与结果。
+
+选择系统命令时，编辑器创建一个带 `sourceSystemCommandId` 的只读 Collection 草稿。保存时后端在同一事务内验证绑定并同步系统命令的最新内容；同步不兼容会整体回滚。普通 Workflow 保存不得 `revise` 这类 Collection。非系统 CLI Collection 会投影到用户命令库；删除 Workflow 时其投影记录通过外键级联删除。Workflow 导出会移除系统来源身份，导入后始终成为独立用户 Collection。
 
 `DELETE /api/skills/{skill_id}` 是破坏性接口，已替换旧版归档语义。仅 owner 或 admin 可调用：
 

@@ -37,6 +37,7 @@ import type {
   WorkflowLogSchemaCatalog,
   WorkflowImportBundle,
   WorkflowImportDetail,
+  CommandLibrarySearchResult,
 } from "../types";
 import { adminApi, type AdminGroup } from "./api/adminApi";
 import { evaluationApi } from "./api/evaluationApi";
@@ -79,6 +80,12 @@ function skillApi() {
       apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/metadata`, "PATCH", payload),
     listWorkflowCollections: (skillId: string) =>
       apiGet<{ definitions: CollectionDefinition[] }>(`/api/skills/${encodeURIComponent(skillId)}/workflow/collections`),
+    searchCommandLibrary: (command: string, includeUser = false, targetVersion?: string, signal?: AbortSignal) =>
+      apiSend<{ results: CommandLibrarySearchResult[] }>("/api/command-library/search", "POST", {
+        command,
+        includeUser,
+        ...(targetVersion ? { targetVersion } : {}),
+      }, { signal }),
     getWorkflowLogSchema: () => apiGet<WorkflowLogSchemaCatalog>("/api/workflow-log-schema"),
     listWorkflowSkillGenerators: () => apiGet<WorkflowSkillGeneratorCatalog>("/api/workflow-skill-generators"),
     previewWorkflowSync: (skillId: string, payload: WorkflowSyncPreviewPayload) =>

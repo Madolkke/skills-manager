@@ -76,7 +76,7 @@ def test_skill_identity_revision_upgrades_the_baseline_without_data_loss() -> No
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        assert current_revision(engine) == "0007_command_library"
         with engine.connect() as connection:
             assert "display_name" in {column["name"] for column in inspect(connection).get_columns("skills")}
             assert connection.scalar(text("select slug from skills where id = 'skill-existing'")) == "existing-skill"
@@ -124,7 +124,7 @@ def test_workflow_migrations_preserve_history_and_mark_existing_sync_changed() -
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        assert current_revision(engine) == "0007_command_library"
         with engine.connect() as connection:
             workflow = connection.execute(
                 text(
@@ -177,6 +177,32 @@ def test_workflow_migrations_preserve_history_and_mark_existing_sync_changed() -
             assert revisions[2]["definition_digest"] == _canonical_digest(revisions[2]["definition"])
             assert workflow["document"]["collectionSnapshots"] == [revisions[2]["definition"]]
             assert connection.scalar(text("select latest_revision from workflow_collection_definitions where id='collection-v3'")) == 4
+            user_command = connection.execute(
+                text(
+                    """
+                    select workflow_id, collection_id, expression, normalized_expression, document
+                    from user_command_library_entries
+                    where workflow_id = 'workflow-v3' and collection_id = 'collection-v3'
+                    """
+                )
+            ).mappings().one()
+            assert dict(user_command) == {
+                "workflow_id": "workflow-v3",
+                "collection_id": "collection-v3",
+                "expression": "show legacy 1",
+                "normalized_expression": "show legacy 1",
+                "document": {
+                    "metadata": revisions[2]["definition"]["metadata"],
+                    "samples": [],
+                    "outputSchema": {
+                        "type": "object",
+                        "properties": {"table": revisions[2]["definition"]["outputs"][0]["schema"]},
+                        "required": ["table"],
+                        "additionalProperties": False,
+                    },
+                    "ttp": "",
+                },
+            }
             assert dict(sync) == {
                 "workflow_revision": 1,
                 "document_schema_version": 3,
@@ -206,7 +232,7 @@ def test_workflow_document_schema_revisions_reject_downgrade() -> None:
         with pytest.raises(RuntimeError, match="irreversible"), engine.begin() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, "0003_workflow_skill_generators")
-        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        assert current_revision(engine) == "0007_command_library"
     finally:
         _reset_database(engine)
         engine.dispose()
@@ -229,7 +255,7 @@ def test_prepare_database_bridges_legacy_workflow_json_schema_revision() -> None
 
         prepare_database(engine)
 
-        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        assert current_revision(engine) == "0007_command_library"
         with engine.connect() as connection:
             workflow = connection.execute(
                 text("select revision, document_schema_version from workflows where id = 'workflow-v3'")
@@ -253,7 +279,7 @@ def test_workflow_merge_revision_upgrades_either_branch_to_one_head(branch_revis
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0006_workflow_log_debug_merge"
+        assert current_revision(engine) == "0007_command_library"
         with engine.connect() as connection:
             assert {"workflow_debug_cases", "workflow_debug_runs"} <= set(inspect(connection).get_table_names())
             workflow_default = next(

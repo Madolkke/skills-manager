@@ -1,5 +1,5 @@
 import { computed, ref } from "vue";
-import type { CollectionCall, CollectionDefinition, VersionedRef, WorkflowBundle, WorkflowCollectionChange, WorkflowDetail, WorkflowMetadata, WorkflowSelection, WorkflowStep } from "../../types";
+import type { CollectionCall, CollectionDefinition, CollectionType, CommandLibrarySearchResult, VersionedRef, WorkflowBundle, WorkflowCollectionChange, WorkflowDetail, WorkflowMetadata, WorkflowSelection, WorkflowStep } from "../../types";
 import { cloneWorkflow, createWorkflowId, findCall, findCollection, mergeCatalog, nextUniqueKey, syncSnapshots, upsertWorkflowCollectionChange as upsertChange, workflowConclusions, workflowFieldGroup as fieldGroup, workflowSteps } from "./domain/utils";
 import { validateWorkflow } from "./domain/validation";
 import { newCollection, newConclusion, newParameter, newRole, newStep } from "./editorDefaults";
@@ -8,6 +8,8 @@ import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidati
 import { createWorkflowOrdering } from "./workflowOrdering";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
 import { validWorkflowSelection } from "./workflowSelection";
+import { commandResultToDefinition } from "./domain/commandLibrary";
+import { findReusableCommandDefinition } from "./domain/collectionLibrary";
 
 export type WorkflowEditorSnapshot = { bundle: WorkflowBundle; catalog: CollectionDefinition[]; changes: WorkflowCollectionChange[] };
 
@@ -134,11 +136,36 @@ export function useWorkflowEditor(readonly: () => boolean) {
     selection.value = { type: "metadata" };
   }
 
-  function addDefinition(): void {
-    const definition = newCollection(catalog.value.length + 1);
+  function addDefinition(collectionType: CollectionType = "cli"): void {
+    const definition = newCollection(catalog.value.length + 1, bundle.value?.workflow.metadata, collectionType);
     definition.key = nextUniqueKey(catalog.value.map((item) => item.key), definition.key);
     commit((draft) => { draft.catalog.push(definition); draft.changes.push({ operation: "create", definition }); });
     selection.value = { type: "collection", id: definition.id };
+  }
+
+  function addCommandLibraryResult(result: CommandLibrarySearchResult): CollectionDefinition | null {
+    if (readonly() || !bundle.value) return null;
+    const currentRefs = [
+      ...workflowSteps(bundle.value).flatMap((step) => step.collectionCalls.map((call) => call.definition)),
+      ...changes.value.map((change) => ({ id: change.definition.id, revision: change.definition.revision })),
+    ];
+    const existing = findReusableCommandDefinition(result, catalog.value, currentRefs);
+    if (existing) {
+      selection.value = { type: "collection", id: existing.id, revision: existing.revision };
+      return existing;
+    }
+    const definition = commandResultToDefinition(result, catalog.value.length + 1);
+    definition.key = nextUniqueKey(catalog.value.map((item) => item.key), definition.key);
+    commit((draft) => {
+      draft.catalog.push(definition);
+      draft.changes.push({
+        operation: "create",
+        definition,
+        sourceSystemCommandId: result.source === "system" ? result.id : undefined,
+      });
+    });
+    selection.value = { type: "collection", id: definition.id, revision: definition.revision };
+    return definition;
   }
 
   function editDefinition(reference: VersionedRef, mutate: (definition: CollectionDefinition) => void): void {
@@ -180,9 +207,9 @@ export function useWorkflowEditor(readonly: () => boolean) {
     return callId;
   }
 
-  function addDraftCollectionCall(stepId: string): { callId: string; definitionId: string } | null {
+  function addDraftCollectionCall(stepId: string, collectionType: CollectionType = "cli"): { callId: string; definitionId: string } | null {
     if (!bundle.value) return null;
-    const definition = newCollection(catalog.value.length + 1, bundle.value.workflow.metadata);
+    const definition = newCollection(catalog.value.length + 1, bundle.value.workflow.metadata, collectionType);
     definition.key = nextUniqueKey(catalog.value.map((item) => item.key), definition.key);
     const callId = createWorkflowId("call");
     commit((draft) => {
@@ -260,6 +287,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
     fork.revision = 1;
     fork.key = defaultForkKey;
     fork.forkedFrom = { id: source.id, revision: source.revision };
+    delete fork.sourceSystemCommandId;
     mutate(fork);
     const removedInputIds = [...previousInputIds].filter((id) => !fork.inputs.some((input) => input.id === id));
     fork.id = forkId;
@@ -298,7 +326,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
     addWorkflowStep, duplicateStep, updateStep, removeStep, addWorkflowConclusion, updateConclusion, removeConclusion,
     addPath: paths.addPath, retargetPath: paths.retargetPath, updatePath: paths.updatePath, removePath: paths.removePath, movePath: paths.movePath,
     moveWorkflowNode: ordering.moveWorkflowNode, reorderWorkflowNodes: ordering.reorderWorkflowNodes,
-    addDefinition, editDefinition, removeDraftDefinition, addCall, addDraftCollectionCall, updateCall, removeCall, moveCall,
+    addDefinition, addCommandLibraryResult, editDefinition, removeDraftDefinition, addCall, addDraftCollectionCall, updateCall, removeCall, moveCall,
     reorderCalls: ordering.reorderCalls, updateCallBinding, editCallDefinition,
   };
 }

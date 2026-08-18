@@ -44,6 +44,15 @@ class WorkflowCollectionDefinition(CreatedAtMixin, UpdatedAtMixin, Base):
     id: Mapped[str] = mapped_column(Text, primary_key=True)
     latest_revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     created_by: Mapped[str] = mapped_column(Text, nullable=False)
+    source_system_command_id: Mapped[str | None] = mapped_column(
+        Text,
+        ForeignKey(
+            "system_command_library_entries.id",
+            name="workflow_collection_definitions_source_system_command_fk",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
 
     revisions: Mapped[list["WorkflowCollectionRevision"]] = relationship(back_populates="definition_record", lazy="raise")
 

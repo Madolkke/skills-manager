@@ -14,6 +14,7 @@
 - `operations/skills/tag_cascades.py`：Tag 级联关系、活跃路径计算和历史数据诊断。
 - `operations/shared/tagging.py`：所有 Skill 写入口共用的 Tag 清洗、自由值沉淀、条件必填和权限辅助逻辑。
 - `operations/workflows/`：Workflow、WorkflowSync 和全局 Collection Catalog 的事务读写、同步状态与审计。
+- `operations/command_library.py`：CLI 系统/用户命令条目的匹配搜索、版本管理、来源引用保护和 Workflow 同步。
 - `operations/workflow_debug/`：Workflow 单步调试例与运行记录的事务内 CRUD、分页、权限和级联清理。
 - `operations/workflows/workflow_syncs.py`：在事务内复核预览证据，并创建或重激活 Generator 对应的 SkillVersion。
 - `operations/workflows/imports.py`：Import Bundle 的原子导入、Collection 身份分配和引用重写。
@@ -26,6 +27,7 @@
 - `operations/shared/jobs.py`：跨领域复用的 Job 入队和状态更新辅助。
 - `operations/reviews/helpers.py`：上述评审辅助能力的兼容组合入口。
 - `rules/workflows/`：Workflow/Collection 严格结构、文档格式迁移、领域校验和确定性 Skill 转换。
+- `rules/command_expression.py`：CLI 命令表达式的 token 化、递归分组、捕获、重复、规范化和匹配规则。
 - `rules/workflows/export_schema.py`：将已保存 Workflow 及其引用的 Collection 快照转换为可移植 Import Bundle。
 - `rules/workflows/log_schema.py`：固定 v5 `logs`/`params` 列目录及只读 catalog。
 - `rules/workflows/log_sql.py`：DuckDB SQLGlot AST 来源、列引用和输出 alias 静态校验，不执行 SQL。

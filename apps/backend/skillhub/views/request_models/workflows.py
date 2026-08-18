@@ -25,6 +25,7 @@ class WorkflowCollectionChangePayload(BaseModel):
 
     operation: Literal["create", "revise", "fork"]
     definition: dict[str, Any]
+    source_system_command_id: str | None = Field(default=None, alias="sourceSystemCommandId")
 
 
 class SaveWorkflowPayload(BaseModel):

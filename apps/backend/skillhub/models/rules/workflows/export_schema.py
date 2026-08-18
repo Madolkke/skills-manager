@@ -63,5 +63,9 @@ def _portable_collection(definition: dict[str, Any], *, local_id: str) -> dict[s
     result.pop("id", None)
     result.pop("revision", None)
     result.pop("forkedFrom", None)
+    # System-library IDs are local database references and must not leak into
+    # portable bundles.  Imported definitions become user-owned copies.
+    result.pop("sourceSystemCommandId", None)
+    result.pop("source_system_command_id", None)
     result["localId"] = local_id
     return result

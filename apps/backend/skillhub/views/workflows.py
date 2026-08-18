@@ -124,7 +124,7 @@ def register_workflow_routes(app: FastAPI) -> None:
             service.save_workflow(
                 skill_id=skill_id,
                 document=payload.document,
-                collection_changes=[item.model_dump() for item in payload.collection_changes],
+                collection_changes=[item.model_dump(by_alias=False) for item in payload.collection_changes],
                 actor=actor.id,
             )
         )

@@ -1,0 +1,35 @@
+[
+  {
+    "id": "system-command-mock-status",
+    "key": "mock_system_status",
+    "name": "系统状态",
+    "description": "用于本地 Workflow 命令搜索的系统状态示例。",
+    "expression": "show system status",
+    "metadata": {"name": "系统状态", "description": "用于本地 Workflow 命令搜索的系统状态示例。", "industry": "通用", "device": "网络设备", "versions": [], "tags": ["mock"]},
+    "samples": [{"id": "sample-status", "name": "正常状态", "command": "show system status", "stdout": "status: up\nuptime: 3600\n"}],
+    "outputSchema": {"type": "object", "properties": {"status": {"type": "string", "title": "状态"}, "uptime": {"type": "integer", "title": "运行时间"}}, "required": ["status", "uptime"], "additionalProperties": false},
+    "ttp": "mock: system status"
+  },
+  {
+    "id": "system-command-mock-interface",
+    "key": "mock_interface_status",
+    "name": "接口状态",
+    "description": "用于验证带参数命令表达式和输出字段补全。",
+    "expression": "show interface <interface>",
+    "metadata": {"name": "接口状态", "description": "用于验证带参数命令表达式和输出字段补全。", "industry": "通用", "device": "网络设备", "versions": [], "tags": ["mock", "parameter"]},
+    "samples": [{"id": "sample-interface", "name": "上联接口", "command": "show interface Ethernet1/1", "stdout": "name: Ethernet1/1\nstate: up\n"}],
+    "outputSchema": {"type": "object", "properties": {"name": {"type": "string", "title": "接口名称"}, "state": {"type": "string", "title": "接口状态"}}, "required": ["name", "state"], "additionalProperties": false},
+    "ttp": "mock: interface status"
+  },
+  {
+    "id": "system-command-mock-version",
+    "key": "mock_device_version",
+    "name": "设备版本",
+    "description": "用于验证版本为空时的全版本命中。",
+    "expression": "display version",
+    "metadata": {"name": "设备版本", "description": "用于验证版本为空时的全版本命中。", "industry": "通用", "device": "网络设备", "versions": [], "tags": ["mock", "version"]},
+    "samples": [{"id": "sample-version", "name": "版本信息", "command": "display version", "stdout": "version: 1.0.0\n"}],
+    "outputSchema": {"type": "object", "properties": {"version": {"type": "string", "title": "版本"}}, "required": ["version"], "additionalProperties": false},
+    "ttp": "mock: device version"
+  }
+]

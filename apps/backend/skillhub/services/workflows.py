@@ -105,7 +105,14 @@ class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
 
     def save_workflow(self, *, skill_id: str, document: dict[str, Any], collection_changes: list[dict[str, Any]], actor: str) -> dict[str, Any]:
         normalized = normalize_workflow_document(document)
-        normalized_changes = [{"operation": item["operation"], "definition": item["definition"]} for item in collection_changes]
+        normalized_changes = [
+            {
+                "operation": item["operation"],
+                "definition": item["definition"],
+                "source_system_command_id": item.get("source_system_command_id"),
+            }
+            for item in collection_changes
+        ]
         self.store.save_workflow(skill_id=skill_id, document=normalized, collection_changes=normalized_changes, actor=actor)
         return self.store.workflow_detail(skill_id=skill_id, actor=actor)
 

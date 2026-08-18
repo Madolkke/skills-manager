@@ -236,6 +236,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `inputs` | `Parameter[]` | 否 | `[]` | 命令模板需要的输入参数。 |
 | `outputs` | `CollectionOutput[]` | 否 | `[]` | 命令执行后产生的输出字段。 |
 | `forkedFrom` | `VersionedRef \| null` | 否 | - | 该定义从哪个 Collection 版本复制而来。 |
+| `sourceSystemCommandId` | `string \| null` | 否 | - | 仅 CLI 系统命令物化后的来源身份。此类定义只读，保存时由后端同步最新系统命令；导出时移除。 |
 
 ### CollectionCall
 

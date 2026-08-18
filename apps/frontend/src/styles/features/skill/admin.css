@@ -35,6 +35,162 @@
   align-items: start;
 }
 
+.admin-command-library {
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.admin-command-list,
+.admin-command-editor {
+  min-width: 0;
+  min-height: 680px;
+}
+
+.admin-command-list {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.admin-command-list-head,
+.admin-command-editor-head,
+.admin-command-section-head,
+.admin-command-editor-foot,
+.admin-command-json-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-command-list-head h2,
+.admin-command-editor-head h2,
+.admin-command-section-head h3 { margin: 3px 0 0; }
+
+.admin-command-list-head p,
+.admin-command-editor-head p,
+.admin-command-section-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-command-list-head small,
+.admin-command-editor-head small {
+  color: #68809b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.admin-command-search {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 10px;
+  background: white;
+  color: var(--muted);
+}
+
+.admin-command-search input {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  outline: 0;
+  padding: 0;
+}
+
+.admin-command-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-radius: 7px;
+  background: #f1f5f9;
+}
+
+.admin-command-filters button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.admin-command-filters button.active,
+.admin-command-filters button:hover {
+  background: white;
+  color: #245b9d;
+  box-shadow: 0 1px 3px rgb(38 59 88 / 10%);
+}
+
+.admin-command-list-scroll {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding-right: 2px;
+}
+
+.admin-command-list .admin-directory-item {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #253247;
+  text-align: left;
+}
+.admin-command-list .admin-directory-item.active,
+.admin-command-list .admin-directory-item:hover { border-color: #c8d7e8; background: #f3f7fb; }
+.admin-command-list .admin-directory-item code,
+.admin-command-list .admin-directory-item small { overflow: hidden; color: #6f7e91; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-command-item-title { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.admin-command-item-title strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-command-item-title i { flex: 0 0 auto; border-radius: 999px; padding: 2px 6px; font-size: 10px; font-style: normal; font-weight: 800; }
+.admin-command-item-title i.is-enabled { background: #eaf7ef; color: #24734b; }
+.admin-command-item-title i.is-disabled { background: #f1f3f5; color: #7a8798; }
+.admin-command-empty { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 7px; color: var(--muted); text-align: center; }
+.admin-command-empty strong { color: var(--ink); font-size: 13px; }
+.admin-command-empty span { max-width: 220px; font-size: 12px; line-height: 1.45; }
+.admin-command-editor { grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.admin-command-editor-head { padding-bottom: 2px; }
+.admin-command-editor-head h2 { display: flex; align-items: center; gap: 8px; }
+.admin-command-editor-head p { max-width: 720px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-unsaved-dot { border-radius: 999px; padding: 4px 7px; background: #fff4d6; color: #95610b; font-size: 10px; font-weight: 800; }
+.admin-command-editor-scroll { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 12px; padding: 2px 2px 4px 0; }
+.admin-command-section { display: grid; gap: 12px; border: 1px solid var(--soft-line); border-radius: 8px; padding: 14px; background: #fbfdff; }
+.admin-command-section-head { align-items: center; }
+.admin-command-section-head h3 { font-size: 15px; }
+.admin-command-counter { flex: 0 0 auto; color: #56708d; font-size: 11px; font-weight: 750; }
+.admin-command-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-command-field-grid .span-2 { grid-column: 1 / -1; }
+.admin-command-field-grid .field-label b { color: #c24138; }
+.admin-command-expression { font-family: var(--mono-font); }
+.admin-command-switch { display: inline-flex; align-items: center; gap: 7px; color: #3c536d; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.admin-command-switch input { width: 16px; height: 16px; accent-color: #2b6cb0; }
+.admin-command-json { width: 100%; resize: vertical; min-height: 150px; font-size: 12px; line-height: 1.55; }
+.admin-command-json-foot { align-items: center; color: var(--muted); font-size: 11px; }
+.admin-command-json-foot span { line-height: 1.45; }
+.admin-command-validation,
+.admin-command-valid { display: flex; align-items: flex-start; gap: 9px; border-radius: 8px; padding: 11px 13px; font-size: 12px; line-height: 1.5; }
+.admin-command-validation { border: 1px solid #f2c5c2; background: #fff7f6; color: #a33d37; }
+.admin-command-valid { border: 1px solid #c9e6d3; background: #f4fbf6; color: #2d7650; }
+.admin-command-validation strong { display: block; margin-bottom: 3px; }
+.admin-command-validation p { margin: 2px 0 0; }
+.admin-command-editor-foot { align-items: center; border-top: 1px solid var(--soft-line); padding-top: 12px; }
+.admin-form-error { margin: 12px 0 0; color: #b23b35; font-size: 12px; }
+
 .admin-card {
   padding: 18px;
   display: grid;
@@ -690,9 +846,23 @@
   .admin-member-table-row,
   .admin-role-table-head,
   .admin-role-table-row,
-  .tag-group-requirement-field {
+  .tag-group-requirement-field,
+  .admin-command-field-grid {
     grid-template-columns: 1fr;
   }
+
+  .admin-command-field-grid .span-2 { grid-column: auto; }
+
+  .admin-command-list,
+  .admin-command-editor { min-height: 0; }
+
+  .admin-command-list { max-height: none; }
+
+  .admin-command-editor-head p { white-space: normal; }
+
+  .admin-command-section-head,
+  .admin-command-editor-foot,
+  .admin-command-json-foot { align-items: flex-start; flex-direction: column; }
 
   .admin-value-table-head,
   .admin-member-table-head {

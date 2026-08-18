@@ -172,6 +172,7 @@ class CollectionDefinition(WorkflowModel):
     inputs: list[Parameter] = Field(default_factory=list)
     outputs: list[CollectionOutput] = Field(default_factory=list)
     forked_from: VersionedRef | None = None
+    source_system_command_id: str | None = None
 
 
 class CollectionCall(WorkflowModel):

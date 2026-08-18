@@ -10,6 +10,7 @@ import AdminSkillTagsTab from "./admin/AdminSkillTagsTab.vue";
 import AdminTagGroupsTab from "./admin/AdminTagGroupsTab.vue";
 import AdminTagCascadesTab from "./admin/AdminTagCascadesTab.vue";
 import AdminWorkersTab from "./admin/AdminWorkersTab.vue";
+import AdminSystemCommandsTab from "./admin/AdminSystemCommandsTab.vue";
 import { useAdminPageState } from "./admin/useAdminPageState";
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
@@ -17,7 +18,7 @@ const {
   key, unlocked, loading, activeTab, skills, groups, tagGroups, roles, publishTargets, publishGateChecks,
   publishRecords, workerStatus, opencodeAgents, opencodeProviderCatalog, selectedGroupId, selectedTagGroupId,
   selectedOpencodeAgentId, tagDrafts, tagCascadeActions, adminActions, unlock, load, refreshWorkers,
-  refreshOpencodeProviders, selectAdminTab,
+  refreshOpencodeProviders, selectAdminTab, systemCommands, selectedSystemCommandId,
 } = useAdminPageState((toast) => emit("toast", toast));
 </script>
 
@@ -124,6 +125,16 @@ const {
           @create="adminActions.createOpencodeAgent"
           @update="adminActions.updateOpencodeAgent"
           @delete="adminActions.deleteOpencodeAgent"
+        />
+        <AdminSystemCommandsTab
+          v-else-if="activeTab === 'system-commands'"
+          key="system-commands"
+          :commands="systemCommands"
+          :selected-command-id="selectedSystemCommandId"
+          @select="selectedSystemCommandId = $event"
+          @create="adminActions.createSystemCommand"
+          @update="adminActions.updateSystemCommand"
+          @delete="adminActions.deleteSystemCommand"
         />
         <AdminPublishTargetsTab
           v-else-if="activeTab === 'publish-targets'"

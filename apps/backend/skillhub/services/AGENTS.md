@@ -10,6 +10,7 @@
 - `admin_catalog.py`：封装 Skill、Tag Catalog 和 Tag 级联管理。
 - `admin_access.py`：封装用户组、成员和角色授权管理。
 - `admin_runtime.py`：封装发布目标、发布记录、Worker 状态和 Opencode Agent 管理。
+- `command_library.py`：封装系统/用户 CLI 命令库搜索、版本过滤和管理员 CRUD。
 - `artifacts.py`：封装 artifact 下载和 bundle 差异查询。
 - `evaluations.py`：封装测评集、测试例、运行测评和聚合结果相关流程。
 - `executor_workflows.py`：读取当前 Workflow 文档并转换为外部执行器 DTO。

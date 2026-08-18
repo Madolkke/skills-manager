@@ -73,7 +73,7 @@ export function upsertWorkflowCollectionChange(
   definition: CollectionDefinition,
 ): void {
   const index = draft.changes.findIndex((item) => item.definition.id === definition.id);
-  const next = { operation, definition: cloneWorkflow(definition) };
+  const next = { operation, definition: cloneWorkflow(definition), sourceSystemCommandId: definition.sourceSystemCommandId };
   if (index >= 0) draft.changes[index] = next;
   else draft.changes.push(next);
 }

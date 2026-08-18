@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import type { CollectionDefinition, SkillTagPayload, TagGroup, VersionedRef, WorkflowBundle, WorkflowSelection } from "../../../types";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import type { CollectionDefinition, CollectionType, CommandLibrarySearchResult, SkillTagPayload, TagGroup, VersionedRef, WorkflowBundle, WorkflowSelection } from "../../../types";
 import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
 import type { useWorkflowEditor } from "../useWorkflowEditor";
 import WorkflowCollectionLibrary from "./WorkflowCollectionLibrary.vue";
@@ -9,7 +9,8 @@ import WorkflowMetadataEditor from "./WorkflowMetadataEditor.vue";
 import WorkflowSettingsEditor from "./WorkflowSettingsEditor.vue";
 import WorkflowStepEditor from "./WorkflowStepEditor.vue";
 import WorkflowDebugModal from "../debug/components/WorkflowDebugModal.vue";
-import { workflowConclusions, workflowSteps } from "../domain/utils";
+import { commandLibraryIncludeUser, resetCommandLibrarySession } from "../commandLibrarySession";
+import { refKey, workflowConclusions, workflowSteps } from "../domain/utils";
 
 const props = defineProps<{
   editor: ReturnType<typeof useWorkflowEditor>;
@@ -54,9 +55,18 @@ const selectedCollectionRef = computed<VersionedRef | undefined>(() => {
   const revision = selection.revision ?? Math.max(...revisions);
   return Number.isFinite(revision) ? { id: selection.id, revision } : undefined;
 });
-const referencedDefinitionIds = computed(() => props.editor.bundle.value
-  ? [...new Set(workflowSteps(props.editor.bundle.value).flatMap((step) => step.collectionCalls.map((call) => call.definition.id)))]
+const referencedDefinitionRefs = computed(() => props.editor.bundle.value
+  ? workflowSteps(props.editor.bundle.value).flatMap((step) => step.collectionCalls.map((call) => call.definition))
   : []);
+const referencedDefinitionIds = computed(() => [...new Set(referencedDefinitionRefs.value.map((item) => item.id))]);
+const currentDefinitionRefs = computed(() => {
+  const references = new Map(referencedDefinitionRefs.value.map((item) => [refKey(item), item]));
+  props.editor.changes.value.forEach((change) => references.set(refKey(change.definition), {
+    id: change.definition.id,
+    revision: change.definition.revision,
+  }));
+  return [...references.values()];
+});
 const contentKey = computed(() => {
   const selection = props.editor.selection.value;
   if (selection.type === "inputs" || selection.type === "roles") return "global-inputs";
@@ -87,10 +97,26 @@ function addExistingCall(definition: CollectionDefinition): void {
   emit("select", { type: "step", id: selectedStep.value.id, section: "collections", itemId: callId });
 }
 
+function addDefinition(collectionType: CollectionType = "cli"): void {
+  if (collectionType === "cli") commandLibraryIncludeUser.value = true;
+  props.editor.addDefinition(collectionType);
+}
+
 function addDraftCall(): void {
   if (!selectedStep.value) return;
-  const result = props.editor.addDraftCollectionCall(selectedStep.value.id);
+  commandLibraryIncludeUser.value = true;
+  const result = props.editor.addDraftCollectionCall(selectedStep.value.id, "cli");
   if (result) emit("select", { type: "step", id: selectedStep.value.id, section: "collections", itemId: result.callId });
+}
+
+function selectSystemCommandInLibrary(result: CommandLibrarySearchResult): void {
+  const definition = props.editor.addCommandLibraryResult(result);
+  if (definition) emit("select-catalog", { id: definition.id, revision: definition.revision });
+}
+
+function selectSystemCommandInStep(result: CommandLibrarySearchResult): void {
+  const definition = props.editor.addCommandLibraryResult(result);
+  if (definition) addExistingCall(definition);
 }
 
 function updateDefinition(reference: VersionedRef, definition: CollectionDefinition): void {
@@ -114,6 +140,9 @@ function openWorkflowTarget(targetId: string): void {
   const target = props.editor.bundle.value?.workflow.nodes.find((item) => item.id === targetId);
   if (target) select({ type: "stepType" in target ? "step" : "conclusion", id: target.id });
 }
+
+onBeforeUnmount(resetCommandLibrarySession);
+watch(() => props.skillId, resetCommandLibrarySession);
 </script>
 
 <template>
@@ -121,8 +150,8 @@ function openWorkflowTarget(targetId: string): void {
     <div v-if="props.editor.bundle.value" :key="contentKey" class="workflow-editor-content">
       <WorkflowMetadataEditor v-if="props.editor.selection.value.type === 'metadata'" :metadata="props.editor.bundle.value.workflow.metadata" :readonly="props.readonly" :tags="props.tags" :tag-groups="props.tagGroups" :tag-busy="props.tagBusy" :tag-error="props.tagError" @change="props.editor.updateMetadata" @tag-change="emit('tag-change', $event)" @tag-save="emit('tag-save', $event)" />
       <WorkflowSettingsEditor v-else-if="props.editor.selection.value.type === 'inputs' || props.editor.selection.value.type === 'roles'" :inputs="props.editor.bundle.value.workflow.inputs" :roles="props.editor.bundle.value.workflow.deviceRoles" :target="props.editor.selection.value.type" :readonly="props.readonly" @add-input="props.editor.addInput" @update-input="props.editor.updateInput" @remove-input="props.editor.removeInput" @add-role="props.editor.addDeviceRole" @update-role="props.editor.updateDeviceRole" @remove-role="props.editor.removeDeviceRole" />
-      <WorkflowCollectionLibrary v-else-if="props.editor.selection.value.type === 'collections' || props.editor.selection.value.type === 'collection'" :definitions="props.editor.catalog.value" :selected-ref="selectedCollectionRef" :changes="props.editor.changes.value" :referenced-definition-ids="referencedDefinitionIds" :readonly="props.readonly" @select="selectCatalog" @add="props.editor.addDefinition" @change="updateDefinition" @remove="props.editor.removeDraftDefinition" />
-      <WorkflowStepEditor v-else-if="selectedStep" :step="selectedStep" :bundle="props.editor.bundle.value" :catalog="props.editor.catalog.value" :changes="props.editor.changes.value" :issues="props.editor.issues.value" :expression-diagnostics="props.editor.expressionDiagnostics.value" :target="props.editor.selection.value" :readonly="props.readonly" :debuggable="!props.readonly && savedSelectedStep?.stepType === 'expression'" @debug="debugStepId = selectedStep.id" @change="props.editor.updateStep(selectedStep.id, $event)" @duplicate="props.editor.duplicateStep(selectedStep.id)" @remove="emit('request-delete', 'step', selectedStep.id)" @add-call="addExistingCall" @add-draft="addDraftCall" @call-change="(id, patch) => props.editor.updateCall(selectedStep!.id, id, patch)" @call-remove="emit('request-delete', 'call', $event, selectedStep.id)" @call-move="(id, direction) => props.editor.moveCall(selectedStep!.id, id, direction)" @call-reorder="props.editor.reorderCalls(selectedStep.id, $event)" @binding-change="(callId, inputId, binding) => props.editor.updateCallBinding(selectedStep!.id, callId, inputId, binding)" @definition-change="(callId, definition) => updateCallDefinition(selectedStep!.id, callId, definition)" @path-add="addWorkflowPath" @path-retarget="retargetWorkflowPath" @path-change="(id, patch) => props.editor.updatePath(selectedStep!.id, id, patch)" @path-remove="props.editor.removePath(selectedStep.id, $event)" @path-move="(id, direction) => props.editor.movePath(selectedStep!.id, id, direction)" @path-open-target="openWorkflowTarget" @predecessor-open="(id) => select({ type: 'step', id })" />
+      <WorkflowCollectionLibrary v-else-if="props.editor.selection.value.type === 'collections' || props.editor.selection.value.type === 'collection'" :definitions="props.editor.catalog.value" :current-definition-refs="currentDefinitionRefs" :selected-ref="selectedCollectionRef" :changes="props.editor.changes.value" :referenced-definition-ids="referencedDefinitionIds" :readonly="props.readonly" @select="selectCatalog" @select-command="selectSystemCommandInLibrary" @add="addDefinition" @change="updateDefinition" @remove="props.editor.removeDraftDefinition" />
+      <WorkflowStepEditor v-else-if="selectedStep" :step="selectedStep" :bundle="props.editor.bundle.value" :catalog="props.editor.catalog.value" :current-definition-refs="currentDefinitionRefs" :changes="props.editor.changes.value" :issues="props.editor.issues.value" :expression-diagnostics="props.editor.expressionDiagnostics.value" :target="props.editor.selection.value" :readonly="props.readonly" :debuggable="!props.readonly && savedSelectedStep?.stepType === 'expression'" @debug="debugStepId = selectedStep.id" @change="props.editor.updateStep(selectedStep.id, $event)" @duplicate="props.editor.duplicateStep(selectedStep.id)" @remove="emit('request-delete', 'step', selectedStep.id)" @add-call="addExistingCall" @select-command="selectSystemCommandInStep" @add-draft="addDraftCall" @call-change="(id, patch) => props.editor.updateCall(selectedStep!.id, id, patch)" @call-remove="emit('request-delete', 'call', $event, selectedStep.id)" @call-move="(id, direction) => props.editor.moveCall(selectedStep!.id, id, direction)" @call-reorder="props.editor.reorderCalls(selectedStep.id, $event)" @binding-change="(callId, inputId, binding) => props.editor.updateCallBinding(selectedStep!.id, callId, inputId, binding)" @definition-change="(callId, definition) => updateCallDefinition(selectedStep!.id, callId, definition)" @path-add="addWorkflowPath" @path-retarget="retargetWorkflowPath" @path-change="(id, patch) => props.editor.updatePath(selectedStep!.id, id, patch)" @path-remove="props.editor.removePath(selectedStep.id, $event)" @path-move="(id, direction) => props.editor.movePath(selectedStep!.id, id, direction)" @path-open-target="openWorkflowTarget" @predecessor-open="(id) => select({ type: 'step', id })" />
       <WorkflowConclusionEditor v-else-if="selectedConclusion" :conclusion="selectedConclusion" :bundle="props.editor.bundle.value" :readonly="props.readonly" @change="props.editor.updateConclusion(selectedConclusion.id, $event)" @remove="emit('request-delete', 'conclusion', selectedConclusion.id)" @predecessor-open="(id) => select({ type: 'step', id })" />
     </div>
   </Transition>

@@ -28,7 +28,7 @@ describe("AdminPage authentication", () => {
   });
 
   it("enters the console only after the admin data request succeeds", async () => {
-    mockAdminLoad();
+    const spies = mockAdminLoad();
     const wrapper = mountPage();
 
     await wrapper.get('input[type="password"]').setValue("correct-key");
@@ -38,6 +38,7 @@ describe("AdminPage authentication", () => {
     expect(wrapper.find(".admin-login").exists()).toBe(false);
     expect(wrapper.find(".admin-nav-row").exists()).toBe(true);
     expect(sessionStorage.getItem("skillhub.admin.key")).toBe("correct-key");
+    expect(spies.systemCommands).toHaveBeenCalledOnce();
   });
 
   it("revalidates a cached key and rejects it when the page mounts", async () => {
@@ -92,5 +93,6 @@ function mockAdminLoad() {
     workers: vi.spyOn(api, "adminListWorkers").mockResolvedValue({} as never),
     agents: vi.spyOn(api, "adminListOpencodeAgents").mockResolvedValue([]),
     providers: vi.spyOn(api, "listOpencodeProviders").mockResolvedValue({} as never),
+    systemCommands: vi.spyOn(api, "adminListSystemCommands").mockResolvedValue({ commands: [] }),
   };
 }

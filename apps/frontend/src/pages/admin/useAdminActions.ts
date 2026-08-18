@@ -11,6 +11,7 @@ import type {
   SkillTagPayload,
   TagGroup,
   TagValueOption,
+  SystemCommand,
 } from "../../types";
 import type { AdminStateSync } from "./adminStateSync";
 
@@ -21,6 +22,8 @@ type AdminActionsOptions = {
   selectedGroupId: Ref<string>;
   selectedTagGroupId: Ref<string>;
   selectedOpencodeAgentId: Ref<string>;
+  systemCommands: Ref<SystemCommand[]>;
+  selectedSystemCommandId: Ref<string>;
   syncAdminState: AdminStateSync;
   load: () => Promise<void>;
   emitToast: (toast: Toast) => void;
@@ -28,7 +31,7 @@ type AdminActionsOptions = {
 };
 
 export function useAdminActions(options: AdminActionsOptions) {
-  const { tagDrafts, selectedGroupId, selectedTagGroupId, selectedOpencodeAgentId, syncAdminState, load, emitToast, onError } = options;
+  const { tagDrafts, selectedGroupId, selectedTagGroupId, selectedOpencodeAgentId, systemCommands, selectedSystemCommandId, syncAdminState, load, emitToast, onError } = options;
 
   async function createGroup(payload: { name: string; description?: string }): Promise<void> {
     await runLocalAdminAction(async () => {
@@ -176,6 +179,31 @@ export function useAdminActions(options: AdminActionsOptions) {
     }, "Opencode Agent 已删除。");
   }
 
+  async function createSystemCommand(payload: Record<string, unknown>): Promise<void> {
+    await runLocalAdminAction(async () => {
+      const command = await api.adminCreateSystemCommand(payload);
+      systemCommands.value = [...systemCommands.value, command].sort((left, right) => left.key.localeCompare(right.key));
+      selectedSystemCommandId.value = command.id;
+    }, "系统命令已创建。");
+  }
+
+  async function updateSystemCommand(commandId: string, payload: Record<string, unknown>): Promise<void> {
+    await runLocalAdminAction(async () => {
+      const command = await api.adminUpdateSystemCommand(commandId, payload);
+      systemCommands.value = systemCommands.value.map((item) => item.id === command.id ? command : item);
+    }, "系统命令已更新。");
+  }
+
+  async function deleteSystemCommand(command: SystemCommand): Promise<void> {
+    if (!confirm(`将删除系统命令“${command.key}”。存在 Workflow 来源引用时系统会拒绝删除。是否继续？`)) return;
+    await runLocalAdminAction(async () => {
+      await api.adminDeleteSystemCommand(command.id);
+      const index = systemCommands.value.findIndex((item) => item.id === command.id);
+      systemCommands.value = systemCommands.value.filter((item) => item.id !== command.id);
+      selectedSystemCommandId.value = systemCommands.value[Math.max(0, index - 1)]?.id ?? systemCommands.value[0]?.id ?? "";
+    }, "系统命令已删除。");
+  }
+
   async function confirmPublishRecord(record: PublishRecord): Promise<void> {
     if (!confirm(`确认发布 ${record.skill?.slug ?? record.skill_id} 到 ${record.publish_target?.name ?? record.publish_target_id}？`)) return;
     await runLocalAdminAction(async () => {
@@ -273,6 +301,9 @@ export function useAdminActions(options: AdminActionsOptions) {
     createOpencodeAgent,
     updateOpencodeAgent,
     deleteOpencodeAgent,
+    createSystemCommand,
+    updateSystemCommand,
+    deleteSystemCommand,
     confirmPublishRecord,
     cancelPublishRecord,
     retryPublishRecord,

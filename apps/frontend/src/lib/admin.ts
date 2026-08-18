@@ -2,7 +2,7 @@ import { encodeSkillTagResourceId, tagLabel } from "./skillTags";
 import { skillOptionLabel } from "./skillIdentity";
 import type { RoleAssignment, SkillSummary, TagGroup } from "../types";
 
-export type AdminTab = "overview" | "groups" | "tag-groups" | "tag-cascades" | "roles" | "skill-tags" | "workers" | "opencode-agents" | "publish-targets" | "publish";
+export type AdminTab = "overview" | "groups" | "tag-groups" | "tag-cascades" | "roles" | "skill-tags" | "workers" | "opencode-agents" | "system-commands" | "publish-targets" | "publish";
 
 export const ADMIN_TABS: Array<{ id: AdminTab; label: string }> = [
   { id: "overview", label: "概览" },
@@ -13,6 +13,7 @@ export const ADMIN_TABS: Array<{ id: AdminTab; label: string }> = [
   { id: "skill-tags", label: "Skill Tags" },
   { id: "workers", label: "Worker 状态" },
   { id: "opencode-agents", label: "Opencode Agents" },
+  { id: "system-commands", label: "系统命令库" },
   { id: "publish-targets", label: "发布源" },
   { id: "publish", label: "发布确认" },
 ];

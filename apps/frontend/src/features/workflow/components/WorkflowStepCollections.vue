@@ -2,7 +2,7 @@
 import { Plus } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
-import type { CollectionCall, CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowStep, WorkflowValidationIssue } from "../../../types";
+import type { CollectionCall, CollectionDefinition, CommandLibrarySearchResult, VersionedRef, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowStep, WorkflowValidationIssue } from "../../../types";
 import { useSortableList } from "../useSortableList";
 import WorkflowCallEditor from "./WorkflowCallEditor.vue";
 import WorkflowCollectionPicker from "./WorkflowCollectionPicker.vue";
@@ -11,6 +11,7 @@ const props = defineProps<{
   step: WorkflowStep;
   bundle: WorkflowBundle;
   catalog: CollectionDefinition[];
+  currentDefinitionRefs: VersionedRef[];
   changes: WorkflowCollectionChange[];
   issues: WorkflowValidationIssue[];
   readonly: boolean;
@@ -18,6 +19,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   "add-call": [definition: CollectionDefinition];
+  "select-command": [result: CommandLibrarySearchResult];
   "add-draft": [];
   "call-change": [id: string, patch: Partial<CollectionCall>];
   "call-remove": [id: string];
@@ -51,6 +53,10 @@ function callIssues(call: CollectionCall): WorkflowValidationIssue[] {
   ));
 }
 
+function addDraft(): void {
+  emit("add-draft");
+}
+
 const hasCalls = computed(() => props.step.collectionCalls.length > 0);
 </script>
 
@@ -59,8 +65,8 @@ const hasCalls = computed(() => props.step.collectionCalls.length > 0);
     <div class="workflow-subhead workflow-collection-actions">
       <div class="workflow-section-title"><span>{{ props.sectionNumber }}</span><div><h3>采集信息</h3><p>{{ props.step.collectionCalls.length }} 个采集调用，顺序用于生成和阅读。</p></div></div>
       <div class="workflow-add-call">
-        <WorkflowCollectionPicker :definitions="props.catalog" :changes="props.changes" :readonly="props.readonly" @select="emit('add-call', $event)" />
-        <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-draft')"><template #icon><Plus /></template>新建采集</UiButton>
+        <WorkflowCollectionPicker :definitions="props.catalog" :current-definition-refs="props.currentDefinitionRefs" :changes="props.changes" :readonly="props.readonly" @select="emit('add-call', $event)" @select-command="emit('select-command', $event)" />
+        <UiButton variant="secondary" :disabled="props.readonly" @click="addDraft"><template #icon><Plus /></template>新建采集</UiButton>
       </div>
     </div>
     <div v-if="hasCalls" ref="list" class="workflow-call-list">

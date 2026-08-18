@@ -6,6 +6,7 @@ import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type {
   CollectionCall,
   CollectionDefinition,
+  CommandLibrarySearchResult,
   WorkflowBinding,
   WorkflowBundle,
   WorkflowCollectionChange,
@@ -14,6 +15,7 @@ import type {
   WorkflowSelection,
   WorkflowStep,
   WorkflowValidationIssue,
+  VersionedRef,
 } from "../../../types";
 import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
 import WorkflowSectionNav from "./WorkflowSectionNav.vue";
@@ -25,6 +27,7 @@ const props = defineProps<{
   step: WorkflowStep;
   bundle: WorkflowBundle;
   catalog: CollectionDefinition[];
+  currentDefinitionRefs: VersionedRef[];
   changes: WorkflowCollectionChange[];
   issues: WorkflowValidationIssue[];
   expressionDiagnostics: Record<string, WorkflowExpressionDiagnostic[]>;
@@ -37,6 +40,7 @@ const emit = defineEmits<{
   duplicate: [];
   remove: [];
   "add-call": [definition: CollectionDefinition];
+  "select-command": [result: CommandLibrarySearchResult];
   "add-draft": [];
   "call-change": [id: string, patch: Partial<CollectionCall>];
   "call-remove": [id: string];
@@ -149,10 +153,12 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
       :step="props.step"
       :bundle="props.bundle"
       :catalog="props.catalog"
+      :current-definition-refs="props.currentDefinitionRefs"
       :changes="props.changes"
       :issues="props.issues"
       :readonly="props.readonly"
       @add-call="emit('add-call', $event)"
+      @select-command="emit('select-command', $event)"
       @add-draft="emit('add-draft')"
       @call-change="(id, patch) => emit('call-change', id, patch)"
       @call-remove="emit('call-remove', $event)"

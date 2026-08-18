@@ -8,6 +8,12 @@ from sqlalchemy.sql import Select
 
 from skillhub.models.schema.access import AuditEvent, Group, GroupMembership, Notification, RoleAssignment, TagGroup, TagGroupCascade, TagValue
 from skillhub.models.schema.artifacts import Artifact, SavedView
+from skillhub.models.schema.commands import (
+    SystemCommand,
+    SystemCommandLibraryEntry,
+    UserCommand,
+    UserCommandLibraryEntry,
+)
 from skillhub.models.schema.evaluations import AcceptedVerification, CaseResult, EvalCase, EvalCaseRun, EvalCaseVersion, EvalRun, EvalSet, EvalSetCase
 from skillhub.models.schema.reviews import (
     PublishRecord,
@@ -64,6 +70,8 @@ __all__ = [
     "ReviewResponse",
     "RoleAssignment",
     "SavedView",
+    "SystemCommand",
+    "SystemCommandLibraryEntry",
     "Skill",
     "SkillBuilderMessage",
     "SkillBuilderSession",
@@ -73,12 +81,14 @@ __all__ = [
     "TagGroupCascade",
     "TagValue",
     "WorkerHeartbeat",
+    "UserCommand",
     "Workflow",
     "WorkflowCollectionDefinition",
     "WorkflowCollectionRevision",
     "WorkflowDebugCase",
     "WorkflowDebugRun",
     "WorkflowSync",
+    "UserCommandLibraryEntry",
     "entity_columns",
     "select_entity",
 ]

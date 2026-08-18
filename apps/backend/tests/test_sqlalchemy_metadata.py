@@ -50,6 +50,8 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "skill_builder_messages",
                 "notifications",
                 "audit_events",
+                "system_command_library_entries",
+                "user_command_library_entries",
             },
         )
 

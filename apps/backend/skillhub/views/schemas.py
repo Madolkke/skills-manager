@@ -4,6 +4,7 @@
 """
 
 from skillhub.views.request_models.admin import *  # noqa: F403
+from skillhub.views.request_models.command_library import *  # noqa: F403
 from skillhub.views.request_models.common import *  # noqa: F403
 from skillhub.views.request_models.evaluations import *  # noqa: F403
 from skillhub.views.request_models.misc import *  # noqa: F403

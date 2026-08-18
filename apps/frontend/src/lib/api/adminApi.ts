@@ -12,6 +12,7 @@ import type {
   TagCascadeOverview,
   TagGroup,
   WorkerStatusOverview,
+  SystemCommand,
 } from "../../types";
 import { apiDelete, apiGet, apiSend } from "./httpClient";
 
@@ -81,5 +82,10 @@ export function adminApi() {
       apiSend<OpencodeAgent>(`/api/admin/opencode-agents/${encodeURIComponent(agentId)}`, "PATCH", payload, options),
     adminDeleteOpencodeAgent: (agentId: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/opencode-agents/${encodeURIComponent(agentId)}`, options),
+    adminListSystemCommands: () => apiGet<{ commands: SystemCommand[] }>("/api/admin/system-commands", options),
+    adminGetSystemCommand: (commandId: string) => apiGet<SystemCommand>(`/api/admin/system-commands/${encodeURIComponent(commandId)}`, options),
+    adminCreateSystemCommand: (payload: Record<string, unknown>) => apiSend<SystemCommand>("/api/admin/system-commands", "POST", payload, options),
+    adminUpdateSystemCommand: (commandId: string, payload: Record<string, unknown>) => apiSend<SystemCommand>(`/api/admin/system-commands/${encodeURIComponent(commandId)}`, "PUT", payload, options),
+    adminDeleteSystemCommand: (commandId: string) => apiDelete<{ id: string; deleted: boolean }>(`/api/admin/system-commands/${encodeURIComponent(commandId)}`, options),
   };
 }

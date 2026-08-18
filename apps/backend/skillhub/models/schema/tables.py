@@ -16,6 +16,7 @@ from skillhub.models.schema.access import (
 )
 from skillhub.models.schema.artifacts import Artifact, SavedView
 from skillhub.models.schema.base import Base
+from skillhub.models.schema.commands import SystemCommandLibraryEntry, UserCommandLibraryEntry
 from skillhub.models.schema.evaluations import (
     AcceptedVerification,
     CaseResult,
@@ -49,6 +50,8 @@ workflows = Workflow.__table__
 workflow_collection_definitions = WorkflowCollectionDefinition.__table__
 workflow_collection_revisions = WorkflowCollectionRevision.__table__
 workflow_syncs = WorkflowSync.__table__
+system_command_library_entries = SystemCommandLibraryEntry.__table__
+user_command_library_entries = UserCommandLibraryEntry.__table__
 workflow_debug_cases = WorkflowDebugCase.__table__
 workflow_debug_runs = WorkflowDebugRun.__table__
 eval_sets = EvalSet.__table__

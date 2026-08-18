@@ -139,11 +139,11 @@ function operationLabel(): string {
 
         <section v-if="props.definition && props.pendingOperation === 'create'" class="workflow-inline-definition workflow-inline-draft">
           <header><div><strong>新采集定义</strong><span>保存 Workflow 后进入全局采集库</span></div></header>
-          <WorkflowCollectionFields inline-draft :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="emit('definition', $event)" />
+          <WorkflowCollectionFields inline-draft :definition="props.definition" :readonly="props.readonly || Boolean(props.definition.sourceSystemCommandId)" :issues="props.issues" @change="emit('definition', $event)" />
         </section>
         <details v-else-if="props.definition" class="workflow-inline-definition">
           <summary><GitFork :size="14" />编辑采集定义 <span>{{ props.pendingOperation === "fork" ? "当前调用使用副本" : "首次修改将自动创建副本" }}</span></summary>
-          <WorkflowCollectionFields compact :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="emit('definition', $event)" />
+          <WorkflowCollectionFields compact :definition="props.definition" :readonly="props.readonly || Boolean(props.definition.sourceSystemCommandId)" :issues="props.issues" @change="emit('definition', $event)" />
         </details>
       </div>
     </Transition>
