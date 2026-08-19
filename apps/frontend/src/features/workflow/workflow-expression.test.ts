@@ -206,6 +206,20 @@ describe("WorkflowExpressionEditor", () => {
     expect(wrapper.text()).toContain("需要下标");
     wrapper.unmount();
   });
+
+  it("启用视觉换行但保持表达式文档为单行字符串", async () => {
+    const value = "outputs.status." + "very_long_property_name ".repeat(12);
+    const wrapper = mount(WorkflowExpressionEditor, {
+      props: { value, variables: [], readonly: false },
+    });
+    await nextTick();
+    const editor = wrapper.get(".cm-editor");
+    const view = EditorView.findFromDOM(editor.element as HTMLElement)!;
+    expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(true);
+    expect(view.state.doc.toString()).toBe(value);
+    expect(editor.classes()).toContain("cm-editor");
+    wrapper.unmount();
+  });
 });
 
 async function completion(

@@ -115,7 +115,7 @@ function selectSystemCommandInLibrary(result: CommandLibrarySearchResult): void 
 }
 
 function selectSystemCommandInStep(result: CommandLibrarySearchResult): void {
-  const definition = props.editor.addCommandLibraryResult(result);
+  const definition = props.editor.addCommandLibraryResult(result, { selectCollection: false });
   if (definition) addExistingCall(definition);
 }
 

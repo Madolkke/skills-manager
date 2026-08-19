@@ -143,15 +143,16 @@ export function useWorkflowEditor(readonly: () => boolean) {
     selection.value = { type: "collection", id: definition.id };
   }
 
-  function addCommandLibraryResult(result: CommandLibrarySearchResult): CollectionDefinition | null {
+  function addCommandLibraryResult(result: CommandLibrarySearchResult, options: { selectCollection?: boolean } = {}): CollectionDefinition | null {
     if (readonly() || !bundle.value) return null;
+    const selectCollection = options.selectCollection !== false;
     const currentRefs = [
       ...workflowSteps(bundle.value).flatMap((step) => step.collectionCalls.map((call) => call.definition)),
       ...changes.value.map((change) => ({ id: change.definition.id, revision: change.definition.revision })),
     ];
     const existing = findReusableCommandDefinition(result, catalog.value, currentRefs);
     if (existing) {
-      selection.value = { type: "collection", id: existing.id, revision: existing.revision };
+      if (selectCollection) selection.value = { type: "collection", id: existing.id, revision: existing.revision };
       return existing;
     }
     const definition = commandResultToDefinition(result, catalog.value.length + 1);
@@ -164,7 +165,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
         sourceSystemCommandId: result.source === "system" ? result.id : undefined,
       });
     });
-    selection.value = { type: "collection", id: definition.id, revision: definition.revision };
+    if (selectCollection) selection.value = { type: "collection", id: definition.id, revision: definition.revision };
     return definition;
   }
 

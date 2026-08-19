@@ -51,6 +51,7 @@ onMounted(() => {
       extensions: [
         autocompletion({ override: [completionSource], activateOnTyping: false, interactionDelay: 0, defaultKeymap: false }),
         keymap.of([{ key: "Mod-Space", run: startCompletion }, ...completionKeymap]),
+        EditorView.lineWrapping,
         readonlyCompartment.of(readonlyExtensions(props.readonly)),
         editorPlaceholder(props.placeholder),
         EditorView.contentAttributes.of({
