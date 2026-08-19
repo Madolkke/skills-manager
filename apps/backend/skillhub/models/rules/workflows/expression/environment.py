@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import keyword
+from collections import deque
+from collections.abc import Mapping, Sequence
 from typing import Any
 
+from .config_schema import command_expression_schema
 from .types import TypeSpec, array, from_json_schema, object_type
 
 
@@ -34,6 +37,44 @@ def normalize_expression_environment(environment: dict[str, Any]) -> dict[str, A
     }
 
 
+def expression_scope_steps(
+    steps: Sequence[Mapping[str, Any]],
+    source_step_id: str | None = None,
+) -> list[Mapping[str, Any]]:
+    """Return the current step and its transitive graph predecessors.
+
+    Collection output availability follows the workflow graph rather than the
+    order in which nodes happen to be stored in the document.  A reverse BFS
+    keeps the helper cycle-safe and the final document-order sort makes
+    first-wins projections deterministic.
+    """
+    step_list = [step for step in steps if "stepType" in step and step.get("id")]
+    if source_step_id is None:
+        return step_list
+    by_id = {str(step["id"]): step for step in step_list}
+    source_id = str(source_step_id)
+    if source_id not in by_id:
+        return []
+    predecessors: dict[str, set[str]] = {step_id: set() for step_id in by_id}
+    for step in step_list:
+        step_id = str(step["id"])
+        for transition in step.get("topology", []):
+            target = transition.get("target", {})
+            target_id = target.get("id") if isinstance(target, Mapping) else None
+            if target_id in by_id:
+                predecessors[str(target_id)].add(step_id)
+    visible = {source_id}
+    queue = deque([source_id])
+    while queue:
+        current = queue.popleft()
+        for predecessor in predecessors.get(current, set()):
+            if predecessor in visible:
+                continue
+            visible.add(predecessor)
+            queue.append(predecessor)
+    return [step for step in step_list if str(step["id"]) in visible]
+
+
 def expression_root_types(environment: dict[str, Any]) -> dict[str, TypeSpec]:
     """Build checker root types while retaining fixed collection sample counts."""
     normalized = normalize_expression_environment(environment)
@@ -53,39 +94,75 @@ def expression_root_types(environment: dict[str, Any]) -> dict[str, TypeSpec]:
     }
 
 
-def workflow_expression_environment(document: dict[str, Any]) -> dict[str, Any]:
-    """Project a document into a compatibility environment for public tooling."""
-    workflow = document["workflow"]
-    definitions = {(item["id"], item["revision"]): item for item in document.get("collectionSnapshots", [])}
+def project_workflow_expression_environment(
+    steps: Sequence[Mapping[str, Any]],
+    definitions: Mapping[tuple[str, int], Mapping[str, Any]],
+    workflow_inputs: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Project one graph-scoped step set into the expression environment."""
     outputs: dict[str, dict[str, Any]] = {}
-    input_keys = {item["key"].strip() for item in workflow["inputs"] if item["key"].strip()}
+    input_keys = {str(key).strip() for key in workflow_inputs if str(key).strip()}
     direct_candidates: dict[str, dict[str, Any] | None] = {}
-    for step in workflow["nodes"]:
-        if "stepType" not in step:
-            continue
-        for call in step["collectionCalls"]:
-            call_key = call["key"].strip()
-            definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
+    config_candidates: dict[str, dict[str, Any] | None] = {}
+    for step in steps:
+        for call in step.get("collectionCalls", []):
+            definition_ref = call.get("definition", {})
+            definition = definitions.get((definition_ref.get("id"), definition_ref.get("revision")))
             if definition is None:
                 continue
-            sample_count = max(int(call["sampleCount"]), 1)
+            call_key = str(call.get("key", "")).strip()
+            sample_count = max(int(call.get("sampleCount", 1)), 1)
             if not call_key:
-                for item in definition["outputs"]:
-                    output_key = item["key"].strip()
-                    if not is_expression_identifier(output_key) or output_key in input_keys:
-                        continue
-                    if output_key in direct_candidates:
-                        direct_candidates[output_key] = None
-                    else:
-                        direct_candidates[output_key] = {"sampleCount": sample_count, "fields": {}, "schema": item["schema"]}
+                if sample_count == 1:
+                    for item in definition.get("outputs", []):
+                        output_key = str(item.get("key", "")).strip()
+                        if not is_expression_identifier(output_key):
+                            continue
+                        if output_key in input_keys or output_key in direct_candidates:
+                            direct_candidates[output_key] = None
+                        else:
+                            direct_candidates[output_key] = {"sampleCount": sample_count, "fields": {}, "schema": item["schema"]}
+            else:
+                fields = {
+                    str(item.get("key", "")).strip(): item["schema"]
+                    for item in definition.get("outputs", [])
+                    if str(item.get("key", "")).strip()
+                }
+                outputs.setdefault(call_key, {"sampleCount": sample_count, "fields": fields})
+            if definition.get("spec", {}).get("collectionType") != "config":
                 continue
-            fields = {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()}
-            outputs.setdefault(call_key, {"sampleCount": sample_count, "fields": fields})
+            for command in definition.get("spec", {}).get("config", {}).get("commands", []):
+                name = str(command.get("name", ""))
+                schema = command_expression_schema(command)
+                if name not in config_candidates:
+                    config_candidates[name] = schema
+                else:
+                    config_candidates[name] = None
     for output_key, value in direct_candidates.items():
         if value is not None and output_key not in outputs:
             outputs[output_key] = value
+    config = {name: schema for name, schema in config_candidates.items() if schema is not None}
     return {
-        "inputs": {item["key"].strip(): item["schema"] for item in workflow["inputs"] if item["key"].strip()},
+        "inputs": dict(workflow_inputs),
         "outputs": outputs,
-        "config": {},
+        "config": config,
     }
+
+
+def workflow_expression_environment(
+    document: dict[str, Any],
+    source_step_id: str | None = None,
+) -> dict[str, Any]:
+    """Project a document into a graph-scoped compatibility environment."""
+    workflow = document["workflow"]
+    steps = expression_scope_steps(workflow.get("nodes", []), source_step_id)
+    definitions = {
+        (item["id"], item["revision"]): item
+        for item in document.get("collectionSnapshots", [])
+    }
+    workflow_inputs = {
+        item["key"].strip(): item["schema"]
+        for item in workflow.get("inputs", [])
+        if item.get("key", "").strip()
+    }
+    return project_workflow_expression_environment(steps, definitions, workflow_inputs)

@@ -129,7 +129,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 条件表达式使用 Python `eval` 语法，根变量为 `inputs`、`outputs` 和配置匹配专用的 `config`。单次采集按对象访问，例如 `outputs.inventory.status`；`sampleCount > 1` 时调用结果为数组，字段路径必须先指定结果下标，例如 `outputs.inventory[0].status`。下标支持零基正数、Python 负数、动态整数和切片。历史多次采集表达式缺少下标时保留原文并产生 warning，不自动选择某次结果。
 
-表达式契约版本为 `contractVersion = 2`。`environment.outputs` 的标准结构为 `Record<callKey, { sampleCount, fields }>`；旧字段 map 继续按单次采集兼容。函数与只读方法白名单由 `GET /api/workflow-expression-contract` 提供，单条 `POST /api/workflow-expression-validations` 与批量 `POST /api/workflow-expression-validations/batch` 返回类型和位置诊断。HTTP 接口只执行 AST 与类型检查，不执行 expression evaluator。采集下标诊断汇总为 Workflow warning，不阻止保存或同步。
+表达式契约版本为 `contractVersion = 2`。`environment.outputs` 的命名采集使用 `{ sampleCount, fields }`，无 `callKey` 的直接输出使用 `{ sampleCount, schema }` 表示根值；旧字段 map 继续按单次采集兼容。函数与只读方法白名单由 `GET /api/workflow-expression-contract` 提供，单条 `POST /api/workflow-expression-validations` 与批量 `POST /api/workflow-expression-validations/batch` 返回类型和位置诊断。HTTP 接口只执行 AST 与类型检查，不执行 expression evaluator。采集下标诊断汇总为 Workflow warning，不阻止保存或同步。
 
 ## 设备角色
 
@@ -274,11 +274,11 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 条件表达式编辑器使用以下作者侧变量命名空间：
 
 - `inputs.<key>` 引用 Workflow 全局输入。
-- `outputs.<callKey>.<outputKey>` 引用任意步骤的采集输出；调用 Key 为空时使用 `outputs.<outputKey>`。
+- `outputs.<callKey>.<outputKey>` 引用当前步骤或任一传递前序步骤的采集输出；调用 Key 为空时，Collection 的每个合法根输出字段直接使用 `outputs.<outputKey>`。
 
 历史文档中使用 `global.<key>` 或 `output.<...>` 的表达式应在保存前迁移到上述 `inputs`/`outputs` 根名称；新文档和补全不会再生成旧写法。
 
-补全候选包含当前步骤已经定义的采集输出；多次采集先补全 `outputs.<callKey>[0].<field>`，切片路径不提供字段补全。同名输出 Key 只在同一步骤内冲突，不同步骤可复用。该能力只辅助输入，不校验变量是否能在运行时取值，也不限制手动输入其他表达式。
+补全和类型检查按 Workflow 图反向遍历，包含当前步骤及所有传递前序步骤，不包含未来或无图连接的步骤；结果按文档节点顺序稳定合并。多次采集先补全 `outputs.<callKey>[0].<field>`，没有 `callKey` 的非法多次采集不进入直接输出环境，切片路径不提供字段补全。带 `callKey` 的同名命名空间保持 first-wins 兼容行为；无 `callKey` 的直接输出若与全局输入或同一可见环境中的其他直接输出重名，则报告 `UNSCOPED_OUTPUT_CONFLICT` 且不生成该字段补全。Collection Input 的 `collection_output` Binding 仍只允许引用同一步骤中排在当前调用之前的采集，不随条件表达式范围扩展。
 
 输入变量片段或 `.` 后会自动展开候选，也可按 `Ctrl/Cmd+Space` 主动展开。使用方向键选择，按 `Tab` 或 `Enter` 补全，按 `Escape` 关闭；候选菜单未打开时，`Tab` 保持正常的表单焦点导航。
 

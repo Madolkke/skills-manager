@@ -33,7 +33,8 @@
 - `rules/workflows/log_sql.py`：DuckDB SQLGlot AST 来源、列引用和输出 alias 静态校验，不执行 SQL。
 - `rules/workflows/config_pattern.py`：配置匹配 Collection 的尖括号模板解析、转义和 Python 标识符校验。
 - `rules/workflows/config_validation.py`：配置命令树、捕获 Schema、属性冲突和根命名冲突的纯校验。
-- `rules/workflows/expression/workflow.py`：Workflow 条件中的 Config 路径门禁和 Config 命令表达式 Schema 投影。
+- `rules/workflows/expression/config_schema.py`：Config 命令在表达式环境中的 JSON Schema 投影。
+- `rules/workflows/expression/workflow.py`：Workflow 条件中的 Config 路径门禁。
 - `rules/executor_workflows/`：外部执行器 Workflow 的严格 DTO 和无副作用写作侧转换规则。
 - `rules/workflow_debug.py`：调试例引用投影、预期目标判定和暂停恢复输入构造规则。
 - `rules/bundle_diffs.py`：版本差异与同步预览共用的确定性 Bundle 文本 diff。

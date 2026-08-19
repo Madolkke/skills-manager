@@ -6,9 +6,13 @@ from urllib.parse import quote
 
 from .collection_validation import validate_collection_identity
 from .config_validation import config_root_names
-from .expression import command_expression_schema, validate_expression
+from .expression import validate_expression
 from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
-from .expression.environment import is_expression_identifier
+from .expression.environment import (
+    expression_scope_steps,
+    is_expression_identifier,
+    project_workflow_expression_environment,
+)
 from .json_schema import schema_title, schemas_assignable, value_matches_schema
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
@@ -36,8 +40,19 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
     role_ids = {role["id"] for role in workflow["deviceRoles"]}
     workflow_inputs = {item["id"]: item for item in workflow["inputs"]}
     workflow_input_keys = {item["key"].strip() for item in workflow["inputs"] if item["key"].strip()}
+    reported_unscoped_conflicts: set[tuple[str, str, str]] = set()
     for step in steps:
-        _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, workflow_input_keys, issues)
+        _validate_step(
+            step,
+            steps,
+            definitions,
+            node_by_id,
+            role_ids,
+            workflow_inputs,
+            workflow_input_keys,
+            issues,
+            reported_unscoped_conflicts,
+        )
 
     reachable = _reachable_nodes(steps)
     for node in [*steps, *conclusions]:
@@ -91,11 +106,28 @@ def _validate_config_root_conflicts(steps, definitions, issues) -> None:
                     names[name] = call["id"]
 
 
-def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, workflow_input_keys, issues) -> None:
+def _validate_step(
+    step,
+    all_steps,
+    definitions,
+    node_by_id,
+    role_ids,
+    workflow_inputs,
+    workflow_input_keys,
+    issues,
+    reported_unscoped_conflicts,
+) -> None:
     selection = {"type": "step", "id": step["id"]}
     all_calls = {item["id"]: item for item in step["collectionCalls"]}
     previous_calls: dict[str, Any] = {}
-    unscoped_outputs: dict[str, str] = {}
+    _append_visible_unscoped_conflicts(
+        step=step,
+        all_steps=all_steps,
+        definitions=definitions,
+        workflow_input_keys=workflow_input_keys,
+        issues=issues,
+        reported=reported_unscoped_conflicts,
+    )
     for call in step["collectionCalls"]:
         call_selection = {**selection, "section": "collections", "itemId": call["id"]}
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
@@ -133,15 +165,6 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
                 issues.append(issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
                 _validate_binding(binding, parameter, workflow_inputs, previous_calls, all_calls, definitions, issues, binding_selection)
-        if not call["key"].strip():
-            _validate_unscoped_outputs(
-                call=call,
-                definition=definition,
-                names=unscoped_outputs,
-                reserved=workflow_input_keys,
-                issues=issues,
-                selection=call_selection,
-            )
         previous_calls[call["id"]] = call
     for transition in step["topology"]:
         target = node_by_id.get(transition["target"]["id"])
@@ -149,7 +172,7 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
             issues.append(issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
         expression_result = validate_expression(
             transition.get("conditionExpression", ""),
-            _step_expression_environment(step, definitions, workflow_inputs),
+            _step_expression_environment(step, definitions, workflow_inputs, all_steps=all_steps),
         )
         for diagnostic in expression_result["diagnostics"]:
             severity = _expression_diagnostic_severity(diagnostic["code"])
@@ -165,44 +188,26 @@ def _validate_step(step, definitions, node_by_id, role_ids, workflow_inputs, wor
             )
 
 
-def _step_expression_environment(step, definitions, workflow_inputs) -> dict[str, Any]:
-    inputs = {item["key"].strip(): item["schema"] for item in workflow_inputs.values() if item["key"].strip()}
-    outputs: dict[str, dict[str, Any]] = {}
-    direct_candidates: dict[str, dict[str, Any] | None] = {}
-    config_candidates: dict[str, dict[str, Any] | None] = {}
-    for call in step["collectionCalls"]:
-        definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))
-        if not definition:
-            continue
-        call_key = call["key"].strip()
-        sample_count = max(int(call["sampleCount"]), 1)
-        if call_key and call_key not in outputs:
-            outputs[call_key] = {
-                "sampleCount": sample_count,
-                "fields": {item["key"].strip(): item["schema"] for item in definition["outputs"] if item["key"].strip()},
-            }
-        elif not call_key:
-            for item in definition["outputs"]:
-                output_key = item["key"].strip()
-                if not is_expression_identifier(output_key) or output_key in inputs:
-                    continue
-                if output_key in direct_candidates:
-                    direct_candidates[output_key] = None
-                else:
-                    direct_candidates[output_key] = {"sampleCount": sample_count, "fields": {}, "schema": item["schema"]}
-        if definition["spec"]["collectionType"] != "config":
-            continue
-        for command in definition["spec"].get("config", {}).get("commands", []):
-            schema = command_expression_schema(command)
-            if command["name"] not in config_candidates:
-                config_candidates[command["name"]] = schema
-            else:
-                config_candidates[command["name"]] = None
-    config = {name: schema for name, schema in config_candidates.items() if schema is not None}
-    for output_key, value in direct_candidates.items():
-        if value is not None and output_key not in outputs:
-            outputs[output_key] = value
-    return {"inputs": inputs, "outputs": outputs, "config": config}
+def _step_expression_environment(
+    step,
+    definitions,
+    workflow_inputs,
+    *,
+    all_steps=None,
+) -> dict[str, Any]:
+    """Build the condition environment for a step and its graph predecessors."""
+    if all_steps is None:
+        # Keep the helper usable by legacy rule tests that pass a minimal step
+        # mapping without the normalized ``stepType`` discriminator.
+        scoped_steps = [step]
+    else:
+        scoped_steps = expression_scope_steps(all_steps, step.get("id"))
+    inputs = {
+        item["key"].strip(): item["schema"]
+        for item in workflow_inputs.values()
+        if item["key"].strip()
+    }
+    return project_workflow_expression_environment(scoped_steps, definitions, inputs)
 
 
 def _expression_diagnostic_severity(code: str) -> str | None:
@@ -213,12 +218,51 @@ def _expression_diagnostic_severity(code: str) -> str | None:
     return None
 
 
-def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, selection) -> None:
-    for output in definition["outputs"]:
-        key = output["key"].strip()
-        if not key:
+def _append_visible_unscoped_conflicts(
+    *,
+    step,
+    all_steps,
+    definitions,
+    workflow_input_keys,
+    issues,
+    reported,
+) -> None:
+    """Report direct-output conflicts in the environment visible at ``step``."""
+    visible_steps = expression_scope_steps(all_steps, step.get("id"))
+    candidates: dict[str, list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]]] = {}
+    for visible_step in visible_steps:
+        for call in visible_step.get("collectionCalls", []):
+            if str(call.get("key", "")).strip():
+                continue
+            if max(int(call.get("sampleCount", 1)), 1) > 1:
+                continue
+            reference = call.get("definition", {})
+            definition = definitions.get((reference.get("id"), reference.get("revision")))
+            if definition is None:
+                continue
+            for output in definition.get("outputs", []):
+                key = str(output.get("key", "")).strip()
+                if not is_expression_identifier(key):
+                    continue
+                candidates.setdefault(key, []).append((visible_step, call, definition))
+    for key, entries in candidates.items():
+        if key not in workflow_input_keys and len(entries) < 2:
             continue
-        if key in reserved or key in names:
+        for owner_step, call, definition in entries:
+            conflict_id = (
+                str(owner_step.get("id", "")),
+                str(call.get("id", "")),
+                key,
+            )
+            if conflict_id in reported:
+                continue
+            reported.add(conflict_id)
+            selection = {
+                "type": "step",
+                "id": owner_step["id"],
+                "section": "collections",
+                "itemId": call["id"],
+            }
             issues.append(
                 issue(
                     "UNSCOPED_OUTPUT_CONFLICT",
@@ -227,7 +271,6 @@ def _validate_unscoped_outputs(*, call, definition, names, reserved, issues, sel
                     selection,
                 )
             )
-        names[key] = call["id"]
 
 
 def _call_label(call, definition) -> str:

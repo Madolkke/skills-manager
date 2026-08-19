@@ -7,9 +7,10 @@ import type {
   WorkflowJsonSchema,
   WorkflowStep,
 } from "../../types";
-import { findCollection, workflowSteps } from "./domain/utils";
+import { findCollection } from "./domain/utils";
 import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema";
 import { isWorkflowExpressionIdentifier } from "./workflowExpressionSyntax";
+import { workflowExpressionVisibleSteps } from "./workflowExpressionScope";
 
 export type WorkflowExpressionVariableKind = "global" | "output" | "config";
 
@@ -37,10 +38,12 @@ export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId
     });
   });
 
-  const steps = workflowSteps(bundle);
-  const sourceStep = steps.find((step) => step.id === sourceStepId);
-
-  (sourceStep ? [sourceStep] : steps).forEach((step) => appendStepOutputs(variables, bundle, step));
+  const steps = workflowExpressionVisibleSteps(bundle, sourceStepId);
+  const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
+  const directOutputCounts = collectDirectOutputCounts(bundle, steps);
+  const keyedOutputKeys = collectKeyedOutputKeys(bundle, steps);
+  const emittedCallKeys = new Set<string>();
+  steps.forEach((step) => appendStepOutputs(variables, bundle, step, workflowInputKeys, directOutputCounts, keyedOutputKeys, emittedCallKeys));
   const config = workflowExpressionEnvironment(bundle, sourceStepId).config;
   Object.entries(config).forEach(([key, schema]) => appendConfigVariables(variables, key, schema));
   return variables;
@@ -48,16 +51,17 @@ export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId
 
 export function workflowExpressionEnvironment(bundle: WorkflowBundle, sourceStepId?: string): WorkflowExpressionEnvironment {
   const inputs = Object.fromEntries(bundle.workflow.inputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema]));
-  const outputs: WorkflowExpressionEnvironment["outputs"] = {};
+  const outputs = Object.create(null) as WorkflowExpressionEnvironment["outputs"];
   const directCandidates = new Map<string, WorkflowExpressionOutput | null>();
-  const steps = sourceStepId ? workflowSteps(bundle).filter((step) => step.id === sourceStepId) : workflowSteps(bundle);
+  const steps = workflowExpressionVisibleSteps(bundle, sourceStepId);
   steps.forEach((step) => step.collectionCalls.forEach((call) => {
     const callKey = call.key.trim();
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
     if (!definition) return;
     const sampleCount = Math.max(call.sampleCount, 1);
+    if (!callKey && sampleCount > 1) return;
     if (callKey) {
-      if (outputs[callKey]) return;
+      if (Object.hasOwn(outputs, callKey)) return;
       outputs[callKey] = {
         sampleCount,
         fields: Object.fromEntries(definition.outputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema])),
@@ -66,7 +70,7 @@ export function workflowExpressionEnvironment(bundle: WorkflowBundle, sourceStep
     }
     definition.outputs.forEach((item) => {
       const outputKey = item.key.trim();
-      if (!isWorkflowExpressionIdentifier(outputKey) || inputs[outputKey] || directCandidates.has(outputKey)) {
+      if (!isWorkflowExpressionIdentifier(outputKey) || Object.hasOwn(inputs, outputKey) || directCandidates.has(outputKey)) {
         if (outputKey && directCandidates.has(outputKey)) directCandidates.set(outputKey, null);
         return;
       }
@@ -74,7 +78,7 @@ export function workflowExpressionEnvironment(bundle: WorkflowBundle, sourceStep
     });
   }));
   directCandidates.forEach((output, key) => {
-    if (output && !outputs[key]) outputs[key] = output;
+    if (output && !Object.hasOwn(outputs, key)) outputs[key] = output;
   });
   const configCandidates = new Map<string, WorkflowExpressionSchema | null>();
   steps.forEach((step) => step.collectionCalls.forEach((call) => {
@@ -108,23 +112,20 @@ function appendStepOutputs(
   variables: WorkflowExpressionVariable[],
   bundle: WorkflowBundle,
   step: WorkflowStep,
+  workflowInputKeys: Set<string>,
+  directOutputCounts: Map<string, number>,
+  keyedOutputKeys: Set<string>,
+  emittedCallKeys: Set<string>,
 ): void {
-  const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
-  const directOutputCounts = new Map<string, number>();
-  step.collectionCalls.forEach((call) => {
-    if (call.key.trim()) return;
-    const definition = findCollection(bundle.collectionSnapshots, call.definition);
-    definition?.outputs.forEach((output) => {
-      const key = output.key.trim();
-      if (isWorkflowExpressionIdentifier(key)) directOutputCounts.set(key, (directOutputCounts.get(key) ?? 0) + 1);
-    });
-  });
   step.collectionCalls.forEach((call) => {
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
     if (!definition) return;
     const callKey = call.key.trim();
+    if (!callKey && call.sampleCount > 1) return;
     const callName = call.name.trim() || definition.metadata.name.trim() || definition.key.trim() || "未命名采集";
     if (callKey && !isWorkflowExpressionIdentifier(callKey)) return;
+    if (callKey && emittedCallKeys.has(callKey)) return;
+    if (callKey) emittedCallKeys.add(callKey);
     if (callKey && call.sampleCount > 1) {
       const properties = Object.fromEntries(
         definition.outputs
@@ -147,7 +148,7 @@ function appendStepOutputs(
     definition.outputs.forEach((output) => {
       const outputKey = output.key.trim();
       if (!isWorkflowExpressionIdentifier(outputKey)) return;
-      if (!callKey && (workflowInputKeys.has(outputKey) || directOutputCounts.get(outputKey) !== 1)) return;
+      if (!callKey && (workflowInputKeys.has(outputKey) || directOutputCounts.get(outputKey) !== 1 || keyedOutputKeys.has(outputKey))) return;
       const outputPath = callKey ? `${callKey}.${outputKey}` : outputKey;
       appendSchemaVariables(variables, {
         id: `output:${step.id}:${call.id}:${output.id}`, reference: `outputs.${outputPath}`, kind: "output",
@@ -157,6 +158,28 @@ function appendStepOutputs(
       });
     });
   });
+}
+
+function collectDirectOutputCounts(bundle: WorkflowBundle, steps: WorkflowStep[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  steps.forEach((step) => step.collectionCalls.forEach((call) => {
+    if (call.key.trim() || call.sampleCount > 1) return;
+    const definition = findCollection(bundle.collectionSnapshots, call.definition);
+    definition?.outputs.forEach((output) => {
+      const key = output.key.trim();
+      if (isWorkflowExpressionIdentifier(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+  }));
+  return counts;
+}
+
+function collectKeyedOutputKeys(bundle: WorkflowBundle, steps: WorkflowStep[]): Set<string> {
+  const keys = new Set<string>();
+  steps.forEach((step) => step.collectionCalls.forEach((call) => {
+    if (!call.key.trim() || !findCollection(bundle.collectionSnapshots, call.definition)) return;
+    keys.add(call.key.trim());
+  }));
+  return keys;
 }
 
 function appendSchemaVariables(

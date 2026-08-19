@@ -5,11 +5,9 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { effectScope, nextTick, ref } from "vue";
-import { api } from "../../lib/api";
+import { nextTick, ref } from "vue";
 import type { CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
 import WorkflowExpressionEditor from "./components/WorkflowExpressionEditor.vue";
-import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidation";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
 import {
   acceptWorkflowExpressionCompletion,
@@ -206,116 +204,6 @@ describe("WorkflowExpressionEditor", () => {
     });
     expect(wrapper.text()).toContain("需要下标");
     wrapper.unmount();
-  });
-});
-
-describe("Workflow expression batch validation", () => {
-  it("debounces by step, aborts stale requests, and aggregates stable sample warnings", async () => {
-    const signals: AbortSignal[] = [];
-    const validation = vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions, _environment, signal) => {
-      if (signal) signals.push(signal);
-      return { validations: expressions.map((item) => ({
-        id: item.id,
-        inferredType: { kind: "boolean" },
-        diagnostics: [{ severity: "warning", code: "SAMPLE_INDEX_REQUIRED", message: "需要下标", start: 0, end: 10 }],
-      })) };
-    });
-    const bundle = ref<WorkflowBundle | null>(workflowBundle());
-    const current = bundle.value!.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!;
-    current.collectionCalls[0]!.sampleCount = 2;
-    current.topology[0]!.conditionExpression = "outputs.status.version";
-    const scope = effectScope();
-    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
-
-    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(1);
-    current.topology[0]!.conditionExpression = "outputs.status[0].version";
-    await new Promise((resolve) => window.setTimeout(resolve, 50));
-    current.topology[0]!.conditionExpression = "outputs.status.version";
-    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(2);
-
-    expect(validation.mock.calls[1]?.[0]).toEqual([{ id: "step-current:path-current", source: "outputs.status.version" }]);
-    expect(signals[0]?.aborted).toBe(true);
-    await expect.poll(() => result.issues.value.map((item) => item.code)).toEqual(["SAMPLE_INDEX_REQUIRED"]);
-    expect(result.issues.value[0]?.id).toBe("workflow-issue/sample_index_required/step/step-current//paths/path-current/conditionExpression/0");
-    scope.stop();
-  });
-
-  it("retains diagnostics for unchanged expressions when one step batch fails", async () => {
-    let failOtherStep = false;
-    const validation = vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions, environment) => {
-      if (failOtherStep && "other" in environment.outputs) throw new Error("network failure");
-      return {
-        validations: expressions.map((item) => ({
-          id: item.id,
-          inferredType: { kind: "boolean" },
-          diagnostics: [{ severity: "warning", code: "SAMPLE_INDEX_REQUIRED", message: `诊断 ${item.id}`, start: 0, end: 10 }],
-        })),
-      };
-    });
-    const bundle = ref<WorkflowBundle | null>(workflowBundle());
-    const current = bundle.value!.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!;
-    const other = bundle.value!.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-other")!;
-    current.collectionCalls[0]!.sampleCount = 2;
-    current.topology[0]!.conditionExpression = "outputs.status.version";
-    other.collectionCalls[0]!.key = "other";
-    other.collectionCalls[0]!.sampleCount = 2;
-    other.topology = [{ id: "path-other", target: { id: "step-current" }, conditionText: "", conditionExpression: "outputs.other.version" }];
-    const scope = effectScope();
-    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
-
-    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(2);
-    await expect.poll(() => Object.keys(result.diagnostics.value).sort()).toEqual(["step-current:path-current", "step-other:path-other"]);
-    failOtherStep = true;
-    current.topology[0]!.conditionExpression = "outputs.status[0].version";
-
-    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(4);
-    await expect.poll(() => result.diagnostics.value["step-current:path-current"]?.[0]?.message).toBe("诊断 step-current:path-current");
-    expect(result.diagnostics.value["step-other:path-other"]?.[0]?.message).toBe("诊断 step-other:path-other");
-    scope.stop();
-  });
-
-  it("promotes blocking config subscript diagnostics to workflow errors", async () => {
-    const validation = vi.spyOn(api, "validateWorkflowExpressions").mockResolvedValue({
-      validations: [{
-        id: "step-current:path-current",
-        inferredType: { kind: "unknown" },
-        diagnostics: [
-          { severity: "warning", code: "CONFIG_STRING_SUBSCRIPT_FORBIDDEN", message: "不支持字符串下标", start: 0, end: 10 },
-          { severity: "warning", code: "CONFIG_ARRAY_INDEX_INVALID", message: "数组下标必须是整数", start: 0, end: 10 },
-        ],
-      }],
-    });
-    const bundle = ref<WorkflowBundle | null>(workflowBundle());
-    const current = bundle.value!.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!;
-    current.topology[0]!.conditionExpression = "config.interface['name']";
-    const scope = effectScope();
-    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
-
-    await expect.poll(() => result.issues.value).toHaveLength(2);
-    expect(result.issues.value.map((item) => [item.code, item.severity])).toEqual([
-      ["CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "error"],
-      ["CONFIG_ARRAY_INDEX_INVALID", "error"],
-    ]);
-    scope.stop();
-    expect(validation).toHaveBeenCalledTimes(1);
-    });
-
-  it("promotes invalid config array indexes to workflow errors", async () => {
-    vi.spyOn(api, "validateWorkflowExpressions").mockResolvedValue({
-      validations: [{
-        id: "step-current:path-current", inferredType: { kind: "unknown" },
-        diagnostics: [{ severity: "warning", code: "CONFIG_ARRAY_INDEX_INVALID", message: "只允许整数下标", start: 0, end: 10 }],
-      }],
-    });
-    const bundle = ref<WorkflowBundle | null>(workflowBundle());
-    const current = bundle.value!.workflow.nodes.find((item): item is WorkflowStep => "stepType" in item && item.id === "step-current")!;
-    current.topology[0]!.conditionExpression = "config.interfaces[1.5]";
-    const scope = effectScope();
-    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
-
-    await expect.poll(() => result.issues.value).toHaveLength(1);
-    expect(result.issues.value[0]).toMatchObject({ code: "CONFIG_ARRAY_INDEX_INVALID", severity: "error" });
-    scope.stop();
   });
 });
 

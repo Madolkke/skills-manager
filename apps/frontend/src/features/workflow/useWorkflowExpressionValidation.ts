@@ -81,7 +81,11 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
       validatedSources = {};
       return;
     }
-    const activeSources = Object.fromEntries(batches.flatMap((batch) => batch.expressions.map((item) => [item.id, item.source])));
+    const activeSources = Object.fromEntries(batches.flatMap((batch) => {
+      const environment = workflowExpressionEnvironment(current, batch.step.id);
+      const environmentFingerprint = JSON.stringify(environment);
+      return batch.expressions.map((item) => [item.id, `${item.source}\u0000${environmentFingerprint}`]);
+    }));
     const requestGeneration = ++generation;
     timer = window.setTimeout(async () => {
       timer = null;

@@ -5,6 +5,7 @@ import { logCollectionIssues } from "./logValidation";
 import { configCollectionIssues } from "./configValidation";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
+import { workflowExpressionVisibleSteps } from "../workflowExpressionScope";
 import { parseCliCommandParameters } from "./cliCommandParameters";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
@@ -55,14 +56,15 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   const roleIds = new Set(bundle.workflow.deviceRoles.map((item) => item.id));
   const workflowInputs = new Map(bundle.workflow.inputs.map((item) => [item.id, item]));
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
+  const reportedUnscopedConflicts = new Set<string>();
   for (const step of steps) {
     const selection: WorkflowSelection = { type: "step", id: step.id };
     duplicates(step.collectionCalls, "id", "MISSING_CALL_ID", "DUPLICATE_CALL_ID", "采集调用 ID", issues, { ...selection, section: "collections" });
     optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, { ...selection, section: "collections" });
     duplicates(step.topology, "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, { ...selection, section: "paths" });
+    appendVisibleUnscopedConflicts(bundle, step, catalog, workflowInputKeys, issues, reportedUnscopedConflicts);
     const allCalls = new Map(step.collectionCalls.map((item) => [item.id, item]));
     const previousCalls = new Map<string, typeof step.collectionCalls[number]>();
-    const unscopedOutputKeys = new Set<string>();
     for (const call of step.collectionCalls) {
       const definition = findCollection(catalog, call.definition);
       const callSelection: WorkflowSelection = { ...selection, section: "collections", itemId: call.id };
@@ -85,16 +87,6 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
         const problem = binding && bindingProblem(binding, input, workflowInputs, previousCalls, allCalls, catalog);
         if (problem) add(issues, problem.code, "error", `采集“${callName}”的参数“${workflowSchemaTitle(input.schema, input.key)}”${problem.message}`, { ...callSelection, field: `binding.${input.id}` });
       });
-      if (definition && !call.key.trim()) {
-        definition.outputs.forEach((output) => {
-          const key = output.key.trim();
-          if (!key) return;
-          if (workflowInputKeys.has(key) || unscopedOutputKeys.has(key)) {
-            add(issues, "UNSCOPED_OUTPUT_CONFLICT", "error", `采集“${callName}”直接暴露的输出字段“${key}”与 Workflow 全局输入或其他直接输出重名，请填写调用 Key 作为命名空间。`, callSelection);
-          }
-          unscopedOutputKeys.add(key);
-        });
-      }
       previousCalls.set(call.id, call);
     }
     step.topology.forEach((item) => {
@@ -114,6 +106,48 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     if (first) add(issues, "POTENTIAL_CYCLE", "warning", `检测到可能的循环路径：${names}。`, { type: "step", id: first.id });
   }
   return assignIssueIds(issues);
+}
+
+function appendVisibleUnscopedConflicts(
+  bundle: WorkflowBundle,
+  step: WorkflowStep,
+  catalog: CollectionDefinition[],
+  workflowInputKeys: Set<string>,
+  issues: WorkflowValidationIssue[],
+  reported: Set<string>,
+): void {
+  const candidates = new Map<string, Array<{ step: WorkflowStep; call: WorkflowStep["collectionCalls"][number]; definition: CollectionDefinition }>>();
+  workflowExpressionVisibleSteps(bundle, step.id).forEach((visibleStep) => {
+    visibleStep.collectionCalls.forEach((call) => {
+      if (call.key.trim()) return;
+      if (call.sampleCount > 1) return;
+      const definition = findCollection(catalog, call.definition);
+      if (!definition) return;
+      definition.outputs.forEach((output) => {
+        const key = output.key.trim();
+        if (!isWorkflowExpressionIdentifier(key)) return;
+        const entries = candidates.get(key) ?? [];
+        entries.push({ step: visibleStep, call, definition });
+        candidates.set(key, entries);
+      });
+    });
+  });
+
+  candidates.forEach((entries, key) => {
+    if (!workflowInputKeys.has(key) && entries.length < 2) return;
+    entries.forEach(({ step: ownerStep, call, definition }) => {
+      const conflictId = `${ownerStep.id}:${call.id}:${key}`;
+      if (reported.has(conflictId)) return;
+      reported.add(conflictId);
+      add(
+        issues,
+        "UNSCOPED_OUTPUT_CONFLICT",
+        "error",
+        `采集“${call.name || definition.metadata.name || "未命名采集"}”直接暴露的输出字段“${key}”与 Workflow 全局输入或其他直接输出重名，请填写调用 Key 作为命名空间。`,
+        { type: "step", id: ownerStep.id, section: "collections", itemId: call.id },
+      );
+    });
+  });
 }
 
 function bindingProblem(

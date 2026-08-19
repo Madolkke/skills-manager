@@ -160,6 +160,46 @@ class WorkflowRulesTest(unittest.TestCase):
 
         self.assertIn("UNSCOPED_OUTPUT_CONFLICT", {item["code"] for item in validate_workflow_document(document)})
 
+    def test_unscoped_output_conflicts_across_predecessor_steps_are_rejected(self):
+        document = normalize_workflow_document(self._document())
+        definition = document["collectionSnapshots"][0]
+        definition["outputs"] = [
+            {
+                "id": "output-state",
+                "key": "state",
+                "required": True,
+                "schema": {"type": "string", "title": "状态", "description": ""},
+            },
+            {
+                "id": "output-invalid",
+                "key": "router-status",
+                "required": True,
+                "schema": {"type": "string", "title": "非法字段", "description": ""},
+            },
+        ]
+        first = document["workflow"]["nodes"][0]
+        first["collectionCalls"][0]["key"] = ""
+        second = deepcopy(first)
+        second["id"] = "second-step"
+        second["name"] = "再次采集"
+        second["isStart"] = False
+        second["collectionCalls"][0]["id"] = "second-call"
+        second["topology"][0]["id"] = "second-transition"
+        first["topology"][0]["target"] = {"id": second["id"]}
+        document["workflow"]["nodes"].insert(1, second)
+
+        conflicts = [
+            item
+            for item in validate_workflow_document(document)
+            if item["code"] == "UNSCOPED_OUTPUT_CONFLICT"
+        ]
+
+        self.assertEqual(
+            {item["selection"]["itemId"] for item in conflicts},
+            {"opaque-call-id", "second-call"},
+        )
+        self.assertEqual(len(conflicts), 2)
+
     def test_renderer_uses_collection_name_and_optional_call_namespace(self):
         document = normalize_workflow_document(self._document())
         definition = document["collectionSnapshots"][0]
