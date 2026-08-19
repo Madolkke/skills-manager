@@ -1,4 +1,4 @@
-import type { WorkflowBundle, WorkflowStep } from "../../types";
+import type { CollectionCall, WorkflowBundle, WorkflowStep } from "../../types";
 import { workflowSteps } from "./domain/utils";
 
 /**
@@ -28,4 +28,19 @@ export function workflowExpressionVisibleSteps(bundle: WorkflowBundle, sourceSte
   }
 
   return steps.filter((step) => visibleIds.has(step.id));
+}
+
+export type WorkflowBindingCall = { call: CollectionCall; step: WorkflowStep };
+
+/** Return calls available to a binding on the current call. */
+export function workflowBindingVisibleCalls(bundle: WorkflowBundle, sourceStepId: string, currentCallId: string): WorkflowBindingCall[] {
+  const visibleSteps = workflowExpressionVisibleSteps(bundle, sourceStepId);
+  const result: WorkflowBindingCall[] = [];
+  for (const step of visibleSteps) {
+    for (const call of step.collectionCalls) {
+      if (step.id === sourceStepId && call.id === currentCallId) break;
+      result.push({ call, step });
+    }
+  }
+  return result;
 }

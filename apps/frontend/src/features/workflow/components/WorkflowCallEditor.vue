@@ -5,6 +5,7 @@ import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionCall, CollectionDefinition, DeviceRole, WorkflowBinding, WorkflowCollectionChange, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { collectionContentSummary, collectionTypeLabel, isConfigCollection, isLogCollection } from "../domain/collectionPresentation";
 import { findCollection } from "../domain/utils";
+import type { WorkflowBindingCall } from "../workflowExpressionScope";
 import { parseScalarLiteral, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
 import WorkflowJsonValueModal from "./WorkflowJsonValueModal.vue";
@@ -13,7 +14,7 @@ const props = defineProps<{
   call: CollectionCall;
   definition?: CollectionDefinition;
   workflowInputs: WorkflowParameter[];
-  previousCalls: CollectionCall[];
+  availableBindingCalls: WorkflowBindingCall[];
   catalog: CollectionDefinition[];
   roles: DeviceRole[];
   readonly: boolean;
@@ -41,9 +42,9 @@ const issueCount = computed(() => props.issues.length);
 const displayName = computed(() => props.call.name || props.definition?.metadata.name || "未命名采集");
 const structuredLiteralId = ref<string | null>(null);
 const structuredLiteral = computed(() => props.definition?.inputs.find((item) => item.id === structuredLiteralId.value));
-const previousOutputs = computed(() => props.previousCalls.flatMap((call) => {
+const previousOutputs = computed(() => props.availableBindingCalls.flatMap(({ call, step }) => {
   const definition = findCollection(props.catalog, call.definition);
-  return definition?.outputs.map((output) => ({ call, output, definition })) ?? [];
+  return definition?.outputs.map((output) => ({ call, output, definition, step })) ?? [];
 }));
 
 watch(() => props.definition?.spec.collectionType, (type, previous) => {
@@ -130,7 +131,7 @@ function operationLabel(): string {
             <span><strong>{{ workflowSchemaTitle(input.schema, input.key) }}</strong><small>{{ input.key }} · {{ input.schema.type ?? "any" }}</small></span>
             <select :value="bindingKind(input.id)" :disabled="props.readonly" @change="setBinding(input.id, ($event.target as HTMLSelectElement).value)"><option value="">未绑定</option><option value="workflow_input">全局输入</option><option value="collection_output">前序采集输出</option><option value="literal">固定值</option></select>
             <select v-if="bindingKind(input.id) === 'workflow_input'" :value="props.call.inputBindings[input.id]?.reference.input_id" :disabled="props.readonly" @change="emit('binding', input.id, { kind: 'workflow_input', reference: { input_id: ($event.target as HTMLSelectElement).value } })"><option v-for="item in props.workflowInputs" :key="item.id" :value="item.id">{{ workflowSchemaTitle(item.schema, item.key) }}</option></select>
-            <select v-else-if="bindingKind(input.id) === 'collection_output'" :value="`${props.call.inputBindings[input.id]?.reference.call_id ?? ''}:${props.call.inputBindings[input.id]?.reference.output_id ?? ''}`" :disabled="props.readonly" @change="{ const [callId, outputId] = ($event.target as HTMLSelectElement).value.split(':'); emit('binding', input.id, { kind: 'collection_output', reference: { call_id: callId, output_id: outputId } }); }"><option v-if="previousOutputs.length === 0" value=":">没有可用的前序输出</option><option v-for="item in previousOutputs" :key="`${item.call.id}:${item.output.id}`" :value="`${item.call.id}:${item.output.id}`">{{ item.call.name || item.definition.metadata.name }} · {{ workflowSchemaTitle(item.output.schema, item.output.key) }}</option></select>
+            <select v-else-if="bindingKind(input.id) === 'collection_output'" :value="`${props.call.inputBindings[input.id]?.reference.call_id ?? ''}:${props.call.inputBindings[input.id]?.reference.output_id ?? ''}`" :disabled="props.readonly" @change="{ const [callId, outputId] = ($event.target as HTMLSelectElement).value.split(':'); emit('binding', input.id, { kind: 'collection_output', reference: { call_id: callId, output_id: outputId } }); }"><option v-if="previousOutputs.length === 0" value=":">没有可用的前序输出</option><option v-for="item in previousOutputs" :key="`${item.call.id}:${item.output.id}`" :value="`${item.call.id}:${item.output.id}`">{{ item.step.name }} · {{ item.call.name || item.definition.metadata.name }} · {{ workflowSchemaTitle(item.output.schema, item.output.key) }}</option></select>
             <select v-else-if="bindingKind(input.id) === 'literal' && input.schema.type === 'boolean'" :value="String(props.call.inputBindings[input.id]?.value ?? false)" :disabled="props.readonly" @change="setScalarLiteral(input, ($event.target as HTMLSelectElement).value)"><option value="true">true</option><option value="false">false</option></select>
             <button v-else-if="bindingKind(input.id) === 'literal' && (input.schema.type === 'object' || input.schema.type === 'array' || !input.schema.type)" type="button" :class="['workflow-literal-json-button', literalMismatch(input) && 'has-warning']" :disabled="props.readonly" @click="structuredLiteralId = input.id"><Pencil :size="14" />编辑 JSON<span v-if="literalMismatch(input)">Schema 不匹配</span></button>
             <input v-else-if="bindingKind(input.id) === 'literal'" :type="input.schema.type === 'integer' || input.schema.type === 'number' ? 'number' : 'text'" :step="input.schema.type === 'integer' ? '1' : 'any'" :class="literalMismatch(input) && 'field-warning'" :value="String(props.call.inputBindings[input.id]?.value ?? '')" :disabled="props.readonly" @input="setScalarLiteral(input, ($event.target as HTMLInputElement).value)" />

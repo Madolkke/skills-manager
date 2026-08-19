@@ -5,7 +5,7 @@ import { logCollectionIssues } from "./logValidation";
 import { configCollectionIssues } from "./configValidation";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
-import { workflowExpressionVisibleSteps } from "../workflowExpressionScope";
+import { workflowBindingVisibleCalls, workflowExpressionVisibleSteps } from "../workflowExpressionScope";
 import { parseCliCommandParameters } from "./cliCommandParameters";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
@@ -63,8 +63,6 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     optionalDuplicates(step.collectionCalls, "key", "DUPLICATE_CALL_KEY", "采集调用 key", issues, { ...selection, section: "collections" });
     duplicates(step.topology, "id", "MISSING_TRANSITION_ID", "DUPLICATE_TRANSITION_ID", "跳转 ID", issues, { ...selection, section: "paths" });
     appendVisibleUnscopedConflicts(bundle, step, catalog, workflowInputKeys, issues, reportedUnscopedConflicts);
-    const allCalls = new Map(step.collectionCalls.map((item) => [item.id, item]));
-    const previousCalls = new Map<string, typeof step.collectionCalls[number]>();
     for (const call of step.collectionCalls) {
       const definition = findCollection(catalog, call.definition);
       const callSelection: WorkflowSelection = { ...selection, section: "collections", itemId: call.id };
@@ -78,16 +76,17 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       if (!definition) add(issues, "BROKEN_REFERENCE", "error", `采集“${callName}”引用的定义版本不存在。`, callSelection);
       if (definition?.spec.collectionType === "log" && call.deviceRoleId) add(issues, "LOG_CALL_DEVICE_ROLE_UNSUPPORTED", "error", `日志采集“${callName}”不能绑定设备角色。`, { ...callSelection, field: "deviceRoleId" });
       else if (call.deviceRoleId && !roleIds.has(call.deviceRoleId)) add(issues, "BROKEN_REFERENCE", "error", `采集“${call.name}”引用的设备角色不存在。`, { ...callSelection, field: "deviceRoleId" });
+      const visibleCalls = new Map(workflowBindingVisibleCalls(bundle, step.id, call.id).map((item) => [item.call.id, item.call]));
+      const allCalls = new Map(steps.flatMap((item) => item.collectionCalls.map((source) => [source.id, { call: source, stepId: item.id }] as const)));
       definition?.inputs.forEach((input) => {
         const binding = call.inputBindings[input.id];
         if (input.required && (!binding || (binding.kind === "literal" && (binding.value == null || binding.value === "")))) {
           add(issues, "MISSING_REQUIRED_BINDING", "error", `采集“${callName}”尚未绑定必填参数“${workflowSchemaTitle(input.schema, input.key)}”。`, { ...callSelection, field: `binding.${input.id}` });
         }
         if (binding?.kind === "literal" && !workflowValueMatchesSchema(binding.value, input.schema)) add(issues, "LITERAL_SCHEMA_MISMATCH", "warning", `采集“${callName}”的固定值与“${workflowSchemaTitle(input.schema, input.key)}”Schema 不匹配。`, { ...callSelection, field: `binding.${input.id}` });
-        const problem = binding && bindingProblem(binding, input, workflowInputs, previousCalls, allCalls, catalog);
+        const problem = binding && bindingProblem(binding, input, workflowInputs, visibleCalls, allCalls, catalog, step.id);
         if (problem) add(issues, problem.code, "error", `采集“${callName}”的参数“${workflowSchemaTitle(input.schema, input.key)}”${problem.message}`, { ...callSelection, field: `binding.${input.id}` });
       });
-      previousCalls.set(call.id, call);
     }
     step.topology.forEach((item) => {
       const target = nodes.get(item.target.id);
@@ -155,8 +154,9 @@ function bindingProblem(
   target: WorkflowParameter,
   workflowInputs: Map<string, WorkflowParameter>,
   calls: Map<string, { definition: { id: string; revision: number } }>,
-  allCalls: Map<string, { definition: { id: string; revision: number } }>,
+  allCalls: Map<string, { call: { definition: { id: string; revision: number } }; stepId: string }>,
   definitions: CollectionDefinition[],
+  currentStepId: string,
 ): { code: string; message: string } | null {
   if (binding.kind === "literal") return null;
   if (binding.kind === "workflow_input") {
@@ -166,7 +166,8 @@ function bindingProblem(
   }
   if (binding.kind !== "collection_output") return { code: "BROKEN_REFERENCE", message: "引用无效。" };
   const call = calls.get(binding.reference.call_id ?? "");
-  if (!call && allCalls.has(binding.reference.call_id ?? "")) return { code: "FORWARD_OUTPUT_BINDING", message: "引用了当前采集之后的输出。" };
+  const sourceEntry = allCalls.get(binding.reference.call_id ?? "");
+  if (!call && sourceEntry?.stepId === currentStepId) return { code: "FORWARD_OUTPUT_BINDING", message: "引用了当前调用之前或传递前序步骤中的采集。" };
   const definition = call && findCollection(definitions, call.definition);
   const output = definition?.outputs.find((item) => item.id === binding.reference.output_id);
   if (!output) return { code: "BROKEN_REFERENCE", message: "引用无效。" };

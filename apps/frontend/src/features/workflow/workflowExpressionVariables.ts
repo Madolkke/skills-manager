@@ -126,22 +126,20 @@ function appendStepOutputs(
     if (callKey && !isWorkflowExpressionIdentifier(callKey)) return;
     if (callKey && emittedCallKeys.has(callKey)) return;
     if (callKey) emittedCallKeys.add(callKey);
-    if (callKey && call.sampleCount > 1) {
+    if (callKey) {
       const properties = Object.fromEntries(
         definition.outputs
           .filter((candidate) => isWorkflowExpressionIdentifier(candidate.key.trim()))
           .map((candidate) => [candidate.key.trim(), candidate.schema]),
       );
-      variables.push({
-        id: `output:${step.id}:${call.id}`,
-        reference: `outputs.${callKey}`,
-        kind: "output",
-        name: callName,
-        dataType: `${call.sampleCount} 个采集结果`,
-        source: `${step.name || "未命名步骤"} · ${callName}`,
-        aliases: [callKey, callName, step.name],
-        schema: { type: "object", title: callName, description: "", properties, required: [], additionalProperties: false },
-        sampleCount: call.sampleCount,
+      const objectSchema: WorkflowJsonSchema = { type: "object", title: callName, description: "", properties, required: [], additionalProperties: false };
+      const schema: WorkflowJsonSchema = call.sampleCount > 1
+        ? { type: "array", title: `${callName} 列表`, description: "", items: objectSchema }
+        : objectSchema;
+      appendSchemaVariables(variables, {
+        id: `output:${step.id}:${call.id}`, reference: `outputs.${callKey}`, kind: "output",
+        name: callName, source: `${step.name || "未命名步骤"} · ${callName}`,
+        aliases: [callKey, callName, step.name], schema, sampleCount: call.sampleCount > 1 ? call.sampleCount : undefined,
       });
       return;
     }
@@ -187,7 +185,8 @@ function appendSchemaVariables(
   value: Omit<WorkflowExpressionVariable, "dataType"> & { schema: WorkflowJsonSchema },
 ): void {
   const { schema, ...base } = value;
-  variables.push({ ...base, dataType: workflowSchemaSummary(schema), indexable: schema.type === "array" });
+  variables.push({ ...base, schema, dataType: workflowSchemaSummary(schema), indexable: schema.type === "array" });
+  if (schema.type === "array" && (value.sampleCount ?? 1) > 1) return;
   if (schema.type === "object") {
     Object.entries(schema.properties).forEach(([key, child]) => {
       if (!isWorkflowExpressionIdentifier(key)) return;
@@ -197,6 +196,7 @@ function appendSchemaVariables(
         reference: `${base.reference}.${key}`,
         name: workflowSchemaTitle(child, key),
         aliases: [...base.aliases, key],
+        sampleCount: undefined,
         schema: child,
       });
     });
@@ -206,6 +206,7 @@ function appendSchemaVariables(
       id: `${base.id}:item`,
       reference: `${base.reference}[0]`,
       name: `${base.name} 元素`,
+      sampleCount: undefined,
       schema: schema.items,
     });
   }
@@ -217,6 +218,16 @@ export function expandWorkflowExpressionVariable(
 ): WorkflowExpressionVariable[] {
   if (!variable.schema) return [];
   const values: WorkflowExpressionVariable[] = [];
+  if (variable.schema.type === "array") {
+    appendSchemaVariables(values, {
+      ...variable,
+      id: `${variable.id}:item`,
+      reference,
+      sampleCount: undefined,
+      schema: variable.schema.items,
+    });
+    return values;
+  }
   appendSchemaVariables(values, {
     ...variable,
     id: `${variable.id}:sample`,

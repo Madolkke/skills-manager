@@ -9,6 +9,7 @@ from .config_validation import config_root_names
 from .expression import validate_expression
 from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
 from .expression.environment import (
+    binding_scope_calls,
     expression_scope_steps,
     is_expression_identifier,
     project_workflow_expression_environment,
@@ -118,8 +119,6 @@ def _validate_step(
     reported_unscoped_conflicts,
 ) -> None:
     selection = {"type": "step", "id": step["id"]}
-    all_calls = {item["id"]: item for item in step["collectionCalls"]}
-    previous_calls: dict[str, Any] = {}
     _append_visible_unscoped_conflicts(
         step=step,
         all_steps=all_steps,
@@ -158,14 +157,14 @@ def _validate_step(
                     issues.append(issue("INVALID_MULTI_SAMPLE_CALL_KEY", "error", f"多次采集“{call_label}”的调用 key 必须是合法的 Python 标识符。", {**call_selection, "field": "key"}))
             if call.get("deviceRoleId") and call["deviceRoleId"] not in role_ids:
                 issues.append(issue("BROKEN_REFERENCE", "error", f"采集“{call['name']}”引用的设备角色不存在。", {**call_selection, "field": "deviceRoleId"}))
+        visible_calls, all_calls = binding_scope_calls(all_steps, step["id"], call["id"])
         for parameter in definition["inputs"]:
             binding = call["inputBindings"].get(parameter["id"])
             binding_selection = {**call_selection, "field": f"binding.{parameter['id']}"}
             if parameter["required"] and not _binding_has_value(binding):
                 issues.append(issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
-                _validate_binding(binding, parameter, workflow_inputs, previous_calls, all_calls, definitions, issues, binding_selection)
-        previous_calls[call["id"]] = call
+                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"])
     for transition in step["topology"]:
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
@@ -277,19 +276,21 @@ def _call_label(call, definition) -> str:
     return call["name"].strip() or definition["metadata"]["name"].strip() or definition["key"]
 
 
-def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection) -> None:
+def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id) -> None:
     kind = binding["kind"]
     ref = binding["reference"]
     valid = kind == "literal"
     if kind == "workflow_input":
         valid = ref.get("input_id") in workflow_inputs
     elif kind == "collection_output":
-        call = calls.get(ref.get("call_id"))
+        entry = calls.get(ref.get("call_id"))
+        call = entry["call"] if entry else None
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"])) if call else None
         valid = bool(definition and any(item["id"] == ref.get("output_id") for item in definition["outputs"]))
     if not valid:
-        if kind == "collection_output" and ref.get("call_id") in all_calls:
-            issues.append(issue("FORWARD_OUTPUT_BINDING", "error", "采集输出只能引用同一步骤中排在当前调用之前的采集。", selection))
+        entry = all_calls.get(ref.get("call_id")) if kind == "collection_output" else None
+        if kind == "collection_output" and entry and entry["stepId"] == current_step_id:
+            issues.append(issue("FORWARD_OUTPUT_BINDING", "error", "采集输出只能引用当前调用之前或传递前序步骤中的采集。", selection))
             return
         issues.append(issue("BROKEN_REFERENCE", "error", f"参数绑定类型“{kind}”的引用无效。", selection))
         return
@@ -297,7 +298,7 @@ def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, def
         issues.append(issue("LITERAL_SCHEMA_MISMATCH", "warning", f"字段“{schema_title(parameter)}”的固定值与 Schema 不匹配。", selection))
     source = workflow_inputs.get(ref.get("input_id")) if kind == "workflow_input" else None
     if kind == "collection_output":
-        call = calls[ref["call_id"]]
+        call = calls[ref["call_id"]]["call"]
         definition = definitions[(call["definition"]["id"], call["definition"]["revision"])]
         source = next(item for item in definition["outputs"] if item["id"] == ref["output_id"])
     if source and not schemas_assignable(source["schema"], parameter["schema"]):

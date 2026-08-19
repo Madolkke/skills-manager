@@ -158,6 +158,8 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 ### CollectionOutput
 
+`outputs[]` 表示一条命令的根属性集合。系统或用户命令库的根 `outputSchema.properties` 会在物化为 Collection 时分别转换为这些输出项；已有 Workflow Collection 不会因为某个输出项的 Schema 是 object 或 array 而再次拆分。表达式中无 `callKey` 时使用 `outputs.<key>`，有 `callKey` 时使用 `outputs.<callKey>.<key>`，根属性的 object/array 子结构继续递归访问。
+
 | 字段 | 类型 | 必填 | 默认值 | 含义 |
 | --- | --- | --- | --- | --- |
 | `id` | `string` | 是 | - | 输出字段身份，供 `collection_output` Binding 引用。 |
@@ -278,7 +280,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 历史文档中使用 `global.<key>` 或 `output.<...>` 的表达式应在保存前迁移到上述 `inputs`/`outputs` 根名称；新文档和补全不会再生成旧写法。
 
-补全和类型检查按 Workflow 图反向遍历，包含当前步骤及所有传递前序步骤，不包含未来或无图连接的步骤；结果按文档节点顺序稳定合并。多次采集先补全 `outputs.<callKey>[0].<field>`，没有 `callKey` 的非法多次采集不进入直接输出环境，切片路径不提供字段补全。带 `callKey` 的同名命名空间保持 first-wins 兼容行为；无 `callKey` 的直接输出若与全局输入或同一可见环境中的其他直接输出重名，则报告 `UNSCOPED_OUTPUT_CONFLICT` 且不生成该字段补全。Collection Input 的 `collection_output` Binding 仍只允许引用同一步骤中排在当前调用之前的采集，不随条件表达式范围扩展。
+补全和类型检查按 Workflow 图反向遍历，包含当前步骤及所有传递前序步骤，不包含未来或无图连接的步骤；结果按文档节点顺序稳定合并。多次采集先补全 `outputs.<callKey>[0].<field>`，没有 `callKey` 的非法多次采集不进入直接输出环境，切片路径不提供字段补全。带 `callKey` 的同名命名空间保持 first-wins 兼容行为；无 `callKey` 的直接输出若与全局输入或同一可见环境中的其他直接输出重名，则报告 `UNSCOPED_OUTPUT_CONFLICT` 且不生成该字段补全。Collection Input 的 `collection_output` Binding 可引用当前调用之前或传递前序步骤中的采集，当前步骤后续、未来和无图连接步骤不可引用。
 
 输入变量片段或 `.` 后会自动展开候选，也可按 `Ctrl/Cmd+Space` 主动展开。使用方向键选择，按 `Tab` 或 `Enter` 补全，按 `Escape` 关闭；候选菜单未打开时，`Tab` 保持正常的表单焦点导航。
 

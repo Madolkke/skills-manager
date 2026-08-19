@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import type { CollectionCall, CollectionDefinition, CommandLibrarySearchResult, VersionedRef, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowStep, WorkflowValidationIssue } from "../../../types";
 import { useSortableList } from "../useSortableList";
+import { workflowBindingVisibleCalls } from "../workflowExpressionScope";
 import WorkflowCallEditor from "./WorkflowCallEditor.vue";
 import WorkflowCollectionPicker from "./WorkflowCollectionPicker.vue";
 
@@ -76,7 +77,7 @@ const hasCalls = computed(() => props.step.collectionCalls.length > 0);
         :call="call"
         :definition="definition(call)"
         :workflow-inputs="props.bundle.workflow.inputs"
-        :previous-calls="props.step.collectionCalls.slice(0, index)"
+        :available-binding-calls="workflowBindingVisibleCalls(props.bundle, props.step.id, call.id)"
         :catalog="props.catalog"
         :roles="props.bundle.workflow.deviceRoles"
         :readonly="props.readonly"

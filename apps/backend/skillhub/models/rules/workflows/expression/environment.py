@@ -75,6 +75,32 @@ def expression_scope_steps(
     return [step for step in step_list if str(step["id"]) in visible]
 
 
+def binding_scope_calls(
+    steps: Sequence[Mapping[str, Any]],
+    source_step_id: str,
+    current_call_id: str,
+) -> tuple[dict[str, Mapping[str, Any]], dict[str, Mapping[str, Any]]]:
+    """Return visible binding calls and all calls indexed by call ID."""
+    visible_step_ids = {str(step.get("id")) for step in expression_scope_steps(steps, source_step_id)}
+    visible: dict[str, Mapping[str, Any]] = {}
+    all_calls: dict[str, Mapping[str, Any]] = {}
+    for step in steps:
+        step_id = str(step.get("id", ""))
+        for call in step.get("collectionCalls", []):
+            call_id = str(call.get("id", ""))
+            if not call_id:
+                continue
+            entry = {"call": call, "stepId": step_id}
+            all_calls[call_id] = entry
+            if step_id not in visible_step_ids:
+                continue
+            if step_id == source_step_id:
+                if call_id == current_call_id:
+                    break
+            visible[call_id] = entry
+    return visible, all_calls
+
+
 def expression_root_types(environment: dict[str, Any]) -> dict[str, TypeSpec]:
     """Build checker root types while retaining fixed collection sample counts."""
     normalized = normalize_expression_environment(environment)

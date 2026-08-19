@@ -56,6 +56,22 @@ describe("commandResultToDefinition", () => {
 
     expect(definition.inputs.map((item) => item.key)).toEqual(["name", "mode"]);
   });
+
+  it("将命令根 Schema 属性展开为输出字段并保留嵌套对象", () => {
+    const definition = commandResultToDefinition(commandResult({
+      outputSchema: {
+        type: "object",
+        properties: {
+          status: { type: "string", title: "状态" },
+          details: { type: "object", properties: { uptime: { type: "integer", title: "运行时长" } }, required: ["uptime"], additionalProperties: false },
+        },
+        required: ["status"],
+      },
+    }), 1);
+
+    expect(definition.outputs.map((item) => [item.key, item.required])).toEqual([["status", true], ["details", false]]);
+    expect(definition.outputs.find((item) => item.key === "details")?.schema).toMatchObject({ type: "object", properties: { uptime: { type: "integer" } } });
+  });
 });
 
 function commandResult(overrides: Partial<CommandLibrarySearchResult> = {}): CommandLibrarySearchResult {

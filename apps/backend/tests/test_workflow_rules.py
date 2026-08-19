@@ -21,6 +21,60 @@ from skillhub.models.rules.workflows import (
 
 
 class WorkflowRulesTest(unittest.TestCase):
+    def test_collection_binding_accepts_transitive_predecessor_output(self):
+        document = self._document()
+        workflow = document["workflow"]
+        definition = document["collectionSnapshots"][0]
+        definition["outputs"] = [{"id": "output-status", "key": "status", "required": True, "schema": {"type": "string", "title": "状态", "description": ""}}]
+        first = workflow["nodes"][0]
+        first["topology"] = [{"id": "path-next", "target": {"id": "step-next"}, "conditionText": "", "conditionExpression": ""}]
+        second = {
+            "id": "step-next",
+            "name": "使用状态",
+            "description": "",
+            "isStart": False,
+            "collectionCalls": [{
+                "id": "call-next",
+                "key": "next",
+                "name": "后续采集",
+                "definition": {"id": definition["id"], "revision": 1},
+                "sampleCount": 1,
+                "inputBindings": {"opaque-parameter-id": {"kind": "collection_output", "reference": {"call_id": "opaque-call-id", "output_id": "output-status"}}},
+            }],
+            "topology": [{"id": "path-done", "target": {"id": "opaque-conclusion-id"}, "conditionText": "", "conditionExpression": ""}],
+            "stepType": "expression",
+        }
+        workflow["nodes"].insert(1, second)
+
+        self.assertNotIn("BROKEN_REFERENCE", {item["code"] for item in validate_workflow_document(normalize_workflow_document(document))})
+
+    def test_collection_binding_rejects_same_step_later_call(self):
+        document = normalize_workflow_document(self._document())
+        step = document["workflow"]["nodes"][0]
+        call = deepcopy(step["collectionCalls"][0])
+        call["id"] = "later-call"
+        call["inputBindings"] = {"opaque-parameter-id": {"kind": "collection_output", "reference": {"call_id": "later-call", "output_id": "missing"}}}
+        step["collectionCalls"].append(call)
+
+        self.assertIn("FORWARD_OUTPUT_BINDING", {item["code"] for item in validate_workflow_document(document)})
+
+    def test_import_binding_accepts_predecessor_step_output(self):
+        bundle = self._import_bundle()
+        definition = bundle["collections"][0]
+        definition["outputs"] = [{"id": "output-status", "key": "status", "required": True, "schema": {"type": "string", "title": "状态", "description": ""}}]
+        first = bundle["workflow"]["nodes"][0]
+        first["topology"] = [{"id": "path-next", "target": {"id": "step-next"}, "conditionText": "", "conditionExpression": ""}]
+        bundle["workflow"]["nodes"].append({
+            "id": "step-next", "name": "使用状态", "description": "", "isStart": False,
+            "collectionCalls": [{
+                "id": "call-next", "key": "", "name": "", "definitionLocalId": "interface-status", "sampleCount": 1,
+                "inputBindings": {"collection-input-interface": {"kind": "collection_output", "reference": {"call_id": "call-interface", "output_id": "output-status"}}},
+            }],
+            "topology": [], "stepType": "expression",
+        })
+
+        validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
+
     def test_agent_guide_import_example_matches_schema(self):
         guide = Path(__file__).parents[3] / "docs" / "workflow-import-agent-guide.md"
         text = guide.read_text(encoding="utf-8")

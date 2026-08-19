@@ -7,6 +7,7 @@ from pydantic import Field
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.document_migration import migrate_output_v3, migrate_parameter_v3
+from skillhub.models.rules.workflows.expression.environment import binding_scope_calls
 from skillhub.models.rules.workflows.schema import (
     Binding,
     CollectionMetadata,
@@ -119,8 +120,6 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
     for node in nodes:
         if "stepType" not in node:
             continue
-        calls = {item["id"]: item for item in node["collectionCalls"]}
-        previous_calls: dict[str, dict[str, Any]] = {}
         for item in node["topology"]:
             if item["target"]["id"] not in node_ids:
                 raise InvariantError(f"Workflow import transition target does not exist: {item['target']['id']}")
@@ -133,8 +132,8 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             for input_id, binding in call["inputBindings"].items():
                 if input_id not in definition_input_ids:
                     raise InvariantError(f"Workflow import Collection input does not exist: {input_id}")
-                _validate_binding(binding, workflow_input_ids, previous_calls, calls, definitions)
-            previous_calls[call["id"]] = call
+                visible_calls, all_calls = binding_scope_calls(nodes, node["id"], call["id"])
+                _validate_binding(binding, workflow_input_ids, visible_calls, all_calls, definitions, node["id"])
 
 
 def materialize_workflow_import(
@@ -167,15 +166,17 @@ def _definition_map(definitions: list[dict[str, Any]]) -> dict[str, dict[str, An
     return result
 
 
-def _validate_binding(binding, workflow_inputs, calls, all_calls, definitions) -> None:
+def _validate_binding(binding, workflow_inputs, calls, all_calls, definitions, current_step_id) -> None:
     kind = binding["kind"]
     reference = binding["reference"]
     valid = kind == "literal"
     if kind == "workflow_input":
         valid = reference.get("input_id") in workflow_inputs
     elif kind == "collection_output":
-        call = calls.get(reference.get("call_id"))
-        if call is None and reference.get("call_id") in all_calls:
+        entry = calls.get(reference.get("call_id"))
+        call = entry["call"] if entry else None
+        source_entry = all_calls.get(reference.get("call_id"))
+        if call is None and source_entry and source_entry["stepId"] == current_step_id:
             raise InvariantError("Workflow import Collection output Binding cannot reference a later call.")
         definition = definitions.get(call["definitionLocalId"]) if call else None
         valid = bool(definition and any(item["id"] == reference.get("output_id") for item in definition["outputs"]))

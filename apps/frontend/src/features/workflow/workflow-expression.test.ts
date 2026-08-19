@@ -43,6 +43,7 @@ describe("Workflow expression variables", () => {
 
     expect(variables.map((item) => item.reference)).toEqual([
       "inputs.tenant",
+      "outputs.status",
       "outputs.status.version",
       "outputs.version",
     ]);
@@ -69,7 +70,7 @@ describe("Workflow expression variables", () => {
     const readonlyState = EditorState.create({ extensions: EditorState.readOnly.of(true) });
     const readonlyResult = await source(new CompletionContext(readonlyState, 0, true));
 
-    expect(explicit?.options).toHaveLength(3);
+    expect(explicit?.options).toHaveLength(4);
     expect(automatic?.options.map((item) => item.label)).toEqual(["outputs.status.version"]);
     expect(quoted).toBeNull();
     expect(readonlyResult).toBeNull();

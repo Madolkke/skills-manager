@@ -10,11 +10,22 @@ import { validateWorkflow } from "./domain/validation";
 import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidation";
 import { createWorkflowExpressionCompletionSource } from "./workflowExpressionCompletion";
 import { workflowExpressionEnvironment, workflowExpressionVariables } from "./workflowExpressionVariables";
-import { workflowExpressionVisibleSteps } from "./workflowExpressionScope";
+import { workflowBindingVisibleCalls, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe("Workflow graph-scoped expression environment", () => {
+  it("offers predecessor calls while excluding current later and future calls", () => {
+    const bundle = graphBundle();
+    const current = bundle.workflow.nodes.find((node) => node.id === "step-current") as WorkflowStep;
+    current.collectionCalls.push({
+      id: "call-current-later", key: "", name: "后续调用", definition: { id: "definition-status", revision: 1 }, sampleCount: 1, inputBindings: {},
+    });
+    const calls = workflowBindingVisibleCalls(bundle, "step-current", "call-current-later");
+    expect(calls.map((item) => item.call.id)).toEqual(["call-root", "call-previous", "call-current"]);
+    expect(calls.map((item) => item.step.name)).toEqual(["根步骤", "前置步骤", "当前步骤"]);
+  });
+
   it("projects the current step and transitive predecessors in document order", () => {
     const bundle = graphBundle();
     const visible = workflowExpressionVisibleSteps(bundle, "step-current");
@@ -22,7 +33,9 @@ describe("Workflow graph-scoped expression environment", () => {
 
     expect(visible.map((step) => step.id)).toEqual(["step-root", "step-previous", "step-current"]);
     expect(references).toEqual([
+      "outputs.root",
       "outputs.root.version",
+      "outputs.previous",
       "outputs.previous.version",
       "outputs.version",
     ]);
