@@ -6,6 +6,7 @@ type WorkflowShortcutOptions = {
   undo: () => void;
   redo: () => void;
   escape: () => void;
+  openReplace: () => void;
 };
 
 export function useWorkflowShortcuts(options: WorkflowShortcutOptions): void {
@@ -17,6 +18,11 @@ export function useWorkflowShortcuts(options: WorkflowShortcutOptions): void {
     if (command && event.key.toLowerCase() === "s") {
       event.preventDefault();
       if (options.canSave()) options.save();
+      return;
+    }
+    if (command && event.key.toLowerCase() === "r") {
+      event.preventDefault();
+      options.openReplace();
       return;
     }
     if (command && event.key.toLowerCase() === "z") {

@@ -43,6 +43,7 @@
 @import "./features/workflow/preview.css";
 @import "./features/workflow/read-preview.css";
 @import "./features/workflow/validation.css";
+@import "./features/workflow/replace.css";
 @import "./features/workflow/commands.css";
 @import "./features/workflow/responsive.css";
 @import "./features/workflow/skill-tab.css";

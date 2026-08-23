@@ -1,7 +1,7 @@
 .workflow-preview-tabs {
   min-height: 50px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 2px;
   padding: 8px;
   position: relative;
@@ -20,7 +20,7 @@
 }
 
 .workflow-preview-tabs::before {
-  width: calc((100% - 16px - 4px) / 3);
+  width: calc((100% - 16px - 8px) / 5);
   position: absolute;
   top: 8px;
   bottom: 8px;
@@ -39,8 +39,16 @@
   transform: translateX(calc(100% + 2px));
 }
 
-.workflow-preview-tabs.is-validation::before {
+.workflow-preview-tabs.is-collections::before {
   transform: translateX(calc(200% + 4px));
+}
+
+.workflow-preview-tabs.is-validation::before {
+  transform: translateX(calc(300% + 6px));
+}
+
+.workflow-preview-tabs.is-replace::before {
+  transform: translateX(calc(400% + 8px));
 }
 
 .workflow-preview-tabs button {

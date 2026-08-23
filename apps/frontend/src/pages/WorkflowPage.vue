@@ -7,12 +7,13 @@ import UiIconButton from "../components/ui/UiIconButton.vue";
 import WorkflowConfirmModal from "../features/workflow/components/WorkflowConfirmModal.vue";
 import WorkflowEditorContent from "../features/workflow/components/WorkflowEditorContent.vue";
 import WorkflowImportModal from "../features/workflow/components/WorkflowImportModal.vue";
-import WorkflowPreviewPanel from "../features/workflow/components/WorkflowPreviewPanel.vue";
+import WorkflowPreviewPanel, { type PreviewTab } from "../features/workflow/components/WorkflowPreviewPanel.vue";
 import WorkflowSidebar from "../features/workflow/components/WorkflowSidebar.vue";
 import WorkflowSyncModal from "../features/workflow/components/WorkflowSyncModal.vue";
 import WorkflowToolbar from "../features/workflow/components/WorkflowToolbar.vue";
 import { workflowStatusLabel } from "../features/workflow/domain/presentation";
 import { workflowSteps } from "../features/workflow/domain/utils";
+import type { WorkflowExpressionReplaceField } from "../features/workflow/workflowExpressionReplace";
 import { useWorkflowEditor } from "../features/workflow/useWorkflowEditor";
 import { useWorkflowLayout } from "../features/workflow/useWorkflowLayout";
 import { useWorkflowPersistence } from "../features/workflow/useWorkflowPersistence";
@@ -30,7 +31,7 @@ const detail = ref<WorkflowDetail | null>(null);
 const syncOpen = ref(false);
 const confirmAction = ref<ConfirmAction | null>(null);
 const confirmOpen = ref(false);
-const previewTab = ref<"graph" | "read" | "collections" | "validation">("graph");
+const previewTab = ref<PreviewTab>("graph");
 const editorPane = ref<HTMLElement | null>(null);
 const importFileInput = ref<HTMLInputElement | null>(null);
 const readOnly = computed(() => !detail.value?.capabilities.permissions["skill.edit"]);
@@ -93,6 +94,7 @@ useWorkflowShortcuts({
   undo: editor.undo,
   redo: editor.redo,
   escape: closeTransientUi,
+  openReplace: () => { previewTab.value = "replace"; layout.setGraphExpanded(false); },
 });
 
 function select(selection: WorkflowSelection): void {
@@ -185,6 +187,11 @@ function beforeUnload(event: BeforeUnloadEvent): void {
   event.returnValue = "";
 }
 
+function replaceExpressions(payload: { search: string; replacement: string; fields: WorkflowExpressionReplaceField[] }): void {
+  const stats = editor.replaceExpressions(payload.search, payload.replacement, payload.fields);
+  if (stats.expressions) emit("toast", { tone: "success", message: `已替换 ${stats.expressions} 个表达式，共 ${stats.occurrences} 处。` });
+}
+
 </script>
 
 <template>
@@ -259,7 +266,7 @@ function beforeUnload(event: BeforeUnloadEvent): void {
       </main>
 
       <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><ChevronLeft v-if="layout.rightCollapsed.value" :size="16" /><ChevronRight v-else :size="16" /></button></div>
-      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" @select="select" @navigate="navigateIssue" @toast="(message, tone) => emit('toast', { tone: tone === 'error' ? 'danger' : tone ?? 'info', message })" />
+      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" :readonly="readOnly" @select="select" @navigate="navigateIssue" @replace="replaceExpressions" @toast="(message, tone) => emit('toast', { tone: tone === 'error' ? 'danger' : tone ?? 'info', message })" />
     </div>
 
     <WorkflowSyncModal

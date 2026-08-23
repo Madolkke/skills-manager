@@ -10,6 +10,7 @@ import { createWorkflowPathEditing } from "./workflowPathEditing";
 import { validWorkflowSelection } from "./workflowSelection";
 import { commandResultToDefinition } from "./domain/commandLibrary";
 import { findReusableCommandDefinition } from "./domain/collectionLibrary";
+import { applyWorkflowExpressionReplacements, collectWorkflowExpressionReplacements, replacementStats, type WorkflowExpressionReplaceField, type WorkflowExpressionReplacementStats } from "./workflowExpressionReplace";
 
 export type WorkflowEditorSnapshot = { bundle: WorkflowBundle; catalog: CollectionDefinition[]; changes: WorkflowCollectionChange[] };
 
@@ -126,6 +127,15 @@ export function useWorkflowEditor(readonly: () => boolean) {
 
   function updateConclusion(id: string, patch: Record<string, unknown>): void {
     commit((draft) => Object.assign(workflowConclusions(draft.bundle).find((item) => item.id === id) ?? {}, patch), fieldGroup(`conclusion:${id}`, patch));
+  }
+
+  function replaceExpressions(search: string, replacement: string, fields: readonly WorkflowExpressionReplaceField[]): WorkflowExpressionReplacementStats {
+    if (readonly() || !bundle.value) return { expressions: 0, occurrences: 0 };
+    const matches = collectWorkflowExpressionReplacements(bundle.value, search, replacement, fields);
+    const stats = replacementStats(matches);
+    if (!stats.expressions) return stats;
+    commit((draft) => applyWorkflowExpressionReplacements(draft.bundle, matches), "global-expression-replace");
+    return stats;
   }
 
   function removeConclusion(id: string): void {
@@ -324,7 +334,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
     bundle, catalog, selection, changes, issues, expressionDiagnostics: expressionValidation.diagnostics,
     dirty: history.dirty, canUndo: history.canUndo, canRedo: history.canRedo,
     load, accepted, undo: history.undo, redo: history.redo, discard: history.discard, updateMetadata, addInput, updateInput, removeInput, addDeviceRole, updateDeviceRole, removeDeviceRole,
-    addWorkflowStep, duplicateStep, updateStep, removeStep, addWorkflowConclusion, updateConclusion, removeConclusion,
+    addWorkflowStep, duplicateStep, updateStep, removeStep, addWorkflowConclusion, updateConclusion, replaceExpressions, removeConclusion,
     addPath: paths.addPath, retargetPath: paths.retargetPath, updatePath: paths.updatePath, removePath: paths.removePath, movePath: paths.movePath,
     moveWorkflowNode: ordering.moveWorkflowNode, reorderWorkflowNodes: ordering.reorderWorkflowNodes,
     addDefinition, addCommandLibraryResult, editDefinition, removeDraftDefinition, addCall, addDraftCollectionCall, updateCall, removeCall, moveCall,

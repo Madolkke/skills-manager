@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkflowBundle, WorkflowParameter } from "../../types";
 import WorkflowMetadataEditor from "./components/WorkflowMetadataEditor.vue";
 import WorkflowSettingsEditor from "./components/WorkflowSettingsEditor.vue";
-import WorkflowPreviewPanel from "./components/WorkflowPreviewPanel.vue";
+import WorkflowPreviewPanel, { type PreviewTab } from "./components/WorkflowPreviewPanel.vue";
 import WorkflowSidebar from "./components/WorkflowSidebar.vue";
 import WorkflowToolbar from "./components/WorkflowToolbar.vue";
 
@@ -89,7 +89,7 @@ describe("Workflow UI state", () => {
 
   it("defaults the graph to horizontal and toggles the in-workbench expanded state", async () => {
     const expanded = ref(false);
-    const tab = ref<"graph" | "read" | "collections" | "validation">("graph");
+    const tab = ref<PreviewTab>("graph");
     const GraphStub = defineComponent({
       name: "WorkflowGraph",
       props: {
@@ -169,6 +169,22 @@ describe("Workflow UI state", () => {
     expect(wrapper.get(".workflow-validation-summary strong").text()).toBe("0 个错误");
     expect(wrapper.get(".workflow-validation-summary strong").classes()).toContain("is-clear");
     expect(wrapper.get(".workflow-validation-summary span").classes()).toContain("has-warnings");
+  });
+
+  it("provides a replace tab with live preview and respects read-only mode", async () => {
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }) });
+    const bundle = workflowBundle();
+    bundle.workflow.nodes = [
+      { id: "step-1", name: "检查状态", description: "", isStart: true, stepType: "expression", collectionCalls: [], topology: [{ id: "path-1", target: { id: "conclusion-1" }, conditionText: "", conditionExpression: "outputs.status == true" }] },
+      { id: "conclusion-1", name: "异常结论", severity: "error", rootCause: "outputs.status 异常", repairRecommendation: "检查 outputs.status", nodeType: "conclusion" },
+    ];
+    const wrapper = mount(WorkflowPreviewPanel, { props: { bundle, catalog: [], issues: [], tab: "graph", readonly: true } });
+    const replaceTab = wrapper.findAll('button[role="tab"]').find((button) => button.text() === "替换")!;
+    expect(replaceTab.exists()).toBe(true);
+    await replaceTab.trigger("click");
+    await wrapper.get('input[aria-label="搜索内容"]').setValue("outputs.status");
+    expect(wrapper.text()).toContain("3 个表达式");
+    expect(wrapper.get(".workflow-replace-actions button").attributes("data-disabled")).toBe("true");
   });
 
   it("按精确定义版本去重展示并复制全部 CLI 命令", async () => {
