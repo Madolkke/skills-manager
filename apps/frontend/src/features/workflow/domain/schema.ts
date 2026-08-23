@@ -12,7 +12,7 @@ const jsonSchema: z.ZodType<WorkflowJsonSchema> = z.lazy(() => z.union([
 const parameter = z.object({ id: z.string(), key: z.string(), required: z.boolean(), schema: jsonSchema }).strict();
 const binding = z.object({ kind: z.enum(["workflow_input", "collection_output", "literal"]), reference: z.record(z.string(), z.string()), value: z.unknown().optional() }).strict();
 const metadata = z.object({ name: z.string(), code: z.string(), description: z.string(), symptom: z.string().default(""), industry: z.string(), device: z.string(), versions: z.array(z.string()) }).strict();
-const role = z.object({ id: z.string(), key: z.string(), name: z.string(), description: z.string(), required: z.boolean() }).strict();
+const role = z.object({ id: z.string(), key: z.string(), name: z.string(), description: z.string(), required: z.boolean(), schema: jsonSchema.optional() }).strict();
 const collectionMetadata = z.object({ name: z.string(), description: z.string(), industry: z.string(), device: z.string(), versions: z.array(z.string()), tags: z.array(z.string()) }).strict();
 const output = z.object({ id: z.string(), key: z.string(), required: z.boolean(), schema: jsonSchema }).strict();
 const sample = z.object({ id: z.string(), name: z.string(), stdout: z.string(), inputValues: z.record(z.string(), z.unknown()) }).strict();

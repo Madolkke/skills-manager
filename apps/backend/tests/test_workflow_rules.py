@@ -21,6 +21,15 @@ from skillhub.models.rules.workflows import (
 
 
 class WorkflowRulesTest(unittest.TestCase):
+    def test_device_role_key_and_schema_diagnostics(self):
+        document = normalize_workflow_document(self._document())
+        role = {"id": "role", "key": "bad-key", "name": "设备", "description": "", "required": True, "schema": {
+            "type": "object", "title": "", "description": "", "properties": {"ip-address": {"type": "string", "title": "", "description": ""}}, "required": ["missing"], "additionalProperties": False,
+        }}
+        document["workflow"]["deviceRoles"] = [role]
+        codes = {item["code"] for item in validate_workflow_document(document)}
+        self.assertTrue({"INVALID_ROLE_KEY", "INVALID_DEVICE_ROLE_PROPERTY_KEY", "DEVICE_ROLE_SCHEMA_REQUIRED_INVALID"}.issubset(codes))
+
     def test_collection_binding_accepts_transitive_predecessor_output(self):
         document = self._document()
         workflow = document["workflow"]

@@ -91,6 +91,7 @@ class DeviceRole(WorkflowModel):
     name: str
     description: str = ""
     required: bool = True
+    schema_: JsonSchema | None = Field(default=None, alias="schema")
 
 
 class CollectionMetadata(WorkflowModel):

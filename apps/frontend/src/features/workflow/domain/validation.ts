@@ -1,4 +1,4 @@
-import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowParameter, WorkflowSelection, WorkflowStep, WorkflowValidationIssue } from "../../../types";
+import type { CollectionDefinition, WorkflowBinding, WorkflowBundle, WorkflowJsonSchema, WorkflowParameter, WorkflowSelection, WorkflowStep, WorkflowValidationIssue } from "../../../types";
 import { workflowSchemaIsLegacy, workflowSchemasAssignable, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { projectWorkflowGraph, reachableNodeIds } from "./graph";
 import { logCollectionIssues } from "./logValidation";
@@ -23,6 +23,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   legacySchemaWarnings(bundle.workflow.inputs, issues, { type: "inputs" });
   duplicates(bundle.workflow.deviceRoles, "id", "MISSING_ROLE_ID", "DUPLICATE_ROLE_ID", "设备角色 ID", issues, { type: "roles" });
   duplicates(bundle.workflow.deviceRoles, "key", "MISSING_ROLE_KEY", "DUPLICATE_ROLE_KEY", "设备角色 key", issues, { type: "roles" });
+  validateDeviceRoles(bundle.workflow.deviceRoles, issues);
   optionalDuplicates(bundle.collectionSnapshots.map((item) => ({ reference: `${item.id}@${item.revision}` })), "reference", "DUPLICATE_COLLECTION_REFERENCE", "Collection 引用", issues, { type: "collections" });
   for (const definition of bundle.collectionSnapshots) {
     const selection: WorkflowSelection = { type: "collection", id: definition.id, revision: definition.revision };
@@ -112,6 +113,33 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     if (first) add(issues, "POTENTIAL_CYCLE", "warning", `检测到可能的循环路径：${names}。`, { type: "step", id: first.id });
   }
   return assignIssueIds(issues);
+}
+
+function validDeviceIdentifier(value: string): boolean {
+  return isWorkflowExpressionIdentifier(value) && !value.startsWith("_");
+}
+
+function validateDeviceRoles(roles: WorkflowBundle["workflow"]["deviceRoles"], issues: WorkflowValidationIssue[]): void {
+  roles.forEach((role) => {
+    const selection: WorkflowSelection = { type: "roles", itemId: role.id };
+    if (!validDeviceIdentifier(role.key.trim())) add(issues, "INVALID_ROLE_KEY", "error", `设备角色 key“${role.key}”必须是合法的 Python 标识符且不能以下划线开头。`, { ...selection, field: "key" });
+    if (!role.schema) return;
+    if (role.schema.type !== "object" || role.schema.additionalProperties !== false) {
+      add(issues, "DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色参数 Schema 根节点必须是 object，并禁止额外属性。", { ...selection, field: "schema" });
+      return;
+    }
+    validateDeviceSchema(role.schema, selection, issues, "schema");
+  });
+}
+
+function validateDeviceSchema(schema: WorkflowJsonSchema, selection: WorkflowSelection, issues: WorkflowValidationIssue[], path: string): void {
+  if (schema.type === "object") {
+    if (new Set(schema.required).size !== schema.required.length || schema.required.some((key) => !(key in schema.properties))) add(issues, "DEVICE_ROLE_SCHEMA_REQUIRED_INVALID", "error", "设备角色 Schema 的 required 必须唯一且只能引用已有属性。", { ...selection, field: path });
+    Object.entries(schema.properties).forEach(([key, child]) => {
+      if (!validDeviceIdentifier(key)) add(issues, "INVALID_DEVICE_ROLE_PROPERTY_KEY", "error", `设备属性 key“${key}”必须是合法的 Python 标识符且不能以下划线开头。`, { ...selection, field: `${path}.properties.${key}` });
+      validateDeviceSchema(child, selection, issues, `${path}.properties.${key}`);
+    });
+  } else if (schema.type === "array") validateDeviceSchema(schema.items, selection, issues, `${path}.items`);
 }
 
 function appendVisibleUnscopedConflicts(

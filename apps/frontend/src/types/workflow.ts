@@ -45,7 +45,7 @@ export type WorkflowParameter = {
 
 export type WorkflowBinding = { kind: "workflow_input" | "collection_output" | "literal"; reference: Record<string, string>; value?: unknown };
 export type WorkflowMetadata = { name: string; code: string; description: string; symptom: string; industry: string; device: string; versions: string[] };
-export type DeviceRole = { id: string; key: string; name: string; description: string; required: boolean };
+export type DeviceRole = { id: string; key: string; name: string; description: string; required: boolean; schema?: WorkflowJsonSchema };
 export type CollectionMetadata = { name: string; description: string; industry: string; device: string; versions: string[]; tags: string[] };
 export type CollectionOutput = { id: string; key: string; required: boolean; schema: WorkflowJsonSchema };
 
@@ -69,10 +69,12 @@ export type WorkflowExpressionSchema = {
   items?: WorkflowExpressionSchema;
   required?: string[];
 };
+export type WorkflowExpressionDeviceEnvironment = { devices: Record<string, WorkflowJsonSchema> };
 export type WorkflowExpressionEnvironment = {
   inputs: Record<string, WorkflowJsonSchema>;
   outputs: Record<string, WorkflowExpressionOutput | Record<string, WorkflowJsonSchema>>;
   config: Record<string, WorkflowExpressionSchema>;
+  topo: WorkflowExpressionDeviceEnvironment;
 };
 export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; outputModel?: Record<string, string>; functions: Record<string, unknown>; methods: Record<string, unknown> };
 export type WorkflowExpressionBatchItem = { id: string; source: string };

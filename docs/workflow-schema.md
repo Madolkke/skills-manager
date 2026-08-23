@@ -142,6 +142,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | `name` | `string` | 是 | - | 设备角色展示名称。 |
 | `description` | `string` | 否 | `""` | 设备角色说明。 |
 | `required` | `boolean` | 否 | `true` | 执行 Workflow 时是否必须提供该角色对应的设备。 |
+| `schema` | `WorkflowJsonSchema \| null` | 否 | - | 可选的设备参数 object Schema；表达式通过 `topo.devices.<roleKey>.<property>` 访问。 |
 
 ## Collection
 
@@ -276,6 +277,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 条件表达式编辑器使用以下作者侧变量命名空间：
 
 - `inputs.<key>` 引用 Workflow 全局输入。
+- `topo.devices.<roleKey>.<property>` 引用设备角色的参数 Schema。角色和属性 key 必须是不以下划线开头的 Python 标识符。
 - `outputs.<callKey>.<outputKey>` 引用当前步骤或任一传递前序步骤的采集输出；调用 Key 为空时，Collection 的每个合法根输出字段直接使用 `outputs.<outputKey>`。
 
 历史文档中使用 `global.<key>` 或 `output.<...>` 的表达式应在保存前迁移到上述 `inputs`/`outputs` 根名称；新文档和补全不会再生成旧写法。

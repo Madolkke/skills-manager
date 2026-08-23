@@ -8,7 +8,7 @@ import { canonicalWorkflowSchema, validWorkflowSchema, type WorkflowSchemaType }
 import { cloneWorkflow } from "../domain/utils";
 import WorkflowSchemaNodeEditor from "./WorkflowSchemaNodeEditor.vue";
 
-const props = defineProps<{ open: boolean; schema: WorkflowJsonSchema; fieldKey: string; readonly: boolean }>();
+const props = defineProps<{ open: boolean; schema: WorkflowJsonSchema; fieldKey: string; readonly: boolean; rootObjectOnly?: boolean; identifierOnly?: boolean }>();
 const emit = defineEmits<{ close: []; confirm: [schema: WorkflowJsonSchema] }>();
 const draft = ref<WorkflowJsonSchema>(cloneWorkflow(props.schema));
 const previewOpen = ref(false);
@@ -39,7 +39,7 @@ function confirm(): void {
 <template>
   <Modal :open="props.open" size="editor" motion="workflow" :title="`编辑 Schema · ${props.fieldKey || '未命名字段'}`" description="配置对象或数组的递归结构；字段名称和说明在列表中编辑。" @close="emit('close')">
     <div class="workflow-schema-modal-body">
-      <WorkflowSchemaNodeEditor :schema="draft" :readonly="props.readonly" :allowed-types="complexSchemaTypes" :show-metadata="false" @change="draft = $event" />
+      <WorkflowSchemaNodeEditor :schema="draft" :readonly="props.readonly" :allowed-types="props.rootObjectOnly ? ['object'] : complexSchemaTypes" :identifier-only="props.identifierOnly" :show-metadata="false" @change="draft = $event" />
       <section class="workflow-schema-preview">
         <button type="button" :aria-expanded="previewOpen" aria-controls="workflow-schema-preview-json" @click="previewOpen = !previewOpen"><Code2 :size="16" /><span>JSON Schema 预览</span><ChevronDown :class="previewOpen && 'open'" :size="17" /></button>
         <div v-if="previewOpen" id="workflow-schema-preview-json"><pre>{{ preview }}</pre><UiButton size="sm" variant="secondary" @click="copyPreview"><template #icon><Check v-if="copied" /><Clipboard v-else /></template>{{ copied ? "已复制" : "复制" }}</UiButton></div>

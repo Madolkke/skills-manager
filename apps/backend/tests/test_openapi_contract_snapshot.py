@@ -17,7 +17,7 @@ from skillhub.models.errors import (
 )
 from skillhub.views import register_views
 
-OPENAPI_SHA256 = "d2ee7104deb7879d0be48dfc9284ebd6340d2dd249eb051d60d34b985067fe94"
+OPENAPI_SHA256 = "91b285810dcf529309cdd978a760c66be8f1b4dd2964d8fe427eb6e6e1fa4a11"
 
 
 def test_openapi_contract_snapshot() -> None:

@@ -14,6 +14,7 @@ const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   global: { name: "全局输入", rank: 0 },
   output: { name: "采集输出", rank: 1 },
   config: { name: "配置匹配", rank: 2 },
+  device: { name: "设备角色", rank: 3 },
 };
 const fragmentPattern = /[^\s()[\]{}"'`,;:+*/%&|!?=<>]+$/u;
 

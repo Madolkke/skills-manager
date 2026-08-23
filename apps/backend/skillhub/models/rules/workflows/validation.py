@@ -20,6 +20,39 @@ from .templates import validate_template
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
 
+def _is_device_identifier(value: str) -> bool:
+    return is_expression_identifier(value) and not value.startswith("_")
+
+
+def _append_device_role_schema_issues(roles, issues) -> None:
+    for role in roles:
+        selection = {"type": "roles", "itemId": role.get("id", "")}
+        key = str(role.get("key", "")).strip()
+        if not _is_device_identifier(key):
+            issues.append(issue("INVALID_ROLE_KEY", "error", f"设备角色 key“{key}”必须是合法的 Python 标识符且不能以下划线开头。", {**selection, "field": "key"}))
+        schema = role.get("schema")
+        if schema is None:
+            continue
+        if schema.get("type") != "object" or not isinstance(schema.get("properties"), dict) or not isinstance(schema.get("required"), list) or schema.get("additionalProperties") is not False:
+            issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色参数 Schema 根节点必须是 object，并包含 properties、required 和 additionalProperties=false。", {**selection, "field": "schema"}))
+            continue
+        _append_device_schema_node_issues(schema, selection, issues, "schema")
+
+
+def _append_device_schema_node_issues(schema, selection, issues, path: str) -> None:
+    if schema.get("type") == "object":
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        if len(required) != len(set(required)) or not set(required).issubset(properties):
+            issues.append(issue("DEVICE_ROLE_SCHEMA_REQUIRED_INVALID", "error", "设备角色 Schema 的 required 必须唯一且只能引用已有属性。", {**selection, "field": path}))
+        for key, child in properties.items():
+            if not _is_device_identifier(str(key)):
+                issues.append(issue("INVALID_DEVICE_ROLE_PROPERTY_KEY", "error", f"设备属性 key“{key}”必须是合法的 Python 标识符且不能以下划线开头。", {**selection, "field": f"{path}.properties.{key}"}))
+            _append_device_schema_node_issues(child, selection, issues, f"{path}.properties.{key}")
+    elif schema.get("type") == "array":
+        _append_device_schema_node_issues(schema.get("items", {}), selection, issues, f"{path}.items")
+
+
 def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]:
     workflow = document["workflow"]
     snapshots = document.get("collectionSnapshots", [])
@@ -34,6 +67,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
         issues.append(issue("MISSING_WORKFLOW_DESCRIPTION", "error", "工作流说明不能为空。", {"type": "metadata", "field": "description"}))
 
     _duplicate_issues(workflow, steps, issues)
+    _append_device_role_schema_issues(workflow["deviceRoles"], issues)
     validate_collection_identity(snapshots, issues)
     _validate_config_root_conflicts(steps, definitions, issues)
     if not any(step["isStart"] for step in steps):
@@ -52,6 +86,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             node_by_id,
             role_ids,
             workflow_inputs,
+            workflow["deviceRoles"],
             workflow_input_keys,
             issues,
             reported_unscoped_conflicts,
@@ -62,6 +97,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             conclusion_scope_steps(workflow["nodes"], conclusion["id"]),
             definitions,
             {item["key"].strip(): item["schema"] for item in workflow["inputs"] if item["key"].strip()},
+            workflow["deviceRoles"],
         )
         for field in ("rootCause", "repairRecommendation"):
             for diagnostic in validate_template(conclusion.get(field, ""), environment):
@@ -133,6 +169,7 @@ def _validate_step(
     node_by_id,
     role_ids,
     workflow_inputs,
+    workflow_roles,
     workflow_input_keys,
     issues,
     reported_unscoped_conflicts,
@@ -190,7 +227,7 @@ def _validate_step(
             issues.append(issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
         expression_result = validate_expression(
             transition.get("conditionExpression", ""),
-            _step_expression_environment(step, definitions, workflow_inputs, all_steps=all_steps),
+            _step_expression_environment(step, definitions, workflow_inputs, workflow_roles=workflow_roles, all_steps=all_steps),
         )
         for diagnostic in expression_result["diagnostics"]:
             severity = _expression_diagnostic_severity(diagnostic["code"])
@@ -211,6 +248,7 @@ def _step_expression_environment(
     definitions,
     workflow_inputs,
     *,
+    workflow_roles=None,
     all_steps=None,
 ) -> dict[str, Any]:
     """Build the condition environment for a step and its graph predecessors."""
@@ -225,7 +263,7 @@ def _step_expression_environment(
         for item in workflow_inputs.values()
         if item["key"].strip()
     }
-    return project_workflow_expression_environment(scoped_steps, definitions, inputs)
+    return project_workflow_expression_environment(scoped_steps, definitions, inputs, workflow_roles or [])
 
 
 def _expression_diagnostic_severity(code: str) -> str | None:

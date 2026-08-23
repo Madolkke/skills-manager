@@ -12,7 +12,7 @@ import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema
 import { isWorkflowExpressionIdentifier } from "./workflowExpressionSyntax";
 import { workflowConclusionVisibleSteps, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
 
-export type WorkflowExpressionVariableKind = "global" | "output" | "config";
+export type WorkflowExpressionVariableKind = "global" | "output" | "config" | "device";
 
 export type WorkflowExpressionVariable = {
   id: string;
@@ -46,6 +46,13 @@ export function workflowExpressionVariablesForSteps(bundle: WorkflowBundle, step
     });
   });
 
+  bundle.workflow.deviceRoles.forEach((role) => {
+    if (!role.schema || role.schema.type !== "object" || !isWorkflowExpressionIdentifier(role.key) || role.key.startsWith("_")) return;
+    appendSchemaVariables(variables, {
+      id: `device:${role.id}`, reference: `topo.devices.${role.key}`, kind: "device",
+      name: role.name || role.key, source: "设备角色", aliases: [role.key, role.name], schema: role.schema,
+    });
+  });
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
   const directOutputCounts = collectDirectOutputCounts(bundle, steps);
   const keyedOutputKeys = collectKeyedOutputKeys(bundle, steps);
@@ -94,6 +101,10 @@ export function workflowExpressionEnvironmentForSteps(bundle: WorkflowBundle, st
   directCandidates.forEach((output, key) => {
     if (output && !Object.hasOwn(outputs, key)) outputs[key] = output;
   });
+
+  const deviceProperties: Record<string, WorkflowJsonSchema> = Object.fromEntries(
+    bundle.workflow.deviceRoles.filter((role) => role.schema?.type === "object" && isWorkflowExpressionIdentifier(role.key) && !role.key.startsWith("_")).map((role) => [role.key, role.schema!]),
+  );
   const configCandidates = new Map<string, WorkflowExpressionSchema | null>();
   steps.forEach((step) => step.collectionCalls.forEach((call) => {
     const definition = findCollection(bundle.collectionSnapshots, call.definition);
@@ -107,7 +118,7 @@ export function workflowExpressionEnvironmentForSteps(bundle: WorkflowBundle, st
   const config: WorkflowExpressionEnvironment["config"] = Object.fromEntries(
     [...configCandidates.entries()].filter(([, schema]) => schema !== null) as Array<[string, WorkflowExpressionSchema]>,
   );
-  return { inputs, outputs, config };
+  return { inputs, outputs, config, topo: { devices: deviceProperties } };
 }
 
 export function filterWorkflowExpressionVariables(

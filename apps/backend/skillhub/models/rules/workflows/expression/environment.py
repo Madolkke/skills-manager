@@ -34,6 +34,11 @@ def normalize_expression_environment(environment: dict[str, Any]) -> dict[str, A
         "inputs": dict(environment.get("inputs", {})),
         "outputs": outputs,
         "config": dict(environment.get("config", {})),
+        "topo": {
+            "devices": dict(environment.get("topo", {}).get("devices", {}))
+            if isinstance(environment.get("topo", {}), Mapping)
+            else {}
+        },
     }
 
 
@@ -145,6 +150,9 @@ def expression_root_types(environment: dict[str, Any]) -> dict[str, TypeSpec]:
         "inputs": object_type({key: from_json_schema(value) for key, value in normalized["inputs"].items()}),
         "outputs": object_type(output_types),
         "config": object_type({key: from_json_schema(value) for key, value in normalized["config"].items()}),
+        "topo": object_type({
+            "devices": object_type({key: from_json_schema(value) for key, value in normalized["topo"]["devices"].items()}),
+        }),
     }
 
 
@@ -152,6 +160,7 @@ def project_workflow_expression_environment(
     steps: Sequence[Mapping[str, Any]],
     definitions: Mapping[tuple[str, int], Mapping[str, Any]],
     workflow_inputs: Mapping[str, Any],
+    workflow_roles: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Project one graph-scoped step set into the expression environment."""
     outputs: dict[str, dict[str, Any]] = {}
@@ -196,10 +205,16 @@ def project_workflow_expression_environment(
         if value is not None and output_key not in outputs:
             outputs[output_key] = value
     config = {name: schema for name, schema in config_candidates.items() if schema is not None}
+    devices = {
+        str(role.get("key", "")).strip(): role["schema"]
+        for role in workflow_roles
+        if str(role.get("key", "")).strip() and isinstance(role.get("schema"), Mapping) and role.get("schema", {}).get("type") == "object"
+    }
     return {
         "inputs": dict(workflow_inputs),
         "outputs": outputs,
         "config": config,
+        "topo": {"devices": devices},
     }
 
 
@@ -219,4 +234,4 @@ def workflow_expression_environment(
         for item in workflow.get("inputs", [])
         if item.get("key", "").strip()
     }
-    return project_workflow_expression_environment(steps, definitions, workflow_inputs)
+    return project_workflow_expression_environment(steps, definitions, workflow_inputs, workflow.get("deviceRoles", []))

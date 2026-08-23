@@ -154,6 +154,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             conclusion_scope_steps(projected_nodes, conclusion["id"]),
             imported_definitions,
             workflow_inputs,
+            workflow.get("deviceRoles", []),
         )
         for field in ("rootCause", "repairRecommendation"):
             diagnostics = validate_template(conclusion.get(field, ""), environment)

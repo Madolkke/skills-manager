@@ -45,6 +45,21 @@ def test_step_environment_uses_transitive_predecessors_and_hides_successors() ->
     ) == environment
 
 
+def test_device_role_schema_is_projected_under_topo_devices() -> None:
+    role_schema = {
+        "type": "object",
+        "title": "设备",
+        "description": "",
+        "properties": {"ip": {"type": "string", "title": "IP", "description": ""}},
+        "required": ["ip"],
+        "additionalProperties": False,
+    }
+    document = {"workflow": {"inputs": [], "deviceRoles": [{"id": "role", "key": "primary", "name": "主设备", "description": "", "required": True, "schema": role_schema}], "nodes": []}, "collectionSnapshots": []}
+    environment = workflow_expression_environment(document)
+    assert validate_expression("topo.devices.primary.ip", environment)["diagnostics"] == []
+    assert environment["topo"]["devices"]["primary"] == role_schema
+
+
 def test_scope_is_cycle_safe_and_preserves_document_order() -> None:
     steps = [
         _step("future", "future", "future", ["current"]),
