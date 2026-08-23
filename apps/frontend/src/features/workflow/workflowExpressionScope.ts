@@ -30,6 +30,26 @@ export function workflowExpressionVisibleSteps(bundle: WorkflowBundle, sourceSte
   return steps.filter((step) => visibleIds.has(step.id));
 }
 
+/** Return steps that can reach a conclusion through one or more transitions. */
+export function workflowConclusionVisibleSteps(bundle: WorkflowBundle, conclusionId: string): WorkflowStep[] {
+  const steps = workflowSteps(bundle);
+  const nodeIds = new Set(bundle.workflow.nodes.map((node) => node.id));
+  if (!nodeIds.has(conclusionId)) return [];
+  const visibleIds = new Set<string>();
+  const pending = [conclusionId];
+  while (pending.length > 0) {
+    const targetId = pending.pop();
+    if (!targetId) continue;
+    steps.forEach((candidate) => {
+      if (candidate.topology.some((transition) => transition.target.id === targetId) && !visibleIds.has(candidate.id)) {
+        visibleIds.add(candidate.id);
+        pending.push(candidate.id);
+      }
+    });
+  }
+  return steps.filter((step) => visibleIds.has(step.id));
+}
+
 export type WorkflowBindingCall = { call: CollectionCall; step: WorkflowStep };
 
 /** Return calls available to a binding on the current call. */

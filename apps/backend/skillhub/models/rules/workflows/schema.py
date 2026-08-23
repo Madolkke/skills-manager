@@ -223,6 +223,7 @@ class ScriptStep(BaseStep):
 class Conclusion(WorkflowModel):
     id: str
     name: str
+    severity: Literal["info", "warning", "error", "critical"] = "info"
     root_cause: str = ""
     repair_recommendation: str = ""
     node_type: Literal["conclusion"]

@@ -10,11 +10,13 @@ from .expression import validate_expression
 from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
 from .expression.environment import (
     binding_scope_calls,
+    conclusion_scope_steps,
     expression_scope_steps,
     is_expression_identifier,
     project_workflow_expression_environment,
 )
 from .json_schema import schema_title, schemas_assignable, value_matches_schema
+from .templates import validate_template
 from .validation_helpers import append_duplicates, append_legacy_schema_warnings, append_missing_titles, append_optional_duplicates, issue
 
 
@@ -54,6 +56,23 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             issues,
             reported_unscoped_conflicts,
         )
+
+    for conclusion in conclusions:
+        environment = project_workflow_expression_environment(
+            conclusion_scope_steps(workflow["nodes"], conclusion["id"]),
+            definitions,
+            {item["key"].strip(): item["schema"] for item in workflow["inputs"] if item["key"].strip()},
+        )
+        for field in ("rootCause", "repairRecommendation"):
+            for diagnostic in validate_template(conclusion.get(field, ""), environment):
+                issues.append(
+                    issue(
+                        diagnostic["code"],
+                        "error" if diagnostic["severity"] == "error" else "warning",
+                        diagnostic["message"],
+                        {"type": "conclusion", "id": conclusion["id"], "field": field},
+                    )
+                )
 
     reachable = _reachable_nodes(steps)
     for node in [*steps, *conclusions]:

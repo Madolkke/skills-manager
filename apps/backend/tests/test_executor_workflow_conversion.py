@@ -101,7 +101,7 @@ def test_conversion_matches_executor_contract_and_is_deterministic() -> None:
                 ],
             },
         ],
-        "conclusions": [{"id": 9, "conclusion": "无异常"}],
+        "conclusions": [{"id": 9, "conclusion": "无异常", "severity": "info"}],
     }
     assert _all_ids(first) == list(range(1, 10))
 

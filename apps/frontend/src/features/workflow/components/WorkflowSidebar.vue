@@ -61,7 +61,11 @@ function filterNodes<T extends WorkflowNode>(items: T[]): T[] {
 function nodeSearchText(item: WorkflowNode): string {
   return "stepType" in item
     ? `${item.name} ${item.description}`
-    : `${item.name} ${item.rootCause} ${item.repairRecommendation}`;
+    : `${item.name} ${item.severity ?? "info"} ${item.rootCause} ${item.repairRecommendation}`;
+}
+
+function severityLabel(value?: string): string {
+  return ({ info: "信息", warning: "警告", error: "错误", critical: "严重" }[value ?? "info"] ?? "信息");
 }
 
 function active(type: WorkflowSelection["type"], id?: string): boolean {
@@ -132,7 +136,7 @@ function issueCount(id: string): number {
             <button class="workflow-drag-handle" type="button" title="拖动排序" aria-label="拖动结论排序" :disabled="props.readonly || Boolean(query)"><GripVertical :size="14" /></button>
             <button class="workflow-sidebar-node-main" type="button" :aria-current="active('conclusion', item.id) ? 'page' : undefined" @click="emit('select', { type: 'conclusion', id: item.id })">
               <span class="workflow-node-kind conclusion"><Flag :size="14" /></span>
-              <span><strong>{{ item.name }}</strong></span>
+              <span><strong>{{ item.name }}</strong><small class="workflow-sidebar-severity">{{ severityLabel(item.severity) }}</small></span>
               <b v-if="issueCount(item.id)" class="workflow-node-issue"><AlertTriangle :size="10" />{{ issueCount(item.id) }}</b>
             </button>
             <div class="workflow-sidebar-node-actions">

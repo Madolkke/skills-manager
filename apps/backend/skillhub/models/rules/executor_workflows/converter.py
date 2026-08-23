@@ -72,7 +72,11 @@ class _Converter:
                 for transition_index, transition in enumerate(node.topology):
                     self._transition(node_index, transition_index, transition)
         conclusions = [
-            ExecutorConclusion(id=self.conclusion_ids[node_index], conclusion=conclusion.name)
+            ExecutorConclusion(
+                id=self.conclusion_ids[node_index],
+                conclusion=conclusion.name,
+                severity=conclusion.severity,
+            )
             for node_index, conclusion in self.conclusions
         ]
         if self.errors:

@@ -146,7 +146,8 @@ export type WorkflowStep = {
   script?: { language: string; source: string; options: Record<string, unknown> };
 };
 
-export type WorkflowConclusion = { id: string; name: string; rootCause: string; repairRecommendation: string; nodeType: "conclusion" };
+export type WorkflowConclusionSeverity = "info" | "warning" | "error" | "critical";
+export type WorkflowConclusion = { id: string; name: string; severity?: WorkflowConclusionSeverity; rootCause: string; repairRecommendation: string; nodeType: "conclusion" };
 export type WorkflowNode = WorkflowStep | WorkflowConclusion;
 export type WorkflowBundle = {
   documentType: "workflow_bundle";

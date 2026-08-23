@@ -75,6 +75,34 @@ def expression_scope_steps(
     return [step for step in step_list if str(step["id"]) in visible]
 
 
+def conclusion_scope_steps(
+    nodes: Sequence[Mapping[str, Any]],
+    conclusion_id: str,
+) -> list[Mapping[str, Any]]:
+    """Return steps that can reach a conclusion through workflow topology."""
+    steps = [node for node in nodes if "stepType" in node and node.get("id")]
+    node_ids = {str(node.get("id")) for node in nodes}
+    target_id = str(conclusion_id)
+    if target_id not in node_ids:
+        return []
+    visible: set[str] = set()
+    queue = deque([target_id])
+    while queue:
+        current = queue.popleft()
+        for step in steps:
+            step_id = str(step["id"])
+            if step_id in visible:
+                continue
+            if any(
+                isinstance(transition.get("target"), Mapping)
+                and str(transition["target"].get("id")) == current
+                for transition in step.get("topology", [])
+            ):
+                visible.add(step_id)
+                queue.append(step_id)
+    return [step for step in steps if str(step["id"]) in visible]
+
+
 def binding_scope_calls(
     steps: Sequence[Mapping[str, Any]],
     source_step_id: str,

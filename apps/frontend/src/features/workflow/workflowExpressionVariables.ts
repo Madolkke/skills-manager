@@ -10,7 +10,7 @@ import type {
 import { findCollection } from "./domain/utils";
 import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema";
 import { isWorkflowExpressionIdentifier } from "./workflowExpressionSyntax";
-import { workflowExpressionVisibleSteps } from "./workflowExpressionScope";
+import { workflowConclusionVisibleSteps, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
 
 export type WorkflowExpressionVariableKind = "global" | "output" | "config";
 
@@ -28,6 +28,14 @@ export type WorkflowExpressionVariable = {
 };
 
 export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId: string): WorkflowExpressionVariable[] {
+  return workflowExpressionVariablesForSteps(bundle, workflowExpressionVisibleSteps(bundle, sourceStepId));
+}
+
+export function workflowConclusionExpressionVariables(bundle: WorkflowBundle, conclusionId: string): WorkflowExpressionVariable[] {
+  return workflowExpressionVariablesForSteps(bundle, workflowConclusionVisibleSteps(bundle, conclusionId));
+}
+
+export function workflowExpressionVariablesForSteps(bundle: WorkflowBundle, steps: WorkflowStep[]): WorkflowExpressionVariable[] {
   const variables: WorkflowExpressionVariable[] = [];
   bundle.workflow.inputs.forEach((input) => {
     const key = input.key.trim();
@@ -38,22 +46,28 @@ export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId
     });
   });
 
-  const steps = workflowExpressionVisibleSteps(bundle, sourceStepId);
   const workflowInputKeys = new Set(bundle.workflow.inputs.map((item) => item.key.trim()).filter(Boolean));
   const directOutputCounts = collectDirectOutputCounts(bundle, steps);
   const keyedOutputKeys = collectKeyedOutputKeys(bundle, steps);
   const emittedCallKeys = new Set<string>();
   steps.forEach((step) => appendStepOutputs(variables, bundle, step, workflowInputKeys, directOutputCounts, keyedOutputKeys, emittedCallKeys));
-  const config = workflowExpressionEnvironment(bundle, sourceStepId).config;
+  const config = workflowExpressionEnvironmentForSteps(bundle, steps).config;
   Object.entries(config).forEach(([key, schema]) => appendConfigVariables(variables, key, schema));
   return variables;
 }
 
 export function workflowExpressionEnvironment(bundle: WorkflowBundle, sourceStepId?: string): WorkflowExpressionEnvironment {
+  return workflowExpressionEnvironmentForSteps(bundle, workflowExpressionVisibleSteps(bundle, sourceStepId));
+}
+
+export function workflowConclusionExpressionEnvironment(bundle: WorkflowBundle, conclusionId: string): WorkflowExpressionEnvironment {
+  return workflowExpressionEnvironmentForSteps(bundle, workflowConclusionVisibleSteps(bundle, conclusionId));
+}
+
+export function workflowExpressionEnvironmentForSteps(bundle: WorkflowBundle, steps: WorkflowStep[]): WorkflowExpressionEnvironment {
   const inputs = Object.fromEntries(bundle.workflow.inputs.filter((item) => item.key.trim()).map((item) => [item.key.trim(), item.schema]));
   const outputs = Object.create(null) as WorkflowExpressionEnvironment["outputs"];
   const directCandidates = new Map<string, WorkflowExpressionOutput | null>();
-  const steps = workflowExpressionVisibleSteps(bundle, sourceStepId);
   steps.forEach((step) => step.collectionCalls.forEach((call) => {
     const callKey = call.key.trim();
     const definition = findCollection(bundle.collectionSnapshots, call.definition);

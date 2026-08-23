@@ -7,6 +7,7 @@ import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
 import { workflowBindingVisibleCalls, workflowExpressionVisibleSteps } from "../workflowExpressionScope";
 import { parseCliCommandParameters } from "./cliCommandParameters";
+import { scanWorkflowTemplate } from "../workflowTemplate";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
   const issues: WorkflowValidationIssue[] = [];
@@ -93,6 +94,12 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       if (!target) add(issues, "BROKEN_REFERENCE", "error", `步骤“${step.name}”存在无效跳转目标。`, selection);
     });
   }
+
+  workflowConclusions(bundle).forEach((conclusion) => {
+    (['rootCause', 'repairRecommendation'] as const).forEach((field) => {
+      scanWorkflowTemplate(conclusion[field]).forEach((diagnostic) => add(issues, diagnostic.code, diagnostic.severity ?? "error", diagnostic.message, { type: "conclusion", id: conclusion.id, field }));
+    });
+  });
 
   const reachable = reachableNodeIds(bundle);
   [...steps.filter((item) => !item.isStart), ...workflowConclusions(bundle)].forEach((node) => {

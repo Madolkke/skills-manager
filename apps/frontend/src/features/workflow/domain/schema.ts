@@ -48,7 +48,7 @@ const transition = z.object({ id: z.string(), target, conditionText: z.string(),
 const baseStep = { id: z.string(), name: z.string(), description: z.string(), isStart: z.boolean(), collectionCalls: z.array(call), topology: z.array(transition) };
 const expressionStep = z.object({ ...baseStep, stepType: z.literal("expression") }).strict();
 const scriptStep = z.object({ ...baseStep, stepType: z.literal("script"), script: z.object({ language: z.string(), source: z.string(), options: z.record(z.string(), z.unknown()) }).strict().optional() }).strict();
-const conclusion = z.object({ id: z.string(), name: z.string(), rootCause: z.string(), repairRecommendation: z.string(), nodeType: z.literal("conclusion") }).strict();
+const conclusion = z.object({ id: z.string(), name: z.string(), severity: z.enum(["info", "warning", "error", "critical"]).default("info"), rootCause: z.string(), repairRecommendation: z.string(), nodeType: z.literal("conclusion") }).strict();
 
 export const workflowBundleSchema: z.ZodType<WorkflowBundle> = z.object({
   documentType: z.literal("workflow_bundle"),

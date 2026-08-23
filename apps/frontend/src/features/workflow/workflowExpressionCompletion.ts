@@ -100,6 +100,17 @@ function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCurso
   return blocked ? "blocked" : null;
 }
 
+export function workflowExpressionCompletionQuery(
+  variables: WorkflowExpressionVariable[],
+  beforeCursor: string,
+): { from: number; fragment: string; matches: WorkflowExpressionVariable[] } | null {
+  return completionQuery(variables, beforeCursor);
+}
+
+export function workflowExpressionCompletionOption(variable: WorkflowExpressionVariable): Completion {
+  return toCompletion(variable);
+}
+
 function hasUnclosedSampleIndex(variables: WorkflowExpressionVariable[], beforeCursor: string): boolean {
   return expandedArrayVariables(variables, beforeCursor)
     .filter((item) => item.indexable || (item.sampleCount ?? 1) > 1)

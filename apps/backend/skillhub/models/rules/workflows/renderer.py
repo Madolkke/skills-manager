@@ -51,6 +51,9 @@ def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:
     lines.extend(["## 排查结论", ""])
     for conclusion in conclusions:
         lines.extend([f"### {conclusion['name']}", ""])
+        severity_labels = {"info": "信息", "warning": "警告", "error": "错误", "critical": "严重"}
+        severity = conclusion.get("severity", "info")
+        lines.append(f"- 严重等级: {severity_labels.get(severity, severity)}")
         lines.append(f"- 故障根因: {conclusion['rootCause'] or '未填写'}")
         lines.append(f"- 修复建议: {conclusion['repairRecommendation'] or '未填写'}")
         lines.append("")

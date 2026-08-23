@@ -23,6 +23,8 @@
 | `WorkflowDebugCase` | 绑定写作侧 Step 的非版本化单步调试输入、采集 fixture 和预期直接目标。 |
 | `WorkflowDebugRun` | 单次调试的案例快照、Workflow 证据、执行器状态和命中判定。 |
 
+Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critical`，缺失时兼容归一化为 `info`）以及可选模板文本。`rootCause` 和 `repairRecommendation` 中的 `{{ expression }}` 使用与条件表达式一致的环境，但作用域是能够沿 Workflow 拓扑到达该结论的前序步骤；模板保留原文，运行时展开由执行器负责。
+
 ## 关键字段
 
 ### `Skill`

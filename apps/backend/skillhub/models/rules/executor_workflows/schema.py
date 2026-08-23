@@ -47,6 +47,7 @@ class ExecutorStep(ExecutorModel):
 class ExecutorConclusion(ExecutorModel):
     id: int
     conclusion: str
+    severity: Literal["info", "warning", "error", "critical"] = "info"
 
 
 class ExecutorWorkflow(ExecutorModel):

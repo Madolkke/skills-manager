@@ -253,6 +253,9 @@ def _append_step_summary(lines: list[str], step: dict[str, Any]) -> None:
 def _append_conclusion(lines: list[str], conclusion: dict[str, Any], *, level: int, include_heading: bool = True) -> None:
     if include_heading:
         lines.extend([f"{'#' * level} {conclusion['name']}", ""])
+    severity_labels = {"info": "信息", "warning": "警告", "error": "错误", "critical": "严重"}
+    severity = conclusion.get("severity", "info")
+    lines.append(f"- 严重等级: {severity_labels.get(severity, severity)}")
     lines.append(f"- 故障根因: {conclusion['rootCause'] or '未填写'}")
     lines.append(f"- 修复建议: {conclusion['repairRecommendation'] or '未填写'}")
     lines.append("")

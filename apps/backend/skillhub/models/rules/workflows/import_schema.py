@@ -7,7 +7,7 @@ from pydantic import Field
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.document_migration import migrate_output_v3, migrate_parameter_v3
-from skillhub.models.rules.workflows.expression.environment import binding_scope_calls
+from skillhub.models.rules.workflows.expression.environment import binding_scope_calls, conclusion_scope_steps, project_workflow_expression_environment
 from skillhub.models.rules.workflows.schema import (
     Binding,
     CollectionMetadata,
@@ -22,6 +22,7 @@ from skillhub.models.rules.workflows.schema import (
     WorkflowModel,
     _normalize,
 )
+from skillhub.models.rules.workflows.templates import validate_template
 
 
 class ImportCollectionDefinition(WorkflowModel):
@@ -134,6 +135,33 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
                     raise InvariantError(f"Workflow import Collection input does not exist: {input_id}")
                 visible_calls, all_calls = binding_scope_calls(nodes, node["id"], call["id"])
                 _validate_binding(binding, workflow_input_ids, visible_calls, all_calls, definitions, node["id"])
+
+    imported_definitions = {
+        (definition["localId"], 1): definition
+        for definition in bundle["collections"]
+    }
+    projected_nodes = deepcopy(nodes)
+    for projected_node in projected_nodes:
+        for projected_call in projected_node.get("collectionCalls", []):
+            projected_call["definition"] = {"id": projected_call["definitionLocalId"], "revision": 1}
+    workflow_inputs = {
+        item["key"].strip(): item["schema"]
+        for item in workflow["inputs"]
+        if item["key"].strip()
+    }
+    for conclusion in (node for node in nodes if node.get("nodeType") == "conclusion"):
+        environment = project_workflow_expression_environment(
+            conclusion_scope_steps(projected_nodes, conclusion["id"]),
+            imported_definitions,
+            workflow_inputs,
+        )
+        for field in ("rootCause", "repairRecommendation"):
+            diagnostics = validate_template(conclusion.get(field, ""), environment)
+            if diagnostics:
+                raise InvariantError(
+                    f"Workflow import conclusion template is invalid: {conclusion['id']} {field}: "
+                    + "; ".join(item["message"] for item in diagnostics)
+                )
 
 
 def materialize_workflow_import(

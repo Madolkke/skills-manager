@@ -330,9 +330,12 @@ ScriptStep 是脚本类型步骤，包含 BaseStep 的全部字段，并额外�
 | --- | --- | --- | --- | --- |
 | `id` | `string` | 是 | - | 结论节点身份。 |
 | `name` | `string` | 是 | - | 结论展示名称，可重复。 |
+| `severity` | `"info" \| "warning" \| "error" \| "critical"` | 否 | `"info"` | 结论严重等级。历史文档缺失时归一化为信息。 |
 | `rootCause` | `string` | 否 | `""` | 故障根因说明。 |
 | `repairRecommendation` | `string` | 否 | `""` | 修复建议说明。 |
 | `nodeType` | `"conclusion"` | 是 | - | 节点类型判别字段。 |
+
+`rootCause` 和 `repairRecommendation` 支持 `{{ expression }}` 模板。模板原文随 Workflow 保存，不在写作侧展开；表达式只能引用沿拓扑可达的前序步骤输出、全局输入和配置匹配，未来或无连接步骤不可见。模板可包含多个插值和普通文本，不支持控制流、循环或嵌套模板。
 
 ## 引用和数据流示例
 

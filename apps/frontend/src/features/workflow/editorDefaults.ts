@@ -18,7 +18,7 @@ export function newStep(index: number): WorkflowStep {
 }
 
 export function newConclusion(index: number): WorkflowConclusion {
-  return { id: createWorkflowId("conclusion"), name: `排查结论 ${index}`, rootCause: "", repairRecommendation: "", nodeType: "conclusion" };
+  return { id: createWorkflowId("conclusion"), name: `排查结论 ${index}`, severity: "info", rootCause: "", repairRecommendation: "", nodeType: "conclusion" };
 }
 
 export function newTransition(target: { id: string }): WorkflowTransition {
