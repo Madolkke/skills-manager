@@ -25,6 +25,7 @@ def test_builtin_registry_has_one_three_file_default_and_strict_empty_options():
         ("builtin.single-file", "workflow-skill-v5.1"),
         ("builtin.three-file", "3.1.0"),
         ("builtin.node-split", "3.1.0"),
+        ("builtin.cli-workflow", "1.0.0"),
     ]
     assert DEFAULT_WORKFLOW_SKILL_GENERATOR_ID == "builtin.three-file"
     assert [item.id for item in descriptors if item.default] == ["builtin.three-file"]
@@ -152,6 +153,83 @@ def test_node_split_reports_bundle_byte_limit_and_recommends_three_file():
         generate_workflow_skill(
             slug="interface-check", document=document, generator_id="builtin.node-split", generator_options={}
         )
+
+
+def test_cli_workflow_renders_only_cli_context_and_cross_step_bindings():
+    document = _document()
+    document["workflow"]["deviceRoles"][0]["schema"] = {
+        "type": "object",
+        "properties": {"ip": {"type": "string", "title": "地址"}, "port": {"type": "integer"}},
+        "required": ["ip"],
+        "additionalProperties": False,
+    }
+    document["workflow"]["nodes"][0]["topology"] = [
+        {"id": "transition-next", "target": {"id": "step-next"}, "conditionText": "继续 {{ outputs.status.state }}", "conditionExpression": "true"}
+    ]
+    document["workflow"]["nodes"].append(
+        {
+            "id": "step-next",
+            "name": "复核接口",
+            "description": "复核前一步输出。",
+            "isStart": False,
+            "stepType": "expression",
+            "collectionCalls": [
+                {
+                    "id": "call-next",
+                    "key": "review",
+                    "name": "复核采集",
+                    "definition": {"id": "collection-status", "revision": 4},
+                    "deviceRoleId": "role-device",
+                    "sampleCount": 1,
+                    "inputBindings": {
+                        "parameter-interface": {
+                            "kind": "collection_output",
+                            "reference": {"call_id": "call-status", "output_id": "output-state"},
+                        }
+                    },
+                }
+            ],
+            "topology": [{"id": "transition-end", "target": {"id": "conclusion-end"}, "conditionText": "完成", "conditionExpression": "true"}],
+        }
+    )
+    document["workflow"]["nodes"][1]["rootCause"] = "状态为 {{ outputs.status.state }}"
+    document["collectionSnapshots"][0]["sourceSystemCommandId"] = "system-internal-id"
+    document["collectionSnapshots"].append(
+        {
+            "id": "collection-log",
+            "revision": 1,
+            "key": "log_status",
+            "metadata": {"name": "日志状态", "description": "不应同步", "industry": "", "device": "", "versions": [], "tags": []},
+            "spec": {"collectionType": "log", "sqlDialect": "duckdb", "queries": [], "outputSamples": []},
+            "inputs": [],
+            "outputs": [],
+        }
+    )
+    document["workflow"]["nodes"][0]["collectionCalls"].append(
+        {
+            "id": "call-log",
+            "key": "",
+            "name": "日志采集",
+            "definition": {"id": "collection-log", "revision": 1},
+            "sampleCount": 1,
+            "inputBindings": {},
+        }
+    )
+
+    result = generate_workflow_skill(slug="interface-check", document=document, generator_id="builtin.cli-workflow", generator_options={})
+    files = {item.path: item.content_text for item in result.files}
+    assert list(files) == ["SKILL.md", "references/workflow.md", "references/collections.md"]
+    joined = "\n".join(files.values())
+    assert "topo.devices.device.ip" in joined
+    assert "继续 {{ outputs.status.state }}" in joined
+    assert "状态为 {{ outputs.status.state }}" in joined
+    assert "采集“状态采集”的输出 `outputs.status.state`" in joined
+    assert "outputs.status[i].state" in joined
+    assert "system-internal-id" not in joined
+    assert "revision" not in joined
+    assert "SECRET RAW OUTPUT" not in joined
+    assert "日志状态" not in joined
+    assert "回显示例" not in joined
 
 
 class _StubGenerator:

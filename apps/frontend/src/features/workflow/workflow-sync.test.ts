@@ -18,6 +18,7 @@ const generators: WorkflowSkillGenerator[] = [
   { id: "builtin.single-file", version: "workflow-skill-v5.1", label: "单文件（兼容模式）", default: false, options_schema: {} },
   { id: "builtin.three-file", version: "3.1.0", label: "固定三文件", default: true, options_schema: {} },
   { id: "builtin.node-split", version: "3.1.0", label: "按节点拆分", default: false, options_schema: {} },
+  { id: "builtin.cli-workflow", version: "1.0.0", label: "CLI 工作流", default: false, options_schema: {} },
 ];
 
 const wrappers: VueWrapper[] = [];

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .cli_workflow import CliWorkflowSkillGenerator
 from .contracts import WorkflowSkillGeneratorContext, WorkflowSkillGeneratorDescriptor, WorkflowSkillGeneratorResult
 from .node_split import NodeSplitWorkflowSkillGenerator
 from .registry import WorkflowSkillGeneratorRegistry
@@ -11,6 +12,7 @@ WORKFLOW_SKILL_GENERATORS = WorkflowSkillGeneratorRegistry(
         SingleFileWorkflowSkillGenerator(),
         ThreeFileWorkflowSkillGenerator(),
         NodeSplitWorkflowSkillGenerator(),
+        CliWorkflowSkillGenerator(),
     )
 )
 DEFAULT_WORKFLOW_SKILL_GENERATOR_ID = WORKFLOW_SKILL_GENERATORS.default_descriptor.id
