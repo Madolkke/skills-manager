@@ -93,6 +93,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
     step.topology.forEach((item) => {
       const target = nodes.get(item.target.id);
       if (!target) add(issues, "BROKEN_REFERENCE", "error", `步骤“${step.name}”存在无效跳转目标。`, selection);
+      scanWorkflowTemplate(item.conditionText).forEach((diagnostic) => add(issues, diagnostic.code, diagnostic.severity ?? "error", diagnostic.message, { ...selection, section: "paths", itemId: item.id, field: "conditionText" }));
     });
   }
 

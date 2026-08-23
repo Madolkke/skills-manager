@@ -271,7 +271,7 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | --- | --- | --- | --- | --- |
 | `id` | `string` | 是 | - | 跳转身份；可供脚本执行器或外部工具引用。 |
 | `target` | `NodeRef` | 是 | - | 跳转目标节点。 |
-| `conditionText` | `string` | 否 | `""` | 面向作者和读者的条件说明；为空时界面显示“无条件”。 |
+| `conditionText` | `string` | 否 | `""` | 面向作者和读者的条件说明；支持普通文本与 `{{ expression }}` 模板，模板原文保存，为空时界面显示“无条件”。 |
 | `conditionExpression` | `string` | 否 | `""` | 条件表达式文本。编辑器提供变量补全，但具体解释仍由执行器或后续规则定义。 |
 
 条件表达式编辑器使用以下作者侧变量命名空间：
@@ -337,7 +337,7 @@ ScriptStep 是脚本类型步骤，包含 BaseStep 的全部字段，并额外�
 | `repairRecommendation` | `string` | 否 | `""` | 修复建议说明。 |
 | `nodeType` | `"conclusion"` | 是 | - | 节点类型判别字段。 |
 
-`rootCause` 和 `repairRecommendation` 支持 `{{ expression }}` 模板。模板原文随 Workflow 保存，不在写作侧展开；表达式只能引用沿拓扑可达的前序步骤输出、全局输入和配置匹配，未来或无连接步骤不可见。模板可包含多个插值和普通文本，不支持控制流、循环或嵌套模板。
+`conditionText`、`rootCause` 和 `repairRecommendation` 支持 `{{ expression }}` 模板。条件说明使用所属步骤的表达式环境；结论模板使用能够沿拓扑到达该结论的步骤环境。模板原文随 Workflow 保存，不在写作侧或执行器中展开；表达式只能引用对应环境中的输出、全局输入、设备角色和配置匹配，未来或无连接步骤不可见。模板可包含多个插值和普通文本，不支持控制流、循环或嵌套模板。
 
 ## 引用和数据流示例
 

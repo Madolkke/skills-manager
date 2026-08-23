@@ -225,9 +225,25 @@ def _validate_step(
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
             issues.append(issue("BROKEN_REFERENCE", "error", f"步骤“{step['name']}”存在无效跳转目标。", selection))
+        environment = _step_expression_environment(
+            step,
+            definitions,
+            workflow_inputs,
+            workflow_roles=workflow_roles,
+            all_steps=all_steps,
+        )
+        for diagnostic in validate_template(transition.get("conditionText", ""), environment):
+            issues.append(
+                issue(
+                    diagnostic["code"],
+                    "error" if diagnostic["severity"] == "error" else "warning",
+                    diagnostic["message"],
+                    {**selection, "section": "paths", "itemId": transition["id"], "field": "conditionText"},
+                )
+            )
         expression_result = validate_expression(
             transition.get("conditionExpression", ""),
-            _step_expression_environment(step, definitions, workflow_inputs, workflow_roles=workflow_roles, all_steps=all_steps),
+            environment,
         )
         for diagnostic in expression_result["diagnostics"]:
             severity = _expression_diagnostic_severity(diagnostic["code"])

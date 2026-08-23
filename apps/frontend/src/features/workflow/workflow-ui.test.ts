@@ -187,6 +187,20 @@ describe("Workflow UI state", () => {
     expect(wrapper.get(".workflow-replace-actions button").attributes("data-disabled")).toBe("true");
   });
 
+  it("shows variables for the selected step and expands nested paths", async () => {
+    const bundle = workflowBundle();
+    bundle.workflow.inputs[0]!.schema = { type: "object", title: "接口", description: "", properties: { address: { type: "string", title: "地址", description: "" } }, required: ["address"], additionalProperties: false };
+    bundle.workflow.nodes = [{ id: "step-1", name: "检查接口", description: "", isStart: true, stepType: "expression", collectionCalls: [], topology: [] }];
+    const wrapper = mount(WorkflowPreviewPanel, { props: { bundle, catalog: [], issues: [], selection: { type: "step", id: "step-1" }, tab: "variables" } });
+    expect(wrapper.text()).toContain("检查接口 的表达式环境");
+    expect(wrapper.text()).toContain("inputs.interface");
+    expect(wrapper.text()).toContain("inputs.site");
+    const toggle = wrapper.get('button[aria-label="收起 inputs.interface"]');
+    await toggle.trigger("click");
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    wrapper.unmount();
+  });
+
   it("按精确定义版本去重展示并复制全部 CLI 命令", async () => {
     const bundle = workflowBundle();
     const first = { id: "collection-status", revision: 1, key: "status", metadata: { name: "状态 r1", description: "", industry: "", device: "", versions: [], tags: [] }, spec: { collectionType: "cli" as const, commandTemplate: "display status", outputSamples: [] }, inputs: [], outputs: [] };

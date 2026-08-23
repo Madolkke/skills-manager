@@ -67,6 +67,23 @@ class WorkflowRulesTest(unittest.TestCase):
 
         self.assertIn("FORWARD_OUTPUT_BINDING", {item["code"] for item in validate_workflow_document(document)})
 
+    def test_condition_text_template_uses_step_expression_scope(self):
+        document = normalize_workflow_document(self._document())
+        document["collectionSnapshots"][0]["outputs"] = [{
+            "id": "output-status",
+            "key": "status",
+            "required": True,
+            "schema": {"type": "string", "title": "状态", "description": ""},
+        }]
+        transition = document["workflow"]["nodes"][0]["topology"][0]
+        transition["conditionText"] = "状态：{{ outputs.interface_status.status }}"
+        self.assertNotIn("UNKNOWN_PROPERTY", {item["code"] for item in validate_workflow_document(document)})
+
+        transition["conditionText"] = "状态：{{ outputs.missing.status }}"
+        issues = validate_workflow_document(document)
+        self.assertIn("UNKNOWN_PROPERTY", {item["code"] for item in issues})
+        self.assertTrue(any(item["selection"].get("field") == "conditionText" for item in issues if item["code"] == "UNKNOWN_PROPERTY"))
+
     def test_import_binding_accepts_predecessor_step_output(self):
         bundle = self._import_bundle()
         definition = bundle["collections"][0]
@@ -83,6 +100,17 @@ class WorkflowRulesTest(unittest.TestCase):
         })
 
         validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
+
+    def test_import_rejects_invalid_condition_text_template(self):
+        bundle = self._import_bundle()
+        bundle["workflow"]["nodes"][0]["topology"] = [{
+            "id": "path-loop",
+            "target": {"id": "step-start"},
+            "conditionText": "状态：{{ outputs.missing.status }}",
+            "conditionExpression": "",
+        }]
+        with self.assertRaisesRegex(InvariantError, "condition template"):
+            validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
 
     def test_agent_guide_import_example_matches_schema(self):
         guide = Path(__file__).parents[3] / "docs" / "workflow-import-agent-guide.md"

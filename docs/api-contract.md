@@ -23,7 +23,7 @@
 | `WorkflowDebugCase` | 绑定写作侧 Step 的非版本化单步调试输入、采集 fixture 和预期直接目标。 |
 | `WorkflowDebugRun` | 单次调试的案例快照、Workflow 证据、执行器状态和命中判定。 |
 
-Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critical`，缺失时兼容归一化为 `info`）以及可选模板文本。`rootCause` 和 `repairRecommendation` 中的 `{{ expression }}` 使用与条件表达式一致的环境，但作用域是能够沿 Workflow 拓扑到达该结论的前序步骤；模板保留原文，运行时展开由执行器负责。
+Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critical`，缺失时兼容归一化为 `info`）以及可选模板文本。`conditionText`、`rootCause` 和 `repairRecommendation` 中的 `{{ expression }}` 使用与条件表达式一致的环境；条件说明作用域为所属步骤及传递前序步骤，结论模板作用域为能够沿拓扑到达该结论的步骤。模板保留原文，写作侧和执行器均不展开。
 
 ## 关键字段
 
@@ -342,7 +342,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 
 完整目录还包含 `builtin.single-file@workflow-skill-v5.1`、`builtin.three-file@3.1.0` 和 `builtin.node-split@3.1.0`。v5.1 Generator 会在日志 Collection 中展示 SQL、输出映射和样例名称，并为多次采集输出展示索引路径，不输出样例原文；内置 Generator 只接受空 options，不支持运行时模板、用户模板或 LLM 生成。
 
-`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。除 `inputs`、`outputs`、`config` 外，设备角色参数通过 `topo.devices.<roleKey>.<property>` 访问；角色参数只提供 Schema 环境，不在本接口中传输运行时设备值。命令库根 `outputSchema.properties` 在转换为 Workflow Collection 时展开为 `outputs[]` 根属性；已有 Collection 的 object/array 输出不会再次拆分。`environment.outputs` 的命名采集使用 `{sampleCount, fields}` 描述 `outputs.<callKey>.<outputKey>`；无 `callKey` 的直接输出分别使用 `{sampleCount, schema}` 表示 `outputs.<outputKey>` 的值类型；旧字段 map 按单次采集兼容。作者端为某个步骤构造环境时，投影当前步骤及沿 Workflow 图反向可达的所有传递前序步骤，未来和无图连接步骤不进入该环境；未指定步骤上下文的公共投影继续包含全部步骤。
+`GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。除 `inputs`、`outputs`、`config` 外，设备角色参数通过 `topo.devices.<roleKey>.<property>` 访问；角色参数只提供 Schema 环境，不在本接口中传输运行时设备值。命令库根 `outputSchema.properties` 在转换为 Workflow Collection 时展开为 `outputs[]` 根属性；已有 Collection 的 object/array 输出不会再次拆分。`environment.outputs` 的命名采集使用 `{sampleCount, fields}` 描述 `outputs.<callKey>.<outputKey>`；无 `callKey` 的直接输出分别使用 `{sampleCount, schema}` 表示 `outputs.<outputKey>` 的值类型；旧字段 map 按单次采集兼容。作者端为某个步骤构造环境时，投影当前步骤及沿 Workflow 图反向可达的所有传递前序步骤，未来和无图连接步骤不进入该环境；未指定步骤上下文的公共投影继续包含全部步骤。条件说明模板和结论模板复用同一变量环境投影；变量查看器仅将该投影的扁平路径转换为可展开树，不新增接口或独立环境格式。
 
 `POST /api/workflow-expression-validations` 和批量 `POST /api/workflow-expression-validations/batch` 只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。采样下标问题作为 Workflow warning。
 

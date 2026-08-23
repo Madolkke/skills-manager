@@ -3,6 +3,17 @@ import type { CliCollectionSpec, CollectionDefinition, ConfigCollectionSpec, Wor
 import { validateWorkflow } from "./domain/validation";
 
 describe("workflow validation consistency", () => {
+  it("validates condition text templates and locates their path field", () => {
+    const bundle = workflowBundle();
+    bundle.collectionSnapshots[0]!.outputs = [{ id: "output-status", key: "status", required: true, schema: stringSchema("Status") }];
+    const transition = workflowStep(bundle).topology[0]!;
+    transition.conditionText = "状态：{{ outputs.interface.status }}";
+    expect(validateWorkflow(bundle).some((item) => item.code === "TEMPLATE_UNCLOSED")).toBe(false);
+    transition.conditionText = "状态：{{ outputs.interface.status";
+    const issue = validateWorkflow(bundle).find((item) => item.code === "TEMPLATE_UNCLOSED");
+    expect(issue?.selection).toMatchObject({ type: "step", id: "step-start", section: "paths", itemId: "path-done", field: "conditionText" });
+  });
+
   it("distinguishes empty required literals from valid falsey values", () => {
     const cases: Array<{ value: unknown; type: "string" | "integer" | "boolean"; missing: boolean; omit?: boolean }> = [
       { value: null, type: "string", missing: true },

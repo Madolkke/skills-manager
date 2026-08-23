@@ -2,17 +2,20 @@
 import { ArrowUpRight, ChevronDown, ChevronUp, Trash2 } from "lucide-vue-next";
 import { computed, nextTick, ref } from "vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
-import type { WorkflowBundle, WorkflowExpressionDiagnostic, WorkflowStep } from "../../../types";
+import type { WorkflowBundle, WorkflowExpressionDiagnostic, WorkflowStep, WorkflowValidationIssue } from "../../../types";
 import type { WorkflowPathTargetChoice } from "../workflowPathEditing";
 import { workflowExpressionValidationKey } from "../useWorkflowExpressionValidation";
 import { workflowExpressionVariables } from "../workflowExpressionVariables";
 import WorkflowExpressionEditor from "./WorkflowExpressionEditor.vue";
+import WorkflowTemplateEditor from "./WorkflowTemplateEditor.vue";
 import WorkflowPathTargetPicker from "./WorkflowPathTargetPicker.vue";
+import { scanWorkflowTemplate } from "../workflowTemplate";
 
 const props = defineProps<{
   step: WorkflowStep;
   bundle: WorkflowBundle;
   diagnostics: Record<string, WorkflowExpressionDiagnostic[]>;
+  issues: WorkflowValidationIssue[];
   readonly: boolean;
   sectionNumber: string;
 }>();
@@ -34,7 +37,19 @@ async function add(choice: WorkflowPathTargetChoice): Promise<void> {
   if (!pathId) return;
   const card = root.value?.querySelector<HTMLElement>(`[data-path-id="${CSS.escape(pathId)}"]`);
   card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  card?.querySelector<HTMLInputElement>("[data-path-condition]")?.focus();
+  card?.querySelector<HTMLElement>("[data-path-condition] .cm-content")?.focus();
+}
+
+function conditionTextDiagnostics(transitionId: string, value: string) {
+  const scanned = scanWorkflowTemplate(value);
+  const diagnostics = [
+    ...scanned,
+    ...props.issues
+      .filter((item) => item.selection.type === "step" && item.selection.id === props.step.id && item.selection.itemId === transitionId && item.selection.field === "conditionText")
+      .filter((item) => !scanned.some((diagnostic) => diagnostic.code === item.code && diagnostic.message === item.message))
+      .map((item) => ({ code: item.code, message: item.message, start: 0, end: value.length, severity: item.severity })),
+  ];
+  return diagnostics;
 }
 </script>
 
@@ -48,7 +63,7 @@ async function add(choice: WorkflowPathTargetChoice): Promise<void> {
       <div class="workflow-transition-order"><UiIconButton label="上移路径" size="sm" :disabled="props.readonly || index === 0" @click="emit('move', item.id, -1)"><ChevronUp /></UiIconButton><UiIconButton label="下移路径" size="sm" :disabled="props.readonly || index === props.step.topology.length - 1" @click="emit('move', item.id, 1)"><ChevronDown /></UiIconButton></div>
       <div class="workflow-form-grid compact-grid">
         <div class="field-label span-2"><span>目标节点</span><div class="workflow-path-target-row"><WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" :current-target-id="item.target.id" variant="target" :readonly="props.readonly" @select="emit('retarget', item.id, $event)" /><UiIconButton label="打开目标节点" @click="emit('open-target', item.target.id)"><ArrowUpRight /></UiIconButton></div></div>
-        <label class="field-label span-2"><span>条件说明</span><input data-path-condition :value="item.conditionText" :disabled="props.readonly" placeholder="留空表示无条件跳转" @input="emit('change', item.id, { conditionText: ($event.target as HTMLInputElement).value })" /></label>
+        <div class="field-label span-2"><span>条件说明</span><WorkflowTemplateEditor data-path-condition :value="item.conditionText" :variables="expressionVariables" :diagnostics="conditionTextDiagnostics(item.id, item.conditionText)" :readonly="props.readonly" placeholder="留空表示无条件跳转；可使用模板表达式" aria-label="条件说明" @change="emit('change', item.id, { conditionText: $event })" /></div>
         <div class="field-label span-2"><span>条件表达式</span><WorkflowExpressionEditor :value="item.conditionExpression" :variables="expressionVariables" :diagnostics="props.diagnostics[workflowExpressionValidationKey(props.step.id, item.id)] ?? []" :readonly="props.readonly" @change="emit('change', item.id, { conditionExpression: $event })" /></div>
       </div>
       <UiIconButton label="删除路径" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove', item.id)"><Trash2 /></UiIconButton>

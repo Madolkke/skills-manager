@@ -175,6 +175,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
       :step="props.step"
       :bundle="props.bundle"
       :diagnostics="props.expressionDiagnostics"
+      :issues="props.issues"
       :readonly="props.readonly"
       @add="emit('path-add', $event)"
       @retarget="(id, choice) => emit('path-retarget', id, choice)"

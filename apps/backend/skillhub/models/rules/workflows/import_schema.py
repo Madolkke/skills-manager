@@ -7,7 +7,12 @@ from pydantic import Field
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.document_migration import migrate_output_v3, migrate_parameter_v3
-from skillhub.models.rules.workflows.expression.environment import binding_scope_calls, conclusion_scope_steps, project_workflow_expression_environment
+from skillhub.models.rules.workflows.expression.environment import (
+    binding_scope_calls,
+    conclusion_scope_steps,
+    expression_scope_steps,
+    project_workflow_expression_environment,
+)
 from skillhub.models.rules.workflows.schema import (
     Binding,
     CollectionMetadata,
@@ -149,6 +154,20 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
         for item in workflow["inputs"]
         if item["key"].strip()
     }
+    for step in (node for node in nodes if "stepType" in node):
+        environment = project_workflow_expression_environment(
+            expression_scope_steps(projected_nodes, step["id"]),
+            imported_definitions,
+            workflow_inputs,
+            workflow.get("deviceRoles", []),
+        )
+        for transition in step.get("topology", []):
+            diagnostics = validate_template(transition.get("conditionText", ""), environment)
+            if diagnostics:
+                raise InvariantError(
+                    f"Workflow import condition template is invalid: {step['id']} {transition['id']}: "
+                    + "; ".join(item["message"] for item in diagnostics)
+                )
     for conclusion in (node for node in nodes if node.get("nodeType") == "conclusion"):
         environment = project_workflow_expression_environment(
             conclusion_scope_steps(projected_nodes, conclusion["id"]),
