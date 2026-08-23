@@ -2,6 +2,7 @@
 
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import type { SystemCommand } from "../../types";
 import AdminSystemCommandsTab from "./AdminSystemCommandsTab.vue";
 
@@ -72,19 +73,45 @@ describe("AdminSystemCommandsTab", () => {
     expect(payload.samples).toEqual([{ id: expect.any(String), name: "带参数", command: "show status detail", stdout: "detail" }]);
   });
 
-  it("同步结构化 Schema 与 JSON，并阻止非法 JSON 保存", async () => {
+  it("通过 JSON Schema 弹窗同步结构化 Schema，并阻止非法 JSON 保存", async () => {
     const wrapper = mount(AdminSystemCommandsTab, { props: { commands: [], selectedCommandId: "" } });
     await wrapper.get("input[placeholder='show_system_status']").setValue("show_status");
     await wrapper.get("input[placeholder='系统状态']").setValue("系统状态");
     await wrapper.get("input[placeholder='show interface <interface>']").setValue("show status");
-    const json = wrapper.get("textarea.admin-command-json");
-    await json.setValue(JSON.stringify({ type: "object", properties: { status: { type: "string" } }, required: ["status"], additionalProperties: false }));
+    await wrapper.get(".admin-command-schema-section button").trigger("click");
+    const json = document.body.querySelector("textarea.admin-command-json-dialog") as HTMLTextAreaElement;
+    json.value = JSON.stringify({ type: "object", properties: { status: { type: "string" } }, required: ["status"], additionalProperties: false });
+    json.dispatchEvent(new Event("input", { bubbles: true }));
+    await nextTick();
+    (document.body.querySelector(".modal-actions button.is-primary") as HTMLButtonElement).click();
+    await nextTick();
     expect((wrapper.find(".workflow-schema-property input").element as HTMLInputElement).value).toBe("status");
-    expect(wrapper.get(".admin-command-schema-pane:first-child").text()).toContain("对象属性");
+    expect(wrapper.get(".admin-command-schema-compact").text()).toContain("对象属性");
 
-    await json.setValue("{ invalid");
-    expect(wrapper.text()).toContain("输出 Schema JSON 格式不正确");
-    expect(wrapper.get(".admin-command-editor-foot button.is-primary").attributes("disabled")).toBeDefined();
+    await wrapper.get(".admin-command-schema-section button").trigger("click");
+    const invalidJson = document.body.querySelector("textarea.admin-command-json-dialog") as HTMLTextAreaElement;
+    invalidJson.value = "{ invalid";
+    invalidJson.dispatchEvent(new Event("input", { bubbles: true }));
+    await nextTick();
+    expect(document.body.textContent).toContain("输出 Schema JSON 格式不正确");
+    expect((document.body.querySelector(".modal-actions button.is-primary") as HTMLButtonElement).disabled).toBe(true);
+    (document.body.querySelector(".modal-actions button") as HTMLButtonElement).click();
+    expect(wrapper.find(".workflow-schema-property input").exists()).toBe(true);
+  });
+
+  it("支持区块和单条回显示例折叠，且折叠不改变脏状态", async () => {
+    const wrapper = mount(AdminSystemCommandsTab, {
+      props: { commands: [{ ...command("status"), samples: [{ id: "sample-1", name: "正常", command: "show status", stdout: "ok" }] }], selectedCommandId: "status" },
+    });
+    const basicToggle = wrapper.get("button[aria-controls='admin-command-basic-info']");
+    await basicToggle.trigger("click");
+    expect(basicToggle.attributes("aria-expanded")).toBe("false");
+    expect(wrapper.find("#admin-command-basic-info").isVisible()).toBe(false);
+    const sampleToggle = wrapper.get("button[aria-label='收起回显示例 1']");
+    await sampleToggle.trigger("click");
+    expect(sampleToggle.attributes("aria-expanded")).toBe("false");
+    expect(wrapper.find(".admin-command-sample-body").isVisible()).toBe(false);
+    expect(wrapper.find(".admin-unsaved-dot").exists()).toBe(false);
   });
 
   it("TTP 和 stdout 使用等宽编辑框", () => {

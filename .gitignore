@@ -41,3 +41,19 @@ coverage/
 
 .DS_Store
 Thumbs.db
+
+# Local data-modeling presentation artifacts
+/docs/assets/collection-model-variants/collection-model-adapters.png
+/docs/assets/collection-model-variants/collection-model-dataflow.png
+/docs/assets/collection-model-variants/collection-model-hierarchy.png
+/docs/assets/collection-model-variants/prompts.md
+/docs/data-modeling-workflow-platform.md
+/docs/workflow-data-modeling-overview.pptx
+/docs/workflow-data-modeling-overview-2pages.pptx
+/docs/workflow-data-modeling-overview-visual.pptx
+/docs/workflow-data-modeling-overview-3pages.pptx
+/docs/workflow-data-modeling-overview-4pages.pptx
+/docs/workflow-data-modeling-overview-polished.pptx
+/docs/workflow-data-modeling-overview-polished-v2.pptx
+/docs/workflow-data-modeling-overview-v3.pptx
+/docs/workflow-data-modeling-overview-v3.pptx.inspect.ndjson
