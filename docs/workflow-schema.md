@@ -131,6 +131,8 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 表达式契约版本为 `contractVersion = 2`。`environment.outputs` 的命名采集使用 `{ sampleCount, fields }`，无 `callKey` 的直接输出使用 `{ sampleCount, schema }` 表示根值；旧字段 map 继续按单次采集兼容。函数与只读方法白名单由 `GET /api/workflow-expression-contract` 提供，单条 `POST /api/workflow-expression-validations` 与批量 `POST /api/workflow-expression-validations/batch` 返回类型和位置诊断。HTTP 接口只执行 AST 与类型检查，不执行 expression evaluator。采集下标诊断汇总为 Workflow warning，不阻止保存或同步。
 
+表达式函数由全局函数库提供。函数名和参数名必须是非关键字、非私有的 Python 标识符；参数 Schema 决定位置参数顺序、关键字参数和必填参数，返回 Schema 决定静态返回类型。函数体作为纯文本保存，不在 Workflow 写作或执行阶段解析、执行；删除函数后，历史调用保留原文并在后续校验中报告 `UNREGISTERED_CALL`。
+
 ## 设备角色
 
 ### DeviceRole

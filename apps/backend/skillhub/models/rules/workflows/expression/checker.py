@@ -24,7 +24,7 @@ class Diagnostic:
         return {"severity": "warning", "code": self.code, "message": self.message, "start": self.start, "end": self.end}
 
 
-def validate_expression(source: str, environment: dict[str, Any]) -> dict[str, Any]:
+def validate_expression(source: str, environment: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     if not source.strip():
         return {"inferredType": NONE.serialize(), "diagnostics": []}
     try:
@@ -32,16 +32,17 @@ def validate_expression(source: str, environment: dict[str, Any]) -> dict[str, A
     except SyntaxError as exc:
         start = max((exc.offset or 1) - 1, 0)
         return {"inferredType": ANY.serialize(), "diagnostics": [Diagnostic("PYTHON_SYNTAX", exc.msg, start, start + 1).serialize()]}
-    checker = _Checker(source, expression_root_types(environment))
+    checker = _Checker(source, expression_root_types(environment), functions or FUNCTIONS)
     inferred = checker.infer(tree.body)
     return {"inferredType": inferred.serialize(), "diagnostics": [item.serialize() for item in checker.diagnostics]}
 
 
 class _Checker:
-    def __init__(self, source: str, roots: dict[str, TypeSpec]) -> None:
+    def __init__(self, source: str, roots: dict[str, TypeSpec], functions: dict[str, dict[str, Any]]) -> None:
         self.source = source
         self.scopes = [roots]
         self.diagnostics: list[Diagnostic] = []
+        self.functions = functions
 
     def infer(self, node: ast.AST) -> TypeSpec:
         method = getattr(self, f"infer_{type(node).__name__}", None)
@@ -67,7 +68,7 @@ class _Checker:
         for scope in reversed(self.scopes):
             if node.id in scope:
                 return scope[node.id]
-        if node.id in FUNCTIONS:
+        if node.id in self.functions:
             return TypeSpec("function")
         self.warn(node, "UNKNOWN_NAME", f"未知名称“{node.id}”。")
         return ANY
@@ -166,11 +167,12 @@ class _Checker:
         for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
             self.infer(argument)
         if isinstance(node.func, ast.Name):
-            signature = FUNCTIONS.get(node.func.id)
+            signature = self.functions.get(node.func.id)
             if not signature:
                 self.warn(node.func, "UNREGISTERED_CALL", f"函数“{node.func.id}”未注册。")
                 return ANY
-            return self._return_type(signature["returns"], node.args[0] if node.args else None)
+            self._validate_call_arguments(node, signature)
+            return self._return_type(signature.get("returns", "any"), node.args[0] if node.args else None, signature.get("returnSchema"))
         if isinstance(node.func, ast.Attribute):
             owner = self.infer(node.func.value)
             signature = METHODS.get(owner.kind, {}).get(node.func.attr)
@@ -228,7 +230,11 @@ class _Checker:
             return NONE
         return ANY
 
-    def _return_type(self, value: str, source: ast.AST | None) -> TypeSpec:
+    def _return_type(self, value: str, source: ast.AST | None, return_schema: dict[str, Any] | None = None) -> TypeSpec:
+        if value not in {"T"} and not value.startswith("array<") and isinstance(return_schema, dict) and return_schema.get("type"):
+            from .types import from_json_schema
+
+            return from_json_schema(return_schema)
         if value == "integer":
             return INTEGER
         if value == "number":
@@ -245,6 +251,34 @@ class _Checker:
         if value == "T|none" and source:
             return union(self.infer(source), NONE)
         return ANY
+
+    def _validate_call_arguments(self, node: ast.Call, signature: dict[str, Any]) -> None:
+        schema = signature.get("parameterSchema", {})
+        # Legacy in-process signatures only describe abstract types.  They do
+        # not carry stable parameter names, so keep their historical arity
+        # behavior and apply named-argument checks to database-backed schemas.
+        if not isinstance(schema, dict) or not isinstance(schema.get("properties"), dict):
+            return
+        properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
+        names = list(properties) if isinstance(properties, dict) else list(signature.get("parameters", []))
+        if len(node.args) > len(names):
+            self.warn(node, "FUNCTION_TOO_MANY_ARGUMENTS", "函数调用位置参数数量超过声明数量。")
+        seen = set(names[: len(node.args)])
+        for index, argument in enumerate(node.args):
+            if index < len(names) and isinstance(properties.get(names[index]), dict) and not _schema_accepts_type(properties[names[index]], self.infer(argument)):
+                self.warn(argument, "FUNCTION_ARGUMENT_TYPE_MISMATCH", f"参数“{names[index]}”的类型与函数声明不兼容。")
+        for keyword_node in node.keywords:
+            if keyword_node.arg is None or keyword_node.arg not in names:
+                self.warn(keyword_node, "FUNCTION_UNKNOWN_KEYWORD", "函数调用包含未声明的关键字参数。")
+            elif keyword_node.arg in seen:
+                self.warn(keyword_node, "FUNCTION_DUPLICATE_ARGUMENT", "函数参数被重复提供。")
+            else:
+                seen.add(keyword_node.arg)
+                if isinstance(properties.get(keyword_node.arg), dict) and not _schema_accepts_type(properties[keyword_node.arg], self.infer(keyword_node.value)):
+                    self.warn(keyword_node.value, "FUNCTION_ARGUMENT_TYPE_MISMATCH", f"参数“{keyword_node.arg}”的类型与函数声明不兼容。")
+        required = set(schema.get("required", [])) if isinstance(schema, dict) else set()
+        for missing in sorted(required - seen):
+            self.warn(node, "FUNCTION_REQUIRED_ARGUMENT", f"函数缺少必填参数“{missing}”。")
 
     def warn(self, node: ast.AST, code: str, message: str) -> None:
         start = _offset(self.source, getattr(node, "lineno", 1), getattr(node, "col_offset", 0))
@@ -270,6 +304,18 @@ def _integer_index_type(value: TypeSpec) -> bool:
     if value.kind in {"any", "integer"}:
         return True
     return value.kind == "union" and all(option.kind == "integer" for option in value.options)
+
+
+def _schema_accepts_type(schema: dict[str, Any], actual: TypeSpec) -> bool:
+    """Check the small JSON-Schema/type algebra intersection used by calls."""
+    if schema.get("x-skillhub-legacy-loose") or actual.kind == "any":
+        return True
+    expected = schema.get("type")
+    if expected == "number":
+        return actual.kind in {"integer", "number"}
+    if expected in {"string", "integer", "boolean", "object", "array"}:
+        return actual.kind == expected
+    return True
 
 
 def _integer_literal(node: ast.AST) -> int | None:

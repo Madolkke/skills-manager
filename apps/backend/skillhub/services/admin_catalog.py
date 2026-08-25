@@ -32,7 +32,7 @@ class AdminCatalogService(ServiceBase[SkillHubStore]):
     def list_tag_groups(self) -> object:
         return self.store.list_tag_groups()
 
-    def create_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int, required: bool = False, free_form: bool = False) -> object:
+    def create_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int, required: bool = False, free_form: bool = False, display_mode: str = "checkbox") -> object:
         return self.store.create_tag_group(
             group_id=group_id,
             display_name=display_name,
@@ -40,10 +40,11 @@ class AdminCatalogService(ServiceBase[SkillHubStore]):
             sort_order=sort_order,
             required=required,
             free_form=free_form,
+            display_mode=display_mode,
             actor="admin-console",
         )
 
-    def update_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int, required: bool = False, free_form: bool = False) -> object:
+    def update_tag_group(self, *, group_id: str, display_name: str, description: str | None, sort_order: int, required: bool = False, free_form: bool = False, display_mode: str | None = None) -> object:
         return self.store.update_tag_group(
             group_id=group_id,
             display_name=display_name,
@@ -51,6 +52,7 @@ class AdminCatalogService(ServiceBase[SkillHubStore]):
             sort_order=sort_order,
             required=required,
             free_form=free_form,
+            display_mode=display_mode,
             actor="admin-console",
         )
 
@@ -83,11 +85,12 @@ class AdminCatalogService(ServiceBase[SkillHubStore]):
     def tag_cascade_overview(self) -> object:
         return self.store.tag_cascade_overview()
 
-    def create_tag_cascade(self, *, parent_group_id: str, parent_value: str, child_group_id: str) -> object:
+    def create_tag_cascade(self, *, parent_group_id: str, parent_value: str | None, child_group_id: str, activation_mode: str = "parent_value") -> object:
         return self.store.create_tag_cascade(
             parent_group_id=parent_group_id,
             parent_value=parent_value,
             child_group_id=child_group_id,
+            activation_mode=activation_mode,
             actor="admin-console",
         )
 

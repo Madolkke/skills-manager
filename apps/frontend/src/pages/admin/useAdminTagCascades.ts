@@ -13,7 +13,7 @@ export function useAdminTagCascades(options: {
   const overview = ref<TagCascadeOverview | null>(null);
   const focus = ref<TagDiagnosticFocus | null>(null);
 
-  async function attach(payload: { parent_group_id: string; parent_value: string; child_group_id: string }): Promise<void> {
+  async function attach(payload: { parent_group_id: string; parent_value?: string | null; child_group_id: string; activation_mode: "parent_value" | "parent_selected" }): Promise<void> {
     try {
       overview.value = await api.adminCreateTagCascade(payload);
       options.emitToast({ tone: "success", message: "Tag 级联已建立。" });

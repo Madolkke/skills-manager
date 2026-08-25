@@ -27,6 +27,7 @@ from skillhub.models.schema.evaluations import (
     EvalSet,
     EvalSetCase,
 )
+from skillhub.models.schema.expression_functions import ExpressionFunction
 from skillhub.models.schema.reviews import (
     PublishRecord,
     PublishTarget,
@@ -52,6 +53,7 @@ workflow_collection_revisions = WorkflowCollectionRevision.__table__
 workflow_syncs = WorkflowSync.__table__
 system_command_library_entries = SystemCommandLibraryEntry.__table__
 user_command_library_entries = UserCommandLibraryEntry.__table__
+expression_functions = ExpressionFunction.__table__
 workflow_debug_cases = WorkflowDebugCase.__table__
 workflow_debug_runs = WorkflowDebugRun.__table__
 eval_sets = EvalSet.__table__

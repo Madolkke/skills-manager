@@ -31,6 +31,7 @@ export function useTagCascadeTree(tagGroups: Ref<TagGroup[]>, overview: Ref<TagC
     const result = new Map<string, number>();
     for (const group of groups.value) {
       if (!group.parent) continue;
+      if ((group.parent.activation_mode ?? "parent_value") !== "parent_value" || !group.parent.value) continue;
       const key = parentValueKey(group.parent.group_id, group.parent.value);
       result.set(key, (result.get(key) ?? 0) + 1);
     }
@@ -104,11 +105,17 @@ export function useTagCascadeTree(tagGroups: Ref<TagGroup[]>, overview: Ref<TagC
   function parentLabel(group: TagGroup): string {
     if (!group.parent) return "根级 Group";
     const parentGroup = groups.value.find((item) => item.id === group.parent?.group_id);
-    return `${parentGroup?.display_name ?? group.parent.group_id} / ${valueDisplayName(parentGroup, group.parent.value)}`;
+    if ((group.parent.activation_mode ?? "parent_value") === "parent_selected") {
+      return `${parentGroup?.display_name ?? group.parent.group_id} / 任意已选值`;
+    }
+    return `${parentGroup?.display_name ?? group.parent.group_id} / ${valueDisplayName(parentGroup, group.parent.value ?? "")}`;
   }
 
   function parentTitle(group: TagGroup): string {
-    return group.parent ? `父级：${group.parent.group_id} / ${group.parent.value}` : "此 Group 位于级联根节点";
+    if (!group.parent) return "此 Group 位于级联根节点";
+    return (group.parent.activation_mode ?? "parent_value") === "parent_selected"
+      ? `父级：${group.parent.group_id} / 任意已选值`
+      : `父级：${group.parent.group_id} / ${group.parent.value}`;
   }
 
   function childCount(groupId: string, value: string): number {

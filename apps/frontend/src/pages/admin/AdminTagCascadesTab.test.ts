@@ -80,6 +80,7 @@ describe("AdminTagCascadesTab", () => {
       parent_group_id: "platform",
       parent_value: "python",
       child_group_id: "region",
+      activation_mode: "parent_value",
     }]);
   });
 

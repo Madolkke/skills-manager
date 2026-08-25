@@ -15,6 +15,7 @@ from skillhub.models.schema.commands import (
     UserCommandLibraryEntry,
 )
 from skillhub.models.schema.evaluations import AcceptedVerification, CaseResult, EvalCase, EvalCaseRun, EvalCaseVersion, EvalRun, EvalSet, EvalSetCase
+from skillhub.models.schema.expression_functions import ExpressionFunction
 from skillhub.models.schema.reviews import (
     PublishRecord,
     PublishTarget,
@@ -56,6 +57,7 @@ __all__ = [
     "EvalRun",
     "EvalSet",
     "EvalSetCase",
+    "ExpressionFunction",
     "Group",
     "GroupMembership",
     "Job",

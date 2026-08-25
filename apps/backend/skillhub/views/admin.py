@@ -3,9 +3,11 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI
 
 from skillhub.services import AdminService
+from skillhub.services.expression_functions import ExpressionFunctionService
 from skillhub.views.admin_runtime import register_admin_runtime_routes
 from skillhub.views.auth import admin_key_dependency
-from skillhub.views.dependencies import admin_service_dependency
+from skillhub.views.dependencies import admin_service_dependency, expression_function_service_dependency
+from skillhub.views.request_models.admin import AdminExpressionFunctionPayload
 from skillhub.views.responses import result_payload
 from skillhub.views.schemas import (
     AdminGroupMemberPayload,
@@ -22,6 +24,46 @@ from skillhub.views.schemas import (
 def register_admin_routes(app: FastAPI) -> None:
     admin_auth = Depends(admin_key_dependency)
     register_admin_runtime_routes(app, admin_auth)
+
+    @app.get("/api/admin/expression-functions")
+    def admin_expression_functions(
+        _: None = admin_auth,
+        service: ExpressionFunctionService = Depends(expression_function_service_dependency),
+    ):
+        return result_payload(service.list_functions())
+
+    @app.get("/api/admin/expression-functions/{function_id}")
+    def admin_get_expression_function(
+        function_id: str,
+        _: None = admin_auth,
+        service: ExpressionFunctionService = Depends(expression_function_service_dependency),
+    ):
+        return result_payload(service.get_function(function_id=function_id))
+
+    @app.post("/api/admin/expression-functions")
+    def admin_create_expression_function(
+        payload: AdminExpressionFunctionPayload,
+        _: None = admin_auth,
+        service: ExpressionFunctionService = Depends(expression_function_service_dependency),
+    ):
+        return result_payload(service.create_function(payload=payload.model_dump(by_alias=False), actor="admin-console"))
+
+    @app.put("/api/admin/expression-functions/{function_id}")
+    def admin_update_expression_function(
+        function_id: str,
+        payload: AdminExpressionFunctionPayload,
+        _: None = admin_auth,
+        service: ExpressionFunctionService = Depends(expression_function_service_dependency),
+    ):
+        return result_payload(service.update_function(function_id=function_id, payload=payload.model_dump(by_alias=False, exclude_unset=True), actor="admin-console"))
+
+    @app.delete("/api/admin/expression-functions/{function_id}")
+    def admin_delete_expression_function(
+        function_id: str,
+        _: None = admin_auth,
+        service: ExpressionFunctionService = Depends(expression_function_service_dependency),
+    ):
+        return result_payload(service.delete_function(function_id=function_id))
 
     @app.get("/api/admin/skills")
     def admin_skills(_: None = admin_auth, service: AdminService = Depends(admin_service_dependency)):
@@ -67,6 +109,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 sort_order=payload.sort_order,
                 required=payload.required,
                 free_form=payload.free_form,
+                display_mode=payload.display_mode,
             )
         )
 
@@ -85,6 +128,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 sort_order=payload.sort_order,
                 required=payload.required,
                 free_form=payload.free_form,
+                display_mode=payload.display_mode,
             )
         )
 
@@ -155,6 +199,7 @@ def register_admin_routes(app: FastAPI) -> None:
                 parent_group_id=payload.parent_group_id,
                 parent_value=payload.parent_value,
                 child_group_id=payload.child_group_id,
+                activation_mode=payload.activation_mode,
             )
         )
 

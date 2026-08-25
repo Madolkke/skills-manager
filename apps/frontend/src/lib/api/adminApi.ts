@@ -13,6 +13,8 @@ import type {
   TagGroup,
   WorkerStatusOverview,
   SystemCommand,
+  ExpressionFunction,
+  ExpressionFunctionPayload,
 } from "../../types";
 import { apiDelete, apiGet, apiSend } from "./httpClient";
 
@@ -44,9 +46,9 @@ export function adminApi() {
     adminRemoveGroupMember: (groupId: string, subjectId: string) =>
       apiDelete<AdminGroup>(`/api/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(subjectId)}`, options),
     adminListTagGroups: () => apiGet<TagGroup[]>("/api/admin/tag-groups", options),
-    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }) =>
+    adminCreateTagGroup: (payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select" }) =>
       apiSend<TagGroup>("/api/admin/tag-groups", "POST", payload, options),
-    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }) =>
+    adminUpdateTagGroup: (groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select" }) =>
       apiSend<TagGroup>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, "PATCH", payload, options),
     adminDeleteTagGroup: (groupId: string) => apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}`, options),
     adminCreateTagValue: (groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }) =>
@@ -56,7 +58,7 @@ export function adminApi() {
     adminDeleteTagValue: (groupId: string, value: string) =>
       apiDelete<{ ok: boolean }>(`/api/admin/tag-groups/${encodeURIComponent(groupId)}/values/${encodeURIComponent(value)}`, options),
     adminListTagCascades: () => apiGet<TagCascadeOverview>("/api/admin/tag-cascades", options),
-    adminCreateTagCascade: (payload: { parent_group_id: string; parent_value: string; child_group_id: string }) =>
+    adminCreateTagCascade: (payload: { parent_group_id: string; parent_value?: string | null; child_group_id: string; activation_mode?: "parent_value" | "parent_selected" }) =>
       apiSend<TagCascadeOverview>("/api/admin/tag-cascades", "POST", payload, options),
     adminDeleteTagCascade: (childGroupId: string) => apiDelete<TagCascadeOverview>(`/api/admin/tag-cascades/${encodeURIComponent(childGroupId)}`, options),
     adminListRoleAssignments: () => apiGet<RoleAssignment[]>("/api/admin/role-assignments", options),
@@ -87,5 +89,10 @@ export function adminApi() {
     adminCreateSystemCommand: (payload: Record<string, unknown>) => apiSend<SystemCommand>("/api/admin/system-commands", "POST", payload, options),
     adminUpdateSystemCommand: (commandId: string, payload: Record<string, unknown>) => apiSend<SystemCommand>(`/api/admin/system-commands/${encodeURIComponent(commandId)}`, "PUT", payload, options),
     adminDeleteSystemCommand: (commandId: string) => apiDelete<{ id: string; deleted: boolean }>(`/api/admin/system-commands/${encodeURIComponent(commandId)}`, options),
+    adminListExpressionFunctions: () => apiGet<ExpressionFunction[]>("/api/admin/expression-functions", options),
+    adminGetExpressionFunction: (functionId: string) => apiGet<ExpressionFunction>(`/api/admin/expression-functions/${encodeURIComponent(functionId)}`, options),
+    adminCreateExpressionFunction: (payload: ExpressionFunctionPayload) => apiSend<ExpressionFunction>("/api/admin/expression-functions", "POST", payload, options),
+    adminUpdateExpressionFunction: (functionId: string, payload: ExpressionFunctionPayload) => apiSend<ExpressionFunction>(`/api/admin/expression-functions/${encodeURIComponent(functionId)}`, "PUT", payload, options),
+    adminDeleteExpressionFunction: (functionId: string) => apiDelete<{ id: string; deleted: boolean }>(`/api/admin/expression-functions/${encodeURIComponent(functionId)}`, options),
   };
 }

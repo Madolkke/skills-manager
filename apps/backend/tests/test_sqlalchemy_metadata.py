@@ -52,6 +52,7 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
                 "audit_events",
                 "system_command_library_entries",
                 "user_command_library_entries",
+                "expression_functions",
             },
         )
 
@@ -159,6 +160,20 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
     def test_tag_cascade_columns_and_foreign_key_are_mapped(self):
         self.assertIn("free_form", metadata.tables["tag_groups"].c)
         self.assertFalse(metadata.tables["tag_groups"].c.free_form.nullable)
+        self.assertIn("display_mode", metadata.tables["tag_groups"].c)
+        self.assertIn(
+            "tag_groups_display_mode_check",
+            {constraint.name for constraint in metadata.tables["tag_groups"].constraints},
+        )
+        self.assertIn("activation_mode", metadata.tables["tag_group_cascades"].c)
+        self.assertTrue(metadata.tables["tag_group_cascades"].c.parent_tag_value.nullable)
+        self.assert_foreign_key(
+            "tag_group_cascades",
+            "tag_group_cascades_parent_group_fkey",
+            ("parent_tag_group_id",),
+            "tag_groups",
+            ("id",),
+        )
         self.assert_foreign_key(
             "tag_group_cascades",
             "tag_group_cascades_parent_value_fkey",

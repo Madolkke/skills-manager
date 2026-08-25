@@ -14,6 +14,7 @@ class TagCascadeApiTest(ApiCommandTestCase):
         free_form: bool = False,
         required: bool = False,
         values: tuple[str, ...] = (),
+        display_mode: str = "checkbox",
     ) -> dict:
         response = self.client.post(
             "/api/admin/tag-groups",
@@ -24,6 +25,7 @@ class TagCascadeApiTest(ApiCommandTestCase):
                 "description": "",
                 "free_form": free_form,
                 "required": required if free_form else False,
+                "display_mode": display_mode,
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -50,7 +52,14 @@ class TagCascadeApiTest(ApiCommandTestCase):
             group = response.json()
         return group
 
-    def attach(self, parent_group_id: str, parent_value: str, child_group_id: str):
+    def attach(
+        self,
+        parent_group_id: str,
+        parent_value: str | None,
+        child_group_id: str,
+        *,
+        activation_mode: str = "parent_value",
+    ):
         return self.client.post(
             "/api/admin/tag-cascades",
             headers=self.admin_headers,
@@ -58,8 +67,114 @@ class TagCascadeApiTest(ApiCommandTestCase):
                 "parent_group_id": parent_group_id,
                 "parent_value": parent_value,
                 "child_group_id": child_group_id,
+                "activation_mode": activation_mode,
             },
         )
+
+    def test_tag_group_display_mode_is_persisted_and_defaults_to_checkbox(self):
+        multi_select = self.create_group("product", values=("hub",), display_mode="multi_select")
+        checkbox = self.create_group("region", values=("cn",))
+
+        listed = {item["id"]: item for item in self.client.get("/api/tag-groups").json()}
+        updated = self.client.patch(
+            "/api/admin/tag-groups/product",
+            headers=self.admin_headers,
+            json={
+                "display_name": "product",
+                "description": "",
+                "sort_order": 0,
+                "required": False,
+                "free_form": False,
+                "display_mode": "checkbox",
+            },
+        )
+
+        self.assertEqual(multi_select["display_mode"], "multi_select")
+        self.assertEqual(checkbox["display_mode"], "checkbox")
+        self.assertEqual(listed["product"]["display_mode"], "multi_select")
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertEqual(updated.json()["display_mode"], "checkbox")
+
+    def test_tag_group_update_preserves_display_mode_when_legacy_payload_omits_it(self):
+        self.create_group("product", values=("hub",), display_mode="multi_select")
+
+        response = self.client.patch(
+            "/api/admin/tag-groups/product",
+            headers=self.admin_headers,
+            json={
+                "display_name": "产品",
+                "description": "",
+                "sort_order": 1,
+                "required": False,
+                "free_form": False,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["display_mode"], "multi_select")
+
+    def test_parent_selected_cascade_activates_for_any_parent_value_and_coexists_with_value_mode(self):
+        self.create_group("platform", values=("cloud", "desktop"))
+        self.create_group("provider", required=True, values=("aws",))
+        self.create_group("edition", required=True, values=("enterprise",))
+        parent_selected = self.attach(
+            "platform",
+            None,
+            "provider",
+            activation_mode="parent_selected",
+        )
+        parent_value = self.attach("platform", "cloud", "edition")
+
+        desktop_missing_provider = self.client.post(
+            "/api/skills",
+            json={**self.skill_payload("desktop-missing-provider"), "tags": [{"group_id": "platform", "value": "desktop"}]},
+        )
+        desktop_complete = self.client.post(
+            "/api/skills",
+            json={
+                **self.skill_payload("desktop-provider"),
+                "tags": [
+                    {"group_id": "platform", "value": "desktop"},
+                    {"group_id": "provider", "value": "aws"},
+                ],
+            },
+        )
+        cloud_missing_edition = self.client.post(
+            "/api/skills",
+            json={
+                **self.skill_payload("cloud-missing-edition"),
+                "tags": [
+                    {"group_id": "platform", "value": "cloud"},
+                    {"group_id": "provider", "value": "aws"},
+                ],
+            },
+        )
+        overview = self.client.get("/api/admin/tag-cascades", headers=self.admin_headers)
+
+        self.assertEqual(parent_selected.status_code, 200, parent_selected.text)
+        self.assertEqual(parent_value.status_code, 200, parent_value.text)
+        self.assertEqual(desktop_missing_provider.status_code, 400)
+        self.assertEqual(desktop_complete.status_code, 200, desktop_complete.text)
+        self.assertEqual(cloud_missing_edition.status_code, 400)
+        self.assertEqual(overview.status_code, 200, overview.text)
+        relations = {item["child_group_id"]: item for item in overview.json()["relations"]}
+        self.assertEqual(relations["edition"]["activation_mode"], "parent_value")
+        self.assertEqual(relations["edition"]["parent_value"], "cloud")
+        self.assertEqual(relations["provider"]["activation_mode"], "parent_selected")
+        self.assertIsNone(relations["provider"]["parent_value"])
+
+    def test_parent_selected_cascade_rejects_a_parent_value(self):
+        self.create_group("platform", values=("cloud",))
+        self.create_group("provider", values=("aws",))
+
+        response = self.attach(
+            "platform",
+            "cloud",
+            "provider",
+            activation_mode="parent_selected",
+        )
+
+        self.assertEqual(response.status_code, 400)
 
     def test_free_form_values_are_trimmed_persisted_and_case_sensitive(self):
         self.create_group("keywords", free_form=True, required=True, values=("preset",))

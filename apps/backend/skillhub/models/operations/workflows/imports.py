@@ -30,7 +30,7 @@ class WorkflowImportMixin:
                 self._skill_row(connection, skill_id)
                 self._require_skill_permission(connection, skill_id=skill_id, actor=actor, permission="skill.edit")
                 workflow = self._workflow_row(connection, skill_id=skill_id)
-                validate_workflow_import_references(normalized)
+                validate_workflow_import_references(normalized, self.expression_function_contract())
                 # The imported document replaces the current Workflow.  Drop
                 # its previous user-command projection before writing the new
                 # Collection set so removed CLI Collections cannot remain in

@@ -14,6 +14,7 @@ import type {
   TagGroup,
   WorkerStatusOverview,
   SystemCommand,
+  ExpressionFunction,
 } from "../../types";
 import { createAdminStateSync } from "./adminStateSync";
 import { useAdminActions } from "./useAdminActions";
@@ -39,6 +40,8 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   const opencodeProviderCatalog = ref<OpencodeProviderCatalog | null>(null);
   const systemCommands = ref<SystemCommand[]>([]);
   const selectedSystemCommandId = ref("");
+  const expressionFunctions = ref<ExpressionFunction[]>([]);
+  const selectedExpressionFunctionId = ref("");
   const selectedGroupId = ref("");
   const selectedTagGroupId = ref("");
   const selectedOpencodeAgentId = ref("");
@@ -67,6 +70,8 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
     selectedOpencodeAgentId,
     systemCommands,
     selectedSystemCommandId,
+    expressionFunctions,
+    selectedExpressionFunctionId,
     syncAdminState,
     load,
     emitToast,
@@ -125,6 +130,7 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
         nextOpencodeAgents,
         nextProviderCatalog,
         nextSystemCommands,
+        nextExpressionFunctions,
       ] = await Promise.all([
         api.adminListSkills(),
         api.adminListGroups(),
@@ -138,6 +144,7 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
         api.adminListOpencodeAgents(),
         api.listOpencodeProviders().catch(() => null),
         api.adminListSystemCommands().then((response) => response.commands),
+        api.adminListExpressionFunctions(),
       ]);
       skills.value = nextSkills;
       groups.value = nextGroups;
@@ -151,12 +158,16 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
       opencodeAgents.value = nextOpencodeAgents;
       opencodeProviderCatalog.value = nextProviderCatalog;
       systemCommands.value = nextSystemCommands;
+      expressionFunctions.value = nextExpressionFunctions;
       tagDrafts.value = Object.fromEntries(nextSkills.map((item) => [item.skill.id, toTagPayloads(item.skill.tags ?? [])]));
       if (!selectedGroupId.value && nextGroups.length) selectedGroupId.value = nextGroups[0].id;
       if (!selectedTagGroupId.value && nextTagGroups.length) selectedTagGroupId.value = nextTagGroups[0].id;
       if (!selectedOpencodeAgentId.value && nextOpencodeAgents.length) selectedOpencodeAgentId.value = nextOpencodeAgents[0].id;
       if (!nextSystemCommands.some((item) => item.id === selectedSystemCommandId.value)) {
         selectedSystemCommandId.value = nextSystemCommands[0]?.id ?? "";
+      }
+      if (!nextExpressionFunctions.some((item) => item.id === selectedExpressionFunctionId.value)) {
+        selectedExpressionFunctionId.value = nextExpressionFunctions[0]?.id ?? "";
       }
       return true;
     } catch (error) {
@@ -242,5 +253,6 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
     publishRecords, workerStatus, opencodeAgents, opencodeProviderCatalog, selectedGroupId, selectedTagGroupId,
     selectedOpencodeAgentId, tagDrafts, tagCascadeActions, adminActions, unlock, load, refreshWorkers,
     refreshPublishRecords, refreshOpencodeProviders, selectAdminTab, systemCommands, selectedSystemCommandId,
+    expressionFunctions, selectedExpressionFunctionId,
   };
 }

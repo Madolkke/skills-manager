@@ -24,15 +24,23 @@ class TagCascadeMixin:
         self,
         *,
         parent_group_id: str,
-        parent_value: str,
+        parent_value: str | None,
         child_group_id: str,
+        activation_mode: str = "parent_value",
         actor: str,
     ) -> dict[str, Any]:
         now = utc_now()
-        clean_parent_value = self._clean_tag_value(parent_value)
+        if activation_mode not in {"parent_value", "parent_selected"}:
+            raise InvariantError("Tag 级联触发方式必须是 parent_value 或 parent_selected。")
+        clean_parent_value = self._clean_tag_value(parent_value or "") if activation_mode == "parent_value" else None
+        if activation_mode == "parent_value" and clean_parent_value is None:
+            raise InvariantError("指定父 Tag 值的级联必须选择父 Tag 值。")
+        if activation_mode == "parent_selected" and parent_value not in (None, ""):
+            raise InvariantError("父 Group 已选级联不能指定父 Tag 值。")
         with self._write_session() as connection:
             parent_group = self._tag_group_row(connection, parent_group_id)
-            self._tag_value_row(connection, parent_group_id, clean_parent_value)
+            if clean_parent_value is not None:
+                self._tag_value_row(connection, parent_group_id, clean_parent_value)
             self._tag_group_row(connection, child_group_id)
             if parent_group["free_form"]:
                 logger.warning("tag cascade create rejected reason=free_form_parent parent_group_id=%s child_group_id=%s", parent_group_id, child_group_id)
@@ -51,6 +59,7 @@ class TagCascadeMixin:
                     child_tag_group_id=child_group_id,
                     parent_tag_group_id=parent_group_id,
                     parent_tag_value=clean_parent_value,
+                    activation_mode=activation_mode,
                     created_at=now,
                     created_by=actor,
                 )
@@ -61,13 +70,14 @@ class TagCascadeMixin:
                 action="tag_cascade.created",
                 resource_type="tag_group",
                 resource_id=child_group_id,
-                payload={"parent_group_id": parent_group_id, "parent_value": clean_parent_value},
+                payload={"parent_group_id": parent_group_id, "parent_value": clean_parent_value, "activation_mode": activation_mode},
                 created_at=now,
             )
         logger.info(
-            "tag cascade created parent_group_id=%s parent_value=%s child_group_id=%s",
+            "tag cascade created parent_group_id=%s parent_value=%s activation_mode=%s child_group_id=%s",
             parent_group_id,
             clean_parent_value,
+            activation_mode,
             child_group_id,
         )
         return self.tag_cascade_overview()
@@ -92,6 +102,7 @@ class TagCascadeMixin:
                 payload={
                     "parent_group_id": relation["parent_tag_group_id"],
                     "parent_value": relation["parent_tag_value"],
+                    "activation_mode": relation["activation_mode"],
                 },
                 created_at=now,
             )
@@ -103,6 +114,7 @@ class TagCascadeMixin:
             connection.execute(
                 orm.select_entity(orm.TagGroupCascade).order_by(
                     orm.TagGroupCascade.parent_tag_group_id,
+                    orm.TagGroupCascade.activation_mode,
                     orm.TagGroupCascade.parent_tag_value,
                     orm.TagGroupCascade.child_tag_group_id,
                 )
@@ -112,11 +124,15 @@ class TagCascadeMixin:
         )
         return [self._tag_cascade_payload(row) for row in rows]
 
-    def _tag_group_parent(self, connection, *, group_id: str) -> dict[str, str] | None:
+    def _tag_group_parent(self, connection, *, group_id: str) -> dict[str, str | None] | None:
         row = self._tag_group_parent_row(connection, group_id=group_id)
         if row is None:
             return None
-        return {"group_id": str(row["parent_tag_group_id"]), "value": str(row["parent_tag_value"])}
+        return {
+            "group_id": str(row["parent_tag_group_id"]),
+            "value": str(row["parent_tag_value"]) if row["parent_tag_value"] is not None else None,
+            "activation_mode": str(row["activation_mode"]),
+        }
 
     def _tag_group_parent_row(self, connection, *, group_id: str):
         return (
@@ -162,9 +178,17 @@ class TagCascadeMixin:
             changed = False
             remaining: list[dict[str, Any]] = []
             for relation in pending:
-                parent_key = (str(relation["parent_group_id"]), str(relation["parent_value"]))
+                parent_group_id = str(relation["parent_group_id"])
+                parent_value = relation.get("parent_value")
                 child_id = str(relation["child_group_id"])
-                if parent_key in selected_tags and parent_key[0] in active:
+                parent_active = parent_group_id in active
+                selected = any(group_id == parent_group_id for group_id, _ in selected_tags)
+                is_active = (
+                    parent_active
+                    and selected
+                    and (relation["activation_mode"] == "parent_selected" or (parent_group_id, str(parent_value)) in selected_tags)
+                )
+                if is_active:
                     if child_id not in active:
                         active.add(child_id)
                         changed = True
@@ -229,7 +253,8 @@ class TagCascadeMixin:
         return {
             "child_group_id": str(row["child_tag_group_id"]),
             "parent_group_id": str(row["parent_tag_group_id"]),
-            "parent_value": str(row["parent_tag_value"]),
+            "parent_value": str(row["parent_tag_value"]) if row["parent_tag_value"] is not None else None,
+            "activation_mode": str(row["activation_mode"]),
             "created_at": row["created_at"],
             "created_by": str(row["created_by"]),
         }

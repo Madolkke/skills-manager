@@ -45,7 +45,7 @@ class WorkflowHelperMixin:
     def _workflow_validation(self, document: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         from skillhub.models.rules.workflows import validate_workflow_document
 
-        issues = validate_workflow_document(document)
+        issues = validate_workflow_document(document, functions=self.expression_function_contract())
         return {
             "errors": [item for item in issues if item["severity"] == "error"],
             "warnings": [item for item in issues if item["severity"] == "warning"],

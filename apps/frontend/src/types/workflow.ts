@@ -76,7 +76,8 @@ export type WorkflowExpressionEnvironment = {
   config: Record<string, WorkflowExpressionSchema>;
   topo: WorkflowExpressionDeviceEnvironment;
 };
-export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; outputModel?: Record<string, string>; functions: Record<string, unknown>; methods: Record<string, unknown> };
+export type WorkflowExpressionFunction = { name?: string; description?: string; parameters?: string[]; parameterSchema?: WorkflowJsonSchema; returns?: string; returnSchema?: WorkflowJsonSchema; enabled?: boolean; isBuiltin?: boolean };
+export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; outputModel?: Record<string, string>; functions: Record<string, WorkflowExpressionFunction>; methods: Record<string, unknown> };
 export type WorkflowExpressionBatchItem = { id: string; source: string };
 export type WorkflowExpressionBatchValidation = { id: string } & WorkflowExpressionValidation;
 export type WorkflowExpressionBatchResponse = { validations: WorkflowExpressionBatchValidation[] };

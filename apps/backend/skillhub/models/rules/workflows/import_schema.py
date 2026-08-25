@@ -116,7 +116,10 @@ def _normalize_legacy_cli_spec(definition: dict[str, Any]) -> None:
         spec.setdefault("sqlDialect", "duckdb")
 
 
-def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
+def validate_workflow_import_references(
+    bundle: dict[str, Any],
+    functions: dict[str, dict[str, Any]] | None = None,
+) -> None:
     definitions = _definition_map(bundle["collections"])
     workflow = bundle["workflow"]
     nodes = workflow["nodes"]
@@ -162,7 +165,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             workflow.get("deviceRoles", []),
         )
         for transition in step.get("topology", []):
-            diagnostics = validate_template(transition.get("conditionText", ""), environment)
+            diagnostics = validate_template(transition.get("conditionText", ""), environment, functions)
             if diagnostics:
                 raise InvariantError(
                     f"Workflow import condition template is invalid: {step['id']} {transition['id']}: "
@@ -176,7 +179,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             workflow.get("deviceRoles", []),
         )
         for field in ("rootCause", "repairRecommendation"):
-            diagnostics = validate_template(conclusion.get(field, ""), environment)
+            diagnostics = validate_template(conclusion.get(field, ""), environment, functions)
             if diagnostics:
                 raise InvariantError(
                     f"Workflow import conclusion template is invalid: {conclusion['id']} {field}: "

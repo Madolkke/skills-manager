@@ -16,7 +16,7 @@ from skillhub.models.rules.workflows import (
     normalize_workflow_import_bundle,
     workflow_log_schema_catalog,
 )
-from skillhub.models.rules.workflows.expression import expression_contract, validate_expression
+from skillhub.models.rules.workflows.expression import FUNCTIONS, expression_contract_with_functions, validate_expression
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 from skillhub.services.workflow_syncs import WorkflowSyncServiceMixin
@@ -25,23 +25,31 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
+    def _expression_functions(self) -> dict[str, dict[str, Any]]:
+        """Resolve the database catalog while retaining lightweight test fixtures."""
+        resolver = getattr(self.store, "expression_function_contract", None)
+        if resolver is None:
+            return FUNCTIONS
+        return resolver()
+
     def log_schema(self) -> dict[str, Any]:
         """Return the fixed SQL table contract for log Collections."""
         return workflow_log_schema_catalog()
 
     def expression_contract(self) -> dict[str, Any]:
         """Return the public static-analysis contract for Workflow expressions."""
-        return expression_contract()
+        return expression_contract_with_functions(self._expression_functions())
 
     def validate_expression(self, *, source: str, environment: dict[str, Any]) -> dict[str, Any]:
         """Validate an expression without evaluating it or causing external effects."""
-        return validate_expression(source, environment)
+        return validate_expression(source, environment, self._expression_functions())
 
     def validate_expressions(self, *, expressions: list[dict[str, str]], environment: dict[str, Any]) -> dict[str, object]:
         """Validate an ordered expression batch against one shared type environment."""
+        functions = self._expression_functions()
         return {
             "validations": [
-                {"id": item["id"], **validate_expression(item["source"], environment)}
+                {"id": item["id"], **validate_expression(item["source"], environment, functions)}
                 for item in expressions
             ]
         }

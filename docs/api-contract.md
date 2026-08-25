@@ -344,6 +344,8 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 
 `GET /api/workflow-expression-contract` 返回条件表达式允许使用的根变量、函数、方法与类型代数。除 `inputs`、`outputs`、`config` 外，设备角色参数通过 `topo.devices.<roleKey>.<property>` 访问；角色参数只提供 Schema 环境，不在本接口中传输运行时设备值。命令库根 `outputSchema.properties` 在转换为 Workflow Collection 时展开为 `outputs[]` 根属性；已有 Collection 的 object/array 输出不会再次拆分。`environment.outputs` 的命名采集使用 `{sampleCount, fields}` 描述 `outputs.<callKey>.<outputKey>`；无 `callKey` 的直接输出分别使用 `{sampleCount, schema}` 表示 `outputs.<outputKey>` 的值类型；旧字段 map 按单次采集兼容。作者端为某个步骤构造环境时，投影当前步骤及沿 Workflow 图反向可达的所有传递前序步骤，未来和无图连接步骤不进入该环境；未指定步骤上下文的公共投影继续包含全部步骤。条件说明模板和结论模板复用同一变量环境投影；变量查看器仅将该投影的扁平路径转换为可展开树，不新增接口或独立环境格式。
 
+表达式函数目录来自 `expression_functions` 表。契约中的 `functions` 项包含名称、说明、参数 Schema、返回 Schema、启用状态和内置来源；管理员通过 `GET/POST/PUT/DELETE /api/admin/expression-functions` 维护目录（使用现有 `X-SkillHub-Admin-Key`）。函数名及参数名必须是非关键字的 Python 标识符，函数体以 `body + language` 原文保存，仅用于文档和编辑，不解析、不执行。调用校验支持位置参数和关键字参数；未启用或不存在的函数报告 `UNREGISTERED_CALL`。执行器遇到数据库函数调用会明确返回暂不支持执行的诊断，不会把保存的函数体传给 `eval`。内置函数由部署后的 `scripts/seed_expression_functions.py` 手动幂等导入，默认不覆盖后台编辑内容，`--force` 才覆盖。
+
 `POST /api/workflow-expression-validations` 和批量 `POST /api/workflow-expression-validations/batch` 只执行 AST 与类型检查并返回定位诊断；HTTP 接口不执行 expression evaluator。采样下标问题作为 Workflow warning。
 
 `POST /api/skills/{skill_id}/workflow/sync-preview`：

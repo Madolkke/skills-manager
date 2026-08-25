@@ -14,6 +14,7 @@ from skillhub.services import (
     EvaluationReadService,
     EvaluationService,
     ExecutorWorkflowService,
+    ExpressionFunctionService,
     ExternalSkillService,
     OpencodeService,
     ReviewService,
@@ -52,6 +53,10 @@ def executor_workflow_service_dependency(
     session: Session = Depends(session_dependency, scope="function"),
 ) -> ExecutorWorkflowService:
     return ExecutorWorkflowService(SkillHubStore(session))
+
+
+def expression_function_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> ExpressionFunctionService:
+    return ExpressionFunctionService(SkillHubStore(session))
 
 
 def workflow_debug_service_dependency(

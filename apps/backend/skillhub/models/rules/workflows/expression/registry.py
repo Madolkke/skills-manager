@@ -42,7 +42,53 @@ METHODS: dict[str, dict[str, dict[str, Any]]] = {
 }
 
 
+def builtin_function_documents() -> list[dict[str, Any]]:
+    """Build the database seed documents from the legacy static signatures."""
+    parameter_names = {
+        "len": ["value"], "min": ["iterable"], "max": ["iterable"], "sum": ["iterable"],
+        "any": ["iterable"], "all": ["iterable"], "sorted": ["iterable"], "abs": ["value"],
+        "round": ["value", "ndigits"], "str": ["value"], "int": ["value"], "float": ["value"],
+        "bool": ["value"], "list": ["iterable"],
+    }
+    return_schema = {
+        "integer": {"type": "integer"},
+        "number": {"type": "number"},
+        "string": {"type": "string"},
+        "boolean": {"type": "boolean"},
+    }
+    documents: list[dict[str, Any]] = []
+    for name, signature in FUNCTIONS.items():
+        names = parameter_names.get(name, [f"arg{index}" for index, _ in enumerate(signature.get("parameters", []))])
+        properties = {
+            parameter: {"type": "array", "items": {"type": "string"}} if "iterable" in str(spec)
+            else {"type": "number"} if "number" in str(spec)
+            else {"type": "integer"} if "integer" in str(spec)
+            else {"type": "object", "additionalProperties": True, "x-skillhub-legacy-loose": True} if "any" in str(spec) or "sized" in str(spec)
+            else {"type": "string"}
+            for parameter, spec in zip(names, signature.get("parameters", []))
+        }
+        required = [parameter for parameter, spec in zip(names, signature.get("parameters", [])) if not str(spec).endswith("?")]
+        result_schema = return_schema.get(signature.get("returns"), {"type": "string"})
+        if str(signature.get("returns", "")).startswith("array"):
+            result_schema = {"type": "array", "items": {"type": "string"}}
+        documents.append({
+            "name": name,
+            "description": f"内置表达式函数 {name}。",
+            "parameterSchema": {"type": "object", "properties": properties, "required": required, "additionalProperties": False},
+            "returnSchema": result_schema,
+            "body": f"# Built-in expression function: {name}",
+            "language": "python",
+            "isBuiltin": True,
+            "enabled": True,
+        })
+    return documents
+
+
 def expression_contract() -> dict[str, Any]:
+    return expression_contract_with_functions(FUNCTIONS)
+
+
+def expression_contract_with_functions(functions: dict[str, dict[str, Any]]) -> dict[str, Any]:
     return {
         "contractVersion": 1,
         "language": "python-eval",
@@ -53,6 +99,7 @@ def expression_contract() -> dict[str, Any]:
             "multiple": "outputs.<callKey>[<index>].<field>",
             "indexing": "zero-based Python indexing, including negative indexes",
         },
-        "functions": FUNCTIONS,
+        "functions": functions,
         "methods": METHODS,
+        "functionExecution": "Function bodies are stored as text and are not executed.",
     }

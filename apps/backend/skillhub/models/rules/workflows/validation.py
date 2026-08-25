@@ -53,7 +53,7 @@ def _append_device_schema_node_issues(schema, selection, issues, path: str) -> N
         _append_device_schema_node_issues(schema.get("items", {}), selection, issues, f"{path}.items")
 
 
-def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]:
+def validate_workflow_document(document: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     workflow = document["workflow"]
     snapshots = document.get("collectionSnapshots", [])
     definitions = {(item["id"], item["revision"]): item for item in snapshots}
@@ -90,6 +90,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             workflow_input_keys,
             issues,
             reported_unscoped_conflicts,
+            functions,
         )
 
     for conclusion in conclusions:
@@ -100,7 +101,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             workflow["deviceRoles"],
         )
         for field in ("rootCause", "repairRecommendation"):
-            for diagnostic in validate_template(conclusion.get(field, ""), environment):
+            for diagnostic in validate_template(conclusion.get(field, ""), environment, functions):
                 issues.append(
                     issue(
                         diagnostic["code"],
@@ -173,6 +174,7 @@ def _validate_step(
     workflow_input_keys,
     issues,
     reported_unscoped_conflicts,
+    functions,
 ) -> None:
     selection = {"type": "step", "id": step["id"]}
     _append_visible_unscoped_conflicts(
@@ -232,7 +234,7 @@ def _validate_step(
             workflow_roles=workflow_roles,
             all_steps=all_steps,
         )
-        for diagnostic in validate_template(transition.get("conditionText", ""), environment):
+        for diagnostic in validate_template(transition.get("conditionText", ""), environment, functions):
             issues.append(
                 issue(
                     diagnostic["code"],
@@ -244,6 +246,7 @@ def _validate_step(
         expression_result = validate_expression(
             transition.get("conditionExpression", ""),
             environment,
+            functions or None,
         )
         for diagnostic in expression_result["diagnostics"]:
             severity = _expression_diagnostic_severity(diagnostic["code"])

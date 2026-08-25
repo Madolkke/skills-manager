@@ -15,12 +15,13 @@ export type TagCascadeTreeRow =
 
 export function activeTagGroups(groups: TagGroup[], tags: SkillTagPayload[]): ActiveTagGroup[] {
   const selected = new Set(tags.map(tagIdentity));
+  const selectedGroups = new Set(tags.map((tag) => tag.group_id));
   const children = new Map<string, TagGroup[]>();
   const roots: TagGroup[] = [];
   for (const group of groups) {
     if (!group.parent) roots.push(group);
     else {
-      const key = tagIdentity({ group_id: group.parent.group_id, value: group.parent.value });
+      const key = group.parent.group_id;
       children.set(key, [...(children.get(key) ?? []), group]);
     }
   }
@@ -31,10 +32,11 @@ export function activeTagGroups(groups: TagGroup[], tags: SkillTagPayload[]): Ac
     if (visited.has(group.id)) return;
     visited.add(group.id);
     result.push({ group, depth });
-    for (const value of sortTagValues(group)) {
-      const key = tagIdentity({ group_id: group.id, value: value.value });
-      if (!selected.has(key)) continue;
-      for (const child of sortGroups(children.get(key) ?? [])) visit(child, depth + 1);
+    for (const child of sortGroups(children.get(group.id) ?? [])) {
+      const parent = child.parent;
+      if (!parent || !selectedGroups.has(group.id)) continue;
+      if (activationMode(parent) === "parent_value" && !selected.has(tagIdentity({ group_id: group.id, value: parent.value ?? "" }))) continue;
+      visit(child, depth + 1);
     }
   };
   for (const root of sortGroups(roots)) visit(root, 0);
@@ -64,7 +66,11 @@ export function missingActiveRequiredGroups(tags: SkillTagPayload[], groups: Tag
 }
 
 export function childGroupsForValue(groups: TagGroup[], groupId: string, value: string): TagGroup[] {
-  return sortGroups(groups.filter((group) => group.parent?.group_id === groupId && group.parent.value === value));
+  return sortGroups(groups.filter((group) => group.parent?.group_id === groupId && activationMode(group.parent) === "parent_value" && group.parent.value === value));
+}
+
+export function childGroupsForSelectedParent(groups: TagGroup[], groupId: string): TagGroup[] {
+  return sortGroups(groups.filter((group) => group.parent?.group_id === groupId && activationMode(group.parent) === "parent_selected"));
 }
 
 export function rootTagGroups(groups: TagGroup[]): TagGroup[] {
@@ -95,8 +101,8 @@ export function tagGroupPathInfo(groups: TagGroup[], groupId: string): TagPathIn
     const parent = byId.get(group.parent.group_id);
     path.unshift({
       kind: "value",
-      id: group.parent.value,
-      label: valueDisplayName(parent, group.parent.value),
+      id: group.parent.value ?? "parent-selected",
+      label: activationMode(group.parent) === "parent_selected" ? "任意已选值" : valueDisplayName(parent, group.parent.value ?? ""),
     });
     if (!parent) return { segments: path, valid: false, issue: "missing_parent" };
     group = parent;
@@ -129,7 +135,8 @@ export function selectedLeafTags(tags: SkillTagPayload[], groups: TagGroup[]): S
   const selected = new Set(tags.map(tagIdentity));
   return tags.filter((tag) => {
     return !groups.some((group) => {
-      if (group.parent?.group_id !== tag.group_id || group.parent.value !== tag.value) return false;
+      if (group.parent?.group_id !== tag.group_id) return false;
+      if (activationMode(group.parent) === "parent_value" && group.parent.value !== tag.value) return false;
       return tags.some((candidate) => candidate.group_id === group.id && selected.has(tagIdentity(candidate)));
     });
   });
@@ -141,7 +148,7 @@ export function withCascadeParents(groups: TagGroup[], relations: TagCascadeRela
     const relation = parents.get(group.id);
     return {
       ...group,
-      parent: relation ? { group_id: relation.parent_group_id, value: relation.parent_value } : null,
+      parent: relation ? { group_id: relation.parent_group_id, value: relation.parent_value, activation_mode: activationMode(relation) } : null,
     };
   });
 }
@@ -157,6 +164,7 @@ export function buildTagCascadeTreeRows(groups: TagGroup[]): TagCascadeTreeRow[]
       rows.push({ kind: "value", key: `value:${group.id}:${value.value}`, depth: depth + 1, group, value });
       for (const child of childGroupsForValue(groups, group.id, value.value)) visit(child, depth + 2);
     }
+    for (const child of childGroupsForSelectedParent(groups, group.id)) visit(child, depth + 1);
   };
   for (const root of rootTagGroups(groups)) visit(root, 0);
   for (const group of sortGroups(groups)) visit(group, 0);
@@ -189,4 +197,8 @@ function tagIdentity(tag: SkillTagPayload): string {
 
 function valueDisplayName(group: TagGroup | undefined, value: string): string {
   return group?.values.find((item) => item.value === value)?.display_name || value;
+}
+
+function activationMode(relation: Pick<NonNullable<TagGroup["parent"]>, "activation_mode"> | TagCascadeRelation): "parent_value" | "parent_selected" {
+  return relation.activation_mode ?? "parent_value";
 }

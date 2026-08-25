@@ -99,6 +99,11 @@ class TagCatalogHelperMixin:
             raise InvariantError("Tag Group id may only contain letters, numbers, '_' or '-'.")
         return clean
 
+    def _clean_tag_display_mode(self, value: str) -> str:
+        if value not in {"checkbox", "multi_select"}:
+            raise InvariantError("Tag Group display_mode must be checkbox or multi_select.")
+        return value
+
     def _clean_tag_value(self, value: str) -> str:
         clean = value.strip()
         if not clean:

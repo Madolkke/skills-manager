@@ -26,7 +26,7 @@ def iter_template_expressions(source: str) -> Iterator[tuple[str, int, int]]:
         cursor = closing + 2
 
 
-def validate_template(source: str, environment: dict[str, Any]) -> list[dict[str, Any]]:
+def validate_template(source: str, environment: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Validate delimiters and each embedded expression in a template."""
     diagnostics: list[dict[str, Any]] = []
     for expression, start, end in iter_template_expressions(source):
@@ -45,7 +45,7 @@ def validate_template(source: str, environment: dict[str, Any]) -> list[dict[str
         if not expression.strip():
             diagnostics.append({"severity": "error", "code": "TEMPLATE_EMPTY_EXPRESSION", "message": "模板表达式不能为空。", "start": start, "end": end})
             continue
-        result = validate_expression(expression.strip(), environment)
+        result = validate_expression(expression.strip(), environment, functions)
         leading = len(expression) - len(expression.lstrip())
         diagnostics.extend(
             {

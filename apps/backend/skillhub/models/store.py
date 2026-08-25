@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from skillhub.models.operations.bundles import BundleStoreMixin
 from skillhub.models.operations.command_library import CommandLibraryStoreMixin
 from skillhub.models.operations.evaluations import EvaluationStoreMixin
+from skillhub.models.operations.expression_functions import ExpressionFunctionStoreMixin
 from skillhub.models.operations.history import HistoryStoreMixin
 from skillhub.models.operations.opencode import OpencodeStoreMixin
 from skillhub.models.operations.reviews import ReviewStoreMixin
@@ -35,6 +36,7 @@ from skillhub.models.operations.workflows import WorkflowStoreMixin
 class _StoreOperations(
     SkillStoreMixin,
     EvaluationStoreMixin,
+    ExpressionFunctionStoreMixin,
     HistoryStoreMixin,
     OpencodeStoreMixin,
     ReviewStoreMixin,

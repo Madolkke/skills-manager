@@ -3,7 +3,7 @@ import { autocompletion, closeCompletion, completionKeymap, startCompletion } fr
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, placeholder as editorPlaceholder, type ViewUpdate } from "@codemirror/view";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import type { WorkflowExpressionDiagnostic } from "../../../types";
+import type { WorkflowExpressionDiagnostic, WorkflowExpressionFunction } from "../../../types";
 import {
   acceptWorkflowExpressionCompletion,
   createWorkflowExpressionCompletionSource,
@@ -11,10 +11,12 @@ import {
   shouldOpenWorkflowExpressionCompletion,
 } from "../workflowExpressionCompletion";
 import type { WorkflowExpressionVariable } from "../workflowExpressionVariables";
+import { loadWorkflowExpressionFunctions } from "../workflowExpressionFunctions";
 
 const props = withDefaults(defineProps<{
   value: string;
   variables: WorkflowExpressionVariable[];
+  functions?: Record<string, WorkflowExpressionFunction>;
   diagnostics?: WorkflowExpressionDiagnostic[];
   readonly?: boolean;
   placeholder?: string;
@@ -24,11 +26,13 @@ const props = withDefaults(defineProps<{
   placeholder: "可选的机器可读表达式",
   ariaLabel: "条件表达式",
   diagnostics: () => [],
+  functions: () => ({}),
 });
 const emit = defineEmits<{ change: [value: string] }>();
 const host = ref<HTMLDivElement | null>(null);
 const readonlyCompartment = new Compartment();
-const completionSource = createWorkflowExpressionCompletionSource(() => props.variables);
+const expressionFunctions = ref<Record<string, WorkflowExpressionFunction>>({});
+const completionSource = createWorkflowExpressionCompletionSource(() => props.variables, () => ({ ...expressionFunctions.value, ...props.functions }));
 let view: EditorView | null = null;
 let applyingExternalValue = false;
 let completionTimer: number | null = null;
@@ -106,6 +110,7 @@ onMounted(() => {
       ],
     }),
   });
+  void loadWorkflowExpressionFunctions().then((functions) => { expressionFunctions.value = functions; });
 });
 
 onBeforeUnmount(() => {
@@ -140,7 +145,7 @@ function scheduleAutomaticCompletion(update: ViewUpdate): void {
     if (!currentView || props.readonly || !currentView.hasFocus) return;
     const cursor = currentView.state.selection.main.head;
     const valueBeforeCursor = currentView.state.doc.sliceString(0, cursor);
-    if (shouldOpenWorkflowExpressionCompletion(props.variables, valueBeforeCursor)) startCompletion(currentView);
+    if (shouldOpenWorkflowExpressionCompletion(props.variables, valueBeforeCursor, { ...expressionFunctions.value, ...props.functions })) startCompletion(currentView);
     else closeCompletion(currentView);
   }, 0);
 }

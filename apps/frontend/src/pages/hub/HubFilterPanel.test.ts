@@ -44,15 +44,44 @@ describe("HubFilterPanel", () => {
 
     expect(labels).toEqual(["EKS", "平台团队"]);
   });
+
+  it("shows a parent-selected sibling Group only after the parent Group has a selection", () => {
+    const parentSelectedGroups: TagGroup[] = [
+      group("scope", "场景", [["cloud", "云平台"], ["desktop", "桌面端"]]),
+      group("owner", "维护团队", [["core", "核心团队"]], {
+        parent: { group_id: "scope", value: null, activation_mode: "parent_selected" },
+      }),
+    ];
+
+    expect(mountPanel([], parentSelectedGroups).text()).not.toContain("维护团队");
+    expect(mountPanel([{ group_id: "scope", value: "desktop" }], parentSelectedGroups).text()).toContain("维护团队");
+  });
+
+  it("renders multi-select Groups as a selectable menu and emits the selected Tag", async () => {
+    const multiSelectGroups: TagGroup[] = [
+      group("team", "团队", [["core", "核心团队"], ["platform", "平台团队"]], { display_mode: "multi_select" }),
+    ];
+    const wrapper = mountPanel([], multiSelectGroups, {
+      "team\u0000core": 2,
+      "team\u0000platform": 1,
+    });
+
+    expect(wrapper.get(".hub-tag-multi-select summary").text()).toBe("选择候选值");
+    const core = wrapper.get('input[type="checkbox"]');
+    expect(core.attributes("disabled")).toBeUndefined();
+    await core.setValue(true);
+
+    expect(wrapper.emitted("toggle-tag")?.[0]).toEqual([{ group_id: "team", value: "core" }]);
+  });
 });
 
-function mountPanel(selectedTags: SkillTagPayload[]) {
+function mountPanel(selectedTags: SkillTagPayload[], tagGroups = groups, tagCounts: Record<string, number> = {}) {
   return mount(HubFilterPanel, {
     props: {
       query: "",
-      tagGroups: groups,
+      tagGroups,
       selectedTags,
-      tagCounts: {},
+      tagCounts,
       loadingTags: false,
       tagError: "",
     },
