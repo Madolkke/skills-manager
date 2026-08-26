@@ -8,6 +8,11 @@ import type {
 import { workflowSteps } from "./domain/utils";
 import { workflowExpressionEnvironment } from "./workflowExpressionVariables";
 
+type ValidationBatch = {
+  stepId: string;
+  expressions: Array<{ id: string; source: string }>;
+};
+
 const sampleIndexCodes = new Set([
   "SAMPLE_INDEX_REQUIRED",
   "SAMPLE_INDEX_NOT_ALLOWED",
@@ -29,6 +34,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
   let controller: AbortController | null = null;
   let generation = 0;
   let validatedSources: Record<string, string> = {};
+  let requestedSources: Record<string, string> = {};
 
   watch(bundle, schedule, { deep: true, immediate: true });
   if (getCurrentScope()) onScopeDispose(clear);
@@ -62,30 +68,34 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
   });
 
   function schedule(): void {
-    clearRequest();
     if (typeof window === "undefined") return;
     const current = bundle.value;
     if (!current) {
+      clearRequest();
       diagnostics.value = {};
       validatedSources = {};
+      requestedSources = {};
       return;
     }
-    const batches = workflowSteps(current).map((step) => ({
-      step,
-      expressions: step.topology.filter((transition) => transition.conditionExpression.trim()).map((transition) => ({
-        id: workflowExpressionValidationKey(step.id, transition.id), source: transition.conditionExpression,
-      })),
+    const projected = projectValidationBatches(current);
+    const activeSources = projected.sources;
+    const changedIds = Object.keys(activeSources).filter((id) => requestedSources[id] !== activeSources[id]);
+    const removedIds = Object.keys(requestedSources).filter((id) => !Object.hasOwn(activeSources, id));
+    if (!changedIds.length) {
+      if (removedIds.length) {
+        diagnostics.value = Object.fromEntries(Object.entries(diagnostics.value).filter(([id]) => Object.hasOwn(activeSources, id)));
+        validatedSources = Object.fromEntries(Object.entries(validatedSources).filter(([id]) => Object.hasOwn(activeSources, id)));
+        requestedSources = activeSources;
+      }
+      return;
+    }
+    clearRequest();
+    requestedSources = activeSources;
+    const changed = new Set(changedIds);
+    const batches = projected.batches.map((batch) => ({
+      ...batch,
+      expressions: batch.expressions.filter((item) => changed.has(item.id)),
     })).filter((batch) => batch.expressions.length);
-    if (!batches.length) {
-      diagnostics.value = {};
-      validatedSources = {};
-      return;
-    }
-    const activeSources = Object.fromEntries(batches.flatMap((batch) => {
-      const environment = workflowExpressionEnvironment(current, batch.step.id);
-      const environmentFingerprint = JSON.stringify(environment);
-      return batch.expressions.map((item) => [item.id, `${item.source}\u0000${environmentFingerprint}`]);
-    }));
     const requestGeneration = ++generation;
     timer = window.setTimeout(async () => {
       timer = null;
@@ -93,7 +103,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
       try {
         const results = await Promise.allSettled(batches.map((batch) => api.validateWorkflowExpressions(
           batch.expressions,
-          workflowExpressionEnvironment(current, batch.step.id),
+          projected.environments.get(batch.stepId)!,
           controller!.signal,
         )));
         if (requestGeneration !== generation) return;
@@ -106,6 +116,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
         results.forEach((result) => {
           if (result.status !== "fulfilled") return;
           result.value.validations.forEach((item) => {
+            if (requestedSources[item.id] !== activeSources[item.id]) return;
             nextDiagnostics[item.id] = item.diagnostics;
             nextValidatedSources[item.id] = activeSources[item.id] ?? "";
           });
@@ -116,6 +127,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
         if (requestGeneration === generation && !isAbortError(error)) {
           diagnostics.value = Object.fromEntries(Object.entries(diagnostics.value).filter(([id]) => activeSources[id] === validatedSources[id]));
           validatedSources = Object.fromEntries(Object.entries(validatedSources).filter(([id, source]) => activeSources[id] === source));
+          batches.flatMap((batch) => batch.expressions).forEach((item) => delete requestedSources[item.id]);
         }
       }
     }, 300);
@@ -133,6 +145,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
     clearRequest();
     diagnostics.value = {};
     validatedSources = {};
+    requestedSources = {};
   }
 
   return { diagnostics, issues };
@@ -140,6 +153,27 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+function projectValidationBatches(bundle: WorkflowBundle): {
+  batches: ValidationBatch[];
+  sources: Record<string, string>;
+  environments: Map<string, ReturnType<typeof workflowExpressionEnvironment>>;
+} {
+  const environments = new Map<string, ReturnType<typeof workflowExpressionEnvironment>>();
+  const sources: Record<string, string> = {};
+  const batches = workflowSteps(bundle).flatMap((step) => {
+    const expressions = step.topology
+      .filter((transition) => transition.conditionExpression.trim())
+      .map((transition) => ({ id: workflowExpressionValidationKey(step.id, transition.id), source: transition.conditionExpression }));
+    if (!expressions.length) return [];
+    const environment = workflowExpressionEnvironment(bundle, step.id);
+    environments.set(step.id, environment);
+    const fingerprint = JSON.stringify(environment);
+    expressions.forEach((item) => { sources[item.id] = `${item.source}\u0000${fingerprint}`; });
+    return [{ stepId: step.id, expressions }];
+  });
+  return { batches, sources, environments };
 }
 
 function workflowIssueBase(code: string, selection: { type: string; id: string; section: string; itemId: string; field: string }): string {

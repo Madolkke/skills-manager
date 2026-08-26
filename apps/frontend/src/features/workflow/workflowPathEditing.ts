@@ -4,7 +4,7 @@ import { workflowSteps } from "./domain/utils";
 import { newConclusion, newStep, newTransition } from "./editorDefaults";
 import type { WorkflowEditorSnapshot } from "./useWorkflowEditor";
 
-type Commit = (recipe: (draft: WorkflowEditorSnapshot) => void, historyGroup?: string) => void;
+type Commit = (recipe: (draft: WorkflowEditorSnapshot) => void, historyGroup?: string, syncCollectionSnapshots?: boolean) => void;
 
 export type WorkflowPathTargetChoice =
   | { kind: "existing"; id: string }
@@ -54,6 +54,7 @@ export function createWorkflowPathEditing(bundle: Ref<WorkflowBundle | null>, co
     commit(
       (draft) => Object.assign(workflowSteps(draft.bundle).find((item) => item.id === stepId)?.topology.find((item) => item.id === id) ?? {}, patch),
       `path:${stepId}:${id}:${Object.keys(patch).sort().join(",")}`,
+      false,
     );
   }
 

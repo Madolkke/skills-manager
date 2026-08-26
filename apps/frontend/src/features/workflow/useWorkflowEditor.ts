@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, onScopeDispose, ref, shallowRef, watch } from "vue";
 import type { CollectionCall, CollectionDefinition, CollectionType, CommandLibrarySearchResult, VersionedRef, WorkflowBundle, WorkflowCollectionChange, WorkflowDetail, WorkflowMetadata, WorkflowSelection, WorkflowStep } from "../../types";
 import { cloneWorkflow, createWorkflowId, findCall, findCollection, mergeCatalog, nextUniqueKey, syncSnapshots, upsertWorkflowCollectionChange as upsertChange, workflowConclusions, workflowFieldGroup as fieldGroup, workflowSteps } from "./domain/utils";
 import { validateWorkflow } from "./domain/validation";
@@ -22,11 +22,16 @@ export function useWorkflowEditor(readonly: () => boolean) {
   const linkedCallFields = new Map<string, { name: boolean; key: boolean }>();
   const history = useWorkflowHistory(currentSnapshot, restore);
   const expressionValidation = useWorkflowExpressionValidation(bundle);
-  const issues = computed(() => bundle.value
-    ? [...validateWorkflow(bundle.value, catalog.value), ...expressionValidation.issues.value]
-    : []);
+  const localIssues = shallowRef<ReturnType<typeof validateWorkflow>>([]);
+  let validationTimer: number | null = null;
+  const issues = computed(() => [...localIssues.value, ...expressionValidation.issues.value]);
   const ordering = createWorkflowOrdering(bundle, commit);
   const paths = createWorkflowPathEditing(bundle, commit);
+
+  watch([bundle, catalog], scheduleValidation, { deep: true, immediate: true });
+  onScopeDispose(() => {
+    if (validationTimer !== null && typeof window !== "undefined") window.clearTimeout(validationTimer);
+  });
 
   function load(detail: WorkflowDetail, definitions: CollectionDefinition[]): void {
     bundle.value = cloneWorkflow(detail.document);
@@ -35,15 +40,16 @@ export function useWorkflowEditor(readonly: () => boolean) {
     linkedCallFields.clear();
     selection.value = { type: "metadata" };
     history.resetBaseline();
+    flushValidation();
   }
 
-  function commit(recipe: (draft: WorkflowEditorSnapshot) => void, historyGroup = ""): void {
+  function commit(recipe: (draft: WorkflowEditorSnapshot) => void, historyGroup = "", syncCollectionSnapshots = true): void {
     if (!bundle.value || readonly()) return;
     const before = currentSnapshot();
     if (!before) return;
     const draft = cloneWorkflow(before);
     recipe(draft);
-    syncSnapshots(draft.bundle, draft.catalog);
+    if (syncCollectionSnapshots) syncSnapshots(draft.bundle, draft.catalog);
     if (JSON.stringify(before) === JSON.stringify(draft)) return;
     history.record(before, historyGroup);
     restore(draft);
@@ -57,10 +63,11 @@ export function useWorkflowEditor(readonly: () => boolean) {
     linkedCallFields.clear();
     selection.value = validWorkflowSelection(previousSelection, bundle.value, catalog.value);
     history.resetBaseline();
+    flushValidation();
   }
 
   function updateMetadata(patch: Partial<WorkflowMetadata>): void {
-    commit((draft) => Object.assign(draft.bundle.workflow.metadata, patch), fieldGroup("metadata", patch));
+    commit((draft) => Object.assign(draft.bundle.workflow.metadata, patch), fieldGroup("metadata", patch), false);
   }
 
   function addInput(): string {
@@ -70,7 +77,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
   }
 
   function updateInput(id: string, patch: Record<string, unknown>): void {
-    commit((draft) => Object.assign(draft.bundle.workflow.inputs.find((item) => item.id === id) ?? {}, patch), fieldGroup(`input:${id}`, patch));
+    commit((draft) => Object.assign(draft.bundle.workflow.inputs.find((item) => item.id === id) ?? {}, patch), fieldGroup(`input:${id}`, patch), false);
   }
 
   function removeInput(id: string): void {
@@ -82,7 +89,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
   }
 
   function updateDeviceRole(id: string, patch: Record<string, unknown>): void {
-    commit((draft) => Object.assign(draft.bundle.workflow.deviceRoles.find((item) => item.id === id) ?? {}, patch), fieldGroup(`role:${id}`, patch));
+    commit((draft) => Object.assign(draft.bundle.workflow.deviceRoles.find((item) => item.id === id) ?? {}, patch), fieldGroup(`role:${id}`, patch), false);
   }
 
   function removeDeviceRole(id: string): void {
@@ -108,7 +115,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
   }
 
   function updateStep(id: string, patch: Partial<WorkflowStep>): void {
-    commit((draft) => Object.assign(workflowSteps(draft.bundle).find((item) => item.id === id) ?? {}, patch), fieldGroup(`step:${id}`, patch));
+    commit((draft) => Object.assign(workflowSteps(draft.bundle).find((item) => item.id === id) ?? {}, patch), fieldGroup(`step:${id}`, patch), false);
   }
 
   function removeStep(id: string): void {
@@ -126,7 +133,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
   }
 
   function updateConclusion(id: string, patch: Record<string, unknown>): void {
-    commit((draft) => Object.assign(workflowConclusions(draft.bundle).find((item) => item.id === id) ?? {}, patch), fieldGroup(`conclusion:${id}`, patch));
+    commit((draft) => Object.assign(workflowConclusions(draft.bundle).find((item) => item.id === id) ?? {}, patch), fieldGroup(`conclusion:${id}`, patch), false);
   }
 
   function replaceExpressions(search: string, replacement: string, fields: readonly WorkflowExpressionReplaceField[]): WorkflowExpressionReplacementStats {
@@ -245,7 +252,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
     const linked = linkedCallFields.get(callId);
     if (linked && Object.hasOwn(patch, "name")) linked.name = false;
     if (linked && Object.hasOwn(patch, "key")) linked.key = false;
-    commit((draft) => Object.assign(findCall(draft.bundle, stepId, callId) ?? {}, patch), fieldGroup(`call:${stepId}:${callId}`, patch));
+    commit((draft) => Object.assign(findCall(draft.bundle, stepId, callId) ?? {}, patch), fieldGroup(`call:${stepId}:${callId}`, patch), false);
   }
 
   function removeCall(stepId: string, callId: string): void {
@@ -278,7 +285,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
       if (!call) return;
       if (binding) call.inputBindings[inputId] = binding;
       else delete call.inputBindings[inputId];
-    }, `binding:${stepId}:${callId}:${inputId}`);
+    }, `binding:${stepId}:${callId}:${inputId}`, false);
   }
 
   function editCallDefinition(stepId: string, callId: string, mutate: (definition: CollectionDefinition) => void): boolean {
@@ -324,6 +331,21 @@ export function useWorkflowEditor(readonly: () => boolean) {
     return cloneWorkflow({ bundle: bundle.value, catalog: catalog.value, changes: changes.value });
   }
 
+  function scheduleValidation(): void {
+    if (typeof window === "undefined") {
+      flushValidation();
+      return;
+    }
+    if (validationTimer !== null) window.clearTimeout(validationTimer);
+    validationTimer = window.setTimeout(flushValidation, 160);
+  }
+
+  function flushValidation(): void {
+    if (validationTimer !== null && typeof window !== "undefined") window.clearTimeout(validationTimer);
+    validationTimer = null;
+    localIssues.value = bundle.value ? validateWorkflow(bundle.value, catalog.value) : [];
+  }
+
   function restore(value: WorkflowEditorSnapshot): void {
     bundle.value = cloneWorkflow(value.bundle);
     catalog.value = cloneWorkflow(value.catalog);
@@ -332,7 +354,7 @@ export function useWorkflowEditor(readonly: () => boolean) {
 
   return {
     bundle, catalog, selection, changes, issues, expressionDiagnostics: expressionValidation.diagnostics,
-    dirty: history.dirty, canUndo: history.canUndo, canRedo: history.canRedo,
+    dirty: history.dirty, canUndo: history.canUndo, canRedo: history.canRedo, flushValidation,
     load, accepted, undo: history.undo, redo: history.redo, discard: history.discard, updateMetadata, addInput, updateInput, removeInput, addDeviceRole, updateDeviceRole, removeDeviceRole,
     addWorkflowStep, duplicateStep, updateStep, removeStep, addWorkflowConclusion, updateConclusion, replaceExpressions, removeConclusion,
     addPath: paths.addPath, retargetPath: paths.retargetPath, updatePath: paths.updatePath, removePath: paths.removePath, movePath: paths.movePath,

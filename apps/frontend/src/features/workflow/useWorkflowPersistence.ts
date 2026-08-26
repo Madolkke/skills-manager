@@ -6,7 +6,7 @@ import type { useWorkflowEditor } from "./useWorkflowEditor";
 
 type PersistenceEditor = Pick<
   ReturnType<typeof useWorkflowEditor>,
-  "accepted" | "bundle" | "changes" | "dirty" | "load"
+  "accepted" | "bundle" | "changes" | "dirty" | "flushValidation" | "load"
 >;
 
 type WorkflowPersistenceOptions = {
@@ -54,6 +54,8 @@ export function useWorkflowPersistence(options: WorkflowPersistenceOptions) {
 
   async function save(): Promise<void> {
     if (!options.editor.bundle.value || !options.editor.dirty.value || options.readonly()) return;
+    (document.activeElement as HTMLElement | null)?.blur();
+    options.editor.flushValidation();
     const scrollTop = options.editorPane.value?.scrollTop ?? 0;
     saving.value = true;
     saveFeedback.value = "idle";

@@ -32,6 +32,8 @@ const completionSource = createWorkflowExpressionCompletionSource(() => props.va
 let view: EditorView | null = null;
 let applyingExternalValue = false;
 let completionTimer: number | null = null;
+let changeTimer: number | null = null;
+let pendingValue: string | null = null;
 const focusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -83,6 +85,7 @@ onMounted(() => {
             }
             return false;
           },
+          blur() { flushPendingChange(); return false; },
           paste(event, currentView) {
             const text = event.clipboardData?.getData("text/plain");
             if (text === undefined) return false;
@@ -100,7 +103,7 @@ onMounted(() => {
         }),
         EditorView.updateListener.of((update: ViewUpdate) => {
           if (!update.docChanged || applyingExternalValue) return;
-          emit("change", update.state.doc.toString());
+          queueChange(update.state.doc.toString());
           scheduleAutomaticCompletion(update);
         }),
       ],
@@ -110,12 +113,14 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearAutomaticCompletionTimer();
+  flushPendingChange();
   view?.destroy();
   view = null;
 });
 
 watch(() => props.value, (value) => {
   if (!view || view.state.doc.toString() === value) return;
+  flushPendingChange();
   applyingExternalValue = true;
   const anchor = Math.min(view.state.selection.main.head, value.length);
   view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value }, selection: { anchor } });
@@ -149,6 +154,21 @@ function clearAutomaticCompletionTimer(): void {
   if (completionTimer === null) return;
   window.clearTimeout(completionTimer);
   completionTimer = null;
+}
+
+function queueChange(value: string): void {
+  pendingValue = value;
+  if (changeTimer !== null) window.clearTimeout(changeTimer);
+  changeTimer = window.setTimeout(flushPendingChange, 200);
+}
+
+function flushPendingChange(): void {
+  if (changeTimer !== null) window.clearTimeout(changeTimer);
+  changeTimer = null;
+  if (pendingValue === null) return;
+  const value = pendingValue;
+  pendingValue = null;
+  emit("change", value);
 }
 
 function moveEditorFocus(currentView: EditorView, backwards: boolean): boolean {

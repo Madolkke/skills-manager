@@ -67,7 +67,7 @@ describe("Workflow expression batch validation", () => {
     failOtherStep = true;
     current.topology[0]!.conditionExpression = "outputs.status[0].version";
 
-    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(4);
+    await expect.poll(() => validation.mock.calls.length, { timeout: 1000 }).toBe(3);
     await expect.poll(() => result.diagnostics.value["step-current:path-current"]?.[0]?.message).toBe("诊断 step-current:path-current");
     expect(result.diagnostics.value["step-other:path-other"]?.[0]?.message).toBe("诊断 step-other:path-other");
     scope.stop();

@@ -9,6 +9,7 @@ import {
 import type { EditorView } from "@codemirror/view";
 import type { WorkflowExpressionVariable, WorkflowExpressionVariableKind } from "./workflowExpressionVariables";
 import { expandWorkflowExpressionVariable, filterWorkflowExpressionVariables } from "./workflowExpressionVariables";
+import { activeWorkflowTemplateExpression } from "./workflowTemplate";
 
 const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   global: { name: "全局输入", rank: 0 },
@@ -52,6 +53,36 @@ export function createWorkflowExpressionCompletionSource(
       filter: false,
     };
   };
+}
+
+/** Creates a completion source that only replaces the active {{ expression }} fragment. */
+export function createWorkflowTemplateCompletionSource(
+  variables: () => WorkflowExpressionVariable[],
+): CompletionSource {
+  return (context: CompletionContext) => {
+    if (context.state.readOnly) return null;
+    const active = activeWorkflowTemplateExpression(context.state.doc.toString(), context.pos);
+    if (!active || insideQuotedLiteral(active.expression)) return null;
+    const query = completionQuery(variables(), active.expression);
+    if (!query || (!context.explicit && !query.fragment) || !query.matches.length) return null;
+    return {
+      from: active.start + query.from,
+      options: query.matches.map(toCompletion),
+      filter: false,
+    };
+  };
+}
+
+/** Reports whether automatic completion should open in the current template expression. */
+export function shouldOpenWorkflowTemplateCompletion(
+  variables: WorkflowExpressionVariable[],
+  source: string,
+  cursor: number,
+): boolean {
+  const active = activeWorkflowTemplateExpression(source, cursor);
+  if (!active || insideQuotedLiteral(active.expression)) return false;
+  if (!active.expression.trim()) return variables.length > 0;
+  return shouldOpenWorkflowExpressionCompletion(variables, active.expression);
 }
 
 type CompletionQuery = { from: number; fragment: string; matches: WorkflowExpressionVariable[] };

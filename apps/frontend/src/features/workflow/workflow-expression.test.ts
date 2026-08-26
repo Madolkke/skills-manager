@@ -8,6 +8,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { nextTick, ref } from "vue";
 import type { CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
 import WorkflowExpressionEditor from "./components/WorkflowExpressionEditor.vue";
+import WorkflowTemplateEditor from "./components/WorkflowTemplateEditor.vue";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
 import {
   acceptWorkflowExpressionCompletion,
@@ -218,6 +219,27 @@ describe("WorkflowExpressionEditor", () => {
     expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(true);
     expect(view.state.doc.toString()).toBe(value);
     expect(editor.classes()).toContain("cm-editor");
+    wrapper.unmount();
+  });
+});
+
+describe("WorkflowTemplateEditor", () => {
+  it("opens completion inside {{ }} and preserves surrounding text", async () => {
+    const variables = workflowExpressionVariables(workflowBundle(), "step-current");
+    const wrapper = mount(WorkflowTemplateEditor, {
+      attachTo: document.body,
+      props: { value: "前缀 {{ out }} 后缀", variables, readonly: false },
+    });
+    await nextTick();
+    const view = EditorView.findFromDOM(wrapper.get(".cm-editor").element as HTMLElement)!;
+    view.focus();
+    view.dispatch({ changes: { from: 6, to: 9, insert: "out" }, selection: { anchor: 9 }, userEvent: "input.type" });
+    await expect.poll(() => completionStatus(view.state), { timeout: 1000 }).toBe("active");
+    expect(document.querySelector(".cm-tooltip-autocomplete")).not.toBeNull();
+    expect(acceptWorkflowExpressionCompletion(view)).toBe(true);
+    await nextTick();
+    expect(view.state.doc.toString()).toContain("前缀 {{ outputs.");
+    expect(view.state.doc.toString()).toContain(" }} 后缀");
     wrapper.unmount();
   });
 });

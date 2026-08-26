@@ -84,6 +84,29 @@ class WorkflowRulesTest(unittest.TestCase):
         self.assertIn("UNKNOWN_PROPERTY", {item["code"] for item in issues})
         self.assertTrue(any(item["selection"].get("field") == "conditionText" for item in issues if item["code"] == "UNKNOWN_PROPERTY"))
 
+    def test_device_role_schema_is_available_to_condition_and_conclusion_templates(self):
+        document = normalize_workflow_document(self._document())
+        document["workflow"]["deviceRoles"] = [{
+            "id": "role-primary", "key": "primary", "name": "主设备", "description": "", "required": True,
+            "schema": {
+                "type": "object", "title": "主设备参数", "description": "", "additionalProperties": False, "required": ["connection"],
+                "properties": {"connection": {"type": "object", "title": "连接", "description": "", "additionalProperties": False, "required": ["ip"], "properties": {"ip": {"type": "string", "title": "IP", "description": ""}}}},
+            },
+        }]
+        document["workflow"]["nodes"][0]["topology"][0]["conditionText"] = "目标：{{ topo.devices.primary.connection.ip }}"
+        document["workflow"]["nodes"][1]["rootCause"] = "设备地址：{{ topo.devices.primary.connection.ip }}"
+
+        issues = validate_workflow_document(document)
+
+        self.assertNotIn("UNKNOWN_PROPERTY", {item["code"] for item in issues})
+
+        bundle = self._import_bundle()
+        bundle["workflow"]["deviceRoles"] = deepcopy(document["workflow"]["deviceRoles"])
+        bundle["workflow"]["nodes"][0]["topology"] = [{
+            "id": "path-role", "target": {"id": "step-start"}, "conditionText": "目标：{{ topo.devices.primary.connection.ip }}", "conditionExpression": "",
+        }]
+        validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
+
     def test_import_binding_accepts_predecessor_step_output(self):
         bundle = self._import_bundle()
         definition = bundle["collections"][0]

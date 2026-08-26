@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Braces, Plus, Server, Trash2 } from "lucide-vue-next";
+import { Braces, Plus, Server } from "lucide-vue-next";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import UiButton from "../../../components/ui/UiButton.vue";
-import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { DeviceRole, WorkflowJsonSchema, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
+import WorkflowDeviceRoleCard from "./WorkflowDeviceRoleCard.vue";
 import WorkflowSchemaFieldRows from "./WorkflowSchemaFieldRows.vue";
 import WorkflowSchemaEditorModal from "./WorkflowSchemaEditorModal.vue";
 
@@ -26,9 +26,31 @@ const inputSection = ref<HTMLElement | null>(null);
 const roleSection = ref<HTMLElement | null>(null);
 const editingRoleId = ref<string | null>(null);
 const editingRole = computed(() => props.roles.find((role) => role.id === editingRoleId.value));
+const expandedRoleIds = ref<Set<string>>(new Set());
+const initializedRoleIds = ref<Set<string>>(new Set());
 
 onMounted(() => focusSection(props.target));
 watch(() => props.target, (target) => void nextTick(() => focusSection(target)));
+watch(
+  () => props.roles.map((role) => role.id),
+  (ids) => {
+    const current = new Set(ids);
+    const next = new Set([...expandedRoleIds.value].filter((id) => current.has(id)));
+    if (initializedRoleIds.value.size) ids.filter((id) => !initializedRoleIds.value.has(id)).forEach((id) => next.add(id));
+    initializedRoleIds.value = current;
+    expandedRoleIds.value = next;
+  },
+  { immediate: true },
+);
+watch(
+  () => props.issues,
+  () => {
+    const next = new Set(expandedRoleIds.value);
+    props.roles.filter((role) => roleIssues(role).length).forEach((role) => next.add(role.id));
+    expandedRoleIds.value = next;
+  },
+  { deep: true, immediate: true },
+);
 
 function focusSection(target: "inputs" | "roles"): void {
   const section = target === "inputs" ? inputSection.value : roleSection.value;
@@ -54,6 +76,26 @@ function roleIssues(role: DeviceRole): WorkflowValidationIssue[] {
 
 function roleSchema(role: DeviceRole): WorkflowJsonSchema {
   return role.schema ?? { type: "object", title: `${role.name || role.key} 参数`, description: "", properties: {}, required: [], additionalProperties: false };
+}
+
+function toggleRole(roleId: string): void {
+  const next = new Set(expandedRoleIds.value);
+  if (next.has(roleId)) next.delete(roleId);
+  else next.add(roleId);
+  expandedRoleIds.value = next;
+}
+
+function addRole(): void {
+  const previousIds = new Set(props.roles.map((item) => item.id));
+  emit("add-role");
+  void nextTick(() => {
+    const added = props.roles.find((item) => !previousIds.has(item.id));
+    if (!added) return;
+    expandedRoleIds.value = new Set([...expandedRoleIds.value, added.id]);
+    const input = roleSection.value?.querySelector<HTMLInputElement>(`[data-device-role-id="${CSS.escape(added.id)}"] input[aria-label="角色 Key"]`);
+    input?.focus();
+    input?.scrollIntoView({ block: "nearest" });
+  });
 }
 </script>
 
@@ -82,17 +124,10 @@ function roleSchema(role: DeviceRole): WorkflowJsonSchema {
     <section ref="roleSection" :class="['workflow-settings-section', props.target === 'roles' && 'is-target']" tabindex="-1" aria-labelledby="workflow-roles-heading">
       <header class="workflow-settings-section-head">
         <div><Server :size="16" /><span><h3 id="workflow-roles-heading">设备角色 <small>{{ props.roles.length }}</small></h3><p>用逻辑角色描述采集目标，不保存运行时设备。</p></span></div>
-        <UiButton variant="secondary" :disabled="props.readonly" @click="emit('add-role')"><template #icon><Plus /></template>添加设备角色</UiButton>
+        <UiButton variant="secondary" :disabled="props.readonly" @click="addRole"><template #icon><Plus /></template>添加设备角色</UiButton>
       </header>
       <div class="workflow-settings-list">
-        <div v-for="(item, itemIndex) in props.roles" :key="item.id" :data-workflow-item="item.id" :data-workflow-index="itemIndex" class="workflow-setting-row is-role">
-          <label class="workflow-setting-field"><span>角色 Key</span><input class="workflow-key-input" :value="item.key" aria-label="角色 Key" placeholder="primary" :disabled="props.readonly" @input="emit('update-role', item.id, { key: ($event.target as HTMLInputElement).value })" /><small v-for="error in roleIssues(item).filter((issue) => issue.selection.field === 'key')" :key="error.id" class="field-error">{{ error.message }}</small></label>
-          <label class="workflow-setting-field"><span>角色名称</span><input :value="item.name" aria-label="角色名称" placeholder="主设备" :disabled="props.readonly" @input="emit('update-role', item.id, { name: ($event.target as HTMLInputElement).value })" /></label>
-          <label class="workflow-setting-field"><span>角色说明</span><input :value="item.description" aria-label="角色说明" placeholder="角色用途（可选）" :disabled="props.readonly" @input="emit('update-role', item.id, { description: ($event.target as HTMLInputElement).value })" /></label>
-          <label class="workflow-check workflow-setting-required"><input type="checkbox" :checked="item.required" :disabled="props.readonly" @change="emit('update-role', item.id, { required: ($event.target as HTMLInputElement).checked })" />必填</label>
-          <UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="editingRoleId = item.id">{{ item.schema ? `参数 Schema · ${item.schema.type === 'object' ? Object.keys(item.schema.properties).length : 0}` : "配置参数 Schema" }}</UiButton>
-          <UiIconButton label="删除设备角色" size="sm" variant="danger" :disabled="props.readonly" @click="emit('remove-role', item.id)"><Trash2 /></UiIconButton>
-        </div>
+        <WorkflowDeviceRoleCard v-for="(item, itemIndex) in props.roles" :key="item.id" :data-workflow-item="item.id" :data-workflow-index="itemIndex" :role="item" :expanded="expandedRoleIds.has(item.id)" :readonly="props.readonly" :issues="roleIssues(item)" @toggle="toggleRole(item.id)" @change="emit('update-role', item.id, $event)" @remove="emit('remove-role', item.id)" @edit-schema="editingRoleId = item.id" />
         <div v-if="props.roles.length === 0" class="workflow-empty">当前没有设备角色。</div>
       </div>
     </section>

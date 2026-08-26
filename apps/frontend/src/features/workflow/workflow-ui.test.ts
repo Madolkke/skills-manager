@@ -234,13 +234,16 @@ describe("Workflow UI state", () => {
     expect(wrapper.get("h2").text()).toBe("全局输入");
     expect(wrapper.get("#workflow-inputs-heading").text()).toContain("输入参数 1");
     expect(wrapper.get("#workflow-roles-heading").text()).toContain("设备角色 1");
-    expect(wrapper.findAll(".workflow-setting-field > span").map((item) => item.text())).toEqual([
-      "角色 Key", "角色名称", "角色说明",
-    ]);
+    expect(wrapper.findAll(".workflow-device-role-card")).toHaveLength(1);
+    expect(wrapper.text()).toContain("目标设备");
+    expect(wrapper.text()).toContain("未配置参数 Schema");
+    expect(wrapper.find('input[aria-label="角色 Key"]').exists()).toBe(false);
     expect(wrapper.get('input[aria-label="参数变量名"]').attributes("placeholder")).toBe("interface_name");
+    await wrapper.get(".workflow-device-role-toggle").trigger("click");
     expect(wrapper.get('input[aria-label="角色 Key"]').attributes("placeholder")).toBe("primary");
+    expect(wrapper.text()).toContain("topo.devices.device");
     expect(wrapper.find('.workflow-schema-field-grid input[type="checkbox"]').exists()).toBe(false);
-    expect(wrapper.find('.workflow-setting-row.is-role input[type="checkbox"]').exists()).toBe(true);
+    expect(wrapper.find('.workflow-device-role-card input[type="checkbox"]').exists()).toBe(true);
     expect(document.activeElement).toBe(wrapper.get('[aria-labelledby="workflow-inputs-heading"]').element);
 
     await wrapper.findAll("button").find((button) => button.text().includes("添加输入"))!.trigger("click");
@@ -255,6 +258,12 @@ describe("Workflow UI state", () => {
     expect(wrapper.emitted("add-role")).toHaveLength(1);
     expect(wrapper.emitted("update-role")?.[0]).toEqual(["role-1", { name: "主设备" }]);
     expect(wrapper.emitted("remove-role")?.[0]).toEqual(["role-1"]);
+
+    await wrapper.get(".workflow-device-role-toggle").trigger("click");
+    await wrapper.setProps({
+      issues: [{ id: "role-key", code: "INVALID_ROLE_KEY", severity: "error", message: "角色 key 无效", selection: { type: "roles", itemId: "role-1", field: "key" } }],
+    });
+    expect(wrapper.find('input[aria-label="角色 Key"]').exists()).toBe(true);
 
     await wrapper.setProps({ target: "roles" });
     await nextTick();

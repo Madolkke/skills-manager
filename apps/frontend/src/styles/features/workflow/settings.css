@@ -17,6 +17,158 @@
   grid-template-columns: minmax(86px, .75fr) minmax(110px, .9fr) minmax(140px, 1.4fr) auto 30px;
 }
 
+.workflow-device-role-card {
+  overflow: clip;
+  border: 1px solid var(--wf-border-subtle);
+  border-radius: 6px;
+  background: var(--wf-surface);
+}
+
+.workflow-device-role-card.is-expanded { border-color: var(--wf-border); }
+
+.workflow-device-role-card.has-issues { border-color: var(--ui-danger-border, #d99595); }
+
+.workflow-device-role-card-head {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--wf-surface-subtle);
+}
+
+.workflow-device-role-toggle {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workflow-device-role-toggle:hover .workflow-device-role-title strong { color: var(--wf-accent-strong); }
+
+.workflow-device-role-toggle > svg { flex: 0 0 auto; color: var(--wf-text-muted); }
+
+.workflow-device-role-title {
+  min-width: 88px;
+  display: grid;
+  gap: 1px;
+}
+
+.workflow-device-role-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.workflow-device-role-title code,
+.workflow-device-role-path code,
+.workflow-device-role-paths code {
+  font-family: var(--mono-font);
+}
+
+.workflow-device-role-title code { color: var(--wf-text-muted); font-size: 11px; }
+
+.workflow-device-role-badge,
+.workflow-device-role-schema-status,
+.workflow-device-role-error {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wf-text-secondary);
+  font-size: var(--wf-font-label);
+}
+
+.workflow-device-role-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--wf-surface-hover);
+}
+
+.workflow-device-role-badge.is-required { color: var(--wf-accent-strong); }
+
+.workflow-device-role-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ui-danger-text, #a93d3d);
+}
+
+.workflow-device-role-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+
+.workflow-device-role-card-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--wf-border-subtle);
+}
+
+.workflow-device-role-fields {
+  display: grid;
+  grid-template-columns: minmax(100px, .8fr) minmax(120px, 1fr) minmax(160px, 1.6fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.workflow-device-role-path,
+.workflow-device-role-schema-summary {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid var(--wf-border-subtle);
+  border-radius: 5px;
+  background: var(--wf-surface-subtle);
+}
+
+.workflow-device-role-path > span,
+.workflow-device-role-schema-summary strong {
+  color: var(--wf-text-secondary);
+  font-size: var(--wf-font-label);
+  font-weight: 750;
+}
+
+.workflow-device-role-path code {
+  width: fit-content;
+  max-width: 100%;
+  overflow: auto;
+  color: var(--wf-accent-strong);
+  font-size: 12px;
+}
+
+.workflow-device-role-path small,
+.workflow-device-role-schema-summary p {
+  color: var(--wf-text-muted);
+  font-size: var(--wf-font-label);
+}
+
+.workflow-device-role-schema-summary { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+
+.workflow-device-role-paths { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+
+.workflow-device-role-paths code {
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 5px;
+  border: 1px solid var(--wf-border);
+  border-radius: 3px;
+  color: var(--wf-text-secondary);
+  font-size: 10px;
+}
+
+.workflow-device-role-issues {
+  display: grid;
+  gap: 3px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  color: var(--ui-danger-text, #a93d3d);
+  font-size: var(--wf-font-label);
+}
+
 .workflow-setting-field {
   min-width: 0;
   display: grid;
@@ -109,4 +261,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .workflow-settings-section-head { transition: none; }
+}
+
+@media (max-width: 760px) {
+  .workflow-device-role-card-head { align-items: flex-start; flex-wrap: wrap; }
+  .workflow-device-role-toggle { flex-basis: calc(100% - 2px); }
+  .workflow-device-role-actions { width: 100%; justify-content: flex-end; }
+  .workflow-device-role-schema-status { display: none; }
+  .workflow-device-role-fields,
+  .workflow-device-role-schema-summary { grid-template-columns: 1fr; }
+  .workflow-device-role-paths { justify-content: flex-start; }
 }
