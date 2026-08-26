@@ -125,6 +125,12 @@
 .workflow-template-editor .cm-editor { min-height: 8rem; background: transparent; }
 .workflow-template-editor .cm-scroller { min-height: 8rem; overflow: auto; }
 .workflow-template-editor .cm-content { min-height: 7rem; padding: .65rem .75rem; font-family: var(--mono-font, ui-monospace, monospace); white-space: pre-wrap; overflow-wrap: anywhere; }
+.workflow-template-field { min-width: 0; overflow: visible; }
+.workflow-template-editor { position: relative; overflow: visible; }
+.workflow-template-editor .cm-tooltip-autocomplete { min-width: min(420px, calc(100vw - 32px)); max-width: min(720px, calc(100vw - 32px)); max-height: 420px; overflow: auto; z-index: 30; }
+.workflow-template-editor .cm-completionInfo { max-width: min(560px, calc(100vw - 32px)); max-height: 220px; overflow: auto; }
+.workflow-template-editor .cm-completionLabel { font-family: var(--mono-font); overflow-wrap: anywhere; white-space: normal; }
+.workflow-template-editor .cm-completionDetail { overflow-wrap: anywhere; white-space: normal; }
 .workflow-template-editor:focus-within { border-color: var(--wf-accent, #3b82f6); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wf-accent, #3b82f6) 16%, transparent); }
 .workflow-template-editor.is-readonly { background: var(--wf-surface-muted, #eef1f5); }
 .workflow-template-diagnostics, .workflow-expression-diagnostics { margin: .45rem 0 0; padding-left: 1.1rem; color: #a53b31; font-size: .78rem; }

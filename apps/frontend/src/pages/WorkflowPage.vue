@@ -121,6 +121,7 @@ function resolveSelection(selection: WorkflowSelection): WorkflowSelection {
 }
 
 function showValidation(): void {
+  editor.flushValidation();
   layout.setGraphExpanded(false);
   previewTab.value = "validation";
   layout.rightCollapsed.value = false;

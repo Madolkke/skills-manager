@@ -140,11 +140,13 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 | 字段 | 类型 | 必填 | 默认值 | 含义 |
 | --- | --- | --- | --- | --- |
 | `id` | `string` | 是 | - | 设备角色身份。 |
-| `key` | `string` | 是 | - | 设备角色机器可读名称，在 Workflow 内唯一。 |
-| `name` | `string` | 是 | - | 设备角色展示名称。 |
+| `key` | `string` | 是 | - | 设备角色机器可读名称，在 Workflow 内唯一，也是表达式稳定路径段；必须是非私有 Python 标识符。 |
+| `name` | `string` | 是 | - | 设备角色展示名称；修改不会改变已有表达式路径。 |
 | `description` | `string` | 否 | `""` | 设备角色说明。 |
 | `required` | `boolean` | 否 | `true` | 执行 Workflow 时是否必须提供该角色对应的设备。 |
-| `schema` | `WorkflowJsonSchema \| null` | 否 | - | 可选的设备参数 object Schema；表达式通过 `topo.devices.<roleKey>.<property>` 访问。 |
+| `schema` | `WorkflowJsonSchema \| null` | 否 | - | 可选的设备参数 object Schema；合法的递归属性通过 `topo.devices.<roleKey>.<property>` 访问。 |
+
+设备角色 Schema 只提供作者侧表达式的类型信息，可用于条件判定、条件说明模板、结论模板和变量查看器；不会向执行器或调试请求注入运行时设备参数值。未配置或不合法的 Schema 不生成 `topo.devices` 变量。
 
 ## Collection
 

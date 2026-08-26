@@ -10,6 +10,7 @@ import type {
 import { findCollection } from "./domain/utils";
 import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema";
 import { isWorkflowExpressionIdentifier } from "./workflowExpressionSyntax";
+import { isWorkflowDeviceIdentifier, isWorkflowDeviceSchemaProjectable } from "./workflowDeviceRoleSchema";
 import { workflowConclusionVisibleSteps, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
 
 export type WorkflowExpressionVariableKind = "global" | "output" | "config" | "device";
@@ -47,7 +48,7 @@ export function workflowExpressionVariablesForSteps(bundle: WorkflowBundle, step
   });
 
   bundle.workflow.deviceRoles.forEach((role) => {
-    if (!role.schema || role.schema.type !== "object" || !isWorkflowExpressionIdentifier(role.key) || role.key.startsWith("_")) return;
+    if (!isWorkflowDeviceIdentifier(role.key) || !isWorkflowDeviceSchemaProjectable(role.schema)) return;
     appendSchemaVariables(variables, {
       id: `device:${role.id}`, reference: `topo.devices.${role.key}`, kind: "device",
       name: role.name || role.key, source: "设备角色", aliases: [role.key, role.name], schema: role.schema,
@@ -103,7 +104,7 @@ export function workflowExpressionEnvironmentForSteps(bundle: WorkflowBundle, st
   });
 
   const deviceProperties: Record<string, WorkflowJsonSchema> = Object.fromEntries(
-    bundle.workflow.deviceRoles.filter((role) => role.schema?.type === "object" && isWorkflowExpressionIdentifier(role.key) && !role.key.startsWith("_")).map((role) => [role.key, role.schema!]),
+    bundle.workflow.deviceRoles.filter((role) => isWorkflowDeviceIdentifier(role.key) && isWorkflowDeviceSchemaProjectable(role.schema)).map((role) => [role.key.trim(), role.schema!] as const),
   );
   const configCandidates = new Map<string, WorkflowExpressionSchema | null>();
   steps.forEach((step) => step.collectionCalls.forEach((call) => {

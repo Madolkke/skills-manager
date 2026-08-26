@@ -76,7 +76,7 @@ def test_skill_identity_revision_upgrades_the_baseline_without_data_loss() -> No
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0007_command_library"
+        assert current_revision(engine) == expected_revision()
         with engine.connect() as connection:
             assert "display_name" in {column["name"] for column in inspect(connection).get_columns("skills")}
             assert connection.scalar(text("select slug from skills where id = 'skill-existing'")) == "existing-skill"
@@ -124,7 +124,7 @@ def test_workflow_migrations_preserve_history_and_mark_existing_sync_changed() -
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0007_command_library"
+        assert current_revision(engine) == expected_revision()
         with engine.connect() as connection:
             workflow = connection.execute(
                 text(
@@ -232,7 +232,7 @@ def test_workflow_document_schema_revisions_reject_downgrade() -> None:
         with pytest.raises(RuntimeError, match="irreversible"), engine.begin() as connection:
             config.attributes["connection"] = connection
             command.downgrade(config, "0003_workflow_skill_generators")
-        assert current_revision(engine) == "0007_command_library"
+        assert current_revision(engine) == expected_revision()
     finally:
         _reset_database(engine)
         engine.dispose()
@@ -255,7 +255,7 @@ def test_prepare_database_bridges_legacy_workflow_json_schema_revision() -> None
 
         prepare_database(engine)
 
-        assert current_revision(engine) == "0007_command_library"
+        assert current_revision(engine) == expected_revision()
         with engine.connect() as connection:
             workflow = connection.execute(
                 text("select revision, document_schema_version from workflows where id = 'workflow-v3'")
@@ -279,7 +279,7 @@ def test_workflow_merge_revision_upgrades_either_branch_to_one_head(branch_revis
 
         upgrade_database(engine)
 
-        assert current_revision(engine) == "0007_command_library"
+        assert current_revision(engine) == expected_revision()
         with engine.connect() as connection:
             assert {"workflow_debug_cases", "workflow_debug_runs"} <= set(inspect(connection).get_table_names())
             workflow_default = next(

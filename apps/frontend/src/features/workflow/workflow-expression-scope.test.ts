@@ -212,6 +212,49 @@ describe("Workflow graph-scoped expression environment", () => {
     expect(validation.mock.calls[0]?.[1].outputs.unrelated).toBeUndefined();
     scope.stop();
   });
+
+  it("projects valid nested device schemas and excludes invalid role paths", () => {
+    const bundle = graphBundle();
+    bundle.workflow.deviceRoles = [
+      {
+        id: "role-primary", key: "primary", name: "主设备", description: "", required: true,
+        schema: {
+          type: "object", title: "主设备参数", description: "", additionalProperties: false, required: ["connection"],
+          properties: {
+            connection: {
+              type: "object", title: "连接", description: "", additionalProperties: false, required: ["ip"],
+              properties: { ip: { type: "string", title: "IP", description: "" } },
+            },
+            interfaces: {
+              type: "array", title: "接口", description: "",
+              items: {
+                type: "object", title: "接口项", description: "", additionalProperties: false, required: ["name"],
+                properties: { name: { type: "string", title: "名称", description: "" } },
+              },
+            },
+          },
+        },
+      },
+      {
+        id: "role-invalid", key: "invalid", name: "无效", description: "", required: false,
+        schema: {
+          type: "object", title: "无效", description: "", additionalProperties: false, required: [],
+          properties: { "bad-key": { type: "string", title: "无效", description: "" } },
+        },
+      },
+    ];
+
+    const references = workflowExpressionVariables(bundle, "step-current").map((item) => item.reference);
+    const environment = workflowExpressionEnvironment(bundle, "step-current");
+
+    expect(references).toEqual(expect.arrayContaining([
+      "topo.devices.primary",
+      "topo.devices.primary.connection.ip",
+      "topo.devices.primary.interfaces[0].name",
+    ]));
+    expect(references).not.toContain("topo.devices.invalid");
+    expect(Object.keys(environment.topo.devices)).toEqual(["primary"]);
+  });
 });
 
 async function completion(

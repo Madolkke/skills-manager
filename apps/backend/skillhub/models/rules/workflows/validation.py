@@ -12,7 +12,9 @@ from .expression.environment import (
     binding_scope_calls,
     conclusion_scope_steps,
     expression_scope_steps,
+    is_device_expression_identifier,
     is_expression_identifier,
+    is_projectable_device_schema,
     project_workflow_expression_environment,
 )
 from .json_schema import schema_title, schemas_assignable, value_matches_schema
@@ -21,7 +23,7 @@ from .validation_helpers import append_duplicates, append_legacy_schema_warnings
 
 
 def _is_device_identifier(value: str) -> bool:
-    return is_expression_identifier(value) and not value.startswith("_")
+    return is_device_expression_identifier(value)
 
 
 def _append_device_role_schema_issues(roles, issues) -> None:
@@ -33,16 +35,22 @@ def _append_device_role_schema_issues(roles, issues) -> None:
         schema = role.get("schema")
         if schema is None:
             continue
-        if schema.get("type") != "object" or not isinstance(schema.get("properties"), dict) or not isinstance(schema.get("required"), list) or schema.get("additionalProperties") is not False:
-            issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色参数 Schema 根节点必须是 object，并包含 properties、required 和 additionalProperties=false。", {**selection, "field": "schema"}))
-            continue
+        if not is_projectable_device_schema(schema):
+            if not isinstance(schema, dict) or schema.get("type") != "object" or not isinstance(schema.get("properties"), dict) or not isinstance(schema.get("required"), list) or schema.get("additionalProperties") is not False:
+                issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色参数 Schema 根节点必须是 object，并包含 properties、required 和 additionalProperties=false。", {**selection, "field": "schema"}))
         _append_device_schema_node_issues(schema, selection, issues, "schema")
 
 
 def _append_device_schema_node_issues(schema, selection, issues, path: str) -> None:
+    if not isinstance(schema, dict):
+        issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色参数 Schema 必须是受支持的 JSON Schema 节点。", {**selection, "field": path}))
+        return
     if schema.get("type") == "object":
         properties = schema.get("properties", {})
         required = schema.get("required", [])
+        if not isinstance(properties, dict) or not isinstance(required, list) or schema.get("additionalProperties") is not False:
+            issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色对象 Schema 必须包含 properties、required 且禁止额外属性。", {**selection, "field": path}))
+            return
         if len(required) != len(set(required)) or not set(required).issubset(properties):
             issues.append(issue("DEVICE_ROLE_SCHEMA_REQUIRED_INVALID", "error", "设备角色 Schema 的 required 必须唯一且只能引用已有属性。", {**selection, "field": path}))
         for key, child in properties.items():
@@ -51,6 +59,8 @@ def _append_device_schema_node_issues(schema, selection, issues, path: str) -> N
             _append_device_schema_node_issues(child, selection, issues, f"{path}.properties.{key}")
     elif schema.get("type") == "array":
         _append_device_schema_node_issues(schema.get("items", {}), selection, issues, f"{path}.items")
+    elif schema.get("type") not in {"string", "integer", "number", "boolean"}:
+        issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色 Schema 只支持标量、object 和 array 节点。", {**selection, "field": path}))
 
 
 def validate_workflow_document(document: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:

@@ -60,6 +60,48 @@ def test_device_role_schema_is_projected_under_topo_devices() -> None:
     assert environment["topo"]["devices"]["primary"] == role_schema
 
 
+def test_device_role_projection_supports_nested_objects_and_arrays_and_hides_invalid_roles() -> None:
+    role_schema = {
+        "type": "object",
+        "properties": {
+            "connection": {
+                "type": "object",
+                "properties": {"ip": {"type": "string"}},
+                "required": ["ip"],
+                "additionalProperties": False,
+            },
+            "interfaces": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}},
+                    "required": ["name"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["connection"],
+        "additionalProperties": False,
+    }
+    document = {
+        "workflow": {
+            "inputs": [],
+            "deviceRoles": [
+                {"id": "primary", "key": "primary", "name": "主设备", "schema": role_schema},
+                {"id": "invalid", "key": "invalid", "name": "无效设备", "schema": {**role_schema, "properties": {"bad-key": {"type": "string"}}}},
+            ],
+            "nodes": [],
+        },
+        "collectionSnapshots": [],
+    }
+
+    environment = workflow_expression_environment(document)
+
+    assert validate_expression("topo.devices.primary.connection.ip", environment)["diagnostics"] == []
+    assert validate_expression("topo.devices.primary.interfaces[0].name", environment)["diagnostics"] == []
+    assert set(environment["topo"]["devices"]) == {"primary"}
+
+
 def test_scope_is_cycle_safe_and_preserves_document_order() -> None:
     steps = [
         _step("future", "future", "future", ["current"]),

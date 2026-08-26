@@ -5,6 +5,7 @@ import { logCollectionIssues } from "./logValidation";
 import { configCollectionIssues } from "./configValidation";
 import { findCollection, workflowConclusions, workflowSteps } from "./utils";
 import { isWorkflowExpressionIdentifier } from "../workflowExpressionSyntax";
+import { isWorkflowDeviceIdentifier } from "../workflowDeviceRoleSchema";
 import { workflowBindingVisibleCalls, workflowExpressionVisibleSteps } from "../workflowExpressionScope";
 import { parseCliCommandParameters } from "./cliCommandParameters";
 import { scanWorkflowTemplate } from "../workflowTemplate";
@@ -116,14 +117,10 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
   return assignIssueIds(issues);
 }
 
-function validDeviceIdentifier(value: string): boolean {
-  return isWorkflowExpressionIdentifier(value) && !value.startsWith("_");
-}
-
 function validateDeviceRoles(roles: WorkflowBundle["workflow"]["deviceRoles"], issues: WorkflowValidationIssue[]): void {
   roles.forEach((role) => {
     const selection: WorkflowSelection = { type: "roles", itemId: role.id };
-    if (!validDeviceIdentifier(role.key.trim())) add(issues, "INVALID_ROLE_KEY", "error", `设备角色 key“${role.key}”必须是合法的 Python 标识符且不能以下划线开头。`, { ...selection, field: "key" });
+    if (!isWorkflowDeviceIdentifier(role.key)) add(issues, "INVALID_ROLE_KEY", "error", `设备角色 key“${role.key}”必须是合法的 Python 标识符且不能以下划线开头。`, { ...selection, field: "key" });
     if (!role.schema) return;
     if (role.schema.type !== "object" || role.schema.additionalProperties !== false) {
       add(issues, "DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色参数 Schema 根节点必须是 object，并禁止额外属性。", { ...selection, field: "schema" });
@@ -135,12 +132,16 @@ function validateDeviceRoles(roles: WorkflowBundle["workflow"]["deviceRoles"], i
 
 function validateDeviceSchema(schema: WorkflowJsonSchema, selection: WorkflowSelection, issues: WorkflowValidationIssue[], path: string): void {
   if (schema.type === "object") {
+    if (schema.additionalProperties !== false) {
+      add(issues, "DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色对象 Schema 必须禁止额外属性。", { ...selection, field: path });
+    }
     if (new Set(schema.required).size !== schema.required.length || schema.required.some((key) => !(key in schema.properties))) add(issues, "DEVICE_ROLE_SCHEMA_REQUIRED_INVALID", "error", "设备角色 Schema 的 required 必须唯一且只能引用已有属性。", { ...selection, field: path });
     Object.entries(schema.properties).forEach(([key, child]) => {
-      if (!validDeviceIdentifier(key)) add(issues, "INVALID_DEVICE_ROLE_PROPERTY_KEY", "error", `设备属性 key“${key}”必须是合法的 Python 标识符且不能以下划线开头。`, { ...selection, field: `${path}.properties.${key}` });
+      if (!isWorkflowDeviceIdentifier(key)) add(issues, "INVALID_DEVICE_ROLE_PROPERTY_KEY", "error", `设备属性 key“${key}”必须是合法的 Python 标识符且不能以下划线开头。`, { ...selection, field: `${path}.properties.${key}` });
       validateDeviceSchema(child, selection, issues, `${path}.properties.${key}`);
     });
   } else if (schema.type === "array") validateDeviceSchema(schema.items, selection, issues, `${path}.items`);
+  else if (!schema.type) add(issues, "DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色 Schema 只支持标量、object 和 array 节点。", { ...selection, field: path });
 }
 
 function appendVisibleUnscopedConflicts(

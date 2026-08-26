@@ -1,4 +1,4 @@
-import { computed, shallowRef } from "vue";
+import { computed, ref, shallowRef } from "vue";
 
 const HISTORY_LIMIT = 50;
 const INPUT_GROUP_WINDOW_MS = 750;
@@ -7,25 +7,23 @@ export function useWorkflowHistory<T>(current: () => T | null, restore: (value: 
   const past = shallowRef<T[]>([]);
   const future = shallowRef<T[]>([]);
   const saved = shallowRef<T | null>(null);
+  const dirty = ref(false);
   let lastGroup = "";
   let lastRecordedAt = 0;
-  const dirty = computed(() => {
-    const value = current();
-    return value !== null && saved.value !== null && serialized(value) !== serialized(saved.value);
-  });
-
   function resetBaseline(): void {
     saved.value = current();
     past.value = [];
     future.value = [];
+    dirty.value = false;
     resetGroup();
   }
 
-  function record(before: T, group = ""): void {
+  function record(before: T | null, group = ""): void {
     const now = Date.now();
     const grouped = Boolean(group && group === lastGroup && now - lastRecordedAt <= INPUT_GROUP_WINDOW_MS);
-    if (!grouped) past.value = [...past.value, before].slice(-HISTORY_LIMIT);
+    if (!grouped && before !== null) past.value = [...past.value, before].slice(-HISTORY_LIMIT);
     future.value = [];
+    dirty.value = true;
     lastGroup = group;
     lastRecordedAt = now;
   }
@@ -37,6 +35,7 @@ export function useWorkflowHistory<T>(current: () => T | null, restore: (value: 
     future.value = [value, ...future.value].slice(0, HISTORY_LIMIT);
     past.value = past.value.slice(0, -1);
     restore(previous);
+    reconcileDirty();
     resetGroup();
   }
 
@@ -47,6 +46,7 @@ export function useWorkflowHistory<T>(current: () => T | null, restore: (value: 
     past.value = [...past.value, value].slice(-HISTORY_LIMIT);
     future.value = future.value.slice(1);
     restore(next);
+    reconcileDirty();
     resetGroup();
   }
 
@@ -54,12 +54,18 @@ export function useWorkflowHistory<T>(current: () => T | null, restore: (value: 
     if (saved.value) restore(saved.value);
     past.value = [];
     future.value = [];
+    dirty.value = false;
     resetGroup();
   }
 
   function resetGroup(): void {
     lastGroup = "";
     lastRecordedAt = 0;
+  }
+
+  function reconcileDirty(): void {
+    const value = current();
+    dirty.value = value !== null && saved.value !== null && serialized(value) !== serialized(saved.value);
   }
 
   return {

@@ -14,6 +14,33 @@ def is_expression_identifier(value: str) -> bool:
     return value.isidentifier() and not keyword.iskeyword(value)
 
 
+def is_device_expression_identifier(value: str) -> bool:
+    """Return whether a device role or parameter key can be addressed safely."""
+    return is_expression_identifier(value) and not value.startswith("_")
+
+
+def is_projectable_device_schema(schema: Any) -> bool:
+    """Return whether a role schema can be exposed through ``topo.devices``."""
+    if not isinstance(schema, Mapping):
+        return False
+    schema_type = schema.get("type")
+    if schema_type in {"string", "integer", "number", "boolean"}:
+        return True
+    if schema_type == "array":
+        return is_projectable_device_schema(schema.get("items"))
+    if schema_type != "object":
+        return False
+    properties = schema.get("properties")
+    required = schema.get("required")
+    if schema.get("additionalProperties") is not False or not isinstance(properties, Mapping) or not isinstance(required, list):
+        return False
+    return (
+        len(required) == len(set(required))
+        and all(key in properties for key in required)
+        and all(is_device_expression_identifier(str(key)) and is_projectable_device_schema(value) for key, value in properties.items())
+    )
+
+
 def normalize_expression_environment(environment: dict[str, Any]) -> dict[str, Any]:
     """Normalize legacy output field maps and the v2 explicit call structure."""
     outputs: dict[str, dict[str, Any]] = {}
@@ -208,7 +235,8 @@ def project_workflow_expression_environment(
     devices = {
         str(role.get("key", "")).strip(): role["schema"]
         for role in workflow_roles
-        if str(role.get("key", "")).strip() and isinstance(role.get("schema"), Mapping) and role.get("schema", {}).get("type") == "object"
+        if is_device_expression_identifier(str(role.get("key", "")).strip())
+        and is_projectable_device_schema(role.get("schema"))
     }
     return {
         "inputs": dict(workflow_inputs),
