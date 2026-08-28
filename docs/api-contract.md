@@ -255,6 +255,8 @@ CLI Collection 可选返回 `spec.commandParameterSyntax: "angle-v1"`。启用�
 
 Collection 输入 Binding 支持 `device_role_field`：`reference` 包含稳定的 `role_id` 和 object-only 的点分隔 `path`，作者侧展示为 `topo.devices.<roleKey>.<path>`。数组字段及穿过数组的路径暂不支持；角色 Key 变更后按角色 ID 重新生成展示路径。该类型可保存并参与静态 Schema 校验，但当前执行器和调试请求不注入设备参数值。
 
+Collection 输入 Binding 还支持 `expression`：请求中使用 `{ "kind": "expression", "reference": {}, "expression": "inputs.peer_ip.strip()" }`。表达式仅用于作者侧建模、导入导出和静态校验，作用域与当前参数绑定可见范围一致（当前调用之前的调用及传递前序步骤）。表达式结果必须与目标输入 Schema 可赋值；当前执行器遇到该类型会返回不支持诊断，不执行表达式。
+
 `GET /api/workflow-log-schema` 是全局只读契约接口，使用标准 actor context，不绑定 Skill。接口使用严格 response model，拒绝额外字段；响应严格为：
 
 ```json

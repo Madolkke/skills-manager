@@ -113,9 +113,10 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 | 字段 | 类型 | 必填 | 默认值 | 含义 |
 | --- | --- | --- | --- | --- |
-| `kind` | `string` | 是 | - | 绑定来源类型。当前领域规则支持 `workflow_input`、`collection_output` 和 `literal`。 |
+| `kind` | `string` | 是 | - | 绑定来源类型。当前领域规则支持 `workflow_input`、`collection_output`、`device_role_field`、`expression` 和 `literal`。 |
 | `reference` | `Record<string, string>` | 否 | `{}` | 来源引用，内容由 `kind` 决定。 |
 | `value` | `any` | 否 | `null` | `literal` 绑定使用的固定值；其他绑定类型通常不使用。 |
+| `expression` | `string` | `expression` 必填 | - | 使用当前绑定可见范围计算的表达式；`reference` 必须为空对象，不能与 `value` 同时使用。 |
 
 常见引用形状：
 
@@ -383,7 +384,7 @@ ScriptStep 是脚本类型步骤，包含 BaseStep 的全部字段，并额外�
 }
 ```
 
-`CollectionCall.inputBindings` 的键必须是被调用 Collection 的输入参数 ID。Binding 只描述来源关系；当前后端不会执行命令或计算表达式。
+`CollectionCall.inputBindings` 的键必须是被调用 Collection 的输入参数 ID。Binding 只描述来源关系；当前后端不会执行命令或计算表达式。`expression` 绑定使用普通表达式语法（不使用 `{{ }}`），可引用 `inputs`、`outputs`、`config` 和 `topo.devices`。作用域包含当前调用之前的调用及传递前序步骤调用，不包含当前调用、后续调用、未来步骤或无连接步骤；表达式结果必须可赋值给目标输入 Schema。
 
 Binding 还支持设备角色参数：`device_role_field` 使用 `{ "role_id": "角色 ID", "path": "connection.ip" }` 引用角色 Schema 中的 object 路径。展示路径为 `topo.devices.<roleKey>.<path>`；数组字段和穿过数组的路径首版不支持。角色 Key 变更不会破坏引用，角色或字段失效时由 Workflow 校验报告错误。该绑定目前用于作者侧保存、导入导出和文档生成，执行器和调试运行时暂不注入设备参数值。
 

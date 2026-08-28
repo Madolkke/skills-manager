@@ -233,6 +233,13 @@ class _Converter:
                 "执行器 Workflow 当前不支持设备角色参数绑定；该绑定只能用于作者侧 Workflow。",
             )
             return None
+        if binding.kind == "expression":
+            self._error(
+                f"{path}.kind",
+                "executor_workflow.unsupported_expression_binding",
+                "执行器 Workflow 当前不支持表达式参数绑定；该绑定只能用于作者侧 Workflow。",
+            )
+            return None
         call_id = binding.reference.get("call_id")
         call_matches = [item for item in step.collection_calls if item.id == call_id]
         source_call = self._single_reference(call_matches, f"{path}.reference.call_id", "CollectionCall")

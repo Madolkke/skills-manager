@@ -9,6 +9,7 @@ from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.device_bindings import resolve_device_role_field
 from skillhub.models.rules.workflows.document_migration import migrate_output_v3, migrate_parameter_v3
 from skillhub.models.rules.workflows.expression.environment import (
+    binding_expression_environment,
     binding_scope_calls,
     conclusion_scope_steps,
     expression_scope_steps,
@@ -141,7 +142,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
                     raise InvariantError(f"Workflow import Collection input does not exist: {input_id}")
                 visible_calls, all_calls = binding_scope_calls(nodes, node["id"], call["id"])
                 parameter = next(item for item in definition["inputs"] if item["id"] == input_id)
-                _validate_binding(binding, parameter, workflow_input_ids, visible_calls, all_calls, definitions, node["id"], workflow.get("deviceRoles", []))
+                _validate_binding(binding, parameter, workflow_input_ids, visible_calls, all_calls, definitions, node["id"], workflow.get("deviceRoles", []), nodes)
 
     imported_definitions = {
         (definition["localId"], 1): definition
@@ -156,6 +157,34 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
         for item in workflow["inputs"]
         if item["key"].strip()
     }
+    from skillhub.models.rules.workflows.expression import validate_expression
+    from skillhub.models.rules.workflows.expression.types import type_spec_assignable_to_schema, type_spec_from_serialized
+    for step in (node for node in nodes if "stepType" in node):
+        for call in step.get("collectionCalls", []):
+            definition = definitions[call["definitionLocalId"]]
+            environment = binding_expression_environment(
+                projected_nodes,
+                step["id"],
+                call["id"],
+                imported_definitions,
+                workflow_inputs,
+                workflow.get("deviceRoles", []),
+            )
+            for input_id, binding in (call.get("inputBindings", {}) or {}).items():
+                if binding.get("kind") != "expression":
+                    continue
+                expression = binding.get("expression")
+                if not isinstance(expression, str) or not expression.strip():
+                    raise InvariantError("Workflow import expression Binding cannot be empty.")
+                result = validate_expression(expression, environment)
+                if result["diagnostics"]:
+                    raise InvariantError(
+                        f"Workflow import expression Binding is invalid: {step['id']} {call['id']} {input_id}: "
+                        + "; ".join(item["message"] for item in result["diagnostics"])
+                    )
+                parameter = next(item for item in definition["inputs"] if item["id"] == input_id)
+                if not type_spec_assignable_to_schema(type_spec_from_serialized(result["inferredType"]), parameter["schema"]):
+                    raise InvariantError(f"Workflow import expression Binding Schema is incompatible: {input_id}")
     for step in (node for node in nodes if "stepType" in node):
         environment = project_workflow_expression_environment(
             expression_scope_steps(projected_nodes, step["id"]),
@@ -216,10 +245,15 @@ def _definition_map(definitions: list[dict[str, Any]]) -> dict[str, dict[str, An
     return result
 
 
-def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, current_step_id, workflow_roles) -> None:
+def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, current_step_id, workflow_roles, all_steps=None) -> None:
     kind = binding["kind"]
     reference = binding["reference"]
-    valid = kind == "literal"
+    valid = kind in {"literal", "expression"}
+    if kind == "expression":
+        expression = binding.get("expression")
+        if not isinstance(expression, str) or not expression.strip():
+            raise InvariantError("Workflow import expression Binding cannot be empty.")
+        valid = True
     if kind == "workflow_input":
         valid = reference.get("input_id") in workflow_inputs
     elif kind == "collection_output":

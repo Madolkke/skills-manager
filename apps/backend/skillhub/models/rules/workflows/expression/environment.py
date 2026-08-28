@@ -161,6 +161,30 @@ def binding_scope_calls(
     return visible, all_calls
 
 
+def binding_expression_environment(
+    steps: Sequence[Mapping[str, Any]],
+    source_step_id: str,
+    current_call_id: str,
+    definitions: Mapping[tuple[str, int], Mapping[str, Any]],
+    workflow_inputs: Mapping[str, Any],
+    workflow_roles: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    """Project the expression scope visible while binding one call input."""
+    visible_steps = expression_scope_steps(steps, source_step_id)
+    scoped_steps: list[Mapping[str, Any]] = []
+    for step in visible_steps:
+        if str(step.get("id")) != str(source_step_id):
+            scoped_steps.append(step)
+            continue
+        calls = []
+        for call in step.get("collectionCalls", []):
+            if str(call.get("id")) == str(current_call_id):
+                break
+            calls.append(call)
+        scoped_steps.append({**step, "collectionCalls": calls})
+    return project_workflow_expression_environment(scoped_steps, definitions, workflow_inputs, workflow_roles)
+
+
 def expression_root_types(environment: dict[str, Any]) -> dict[str, TypeSpec]:
     """Build checker root types while retaining fixed collection sample counts."""
     normalized = normalize_expression_environment(environment)

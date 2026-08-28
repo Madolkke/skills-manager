@@ -125,6 +125,26 @@ class WorkflowRulesTest(unittest.TestCase):
         call["inputBindings"]["opaque-parameter-id"]["reference"]["path"] = "interfaces"
         self.assertIn("INVALID_DEVICE_ROLE_BINDING_PATH", {item["code"] for item in validate_workflow_document(document)})
 
+    def test_collection_binding_accepts_expression_and_checks_result_schema(self):
+        document = normalize_workflow_document(self._document())
+        call = document["workflow"]["nodes"][0]["collectionCalls"][0]
+        call["inputBindings"] = {
+            "opaque-parameter-id": {
+                "kind": "expression", "reference": {}, "expression": '"ge0"',
+            },
+        }
+        self.assertNotIn("INCOMPATIBLE_BINDING_SCHEMA", {item["code"] for item in validate_workflow_document(document)})
+        call["inputBindings"]["opaque-parameter-id"]["expression"] = "inputs.missing"
+        self.assertIn("UNKNOWN_PROPERTY", {item["code"] for item in validate_workflow_document(document)})
+
+    def test_import_binding_accepts_expression(self):
+        bundle = normalize_workflow_import_bundle(self._import_bundle())
+        call = bundle["workflow"]["nodes"][0]["collectionCalls"][0]
+        call["inputBindings"] = {
+            "collection-input-interface": {"kind": "expression", "reference": {}, "expression": '"ge0"'},
+        }
+        validate_workflow_import_references(bundle)
+
     def test_import_binding_accepts_predecessor_step_output(self):
         bundle = self._import_bundle()
         definition = bundle["collections"][0]

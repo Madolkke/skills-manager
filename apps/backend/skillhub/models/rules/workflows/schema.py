@@ -70,9 +70,21 @@ class Parameter(WorkflowModel):
 
 
 class Binding(WorkflowModel):
-    kind: Literal["workflow_input", "collection_output", "device_role_field", "literal"]
+    kind: Literal["workflow_input", "collection_output", "device_role_field", "expression", "literal"]
     reference: dict[str, str] = Field(default_factory=dict)
+    expression: str | None = None
     value: Any = None
+
+    @model_validator(mode="after")
+    def validate_binding_shape(self) -> "Binding":
+        if self.kind == "expression":
+            if not isinstance(self.expression, str):
+                raise ValueError("Expression bindings require a string expression")
+            if self.reference or "value" in self.model_fields_set:
+                raise ValueError("Expression bindings cannot include reference or value")
+        elif self.expression is not None:
+            raise ValueError("Only expression bindings may include expression")
+        return self
 
 
 class WorkflowMetadata(WorkflowModel):

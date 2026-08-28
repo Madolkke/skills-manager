@@ -137,6 +137,8 @@ def binding_text(binding, *, workflow_inputs, calls, definitions, roles=None) ->
     if binding["kind"] == "literal":
         value = json.dumps(binding.get("value"), ensure_ascii=False, sort_keys=True)
         return f"固定值 `{value}`"
+    if binding["kind"] == "expression":
+        return f"表达式 `{binding.get('expression', '')}`"
     reference = binding["reference"]
     if binding["kind"] == "workflow_input":
         return named_reference("全局输入", workflow_inputs.get(reference.get("input_id")))

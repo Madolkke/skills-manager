@@ -2,17 +2,21 @@
 import { AlertTriangle, ChevronDown, ChevronUp, GitFork, GripVertical, Pencil, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
-import type { CollectionCall, CollectionDefinition, DeviceRole, WorkflowBinding, WorkflowCollectionChange, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
+import type { CollectionCall, CollectionDefinition, DeviceRole, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { collectionContentSummary, collectionTypeLabel, isConfigCollection, isLogCollection } from "../domain/collectionPresentation";
 import { findCollection } from "../domain/utils";
 import type { WorkflowBindingCall } from "../workflowExpressionScope";
 import { parseScalarLiteral, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { resolveWorkflowDeviceField, workflowDeviceFieldCandidates } from "../workflowDeviceRoleBindings";
+import { workflowBindingExpressionVariables } from "../workflowExpressionVariables";
+import WorkflowExpressionEditor from "./WorkflowExpressionEditor.vue";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
 import WorkflowJsonValueModal from "./WorkflowJsonValueModal.vue";
 
 const props = defineProps<{
   call: CollectionCall;
+  stepId: string;
+  bundle: WorkflowBundle;
   definition?: CollectionDefinition;
   workflowInputs: WorkflowParameter[];
   availableBindingCalls: WorkflowBindingCall[];
@@ -37,7 +41,9 @@ const emit = defineEmits<{
 const requiredInputs = computed(() => props.definition?.inputs.filter((item) => item.required) ?? []);
 const boundCount = computed(() => requiredInputs.value.filter((item) => {
   const binding = props.call.inputBindings[item.id];
-  return Boolean(binding && (binding.kind !== "literal" || (binding.value !== null && binding.value !== undefined && binding.value !== "")));
+  return Boolean(binding && (binding.kind === "expression"
+    ? binding.expression.trim() !== ""
+    : binding.kind !== "literal" || (binding.value !== null && binding.value !== undefined && binding.value !== "")));
 }).length);
 const issueCount = computed(() => props.issues.length);
 const displayName = computed(() => props.call.name || props.definition?.metadata.name || "未命名采集");
@@ -48,6 +54,7 @@ const previousOutputs = computed(() => props.availableBindingCalls.flatMap(({ ca
   return definition?.outputs.map((output) => ({ call, output, definition, step })) ?? [];
 }));
 const deviceFields = computed(() => workflowDeviceFieldCandidates(props.roles, props.call.deviceRoleId));
+const expressionVariables = computed(() => workflowBindingExpressionVariables(props.bundle, props.stepId, props.call.id));
 function selectedDeviceField(inputId: string) {
   const binding = props.call.inputBindings[inputId];
   if (binding?.kind !== "device_role_field") return null;
@@ -92,9 +99,15 @@ function collectionBindingValue(inputId: string): string {
   return binding?.kind === "collection_output" ? `${binding.reference.call_id}:${binding.reference.output_id}` : ":";
 }
 
+function expressionBindingValue(inputId: string): string {
+  const binding = props.call.inputBindings[inputId];
+  return binding?.kind === "expression" ? binding.expression : "";
+}
+
 function setBinding(inputId: string, kind: string): void {
   if (!kind) return emit("binding", inputId, null);
-  if (kind !== "literal" && kind !== "workflow_input" && kind !== "collection_output" && kind !== "device_role_field") return;
+  if (kind !== "literal" && kind !== "workflow_input" && kind !== "collection_output" && kind !== "device_role_field" && kind !== "expression") return;
+  if (kind === "expression") return emit("binding", inputId, { kind, reference: {}, expression: "" });
   if (kind === "literal") return emit("binding", inputId, { kind, reference: {}, value: "" });
   if (kind === "collection_output") {
     const item = previousOutputs.value[0];
@@ -119,6 +132,12 @@ function literalMismatch(input: WorkflowParameter): boolean {
 
 function hasIssue(field: string): boolean {
   return props.issues.some((item) => item.selection.type === "step" && item.selection.itemId === props.call.id && item.selection.field === field);
+}
+
+function expressionDiagnostics(inputId: string) {
+  return props.issues
+    .filter((item) => item.selection.type === "step" && item.selection.itemId === props.call.id && item.selection.field === `binding.${inputId}`)
+    .map((item) => ({ severity: "error" as const, code: item.code, message: item.message, start: 0, end: Math.max(expressionBindingValue(inputId).length, 1) }));
 }
 
 function operationLabel(): string {
@@ -168,10 +187,11 @@ function operationLabel(): string {
           <div class="workflow-subhead"><div><h4>参数绑定</h4><p>{{ boundCount }}/{{ requiredInputs.length }} 个必填参数已绑定</p></div></div>
           <div v-for="input in props.definition.inputs" :key="input.id" :class="['workflow-binding-row', hasIssue(`binding.${input.id}`) && 'field-invalid']">
             <span><strong>{{ workflowSchemaTitle(input.schema, input.key) }}</strong><small>{{ input.key }} · {{ input.schema.type ?? "any" }}</small></span>
-            <select :value="bindingKind(input.id)" :disabled="props.readonly" @change="setBinding(input.id, ($event.target as HTMLSelectElement).value)"><option value="">未绑定</option><option value="workflow_input">全局输入</option><option value="device_role_field">设备角色参数</option><option value="collection_output">前序采集输出</option><option value="literal">固定值</option></select>
+            <select :value="bindingKind(input.id)" :disabled="props.readonly" @change="setBinding(input.id, ($event.target as HTMLSelectElement).value)"><option value="">未绑定</option><option value="workflow_input">全局输入</option><option value="device_role_field">设备角色参数</option><option value="collection_output">前序采集输出</option><option value="expression">表达式</option><option value="literal">固定值</option></select>
             <select v-if="bindingKind(input.id) === 'workflow_input'" :value="workflowInputBindingValue(input.id)" :disabled="props.readonly" @change="emit('binding', input.id, { kind: 'workflow_input', reference: { input_id: ($event.target as HTMLSelectElement).value } })"><option v-for="item in props.workflowInputs" :key="item.id" :value="item.id">{{ workflowSchemaTitle(item.schema, item.key) }}</option></select>
             <select v-else-if="bindingKind(input.id) === 'collection_output'" :value="collectionBindingValue(input.id)" :disabled="props.readonly" @change="{ const [callId, outputId] = ($event.target as HTMLSelectElement).value.split(':'); emit('binding', input.id, { kind: 'collection_output', reference: { call_id: callId ?? '', output_id: outputId ?? '' } }); }"><option v-if="previousOutputs.length === 0" value=":">没有可用的前序输出</option><option v-for="item in previousOutputs" :key="`${item.call.id}:${item.output.id}`" :value="`${item.call.id}:${item.output.id}`">{{ item.step.name }} · {{ item.call.name || item.definition.metadata.name }} · {{ workflowSchemaTitle(item.output.schema, item.output.key) }}</option></select>
             <select v-else-if="bindingKind(input.id) === 'device_role_field'" :value="deviceBindingValue(input.id)" :disabled="props.readonly" @change="selectDeviceBinding(input.id, ($event.target as HTMLSelectElement).value)"><option v-if="deviceFields.length === 0" value="">没有可用的设备角色字段</option><option v-if="props.call.inputBindings[input.id]?.kind === 'device_role_field' && !selectedDeviceField(input.id)" :value="deviceBindingValue(input.id)">引用已失效</option><option v-for="item in deviceFields" :key="`${item.roleId}:${item.path}`" :value="deviceBindingOptionValue(item)">{{ item.roleName }} ({{ item.roleKey }}) · {{ item.path }} · {{ item.schema.type ?? 'any' }}</option></select>
+            <WorkflowExpressionEditor v-else-if="bindingKind(input.id) === 'expression'" :value="expressionBindingValue(input.id)" :variables="expressionVariables" :diagnostics="expressionDiagnostics(input.id)" :readonly="props.readonly" placeholder="输入参数表达式" :aria-label="`${workflowSchemaTitle(input.schema, input.key)}表达式`" @change="emit('binding', input.id, { kind: 'expression', reference: {}, expression: $event })" />
             <select v-else-if="bindingKind(input.id) === 'literal' && input.schema.type === 'boolean'" :value="String(props.call.inputBindings[input.id]?.value ?? false)" :disabled="props.readonly" @change="setScalarLiteral(input, ($event.target as HTMLSelectElement).value)"><option value="true">true</option><option value="false">false</option></select>
             <button v-else-if="bindingKind(input.id) === 'literal' && (input.schema.type === 'object' || input.schema.type === 'array' || !input.schema.type)" type="button" :class="['workflow-literal-json-button', literalMismatch(input) && 'has-warning']" :disabled="props.readonly" @click="structuredLiteralId = input.id"><Pencil :size="14" />编辑 JSON<span v-if="literalMismatch(input)">Schema 不匹配</span></button>
             <input v-else-if="bindingKind(input.id) === 'literal'" :type="input.schema.type === 'integer' || input.schema.type === 'number' ? 'number' : 'text'" :step="input.schema.type === 'integer' ? '1' : 'any'" :class="literalMismatch(input) && 'field-warning'" :value="String(props.call.inputBindings[input.id]?.value ?? '')" :disabled="props.readonly" @input="setScalarLiteral(input, ($event.target as HTMLInputElement).value)" />

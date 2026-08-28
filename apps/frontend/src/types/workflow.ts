@@ -47,6 +47,7 @@ export type WorkflowBinding =
   | { kind: "workflow_input"; reference: { input_id: string }; value?: never }
   | { kind: "collection_output"; reference: { call_id: string; output_id: string }; value?: never }
   | { kind: "device_role_field"; reference: { role_id: string; path: string }; value?: never }
+  | { kind: "expression"; reference: Record<string, never>; expression: string; value?: never }
   | { kind: "literal"; reference: Record<string, never>; value?: unknown };
 export type WorkflowMetadata = { name: string; code: string; description: string; symptom: string; industry: string; device: string; versions: string[] };
 export type DeviceRole = { id: string; key: string; name: string; description: string; required: boolean; schema?: WorkflowJsonSchema };

@@ -75,6 +75,8 @@ const hasCalls = computed(() => props.step.collectionCalls.length > 0);
         v-for="(call, index) in props.step.collectionCalls"
         :key="call.id"
         :call="call"
+        :step-id="props.step.id"
+        :bundle="props.bundle"
         :definition="definition(call)"
         :workflow-inputs="props.bundle.workflow.inputs"
         :available-binding-calls="workflowBindingVisibleCalls(props.bundle, props.step.id, call.id)"

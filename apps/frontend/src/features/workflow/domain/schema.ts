@@ -14,6 +14,7 @@ const binding = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("workflow_input"), reference: z.object({ input_id: z.string().default("") }).strict() }).strict(),
   z.object({ kind: z.literal("collection_output"), reference: z.object({ call_id: z.string().default(""), output_id: z.string().default("") }).strict() }).strict(),
   z.object({ kind: z.literal("device_role_field"), reference: z.object({ role_id: z.string().default(""), path: z.string().default("") }).strict() }).strict(),
+  z.object({ kind: z.literal("expression"), reference: z.object({}).strict(), expression: z.string() }).strict(),
   z.object({ kind: z.literal("literal"), reference: z.object({}).strict(), value: z.unknown().optional() }).strict(),
 ]);
 const metadata = z.object({ name: z.string(), code: z.string(), description: z.string(), symptom: z.string().default(""), industry: z.string(), device: z.string(), versions: z.array(z.string()) }).strict();

@@ -10,6 +10,7 @@ from .device_bindings import resolve_device_role_field
 from .expression import validate_expression
 from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
 from .expression.environment import (
+    binding_expression_environment,
     binding_scope_calls,
     conclusion_scope_steps,
     expression_scope_steps,
@@ -231,7 +232,7 @@ def _validate_step(
             if parameter["required"] and not _binding_has_value(binding):
                 issues.append(issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
-                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"], workflow_roles)
+                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"], workflow_roles, all_steps)
     for transition in step["topology"]:
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
@@ -360,10 +361,32 @@ def _call_label(call, definition) -> str:
     return call["name"].strip() or definition["metadata"]["name"].strip() or definition["key"]
 
 
-def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id, workflow_roles) -> None:
+def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id, workflow_roles, all_steps=None) -> None:
     kind = binding["kind"]
     ref = binding["reference"]
-    valid = kind == "literal"
+    valid = kind in {"literal", "expression"}
+    if kind == "expression":
+        expression = binding.get("expression")
+        if not isinstance(expression, str) or not expression.strip():
+            issues.append(issue("EMPTY_BINDING_EXPRESSION", "error", "表达式绑定不能为空。", selection))
+            return
+        expression_inputs = {
+            str(item.get("key", "")).strip(): item.get("schema", {})
+            for item in workflow_inputs.values()
+            if str(item.get("key", "")).strip()
+        }
+        if all_steps is None:
+            environment = project_workflow_expression_environment([], definitions, expression_inputs, workflow_roles)
+        else:
+            environment = binding_expression_environment(all_steps, current_step_id, selection.get("itemId", ""), definitions, expression_inputs, workflow_roles)
+        result = validate_expression(expression, environment)
+        for diagnostic in result["diagnostics"]:
+            issues.append(issue(diagnostic["code"], "error", diagnostic["message"], selection))
+        from .expression.types import type_spec_assignable_to_schema, type_spec_from_serialized
+        inferred_type = type_spec_from_serialized(result.get("inferredType", {}))
+        if not result["diagnostics"] and not type_spec_assignable_to_schema(inferred_type, parameter["schema"]):
+            issues.append(issue("INCOMPATIBLE_BINDING_SCHEMA", "error", f"表达式结果与输入“{schema_title(parameter)}”的 Schema 不兼容。", selection))
+        return
     if kind == "workflow_input":
         valid = ref.get("input_id") in workflow_inputs
     elif kind == "collection_output":

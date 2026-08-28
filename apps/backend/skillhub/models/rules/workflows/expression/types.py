@@ -74,3 +74,45 @@ def from_json_schema(schema: dict[str, Any]) -> TypeSpec:
         }
         return object_type(properties)
     return ANY
+
+
+def type_spec_assignable_to_schema(source: TypeSpec, target: dict[str, Any]) -> bool:
+    """Check whether an inferred expression type satisfies a JSON Schema."""
+    target_type = target.get("type")
+    if target_type is None or target.get("x-skillhub-legacy-loose"):
+        return True
+    if source.kind == "union":
+        return all(type_spec_assignable_to_schema(option, target) for option in source.options)
+    if source.kind == "any":
+        return False
+    if source.kind == "none":
+        return False
+    if isinstance(target_type, list):
+        return any(type_spec_assignable_to_schema(source, {**target, "type": item}) for item in target_type if item != "null")
+    if source.kind != target_type and not (source.kind == "integer" and target_type == "number"):
+        return False
+    if source.kind == "array":
+        return type_spec_assignable_to_schema(source.item or ANY, target.get("items", {}))
+    if source.kind == "object":
+        properties = target.get("properties", {})
+        required = set(target.get("required", []))
+        if any(key not in source.properties for key in required):
+            return False
+        return all(
+            key not in source.properties or type_spec_assignable_to_schema(source.properties[key], child)
+            for key, child in properties.items()
+        )
+    return True
+
+
+def type_spec_from_serialized(value: dict[str, Any]) -> TypeSpec:
+    """Restore a checker TypeSpec from the serialized validation result."""
+    kind = str(value.get("kind", "any"))
+    if kind == "array":
+        return array(type_spec_from_serialized(value.get("item", {})), sample_count=value.get("sampleCount"))
+    if kind == "object":
+        return object_type({key: type_spec_from_serialized(item) for key, item in value.get("properties", {}).items()}, sample_count=value.get("sampleCount"))
+    if kind == "union":
+        options = [type_spec_from_serialized(item) for item in value.get("options", [])]
+        return union(*options) if options else ANY
+    return TypeSpec(kind, sample_count=value.get("sampleCount"))

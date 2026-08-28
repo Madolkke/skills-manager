@@ -673,6 +673,9 @@ def _validate_source_compatibility(
         if isinstance(call, Mapping) and call.get("id")
     }
     from skillhub.models.rules.workflows.device_bindings import resolve_device_role_field
+    from skillhub.models.rules.workflows.expression import validate_expression
+    from skillhub.models.rules.workflows.expression.environment import binding_expression_environment
+    from skillhub.models.rules.workflows.expression.types import type_spec_assignable_to_schema, type_spec_from_serialized
     from skillhub.models.rules.workflows.json_schema import schemas_assignable, value_matches_schema
 
     for input_definition in desired.get("inputs", []):
@@ -713,6 +716,37 @@ def _validate_source_compatibility(
             if resolution.status != "ok" or resolution.schema is None:
                 raise InvariantError(f"系统命令同步发现无效的设备角色字段绑定: {input_id}")
             source_schema = resolution.schema
+        elif kind == "expression":
+            expression = binding.get("expression")
+            if not isinstance(expression, str) or not expression.strip():
+                raise InvariantError(f"系统命令同步发现空表达式绑定: {input_id}")
+            source_step = next(
+                (node for node in (document.get("workflow", {}) or {}).get("nodes", [])
+                 if isinstance(node, Mapping) and any(call.get("id") == source_call.get("id") for call in node.get("collectionCalls", []))),
+                None,
+            )
+            if source_step is None:
+                raise InvariantError(f"系统命令同步无法定位表达式绑定调用: {input_id}")
+            input_environment = {
+                str(item.get("key", "")).strip(): item.get("schema", {})
+                for item in (document.get("workflow", {}) or {}).get("inputs", [])
+                if str(item.get("key", "")).strip()
+            }
+            definitions = snapshots
+            environment = binding_expression_environment(
+                (document.get("workflow", {}) or {}).get("nodes", []),
+                str(source_step.get("id")),
+                str(source_call.get("id")),
+                definitions,
+                input_environment,
+                (document.get("workflow", {}) or {}).get("deviceRoles", []),
+            )
+            result = validate_expression(expression, environment)
+            if result["diagnostics"]:
+                raise InvariantError(f"系统命令同步发现无效表达式绑定: {input_id}")
+            if not type_spec_assignable_to_schema(type_spec_from_serialized(result["inferredType"]), input_definition.get("schema", {})):
+                raise InvariantError(f"系统命令同步会使输入“{input_id}”的表达式结果与新 Schema 不兼容")
+            continue
         elif kind == "literal":
             if binding.get("value") in (None, "") and not input_definition.get("required", True):
                 continue

@@ -11,7 +11,7 @@ import { findCollection } from "./domain/utils";
 import { workflowSchemaSummary, workflowSchemaTitle } from "./workflowJsonSchema";
 import { isWorkflowExpressionIdentifier } from "./workflowExpressionSyntax";
 import { isWorkflowDeviceIdentifier, isWorkflowDeviceSchemaProjectable } from "./workflowDeviceRoleSchema";
-import { workflowConclusionVisibleSteps, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
+import { workflowBindingVisibleCalls, workflowConclusionVisibleSteps, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
 
 export type WorkflowExpressionVariableKind = "global" | "output" | "config" | "device";
 
@@ -30,6 +30,17 @@ export type WorkflowExpressionVariable = {
 
 export function workflowExpressionVariables(bundle: WorkflowBundle, sourceStepId: string): WorkflowExpressionVariable[] {
   return workflowExpressionVariablesForSteps(bundle, workflowExpressionVisibleSteps(bundle, sourceStepId));
+}
+
+/** Variables available while binding inputs of one Collection Call. */
+export function workflowBindingExpressionVariables(bundle: WorkflowBundle, sourceStepId: string, currentCallId: string): WorkflowExpressionVariable[] {
+  const visibleCalls = workflowBindingVisibleCalls(bundle, sourceStepId, currentCallId);
+  const visibleIds = new Set(visibleCalls.map((item) => item.call.id));
+  const steps = workflowExpressionVisibleSteps(bundle, sourceStepId).map((step) => ({
+    ...step,
+    collectionCalls: step.collectionCalls.filter((call) => visibleIds.has(call.id)),
+  }));
+  return workflowExpressionVariablesForSteps(bundle, steps);
 }
 
 export function workflowConclusionExpressionVariables(bundle: WorkflowBundle, conclusionId: string): WorkflowExpressionVariable[] {

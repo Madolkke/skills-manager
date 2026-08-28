@@ -198,6 +198,11 @@ function bindingProblem(
   roles: WorkflowBundle["workflow"]["deviceRoles"],
 ): { code: string; message: string } | null {
   if (binding.kind === "literal") return null;
+  if (binding.kind === "expression") {
+    return binding.expression.trim()
+      ? null
+      : { code: "EMPTY_BINDING_EXPRESSION", message: "表达式绑定不能为空。" };
+  }
   if (binding.kind === "workflow_input") {
     const source = workflowInputs.get(binding.reference.input_id ?? "");
     if (!source) return { code: "BROKEN_REFERENCE", message: "引用无效。" };
