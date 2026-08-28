@@ -11,10 +11,26 @@ import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidati
 import { createWorkflowExpressionCompletionSource } from "./workflowExpressionCompletion";
 import { workflowExpressionEnvironment, workflowExpressionVariables } from "./workflowExpressionVariables";
 import { workflowBindingVisibleCalls, workflowExpressionVisibleSteps } from "./workflowExpressionScope";
+import { resolveWorkflowDeviceField, workflowDeviceFieldCandidates } from "./workflowDeviceRoleBindings";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe("Workflow graph-scoped expression environment", () => {
+  it("projects object-only device role binding fields and excludes arrays", () => {
+    const roles = [{
+      id: "role-primary", key: "primary", name: "主设备", description: "", required: true,
+      schema: {
+        type: "object" as const, title: "", description: "", required: ["connection", "interfaces"], additionalProperties: false,
+        properties: {
+          connection: { type: "object" as const, title: "", description: "", required: ["ip"], additionalProperties: false, properties: { ip: { type: "string" as const, title: "", description: "" } } },
+          interfaces: { type: "array" as const, title: "", description: "", items: { type: "string" as const, title: "", description: "" } },
+        },
+      },
+    }];
+    expect(workflowDeviceFieldCandidates(roles).map((item) => item.path)).toEqual(["connection", "connection.ip"]);
+    expect(resolveWorkflowDeviceField(roles, "role-primary", "connection.ip").status).toBe("ok");
+    expect(resolveWorkflowDeviceField(roles, "role-primary", "interfaces").status).toBe("path_invalid");
+  });
   it("offers predecessor calls while excluding current later and future calls", () => {
     const bundle = graphBundle();
     const current = bundle.workflow.nodes.find((node) => node.id === "step-current") as WorkflowStep;

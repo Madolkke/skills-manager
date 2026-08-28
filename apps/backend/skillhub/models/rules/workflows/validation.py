@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from .collection_validation import validate_collection_identity
 from .config_validation import config_root_names
+from .device_bindings import resolve_device_role_field
 from .expression import validate_expression
 from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
 from .expression.environment import (
@@ -230,7 +231,7 @@ def _validate_step(
             if parameter["required"] and not _binding_has_value(binding):
                 issues.append(issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
-                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"])
+                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"], workflow_roles)
     for transition in step["topology"]:
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
@@ -359,7 +360,7 @@ def _call_label(call, definition) -> str:
     return call["name"].strip() or definition["metadata"]["name"].strip() or definition["key"]
 
 
-def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id) -> None:
+def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id, workflow_roles) -> None:
     kind = binding["kind"]
     ref = binding["reference"]
     valid = kind == "literal"
@@ -370,6 +371,15 @@ def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, def
         call = entry["call"] if entry else None
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"])) if call else None
         valid = bool(definition and any(item["id"] == ref.get("output_id") for item in definition["outputs"]))
+    elif kind == "device_role_field":
+        resolution = resolve_device_role_field(workflow_roles, str(ref.get("role_id", "")), str(ref.get("path", "")))
+        if resolution.status == "role_missing":
+            issues.append(issue("BROKEN_REFERENCE", "error", "设备角色字段绑定引用的角色不存在。", selection))
+            return
+        if resolution.status != "ok" or resolution.schema is None:
+            issues.append(issue("INVALID_DEVICE_ROLE_BINDING_PATH", "error", "设备角色字段绑定的路径不存在、不可访问或经过数组节点。", selection))
+            return
+        valid = True
     if not valid:
         entry = all_calls.get(ref.get("call_id")) if kind == "collection_output" else None
         if kind == "collection_output" and entry and entry["stepId"] == current_step_id:
@@ -384,6 +394,9 @@ def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, def
         call = calls[ref["call_id"]]["call"]
         definition = definitions[(call["definition"]["id"], call["definition"]["revision"])]
         source = next(item for item in definition["outputs"] if item["id"] == ref["output_id"])
+    if kind == "device_role_field":
+        resolution = resolve_device_role_field(workflow_roles, str(ref.get("role_id", "")), str(ref.get("path", "")))
+        source = {"key": ref.get("path", ""), "schema": resolution.schema} if resolution.schema is not None else None
     if source and not schemas_assignable(source["schema"], parameter["schema"]):
         issues.append(issue("INCOMPATIBLE_BINDING_SCHEMA", "error", f"来源字段“{schema_title(source)}”与输入“{schema_title(parameter)}”的 Schema 不兼容。", selection))
 

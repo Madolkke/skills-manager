@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from skillhub.models.errors import InvariantError
+from skillhub.models.rules.workflows.device_bindings import resolve_device_role_field
 from skillhub.models.rules.workflows.document_migration import migrate_output_v3, migrate_parameter_v3
 from skillhub.models.rules.workflows.expression.environment import (
     binding_scope_calls,
@@ -139,7 +140,8 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
                 if input_id not in definition_input_ids:
                     raise InvariantError(f"Workflow import Collection input does not exist: {input_id}")
                 visible_calls, all_calls = binding_scope_calls(nodes, node["id"], call["id"])
-                _validate_binding(binding, workflow_input_ids, visible_calls, all_calls, definitions, node["id"])
+                parameter = next(item for item in definition["inputs"] if item["id"] == input_id)
+                _validate_binding(binding, parameter, workflow_input_ids, visible_calls, all_calls, definitions, node["id"], workflow.get("deviceRoles", []))
 
     imported_definitions = {
         (definition["localId"], 1): definition
@@ -214,7 +216,7 @@ def _definition_map(definitions: list[dict[str, Any]]) -> dict[str, dict[str, An
     return result
 
 
-def _validate_binding(binding, workflow_inputs, calls, all_calls, definitions, current_step_id) -> None:
+def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, current_step_id, workflow_roles) -> None:
     kind = binding["kind"]
     reference = binding["reference"]
     valid = kind == "literal"
@@ -228,5 +230,19 @@ def _validate_binding(binding, workflow_inputs, calls, all_calls, definitions, c
             raise InvariantError("Workflow import Collection output Binding cannot reference a later call.")
         definition = definitions.get(call["definitionLocalId"]) if call else None
         valid = bool(definition and any(item["id"] == reference.get("output_id") for item in definition["outputs"]))
+    elif kind == "device_role_field":
+        resolution = resolve_device_role_field(workflow_roles, str(reference.get("role_id", "")), str(reference.get("path", "")))
+        if resolution.status == "role_missing":
+            raise InvariantError("Workflow import device role binding references a missing role.")
+        if resolution.status != "ok":
+            raise InvariantError("Workflow import device role binding path is invalid.")
+        valid = True
     if not valid:
         raise InvariantError(f"Workflow import Binding reference is invalid: {kind}")
+    source_schema = None
+    if kind == "device_role_field":
+        source_schema = resolution.schema
+    if source_schema is not None:
+        from skillhub.models.rules.workflows.json_schema import schemas_assignable
+        if not schemas_assignable(source_schema, parameter["schema"]):
+            raise InvariantError("Workflow import device role binding Schema is incompatible.")

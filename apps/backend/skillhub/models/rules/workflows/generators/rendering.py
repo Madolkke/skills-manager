@@ -103,6 +103,7 @@ def append_calls(
                 workflow_inputs=workflow_inputs,
                 calls=calls_by_id,
                 definitions=definitions,
+                roles=roles,
             )
             if definition["outputs"]:
                 lines.extend(["", "输出字段:"])
@@ -120,7 +121,7 @@ def append_calls(
         lines.append("")
 
 
-def append_bindings(lines, bindings, parameters, *, workflow_inputs, calls, definitions) -> None:
+def append_bindings(lines, bindings, parameters, *, workflow_inputs, calls, definitions, roles=None) -> None:
     if not bindings:
         return
     lines.extend(["", "参数绑定:"])
@@ -129,10 +130,10 @@ def append_bindings(lines, bindings, parameters, *, workflow_inputs, calls, defi
         if binding is None:
             continue
         title = binding_field_title(parameter)
-        lines.append(f"- {title} (`{parameter['key']}`): {binding_text(binding, workflow_inputs=workflow_inputs, calls=calls, definitions=definitions)}")
+        lines.append(f"- {title} (`{parameter['key']}`): {binding_text(binding, workflow_inputs=workflow_inputs, calls=calls, definitions=definitions, roles=roles or {})}")
 
 
-def binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
+def binding_text(binding, *, workflow_inputs, calls, definitions, roles=None) -> str:
     if binding["kind"] == "literal":
         value = json.dumps(binding.get("value"), ensure_ascii=False, sort_keys=True)
         return f"固定值 `{value}`"
@@ -145,6 +146,10 @@ def binding_text(binding, *, workflow_inputs, calls, definitions) -> str:
         output = next((item for item in definition["outputs"] if item["id"] == reference.get("output_id")), None) if definition else None
         if call and output:
             return f"采集“{call_name(call, definition)}”的输出 `{call_output_key(call, output, indexed=False)}`"
+    if binding["kind"] == "device_role_field":
+        role = (roles or {}).get(reference.get("role_id"))
+        if role and reference.get("path"):
+            return f"设备角色 `{role.get('key', reference.get('role_id'))}` 的参数 `topo.devices.{role.get('key')}.{reference['path']}`"
     return "无效引用"
 
 

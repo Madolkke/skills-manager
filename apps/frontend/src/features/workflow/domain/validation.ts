@@ -9,6 +9,7 @@ import { isWorkflowDeviceIdentifier } from "../workflowDeviceRoleSchema";
 import { workflowBindingVisibleCalls, workflowExpressionVisibleSteps } from "../workflowExpressionScope";
 import { parseCliCommandParameters } from "./cliCommandParameters";
 import { scanWorkflowTemplate } from "../workflowTemplate";
+import { resolveWorkflowDeviceField } from "../workflowDeviceRoleBindings";
 
 export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefinition[] = bundle.collectionSnapshots): WorkflowValidationIssue[] {
   const issues: WorkflowValidationIssue[] = [];
@@ -87,7 +88,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
           add(issues, "MISSING_REQUIRED_BINDING", "error", `采集“${callName}”尚未绑定必填参数“${workflowSchemaTitle(input.schema, input.key)}”。`, { ...callSelection, field: `binding.${input.id}` });
         }
         if (binding?.kind === "literal" && !workflowValueMatchesSchema(binding.value, input.schema)) add(issues, "LITERAL_SCHEMA_MISMATCH", "warning", `采集“${callName}”的固定值与“${workflowSchemaTitle(input.schema, input.key)}”Schema 不匹配。`, { ...callSelection, field: `binding.${input.id}` });
-        const problem = binding && bindingProblem(binding, input, workflowInputs, visibleCalls, allCalls, catalog, step.id);
+        const problem = binding && bindingProblem(binding, input, workflowInputs, visibleCalls, allCalls, catalog, step.id, bundle.workflow.deviceRoles);
         if (problem) add(issues, problem.code, "error", `采集“${callName}”的参数“${workflowSchemaTitle(input.schema, input.key)}”${problem.message}`, { ...callSelection, field: `binding.${input.id}` });
       });
     }
@@ -194,12 +195,19 @@ function bindingProblem(
   allCalls: Map<string, { call: { definition: { id: string; revision: number } }; stepId: string }>,
   definitions: CollectionDefinition[],
   currentStepId: string,
+  roles: WorkflowBundle["workflow"]["deviceRoles"],
 ): { code: string; message: string } | null {
   if (binding.kind === "literal") return null;
   if (binding.kind === "workflow_input") {
     const source = workflowInputs.get(binding.reference.input_id ?? "");
     if (!source) return { code: "BROKEN_REFERENCE", message: "引用无效。" };
     return workflowSchemasAssignable(source.schema, target.schema) ? null : { code: "INCOMPATIBLE_BINDING_SCHEMA", message: "的来源 Schema 不兼容。" };
+  }
+  if (binding.kind === "device_role_field") {
+    const resolution = resolveWorkflowDeviceField(roles, binding.reference.role_id, binding.reference.path);
+    if (resolution.status === "role_missing") return { code: "BROKEN_REFERENCE", message: "设备角色字段绑定引用的角色不存在。" };
+    if (resolution.status !== "ok" || !resolution.candidate) return { code: "INVALID_DEVICE_ROLE_BINDING_PATH", message: "设备角色字段绑定的路径不存在、不可访问或经过数组节点。" };
+    return workflowSchemasAssignable(resolution.candidate.schema, target.schema) ? null : { code: "INCOMPATIBLE_BINDING_SCHEMA", message: "的来源 Schema 不兼容。" };
   }
   if (binding.kind !== "collection_output") return { code: "BROKEN_REFERENCE", message: "引用无效。" };
   const call = calls.get(binding.reference.call_id ?? "");

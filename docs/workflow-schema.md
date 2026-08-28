@@ -385,6 +385,8 @@ ScriptStep 是脚本类型步骤，包含 BaseStep 的全部字段，并额外�
 
 `CollectionCall.inputBindings` 的键必须是被调用 Collection 的输入参数 ID。Binding 只描述来源关系；当前后端不会执行命令或计算表达式。
 
+Binding 还支持设备角色参数：`device_role_field` 使用 `{ "role_id": "角色 ID", "path": "connection.ip" }` 引用角色 Schema 中的 object 路径。展示路径为 `topo.devices.<roleKey>.<path>`；数组字段和穿过数组的路径首版不支持。角色 Key 变更不会破坏引用，角色或字段失效时由 Workflow 校验报告错误。该绑定目前用于作者侧保存、导入导出和文档生成，执行器和调试运行时暂不注入设备参数值。
+
 ## 相关接口
 
 获取某个 Skill 的完整 Workflow 文档：

@@ -672,6 +672,7 @@ def _validate_source_compatibility(
         for call in node.get("collectionCalls", [])
         if isinstance(call, Mapping) and call.get("id")
     }
+    from skillhub.models.rules.workflows.device_bindings import resolve_device_role_field
     from skillhub.models.rules.workflows.json_schema import schemas_assignable, value_matches_schema
 
     for input_definition in desired.get("inputs", []):
@@ -703,6 +704,15 @@ def _validate_source_compatibility(
             if source_output is None:
                 raise InvariantError(f"系统命令同步发现无效的前序输出绑定: {input_id}")
             source_schema = source_output.get("schema")
+        elif kind == "device_role_field":
+            resolution = resolve_device_role_field(
+                (document.get("workflow", {}) or {}).get("deviceRoles", []),
+                str(reference.get("role_id", "")),
+                str(reference.get("path", "")),
+            )
+            if resolution.status != "ok" or resolution.schema is None:
+                raise InvariantError(f"系统命令同步发现无效的设备角色字段绑定: {input_id}")
+            source_schema = resolution.schema
         elif kind == "literal":
             if binding.get("value") in (None, "") and not input_definition.get("required", True):
                 continue

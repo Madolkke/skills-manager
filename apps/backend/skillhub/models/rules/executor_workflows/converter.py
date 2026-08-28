@@ -226,6 +226,13 @@ class _Converter:
             matches = [item for item in self.workflow.inputs if item.id == input_id]
             resolved = self._single_reference(matches, f"{path}.reference.input_id", "Workflow input")
             return f"inputs.{resolved.key}" if resolved is not None else None
+        if binding.kind == "device_role_field":
+            self._error(
+                f"{path}.kind",
+                "executor_workflow.unsupported_device_role_binding",
+                "执行器 Workflow 当前不支持设备角色参数绑定；该绑定只能用于作者侧 Workflow。",
+            )
+            return None
         call_id = binding.reference.get("call_id")
         call_matches = [item for item in step.collection_calls if item.id == call_id]
         source_call = self._single_reference(call_matches, f"{path}.reference.call_id", "CollectionCall")

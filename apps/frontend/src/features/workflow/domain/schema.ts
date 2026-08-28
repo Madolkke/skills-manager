@@ -10,7 +10,12 @@ const jsonSchema: z.ZodType<WorkflowJsonSchema> = z.lazy(() => z.union([
   z.object({ type: z.undefined().optional(), title: z.string().optional(), description: z.string().optional(), "x-skillhub-legacy-loose": z.literal(true) }).strict(),
 ]));
 const parameter = z.object({ id: z.string(), key: z.string(), required: z.boolean(), schema: jsonSchema }).strict();
-const binding = z.object({ kind: z.enum(["workflow_input", "collection_output", "literal"]), reference: z.record(z.string(), z.string()), value: z.unknown().optional() }).strict();
+const binding = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("workflow_input"), reference: z.object({ input_id: z.string().default("") }).strict() }).strict(),
+  z.object({ kind: z.literal("collection_output"), reference: z.object({ call_id: z.string().default(""), output_id: z.string().default("") }).strict() }).strict(),
+  z.object({ kind: z.literal("device_role_field"), reference: z.object({ role_id: z.string().default(""), path: z.string().default("") }).strict() }).strict(),
+  z.object({ kind: z.literal("literal"), reference: z.object({}).strict(), value: z.unknown().optional() }).strict(),
+]);
 const metadata = z.object({ name: z.string(), code: z.string(), description: z.string(), symptom: z.string().default(""), industry: z.string(), device: z.string(), versions: z.array(z.string()) }).strict();
 const role = z.object({ id: z.string(), key: z.string(), name: z.string(), description: z.string(), required: z.boolean(), schema: jsonSchema.optional() }).strict();
 const collectionMetadata = z.object({ name: z.string(), description: z.string(), industry: z.string(), device: z.string(), versions: z.array(z.string()), tags: z.array(z.string()) }).strict();

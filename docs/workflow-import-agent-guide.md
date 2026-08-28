@@ -79,7 +79,7 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 | `definitionLocalId` | `string` | 是 | 指向 `collections[].localId`。 |
 | `deviceRoleId` | `string` | 否 | 使用的设备角色 ID。 |
 | `sampleCount` | `integer` | 否，默认 `1` | 采集次数。 |
-| `inputBindings` | `Record<inputId, Binding>` | 否 | Collection 输入参数的来源。 |
+| `inputBindings` | `Record<inputId, Binding>` | 否 | Collection 输入参数的来源；支持全局输入、前序采集输出、设备角色 object 字段和固定值。 |
 
 不要提交标准持久化字段 `definition: { id, revision }`。
 
@@ -107,7 +107,7 @@ Agent 必须按以下顺序转换：
 3. 为节点、参数、Call、Output 和 Transition 生成请求内唯一且稳定的 ID。
 4. 将可复用的命令采集能力抽取到 `collections`，为每个定义分配唯一 `localId`。
 5. 将步骤调用改为 `definitionLocalId`，不要生成 Catalog ID 或 revision。
-6. 重建 Collection 输入 Binding、Transition target 和脚本返回的 Transition ID。
+6. 重建 Collection 输入 Binding、Transition target 和脚本返回的 Transition ID。设备角色字段 Binding 使用稳定的 `role_id` 与 object-only 相对 `path`，展示路径为 `topo.devices.<roleKey>.<path>`；数组字段首版不支持。
 7. 运行本地结构检查，输出 JSON 文件供人工检查。
 8. 只有操作者显式要求时才调用导入接口。
 9. 保存响应中的 Collection ID 映射，并再次 GET Workflow 核对 revision 和文档。
@@ -288,18 +288,28 @@ def validate_import_bundle(bundle: dict) -> None:
             all_ids.append(transition.get("id", ""))
         for call in node.get("collectionCalls", []):
             for binding in call.get("inputBindings", {}).values():
-                validate_binding(binding, workflow_input_ids, calls, definitions)
+                validate_binding(binding, workflow_input_ids, calls, definitions, workflow.get("deviceRoles", []))
     if any(not item for item in all_ids) or len(all_ids) != len(set(all_ids)):
         raise ValueError("节点、参数、角色、Call、Output、Sample 和 Transition ID 必须非空且全局唯一")
 
 
-def validate_binding(binding: dict, workflow_inputs: set[str], calls: dict, definitions: dict) -> None:
+def validate_binding(binding: dict, workflow_inputs: set[str], calls: dict, definitions: dict, roles: list[dict]) -> None:
     kind = binding.get("kind")
     reference = binding.get("reference", {})
     if kind == "literal":
         return
     if kind == "workflow_input" and reference.get("input_id") in workflow_inputs:
         return
+    if kind == "device_role_field":
+        role = next((item for item in roles if item.get("id") == reference.get("role_id")), None)
+        current = role.get("schema") if role else None
+        for part in str(reference.get("path", "")).split("."):
+            if not isinstance(current, dict) or current.get("type") != "object" or part not in current.get("properties", {}):
+                current = None
+                break
+            current = current["properties"][part]
+        if current and current.get("type") != "array":
+            return
     if kind == "collection_output":
         call = calls.get(reference.get("call_id"))
         definition = definitions.get(call.get("definitionLocalId")) if call else None

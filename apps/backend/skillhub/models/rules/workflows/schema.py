@@ -70,7 +70,7 @@ class Parameter(WorkflowModel):
 
 
 class Binding(WorkflowModel):
-    kind: Literal["workflow_input", "collection_output", "literal"]
+    kind: Literal["workflow_input", "collection_output", "device_role_field", "literal"]
     reference: dict[str, str] = Field(default_factory=dict)
     value: Any = None
 

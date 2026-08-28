@@ -107,6 +107,24 @@ class WorkflowRulesTest(unittest.TestCase):
         }]
         validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
 
+    def test_collection_binding_accepts_device_role_object_field_and_rejects_array_path(self):
+        document = normalize_workflow_document(self._document())
+        document["workflow"]["deviceRoles"] = [{
+            "id": "role-primary", "key": "primary", "name": "主设备", "description": "", "required": True,
+            "schema": {
+                "type": "object", "title": "参数", "description": "", "additionalProperties": False, "required": ["connection", "interfaces"],
+                "properties": {
+                    "connection": {"type": "object", "title": "连接", "description": "", "additionalProperties": False, "required": ["ip"], "properties": {"ip": {"type": "string", "title": "IP", "description": ""}}},
+                    "interfaces": {"type": "array", "title": "接口", "description": "", "items": {"type": "string", "title": "接口", "description": ""}},
+                },
+            },
+        }]
+        call = document["workflow"]["nodes"][0]["collectionCalls"][0]
+        call["inputBindings"] = {"opaque-parameter-id": {"kind": "device_role_field", "reference": {"role_id": "role-primary", "path": "connection.ip"}}}
+        self.assertNotIn("INVALID_DEVICE_ROLE_BINDING_PATH", {item["code"] for item in validate_workflow_document(document)})
+        call["inputBindings"]["opaque-parameter-id"]["reference"]["path"] = "interfaces"
+        self.assertIn("INVALID_DEVICE_ROLE_BINDING_PATH", {item["code"] for item in validate_workflow_document(document)})
+
     def test_import_binding_accepts_predecessor_step_output(self):
         bundle = self._import_bundle()
         definition = bundle["collections"][0]
@@ -174,6 +192,49 @@ class WorkflowRulesTest(unittest.TestCase):
         call["inputBindings"]["collection-input-interface"]["reference"]["input_id"] = "missing"
 
         with self.assertRaisesRegex(InvariantError, "Binding reference"):
+            validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
+
+    def test_import_device_role_binding_resolves_object_field_and_rejects_array_path(self):
+        bundle = self._import_bundle()
+        bundle["workflow"]["deviceRoles"] = [{
+            "id": "role-primary",
+            "key": "primary",
+            "name": "主设备",
+            "description": "",
+            "required": True,
+            "schema": {
+                "type": "object",
+                "title": "参数",
+                "description": "",
+                "properties": {
+                    "connection": {
+                        "type": "object",
+                        "title": "连接",
+                        "description": "",
+                        "properties": {"ip": {"type": "string", "title": "IP", "description": ""}},
+                        "required": ["ip"],
+                        "additionalProperties": False,
+                    },
+                    "interfaces": {
+                        "type": "array",
+                        "title": "接口",
+                        "description": "",
+                        "items": {"type": "string", "title": "接口", "description": ""},
+                    },
+                },
+                "required": ["connection", "interfaces"],
+                "additionalProperties": False,
+            },
+        }]
+        call = bundle["workflow"]["nodes"][0]["collectionCalls"][0]
+        call["inputBindings"]["collection-input-interface"] = {
+            "kind": "device_role_field",
+            "reference": {"role_id": "role-primary", "path": "connection.ip"},
+        }
+        validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
+
+        call["inputBindings"]["collection-input-interface"]["reference"]["path"] = "interfaces"
+        with self.assertRaisesRegex(InvariantError, "device role binding path"):
             validate_workflow_import_references(normalize_workflow_import_bundle(bundle))
 
     def test_import_bundle_materializes_target_identity_and_collection_references(self):

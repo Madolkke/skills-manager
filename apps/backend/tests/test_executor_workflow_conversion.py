@@ -230,6 +230,18 @@ def test_literal_bindings_preserve_string_and_integer_values() -> None:
     assert values["unbound"] == 2
 
 
+def test_device_role_binding_is_explicitly_rejected_by_executor_converter() -> None:
+    document = executor_workflow_document()
+    binding = document["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]["parameter-slot"]
+    binding.clear()
+    binding.update({"kind": "device_role_field", "reference": {"role_id": "device-primary", "path": "connection.ip"}})
+
+    with pytest.raises(FieldInvariantError) as error:
+        convert_workflow_document(document)
+
+    assert any(item.code == "executor_workflow.unsupported_device_role_binding" for item in error.value.field_errors)
+
+
 @pytest.mark.parametrize(("section", "index"), [("inputs", 0), ("outputs", 0)])
 def test_conversion_rejects_complex_collection_schemas(section: str, index: int) -> None:
     document = executor_workflow_document()

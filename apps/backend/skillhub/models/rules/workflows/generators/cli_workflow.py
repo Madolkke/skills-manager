@@ -219,7 +219,7 @@ def _append_cli_call(lines: list[str], call: dict[str, Any], item: dict[str, Any
     command = definition["spec"].get("commandTemplate", "")
     if command:
         lines.extend(["", "```text", command.rstrip(), "```"])
-    _append_cli_bindings(lines, call, item, definition["inputs"], workflow_inputs, calls, predecessor_ids)
+    _append_cli_bindings(lines, call, item, definition["inputs"], workflow_inputs, calls, predecessor_ids, roles)
     if definition["outputs"]:
         lines.extend(["", "输出字段:"])
         for output in definition["outputs"]:
@@ -229,7 +229,7 @@ def _append_cli_call(lines: list[str], call: dict[str, Any], item: dict[str, Any
     lines.append("")
 
 
-def _append_cli_bindings(lines, call, item, parameters, workflow_inputs, calls, predecessor_ids: set[str]) -> None:
+def _append_cli_bindings(lines, call, item, parameters, workflow_inputs, calls, predecessor_ids: set[str], roles) -> None:
     entries = []
     for parameter in parameters:
         binding = call["inputBindings"].get(parameter["id"])
@@ -247,7 +247,7 @@ def _append_cli_bindings(lines, call, item, parameters, workflow_inputs, calls, 
             if not text:
                 continue
         else:
-            text = binding_text(binding, workflow_inputs=workflow_inputs, calls={}, definitions={})
+            text = binding_text(binding, workflow_inputs=workflow_inputs, calls={}, definitions={}, roles=roles)
         entries.append(f"- {binding_field_title(parameter)} (`{parameter['key']}`): {text}")
     if entries:
         lines.extend(["", "参数绑定:", *entries])

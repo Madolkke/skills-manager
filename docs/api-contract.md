@@ -253,6 +253,8 @@ CLI Collection 可选返回 `spec.commandParameterSyntax: "angle-v1"`。启用�
 
 `GET /api/skills/{skill_id}/workflow/executor` 是面向受信网络内执行器的无认证只读投影。它实时读取当前保存的 Workflow，不执行领域校验，不缓存或持久化结果；Log/Config CollectionCall 被静默过滤且不占用执行器 ID，表达式和 CLI binding 对其输出的引用保持原样。字段映射、Binding 路径、错误码、安全假设及不支持字段见[执行器 Workflow 转换接口](executor-workflow-api.md)。该接口不得与原样透传的 `workflow/formatted` 混用。
 
+Collection 输入 Binding 支持 `device_role_field`：`reference` 包含稳定的 `role_id` 和 object-only 的点分隔 `path`，作者侧展示为 `topo.devices.<roleKey>.<path>`。数组字段及穿过数组的路径暂不支持；角色 Key 变更后按角色 ID 重新生成展示路径。该类型可保存并参与静态 Schema 校验，但当前执行器和调试请求不注入设备参数值。
+
 `GET /api/workflow-log-schema` 是全局只读契约接口，使用标准 actor context，不绑定 Skill。接口使用严格 response model，拒绝额外字段；响应严格为：
 
 ```json
