@@ -43,6 +43,7 @@ def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:
             definitions,
             roles,
             workflow_inputs={item["id"]: item for item in workflow["inputs"]},
+            workflow_nodes=nodes,
         )
         append_transitions(lines, step["topology"], node_names)
         append_script(lines, step)

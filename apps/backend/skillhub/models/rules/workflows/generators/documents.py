@@ -100,7 +100,7 @@ def render_collections_reference(document: dict[str, Any]) -> str:
             continue
         called = True
         lines.extend([f"### {step['name']}", ""])
-        append_calls(lines, step["collectionCalls"], definitions, roles, workflow_inputs=workflow_inputs)
+        append_calls(lines, step["collectionCalls"], definitions, roles, workflow_inputs=workflow_inputs, workflow_nodes=workflow["nodes"])
     if not called:
         lines.extend(["当前工作流没有采集调用。", ""])
     return _finish(lines)
@@ -148,6 +148,7 @@ def render_node_reference(document: dict[str, Any], node: dict[str, Any]) -> str
         definitions,
         roles,
         workflow_inputs=workflow_inputs,
+        workflow_nodes=workflow["nodes"],
         level=2,
         collection_link=lambda definition: collection_reference_path(definition).removeprefix("references/"),
     )

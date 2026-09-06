@@ -22,6 +22,7 @@ class WorkflowSyncApiTest(ApiCommandTestCase):
                 ("builtin.single-file", "workflow-skill-v5.1"),
                 ("builtin.three-file", "3.1.0"),
                 ("builtin.node-split", "3.1.0"),
+                ("builtin.cli-workflow", "1.0.0"),
             ],
         )
         defaults = [item for item in generators if item["default"]]

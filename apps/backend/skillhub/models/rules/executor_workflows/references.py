@@ -4,6 +4,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from typing import TypeAlias
 
+from skillhub.models.rules.workflows.expression.environment import expression_scope_steps
 from skillhub.models.rules.workflows.schema import (
     BaseStep,
     CollectionCall,
@@ -17,6 +18,27 @@ from skillhub.models.rules.workflows.schema import (
 
 Node: TypeAlias = ExpressionStep | ScriptStep | Conclusion
 ExecutorIdMaps: TypeAlias = tuple[dict[int, int], dict[tuple[int, int], int], dict[tuple[int, int], int], dict[int, int]]
+
+
+def visible_output_calls(
+    steps: Sequence[tuple[int, BaseStep]], step: BaseStep, current: CollectionCall, reference_id: str | None,
+) -> list[tuple[int, int, CollectionCall]]:
+    """Resolve visible calls without collapsing duplicate reference identities."""
+    visible_ids = {
+        item["id"] for item in expression_scope_steps(
+            [node.model_dump(by_alias=True) for _, node in steps], step.id,
+        )
+    }
+    matches = []
+    for node_index, node in steps:
+        if node.id not in visible_ids:
+            continue
+        for call_index, candidate in enumerate(node.collection_calls):
+            if node is step and candidate is current:
+                break
+            if candidate.id == reference_id:
+                matches.append((node_index, call_index, candidate))
+    return matches
 
 
 def allocate_ids(

@@ -61,12 +61,17 @@ def append_calls(
     roles: dict[str, dict[str, Any]],
     *,
     workflow_inputs: dict[str, dict[str, Any]],
+    workflow_nodes: list[dict[str, Any]] | None = None,
     level: int = 4,
     collection_link: Callable[[dict[str, Any]], str] | None = None,
 ) -> None:
     if not calls:
         return
-    calls_by_id = {item["id"]: item for item in calls}
+    calls_by_id = {
+        item["id"]: item
+        for node in (workflow_nodes if workflow_nodes is not None else [{"collectionCalls": calls}])
+        for item in node.get("collectionCalls", [])
+    }
     lines.extend([f"{'#' * level} 采集信息", ""])
     for call in calls:
         definition = definitions.get((call["definition"]["id"], call["definition"]["revision"]))

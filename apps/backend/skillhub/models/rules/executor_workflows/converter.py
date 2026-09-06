@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal, TypeVar, cast
 
 from skillhub.models.errors import FieldError, FieldInvariantError
+from skillhub.models.rules.executor_workflows.bindings import binding_value
 from skillhub.models.rules.executor_workflows.references import (
     allocate_ids,
     group_definitions,
@@ -13,7 +14,6 @@ from skillhub.models.rules.executor_workflows.references import (
 from skillhub.models.rules.executor_workflows.schema import (
     ExecutorCollection,
     ExecutorConclusion,
-    ExecutorScalar,
     ExecutorStep,
     ExecutorTransition,
     ExecutorValue,
@@ -131,7 +131,7 @@ class _Converter:
         definition = self._definition(call, f"{base}.definition")
         if definition is None:
             for parameter_id in call.input_bindings:
-                self._binding_value(node_index, step, call, parameter_id, base)
+                binding_value(self, step, call, parameter_id, base)
             return None
         if isinstance(definition.spec, (LogCollectionSpec, ConfigCollectionSpec)):
             return None
@@ -150,12 +150,12 @@ class _Converter:
         definition_index = self.definition_indexes[id(definition)]
         unknown_bindings = self._unknown_bindings(call, definition, base)
         for parameter_id in unknown_bindings:
-            self._binding_value(node_index, step, call, parameter_id, base)
+            binding_value(self, step, call, parameter_id, base)
         inputs: list[ExecutorValue] = []
         for input_index, parameter in enumerate(definition.inputs):
             schema_path = f"collectionSnapshots[{definition_index}].inputs[{input_index}].schema"
             value_type = self._schema_type(parameter.schema_, schema_path)
-            value = self._binding_value(node_index, step, call, parameter.id, base)
+            value = binding_value(self, step, call, parameter.id, base)
             if value_type is not None:
                 inputs.append(
                     ExecutorValue(
@@ -199,63 +199,6 @@ class _Converter:
                     "输入绑定无法匹配 Collection 输入。",
                 )
         return unknown
-
-    def _binding_value(
-        self,
-        node_index: int,
-        step: BaseStep,
-        call: CollectionCall,
-        parameter_id: str,
-        base: str,
-    ) -> ExecutorScalar:
-        binding = call.input_bindings.get(parameter_id)
-        if binding is None:
-            return None
-        path = f"{base}.inputBindings[{parameter_id}]"
-        if binding.kind == "literal":
-            if isinstance(binding.value, (dict, list)):
-                self._error(
-                    f"{path}.value",
-                    "executor_workflow.unsupported_literal",
-                    "执行器 Workflow 暂不支持 object 或 array literal。",
-                )
-                return None
-            return cast(ExecutorScalar, binding.value)
-        if binding.kind == "workflow_input":
-            input_id = binding.reference.get("input_id")
-            matches = [item for item in self.workflow.inputs if item.id == input_id]
-            resolved = self._single_reference(matches, f"{path}.reference.input_id", "Workflow input")
-            return f"inputs.{resolved.key}" if resolved is not None else None
-        if binding.kind == "device_role_field":
-            self._error(
-                f"{path}.kind",
-                "executor_workflow.unsupported_device_role_binding",
-                "执行器 Workflow 当前不支持设备角色参数绑定；该绑定只能用于作者侧 Workflow。",
-            )
-            return None
-        if binding.kind == "expression":
-            self._error(
-                f"{path}.kind",
-                "executor_workflow.unsupported_expression_binding",
-                "执行器 Workflow 当前不支持表达式参数绑定；该绑定只能用于作者侧 Workflow。",
-            )
-            return None
-        call_id = binding.reference.get("call_id")
-        call_matches = [item for item in step.collection_calls if item.id == call_id]
-        source_call = self._single_reference(call_matches, f"{path}.reference.call_id", "CollectionCall")
-        if source_call is None:
-            return None
-        source_call_index = next(index for index, item in enumerate(step.collection_calls) if item is source_call)
-        source_definition = self._definition(
-            source_call,
-            f"workflow.nodes[{node_index}].collectionCalls[{source_call_index}].definition",
-        )
-        if source_definition is None:
-            return None
-        output_id = binding.reference.get("output_id")
-        output_matches = [item for item in source_definition.outputs if item.id == output_id]
-        output = self._single_reference(output_matches, f"{path}.reference.output_id", "Collection output")
-        return output_path(source_call, output.key) if output is not None else None
 
     def _transition(self, node_index: int, transition_index: int, transition) -> ExecutorTransition | None:
         path = f"workflow.nodes[{node_index}].topology[{transition_index}].target.id"
