@@ -99,6 +99,21 @@ describe("AdminSystemCommandsTab", () => {
     expect(wrapper.find(".workflow-schema-property input").exists()).toBe(true);
   });
 
+  it.each([false, true])("加载历史样例后删除新条目不影响其他样例，重复历史 ID：%s", async (duplicate) => {
+    const sample = { id: "local-sample-1", name: "正常", command: "show status", stdout: "ok" };
+    const wrapper = mount(AdminSystemCommandsTab, {
+      props: { commands: [{ ...command("status"), samples: duplicate ? [sample, { ...sample, name: "旧重复" }] : [sample] }], selectedCommandId: "status" },
+    });
+    if (!duplicate) await wrapper.get("button[aria-label='添加回显示例']").trigger("click");
+    await wrapper.findAll(".admin-command-sample")[1]!.get("button[aria-label='删除回显示例']").trigger("click");
+    expect(wrapper.findAll(".admin-command-sample")).toHaveLength(1);
+    await wrapper.get("input[placeholder='系统状态']").setValue("更新名称");
+    await wrapper.get(".admin-command-editor-foot button.is-primary").trigger("click");
+    const payload = wrapper.emitted("update")?.[0]?.[1] as { samples: Array<{ id: string }> };
+    expect(payload.samples).toEqual([sample]);
+    wrapper.unmount();
+  });
+
   it("支持区块和单条回显示例折叠，且折叠不改变脏状态", async () => {
     const wrapper = mount(AdminSystemCommandsTab, {
       props: { commands: [{ ...command("status"), samples: [{ id: "sample-1", name: "正常", command: "show status", stdout: "ok" }] }], selectedCommandId: "status" },

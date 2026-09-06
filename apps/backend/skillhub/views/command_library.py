@@ -64,7 +64,7 @@ def register_command_library_routes(app: FastAPI) -> None:
         service: CommandLibraryService = Depends(command_library_service_dependency),
     ):
         return result_payload(
-            service.update_system(command_id=command_id, payload=payload.model_dump(by_alias=True), actor="admin-console")
+            service.update_system(command_id=command_id, payload=payload.model_dump(by_alias=True, exclude_unset=True), actor="admin-console")
         )
 
     @app.delete("/api/admin/system-commands/{command_id}")

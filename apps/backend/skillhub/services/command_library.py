@@ -76,6 +76,8 @@ class CommandLibraryService(ServiceBase[SkillHubStore]):
         )
 
     def update_system(self, *, command_id: str, payload: dict[str, Any], actor: str) -> dict[str, Any]:
+        """未传及 null 字段保留旧值，显式空数组或空串用于清空内容。"""
+        payload = {key: value for key, value in payload.items() if value is not None}
         changes = {key: value for key, value in payload.items() if value is not None and key not in {"id", "samples", "outputSchema", "ttp"}}
         current = self.store.get_system_command(command_id=command_id)
         raw_metadata = payload.get("metadata") if payload.get("metadata") is not None else current.get("metadata")

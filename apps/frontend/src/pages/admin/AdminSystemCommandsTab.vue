@@ -5,6 +5,7 @@ import UiButton from "../../components/ui/UiButton.vue";
 import UiIconButton from "../../components/ui/UiIconButton.vue";
 import WorkflowSchemaNodeEditor from "../../features/workflow/components/WorkflowSchemaNodeEditor.vue";
 import type { SystemCommand, WorkflowJsonSchema } from "../../types";
+import { createWorkflowId } from "../../features/workflow/domain/utils";
 import AdminSystemCommandSchemaDialog from "./AdminSystemCommandSchemaDialog.vue";
 
 type CommandDraft = { key: string; expression: string; enabled: boolean; metadata: Record<string, unknown>; ttp: string };
@@ -26,7 +27,6 @@ const basicInfoExpanded = ref(true);
 const samplesExpanded = ref(true);
 const ttpExpanded = ref(true);
 const sampleExpanded = ref<Record<string, boolean>>({});
-let sampleSequence = 0;
 
 const selected = computed(() => props.commands.find((item) => item.id === props.selectedCommandId));
 const isNew = computed(() => !selected.value);
@@ -63,8 +63,21 @@ function emptyDraft(): CommandDraft {
 }
 
 function newSample(): SampleDraft {
-  sampleSequence += 1;
-  return { id: `local-sample-${sampleSequence}`, name: "", command: "", stdout: "" };
+  return { id: createWorkflowId("sample"), name: "", command: "", stdout: "" };
+}
+
+/** 保留有效历史 ID，修复空 ID 和重复 ID，避免列表操作误伤其他样例。 */
+function loadSamples(value: SystemCommand["samples"]): SampleDraft[] {
+  const reserved = new Set((value ?? []).map((sample) => sample.id).filter(Boolean));
+  const used = new Set<string>();
+  return (value ?? []).map((sample) => {
+    let id = sample.id;
+    if (!id || used.has(id)) {
+      do { id = createWorkflowId("sample"); } while (reserved.has(id) || used.has(id));
+    }
+    used.add(id);
+    return { id, name: sample.name, command: sample.command, stdout: sample.stdout };
+  });
 }
 
 function cloneRecord(value: unknown): SchemaRecord {
@@ -109,7 +122,7 @@ function validateSchema(value: unknown, path = "根输出 Schema"): string[] {
 
 function loadDraft(value?: SystemCommand): void {
   draft.value = value ? { key: value.key, expression: value.expression, enabled: value.enabled !== false, metadata: { ...(value.metadata ?? {}) }, ttp: value.ttp ?? "" } : emptyDraft();
-  samples.value = (value?.samples ?? []).map((sample, index) => ({ id: sample.id || `saved-sample-${index + 1}`, name: sample.name, command: sample.command, stdout: sample.stdout }));
+  samples.value = loadSamples(value?.samples);
   schemaModel.value = normalizeSchema(value?.outputSchema ?? emptySchema());
   sampleExpanded.value = Object.fromEntries(samples.value.map((sample) => [sample.id, true]));
   basicInfoExpanded.value = true;
