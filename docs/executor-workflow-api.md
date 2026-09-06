@@ -143,6 +143,7 @@ ID 使用单一、连续、无重复的整数命名空间：
 
 - Workflow input 的 `name` 使用原始 `key`，`value` 固定为 `inputs.<key>`。
 - `workflow_input` binding 转为被引用 Workflow input 的 `inputs.<key>`。
+- `collection_output` binding 可引用当前调用之前或传递前序步骤中的采集；执行器转换与常规 Skill 生成均解析跨步骤引用。未来步骤、无图连接步骤及当前步骤后续调用不进入执行器绑定作用域；缺失或歧义引用沿用结构化转换错误。
 - `collection_output` binding 转为对应 CollectionCall 的输出路径。
 - CollectionCall `key` 非空白时，输出路径为 `outputs.<callKey>.<outputKey>`；为空白时为 `outputs.<outputKey>`。
 - 未绑定的 Collection input 输出 `value: null`，不会因为未绑定而调用领域校验。

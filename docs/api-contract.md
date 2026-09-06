@@ -25,6 +25,8 @@
 
 Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critical`，缺失时兼容归一化为 `info`）以及可选模板文本。`conditionText`、`rootCause` 和 `repairRecommendation` 中的 `{{ expression }}` 使用与条件表达式一致的环境；条件说明作用域为所属步骤及传递前序步骤，结论模板作用域为能够沿拓扑到达该结论的步骤。模板保留原文，写作侧和执行器均不展开。
 
+模板结束标记 `}}` 只在字符串之外且表达式括号已闭合时生效；字符串、转义引号、三引号和嵌套字典中的分隔符不提前结束表达式。孤立 `}}` 返回 `TEMPLATE_UNEXPECTED_CLOSE`，闭合空表达式 `{{}}` 返回 `TEMPLATE_EMPTY_EXPRESSION`，未闭合模板返回 `TEMPLATE_UNCLOSED`。
+
 ## 关键字段
 
 ### `Skill`
@@ -182,7 +184,7 @@ Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critica
 | `POST /api/workflow-debug-runs/{run_id}/advance` | 查询一次执行器状态，并按需自动恢复一次暂停。 |
 | `GET /api/admin/system-commands` | 使用 `X-SkillHub-Admin-Key` 读取系统 CLI 命令库。 |
 | `POST /api/admin/system-commands` | 使用 `X-SkillHub-Admin-Key` 新建系统 CLI 命令。 |
-| `GET/PUT/PATCH/DELETE /api/admin/system-commands/{id}` | 使用 `X-SkillHub-Admin-Key` 读取、覆盖更新或删除系统 CLI 命令；被 Workflow 来源引用时拒绝删除。 |
+| `GET/PUT/PATCH/DELETE /api/admin/system-commands/{id}` | 使用 `X-SkillHub-Admin-Key` 读取、部分更新或删除系统 CLI 命令；被 Workflow 来源引用时拒绝删除。 |
 
 ## CLI 命令库
 
@@ -203,6 +205,8 @@ Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critica
 表达式按空白和双引号 token 化（不解释转义）：普通 token 是关键字，`<name>` 是参数；`[ ... ]` 是可选组，`{ x | y }` 是必选选项，`[ x | y ]` 是可选选项，组后的 `*` 支持重复，`<name>&<1-n>` 支持有界重复参数。多选组按表达式中声明的分支顺序匹配；输入关键字支持大小写不敏感前缀。保存时后端规范化表达式并以规范化 AST 语义检索；前端只展示服务端诊断与结果。
 
 选择系统命令时，编辑器创建一个带 `sourceSystemCommandId` 的只读 Collection 草稿。保存时后端在同一事务内验证绑定并同步系统命令的最新内容；同步不兼容会整体回滚。普通 Workflow 保存不得 `revise` 这类 Collection。非系统 CLI Collection 会投影到用户命令库；删除 Workflow 时其投影记录通过外键级联删除。Workflow 导出会移除系统来源身份，导入后始终成为独立用户 Collection。
+
+系统命令的 PUT/PATCH 均采用部分更新：未提交字段或显式 `null` 保留原值，`samples: []` 和 `ttp: ""` 明确清空内容，`enabled: false` 正常禁用。来源同步先构造全部候选快照，再检查调用绑定、前序输出作用域及条件、脚本和模板引用；确认兼容后在同一保存事务写入新版本。同一来源的重复调用共享新版本，失败不保留部分更新。
 
 `DELETE /api/skills/{skill_id}` 是破坏性接口，已替换旧版归档语义。仅 owner 或 admin 可调用：
 

@@ -15,6 +15,7 @@
 - `operations/shared/tagging.py`：所有 Skill 写入口共用的 Tag 清洗、自由值沉淀、条件必填和权限辅助逻辑。
 - `operations/workflows/`：Workflow、WorkflowSync 和全局 Collection Catalog 的事务读写、同步状态与审计。
 - `operations/command_library.py`：CLI 系统/用户命令条目的匹配搜索、版本管理、来源引用保护和 Workflow 同步。
+- `operations/command_source_sync.py`：系统命令来源同步的候选快照投影、全部兼容校验和事务内统一版本写入。
 - `operations/workflow_debug/`：Workflow 单步调试例与运行记录的事务内 CRUD、分页、权限和级联清理。
 - `operations/workflows/workflow_syncs.py`：在事务内复核预览证据，并创建或重激活 Generator 对应的 SkillVersion。
 - `operations/workflows/imports.py`：Import Bundle 的原子导入、Collection 身份分配和引用重写。
@@ -35,7 +36,12 @@
 - `rules/workflows/config_validation.py`：配置命令树、捕获 Schema、属性冲突和根命名冲突的纯校验。
 - `rules/workflows/expression/config_schema.py`：Config 命令在表达式环境中的 JSON Schema 投影。
 - `rules/workflows/expression/workflow.py`：Workflow 条件中的 Config 路径门禁。
+- `rules/workflows/expression/checker_ast.py`：表达式 AST 的位置、索引和配置路径辅助解析。
+- `rules/workflows/source_compatibility.py`：系统来源更新的输入绑定和输出兼容性校验。
+- `rules/workflows/source_references.py`：输出引用的 AST 路径提取和脚本字段兼容检查。
+- `rules/workflows/source_diagnostics.py`：全部表达式入口的新增诊断、引用类型及候选作用域冲突检查。
 - `rules/executor_workflows/`：外部执行器 Workflow 的严格 DTO 和无副作用写作侧转换规则。
+- `rules/executor_workflows/bindings.py`：执行器输入绑定解析，按调用顺序和图前序作用域解析采集输出并保留错误位置。
 - `rules/workflow_debug.py`：调试例引用投影、预期目标判定和暂停恢复输入构造规则。
 - `rules/bundle_diffs.py`：版本差异与同步预览共用的确定性 Bundle 文本 diff。
 - `store.py`：Model 层对 Service 层暴露的组合根，持有请求级 Session，并保留薄兼容 facade。
