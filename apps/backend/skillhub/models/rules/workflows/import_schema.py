@@ -157,8 +157,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
         for item in workflow["inputs"]
         if item["key"].strip()
     }
-    from skillhub.models.rules.workflows.expression import validate_expression
-    from skillhub.models.rules.workflows.expression.types import type_spec_assignable_to_schema, type_spec_from_serialized
+    from skillhub.models.rules.workflows.expression import validate_binding_expression
     for step in (node for node in nodes if "stepType" in node):
         for call in step.get("collectionCalls", []):
             definition = definitions[call["definitionLocalId"]]
@@ -176,14 +175,14 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
                 expression = binding.get("expression")
                 if not isinstance(expression, str) or not expression.strip():
                     raise InvariantError("Workflow import expression Binding cannot be empty.")
-                result = validate_expression(expression, environment)
+                parameter = next(item for item in definition["inputs"] if item["id"] == input_id)
+                result = validate_binding_expression(expression, environment, parameter["schema"])
                 if result["diagnostics"]:
                     raise InvariantError(
                         f"Workflow import expression Binding is invalid: {step['id']} {call['id']} {input_id}: "
                         + "; ".join(item["message"] for item in result["diagnostics"])
                     )
-                parameter = next(item for item in definition["inputs"] if item["id"] == input_id)
-                if not type_spec_assignable_to_schema(type_spec_from_serialized(result["inferredType"]), parameter["schema"]):
+                if not result["assignable"]:
                     raise InvariantError(f"Workflow import expression Binding Schema is incompatible: {input_id}")
     for step in (node for node in nodes if "stepType" in node):
         environment = project_workflow_expression_environment(

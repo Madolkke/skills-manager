@@ -1,49 +1,48 @@
+import { scanWorkflowExpressionBoundary } from "./workflowExpressionLexing";
+
 export type WorkflowTemplateDiagnostic = { code: string; message: string; start: number; end: number; severity?: "error" | "warning" };
-
 export type WorkflowTemplateExpression = { expression: string; start: number; end: number };
+type TemplateBlock = WorkflowTemplateExpression & { closed: boolean };
 
-export function scanWorkflowTemplate(source: string): WorkflowTemplateDiagnostic[] {
+/** 使用相同词法边界生成模板诊断、表达式与补全范围。 */
+function parseTemplate(source: string): { diagnostics: WorkflowTemplateDiagnostic[]; blocks: TemplateBlock[] } {
   const diagnostics: WorkflowTemplateDiagnostic[] = [];
+  const blocks: TemplateBlock[] = [];
   let cursor = 0;
   while (cursor < source.length) {
-    const opening = source.indexOf("{{", cursor);
-    const closing = source.indexOf("}}", cursor);
-    if (closing >= 0 && (opening < 0 || closing < opening)) {
-      diagnostics.push({ code: "TEMPLATE_UNEXPECTED_CLOSE", message: "模板出现未匹配的结束标记。", start: closing, end: closing + 2, severity: "error" });
-      cursor = closing + 2;
+    if (source.startsWith("}}", cursor)) {
+      diagnostics.push({ code: "TEMPLATE_UNEXPECTED_CLOSE", message: "模板出现未匹配的结束标记。", start: cursor, end: cursor + 2, severity: "error" });
+      cursor += 2;
       continue;
     }
-    if (opening < 0) break;
-    const end = source.indexOf("}}", opening + 2);
-    if (end < 0) {
-      diagnostics.push({ code: "TEMPLATE_UNCLOSED", message: "模板缺少结束标记“}}”。", start: opening, end: source.length, severity: "error" });
-      if (!source.slice(opening + 2).trim()) diagnostics.push({ code: "TEMPLATE_EMPTY_EXPRESSION", message: "模板表达式不能为空。", start: opening + 2, end: source.length, severity: "error" });
+    if (!source.startsWith("{{", cursor)) { cursor += 1; continue; }
+    const start = cursor + 2;
+    const closing = scanWorkflowExpressionBoundary(source, start).closing;
+    const end = closing ?? source.length;
+    const expression = source.slice(start, end);
+    blocks.push({ expression, start, end, closed: closing !== null });
+    if (closing === null) {
+      diagnostics.push({ code: "TEMPLATE_UNCLOSED", message: "模板缺少结束标记“}}”。", start: cursor, end, severity: "error" });
       break;
     }
-    if (!source.slice(opening + 2, end).trim()) diagnostics.push({ code: "TEMPLATE_EMPTY_EXPRESSION", message: "模板表达式不能为空。", start: opening + 2, end, severity: "error" });
+    if (!expression.trim()) diagnostics.push({ code: "TEMPLATE_EMPTY_EXPRESSION", message: "模板表达式不能为空。", start, end, severity: "error" });
     cursor = end + 2;
   }
-  return diagnostics;
+  return { diagnostics, blocks };
 }
 
+/** 返回模板定界符错误，表达式语法交由表达式校验器处理。 */
+export function scanWorkflowTemplate(source: string): WorkflowTemplateDiagnostic[] {
+  return parseTemplate(source).diagnostics;
+}
+
+/** 提取完整模板块，保留 JavaScript UTF16 偏移。 */
 export function workflowTemplateExpressions(source: string): WorkflowTemplateExpression[] {
-  const values: WorkflowTemplateExpression[] = [];
-  let cursor = 0;
-  while (cursor < source.length) {
-    const opening = source.indexOf("{{", cursor);
-    if (opening < 0) break;
-    const end = source.indexOf("}}", opening + 2);
-    if (end < 0) break;
-    values.push({ expression: source.slice(opening + 2, end), start: opening + 2, end });
-    cursor = end + 2;
-  }
-  return values;
+  return parseTemplate(source).blocks.filter((block) => block.closed).map(({ expression, start, end }) => ({ expression, start, end }));
 }
 
+/** 找到光标所属的表达式，包括尚未闭合的模板块。 */
 export function activeWorkflowTemplateExpression(source: string, cursor: number): WorkflowTemplateExpression | null {
-  const opening = source.lastIndexOf("{{", cursor);
-  if (opening < 0 || source.lastIndexOf("}}", cursor) > opening) return null;
-  const closing = source.indexOf("}}", opening + 2);
-  if (closing >= 0 && closing < cursor) return null;
-  return { expression: source.slice(opening + 2, cursor), start: opening + 2, end: cursor };
+  const block = parseTemplate(source).blocks.find((item) => cursor >= item.start && cursor <= item.end);
+  return block ? { expression: source.slice(block.start, cursor), start: block.start, end: cursor } : null;
 }

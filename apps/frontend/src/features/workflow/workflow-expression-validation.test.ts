@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { effectScope, ref } from "vue";
+import { effectScope, nextTick, ref } from "vue";
 import { api } from "../../lib/api";
 import type { CollectionDefinition, WorkflowBundle, WorkflowStep } from "../../types";
 import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidation";
@@ -9,6 +9,48 @@ import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidati
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe("Workflow expression batch validation", () => {
+  it.each([false, true])("取消批次后重新请求未完成条目，已发送：%s", async (started) => {
+    vi.useFakeTimers();
+    const validation = vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions, _environment, signal) => {
+      if (started && validation.mock.calls.length === 1) {
+        await new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
+      }
+      return { validations: expressions.map((item) => ({ id: item.id, inferredType: { kind: "boolean" }, diagnostics: [] })) };
+    });
+    const bundle = ref<WorkflowBundle | null>(workflowBundle());
+    const step = findStep(bundle.value!, "step-current");
+    step.topology[0]!.conditionExpression = "True";
+    step.topology.push({ ...step.topology[0]!, id: "second", conditionExpression: "False" });
+    const scope = effectScope();
+    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
+    try {
+      await vi.advanceTimersByTimeAsync(started ? 300 : 50);
+      step.topology[0]!.conditionExpression = "1 == 1";
+      await nextTick();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(validation.mock.calls.at(-1)?.[0].map((item) => item.id)).toEqual(["step-current:path-current", "step-current:second"]);
+      expect(Object.keys(result.diagnostics.value)).toHaveLength(2);
+    } finally { scope.stop(); vi.useRealTimers(); }
+  });
+
+  it("请求失败后普通编辑可以重新触发同内容校验", async () => {
+    vi.useFakeTimers();
+    const validation = vi.spyOn(api, "validateWorkflowExpressions").mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ validations: [{ id: "step-current:path-current", inferredType: { kind: "boolean" }, diagnostics: [] }] });
+    const bundle = ref<WorkflowBundle | null>(workflowBundle());
+    findStep(bundle.value!, "step-current").topology[0]!.conditionExpression = "True";
+    const scope = effectScope();
+    const result = scope.run(() => useWorkflowExpressionValidation(bundle))!;
+    try {
+      await vi.advanceTimersByTimeAsync(300);
+      bundle.value!.workflow.metadata.name = "重新编辑";
+      await nextTick();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(validation).toHaveBeenCalledTimes(2);
+      expect(Object.keys(result.diagnostics.value)).toEqual(["step-current:path-current"]);
+    } finally { scope.stop(); vi.useRealTimers(); }
+  });
+
   it("debounces by step, aborts stale requests, and aggregates stable sample warnings", async () => {
     const signals: AbortSignal[] = [];
     const validation = vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions, _environment, signal) => {

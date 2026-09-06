@@ -10,6 +10,7 @@ import type { EditorView } from "@codemirror/view";
 import type { WorkflowExpressionVariable, WorkflowExpressionVariableKind } from "./workflowExpressionVariables";
 import { expandWorkflowExpressionVariable, filterWorkflowExpressionVariables } from "./workflowExpressionVariables";
 import { activeWorkflowTemplateExpression } from "./workflowTemplate";
+import { scanWorkflowExpressionBoundary } from "./workflowExpressionLexing";
 
 const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   global: { name: "全局输入", rank: 0 },
@@ -272,22 +273,5 @@ function toCompletion(variable: WorkflowExpressionVariable): Completion {
 }
 
 function insideQuotedLiteral(value: string): boolean {
-  let quote = "";
-  let escaped = false;
-  for (const character of value) {
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (character === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (quote) {
-      if (character === quote) quote = "";
-    } else if (character === "\"" || character === "'" || character === "`") {
-      quote = character;
-    }
-  }
-  return Boolean(quote);
+  return scanWorkflowExpressionBoundary(value, 0, false).quoted;
 }

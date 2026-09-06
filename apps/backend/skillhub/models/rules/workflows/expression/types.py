@@ -11,13 +11,19 @@ class TypeSpec:
     properties: dict[str, "TypeSpec"] = field(default_factory=dict)
     options: tuple["TypeSpec", ...] = ()
     sample_count: int | None = None
+    required_properties: frozenset[str] = frozenset()
+
+    def property_type(self, key: str) -> "TypeSpec":
+        """Include absence only when an object property is read as a value."""
+        value = self.properties[key]
+        return value if key in self.required_properties else union(value, NONE)
 
     def serialize(self) -> dict[str, Any]:
         value: dict[str, Any] = {"kind": self.kind}
         if self.item is not None:
             value["item"] = self.item.serialize()
         if self.properties:
-            value["properties"] = {key: item.serialize() for key, item in sorted(self.properties.items())}
+            value["properties"] = {key: self.property_type(key).serialize() for key in sorted(self.properties)}
         if self.options:
             value["options"] = [item.serialize() for item in self.options]
         if self.sample_count is not None:
@@ -37,8 +43,12 @@ def array(item: TypeSpec = ANY, *, sample_count: int | None = None) -> TypeSpec:
     return TypeSpec("array", item=item, sample_count=sample_count)
 
 
-def object_type(properties: dict[str, TypeSpec] | None = None, *, sample_count: int | None = None) -> TypeSpec:
-    return TypeSpec("object", properties=properties or {}, sample_count=sample_count)
+def object_type(
+    properties: dict[str, TypeSpec] | None = None, *, sample_count: int | None = None, required: frozenset[str] | None = None,
+) -> TypeSpec:
+    """Keep property presence separate from each property's declared value type."""
+    values = properties or {}
+    return TypeSpec("object", properties=values, sample_count=sample_count, required_properties=frozenset(values) if required is None else required)
 
 
 def union(*options: TypeSpec) -> TypeSpec:
@@ -66,13 +76,8 @@ def from_json_schema(schema: dict[str, Any]) -> TypeSpec:
     if schema_type == "array":
         return array(from_json_schema(schema.get("items", {})))
     if schema_type == "object":
-        required = set(schema.get("required", []))
-        properties = {
-            key: value_type if key in required else union(value_type, NONE)
-            for key, value in schema.get("properties", {}).items()
-            for value_type in [from_json_schema(value)]
-        }
-        return object_type(properties)
+        properties = {key: from_json_schema(value) for key, value in schema.get("properties", {}).items()}
+        return object_type(properties, required=frozenset(schema.get("required", [])))
     return ANY
 
 
@@ -85,10 +90,10 @@ def type_spec_assignable_to_schema(source: TypeSpec, target: dict[str, Any]) -> 
         return all(type_spec_assignable_to_schema(option, target) for option in source.options)
     if source.kind == "any":
         return False
-    if source.kind == "none":
-        return False
     if isinstance(target_type, list):
-        return any(type_spec_assignable_to_schema(source, {**target, "type": item}) for item in target_type if item != "null")
+        return any(type_spec_assignable_to_schema(source, {**target, "type": item}) for item in target_type)
+    if source.kind == "none":
+        return target_type == "null"
     if source.kind != target_type and not (source.kind == "integer" and target_type == "number"):
         return False
     if source.kind == "array":
@@ -96,7 +101,7 @@ def type_spec_assignable_to_schema(source: TypeSpec, target: dict[str, Any]) -> 
     if source.kind == "object":
         properties = target.get("properties", {})
         required = set(target.get("required", []))
-        if any(key not in source.properties for key in required):
+        if not required.issubset(source.required_properties):
             return False
         return all(
             key not in source.properties or type_spec_assignable_to_schema(source.properties[key], child)

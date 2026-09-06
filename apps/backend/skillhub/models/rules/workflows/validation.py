@@ -7,7 +7,7 @@ from urllib.parse import quote
 from .collection_validation import validate_collection_identity
 from .config_validation import config_root_names
 from .device_bindings import resolve_device_role_field
-from .expression import validate_expression
+from .expression import validate_binding_expression, validate_expression
 from .expression.checker import SAMPLE_INDEX_DIAGNOSTIC_CODES
 from .expression.environment import (
     binding_expression_environment,
@@ -379,12 +379,10 @@ def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, def
             environment = project_workflow_expression_environment([], definitions, expression_inputs, workflow_roles)
         else:
             environment = binding_expression_environment(all_steps, current_step_id, selection.get("itemId", ""), definitions, expression_inputs, workflow_roles)
-        result = validate_expression(expression, environment)
+        result = validate_binding_expression(expression, environment, parameter["schema"])
         for diagnostic in result["diagnostics"]:
             issues.append(issue(diagnostic["code"], "error", diagnostic["message"], selection))
-        from .expression.types import type_spec_assignable_to_schema, type_spec_from_serialized
-        inferred_type = type_spec_from_serialized(result.get("inferredType", {}))
-        if not result["diagnostics"] and not type_spec_assignable_to_schema(inferred_type, parameter["schema"]):
+        if not result["diagnostics"] and not result["assignable"]:
             issues.append(issue("INCOMPATIBLE_BINDING_SCHEMA", "error", f"表达式结果与输入“{schema_title(parameter)}”的 Schema 不兼容。", selection))
         return
     if kind == "workflow_input":

@@ -91,7 +91,8 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
     }
     clearRequest();
     requestedSources = activeSources;
-    const changed = new Set(changedIds);
+    // 取消的是整批请求，尚未完成的条目也必须重新入队。
+    const changed = new Set([...changedIds, ...Object.keys(activeSources).filter((id) => validatedSources[id] !== activeSources[id])]);
     const batches = projected.batches.map((batch) => ({
       ...batch,
       expressions: batch.expressions.filter((item) => changed.has(item.id)),
@@ -123,6 +124,7 @@ export function useWorkflowExpressionValidation(bundle: Ref<WorkflowBundle | nul
         });
         diagnostics.value = nextDiagnostics;
         validatedSources = nextValidatedSources;
+        requestedSources = { ...nextValidatedSources };
       } catch (error) {
         if (requestGeneration === generation && !isAbortError(error)) {
           diagnostics.value = Object.fromEntries(Object.entries(diagnostics.value).filter(([id]) => activeSources[id] === validatedSources[id]));

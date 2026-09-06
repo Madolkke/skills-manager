@@ -21,4 +21,4 @@ def test_conclusion_severity_defaults_and_rejects_unknown_values() -> None:
 def test_template_scanner_reports_unclosed_and_unknown_expression() -> None:
     environment = {"inputs": {}, "outputs": {}, "config": {}}
     diagnostics = validate_template("{{ outputs.missing }} {{", environment)
-    assert [item["code"] for item in diagnostics] == ["UNKNOWN_PROPERTY", "TEMPLATE_UNCLOSED", "TEMPLATE_EMPTY_EXPRESSION"]
+    assert [item["code"] for item in diagnostics] == ["UNKNOWN_PROPERTY", "TEMPLATE_UNCLOSED"]

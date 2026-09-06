@@ -4,9 +4,10 @@ import ast
 from dataclasses import dataclass
 from typing import Any
 
+from .checker_ast import integer_index_type, integer_literal, is_config_expression, source_offset
 from .environment import expression_root_types
 from .registry import FUNCTIONS, METHODS
-from .types import ANY, BOOLEAN, INTEGER, NONE, NUMBER, STRING, TypeSpec, array, object_type, union
+from .types import ANY, BOOLEAN, INTEGER, NONE, NUMBER, STRING, TypeSpec, array, object_type, type_spec_assignable_to_schema, union
 
 SAMPLE_INDEX_DIAGNOSTIC_CODES = frozenset(
     {"SAMPLE_INDEX_REQUIRED", "SAMPLE_INDEX_NOT_ALLOWED", "SAMPLE_INDEX_OUT_OF_RANGE", "INVALID_SAMPLE_INDEX_TYPE"}
@@ -25,16 +26,33 @@ class Diagnostic:
 
 
 def validate_expression(source: str, environment: dict[str, Any]) -> dict[str, Any]:
+    """Expose the stable public result without internal property-presence data."""
+    inferred, diagnostics = _check_expression(source, environment)
+    return {"inferredType": inferred.serialize(), "diagnostics": diagnostics}
+
+
+def validate_binding_expression(source: str, environment: dict[str, Any], target_schema: dict[str, Any]) -> dict[str, Any]:
+    """Check binding compatibility before serializing the inferred type."""
+    inferred, diagnostics = _check_expression(source, environment)
+    return {
+        "inferredType": inferred.serialize(), "diagnostics": diagnostics,
+        "assignable": not diagnostics and type_spec_assignable_to_schema(inferred, target_schema),
+    }
+
+
+def _check_expression(source: str, environment: dict[str, Any]) -> tuple[TypeSpec, list[dict[str, Any]]]:
+    """Retain complete internal types for callers that enforce assignability."""
     if not source.strip():
-        return {"inferredType": NONE.serialize(), "diagnostics": []}
+        return NONE, []
     try:
         tree = ast.parse(source, mode="eval")
     except SyntaxError as exc:
-        start = max((exc.offset or 1) - 1, 0)
-        return {"inferredType": ANY.serialize(), "diagnostics": [Diagnostic("PYTHON_SYNTAX", exc.msg, start, start + 1).serialize()]}
+        start = source_offset(source, exc.lineno or 1, max((exc.offset or 1) - 1, 0), utf8_column=False)
+        end = source_offset(source, exc.end_lineno or exc.lineno or 1, max((exc.end_offset or exc.offset or 1) - 1, 0), utf8_column=False)
+        return ANY, [Diagnostic("PYTHON_SYNTAX", exc.msg, start, max(end, start + 1)).serialize()]
     checker = _Checker(source, expression_root_types(environment))
     inferred = checker.infer(tree.body)
-    return {"inferredType": inferred.serialize(), "diagnostics": [item.serialize() for item in checker.diagnostics]}
+    return inferred, [item.serialize() for item in checker.diagnostics]
 
 
 class _Checker:
@@ -83,7 +101,7 @@ class _Checker:
 
     def infer_Subscript(self, node: ast.Subscript) -> TypeSpec:
         owner = self.infer(node.value)
-        if _is_config_expression(node.value) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+        if is_config_expression(node.value) and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
             self.warn(node.slice, "CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "config 只支持点号访问字段，不支持字符串下标。")
         index = self.infer(node.slice)
         if owner.sample_count == 1 and owner.kind == "object":
@@ -93,16 +111,16 @@ class _Checker:
             return array(owner.item or ANY, sample_count=owner.sample_count) if owner.kind == "array" else owner
         if owner.kind == "array":
             if owner.sample_count is not None:
-                if not _integer_index_type(index):
+                if not integer_index_type(index):
                     self.warn(node.slice, "INVALID_SAMPLE_INDEX_TYPE", "采集结果下标必须是整数。")
-                literal = _integer_literal(node.slice)
+                literal = integer_literal(node.slice)
                 if literal is not None and not -owner.sample_count <= literal < owner.sample_count:
                     self.warn(node.slice, "SAMPLE_INDEX_OUT_OF_RANGE", f"采集结果下标 {literal} 超出范围 {-owner.sample_count}..{owner.sample_count - 1}。")
             elif index.kind != "integer":
                 self.warn(node.slice, "CONFIG_ARRAY_INDEX_INVALID", "config 数组只允许使用整数下标。")
             return owner.item or ANY
         if owner.kind == "object" and isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
-            return owner.properties.get(node.slice.value, ANY)
+            return owner.property_type(node.slice.value) if node.slice.value in owner.properties else ANY
         if isinstance(node.slice, ast.Slice):
             return owner
         return ANY
@@ -136,9 +154,8 @@ class _Checker:
         return STRING
 
     def infer_BoolOp(self, node: ast.BoolOp) -> TypeSpec:
-        for value in node.values:
-            self.infer(value)
-        return BOOLEAN
+        """Python and/or return one of their operands, not a coerced boolean."""
+        return union(*(self.infer(value) for value in node.values))
 
     def infer_Compare(self, node: ast.Compare) -> TypeSpec:
         self.infer(node.left)
@@ -220,7 +237,7 @@ class _Checker:
             return self._attribute(owner.item or ANY, node)
         if owner.kind == "object":
             if node.attr in owner.properties:
-                return owner.properties[node.attr]
+                return owner.property_type(node.attr)
             if node.attr in METHODS["object"]:
                 return TypeSpec("method")
             self.warn(node, "UNKNOWN_PROPERTY", f"对象不存在属性“{node.attr}”。")
@@ -238,6 +255,10 @@ class _Checker:
         if value == "boolean":
             return BOOLEAN
         if value.startswith("array"):
+            if value == "array<string>":
+                return array(STRING)
+            if value == "array<array<any>>":
+                return array(array(ANY))
             inferred = self.infer(source) if source else ANY
             return array(inferred.item or ANY)
         if value == "T" and source:
@@ -247,39 +268,6 @@ class _Checker:
         return ANY
 
     def warn(self, node: ast.AST, code: str, message: str) -> None:
-        start = _offset(self.source, getattr(node, "lineno", 1), getattr(node, "col_offset", 0))
-        end = _offset(self.source, getattr(node, "end_lineno", 1), getattr(node, "end_col_offset", getattr(node, "col_offset", 0) + 1))
+        start = source_offset(self.source, getattr(node, "lineno", 1), getattr(node, "col_offset", 0))
+        end = source_offset(self.source, getattr(node, "end_lineno", 1), getattr(node, "end_col_offset", getattr(node, "col_offset", 0) + 1))
         self.diagnostics.append(Diagnostic(code, message, start, max(end, start + 1)))
-
-
-def _offset(source: str, line: int, column: int) -> int:
-    return sum(len(item) + 1 for item in source.splitlines()[: max(line - 1, 0)]) + column
-
-
-def _is_config_expression(node: ast.AST) -> bool:
-    while isinstance(node, ast.Attribute):
-        node = node.value
-    while isinstance(node, ast.Subscript):
-        node = node.value
-        while isinstance(node, ast.Attribute):
-            node = node.value
-    return isinstance(node, ast.Name) and node.id == "config"
-
-
-def _integer_index_type(value: TypeSpec) -> bool:
-    if value.kind in {"any", "integer"}:
-        return True
-    return value.kind == "union" and all(option.kind == "integer" for option in value.options)
-
-
-def _integer_literal(node: ast.AST) -> int | None:
-    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
-        return node.value
-    if isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant):
-        value = node.operand.value
-        if isinstance(value, int) and not isinstance(value, bool):
-            if isinstance(node.op, ast.USub):
-                return -value
-            if isinstance(node.op, ast.UAdd):
-                return value
-    return None
