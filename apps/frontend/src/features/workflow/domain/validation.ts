@@ -43,7 +43,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       }
     } else if (definition.spec.collectionType === "log") {
       logCollectionIssues(definition).forEach((item) => add(issues, item.code, "error", item.message, { ...selection, itemId: item.itemId, field: item.field }));
-    } else {
+    } else if (definition.spec.collectionType === "config") {
       configCollectionIssues(definition).forEach((item) => add(issues, item.code, "error", item.message, { ...selection, itemId: item.itemId, field: item.field }));
     }
     duplicates(definition.inputs, "id", "MISSING_COLLECTION_INPUT_ID", "DUPLICATE_COLLECTION_INPUT_ID", "Collection 输入 ID", issues, selection);
@@ -73,7 +73,7 @@ export function validateWorkflow(bundle: WorkflowBundle, catalog: CollectionDefi
       const callName = call.name || definition?.metadata.name || "未命名采集";
       if ((definition?.spec.collectionType === "log" || definition?.spec.collectionType === "config") && call.sampleCount !== 1) add(issues, definition.spec.collectionType === "config" ? "CONFIG_CALL_SAMPLE_COUNT_UNSUPPORTED" : "LOG_CALL_SAMPLE_COUNT_UNSUPPORTED", "error", `${definition.spec.collectionType === "config" ? "配置" : "日志"}采集“${callName}”的采集次数必须为 1。`, { ...callSelection, field: "sampleCount" });
       else if (call.sampleCount < 1) add(issues, "INVALID_SAMPLE_COUNT", "error", `采集“${callName}”的采集次数必须大于零。`, { ...callSelection, field: "sampleCount" });
-      else if (definition?.spec.collectionType === "cli" && call.sampleCount > 1) {
+      else if ((definition?.spec.collectionType === "cli" || definition?.spec.collectionType === "function") && call.sampleCount > 1) {
         if (!call.key.trim()) add(issues, "MULTI_SAMPLE_CALL_KEY_REQUIRED", "error", `多次采集“${callName}”必须填写调用 key。`, { ...callSelection, field: "key" });
         else if (!isWorkflowExpressionIdentifier(call.key.trim())) add(issues, "INVALID_MULTI_SAMPLE_CALL_KEY", "error", `多次采集“${callName}”的调用 key 必须是合法的 Python 标识符。`, { ...callSelection, field: "key" });
       }

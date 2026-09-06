@@ -136,6 +136,12 @@ class CliCollectionSpec(WorkflowModel):
     command_parameter_syntax: Literal["angle-v1"] | None = None
 
 
+class FunctionCollectionSpec(WorkflowModel):
+    collection_type: Literal["function"] = "function"
+    language: Literal["python"] = "python"
+    source: str = ""
+
+
 class LogAggregationQuery(WorkflowModel):
     id: str
     name: str
@@ -173,7 +179,10 @@ class ConfigCollectionSpec(WorkflowModel):
     config: ConfigRoot
 
 
-CollectionSpec = Annotated[CliCollectionSpec | LogCollectionSpec | ConfigCollectionSpec, Field(discriminator="collection_type")]
+CollectionSpec = Annotated[
+    CliCollectionSpec | FunctionCollectionSpec | LogCollectionSpec | ConfigCollectionSpec,
+    Field(discriminator="collection_type"),
+]
 
 
 class CollectionDefinition(WorkflowModel):

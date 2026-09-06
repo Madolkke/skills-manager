@@ -94,8 +94,9 @@ export type CliCollectionSpec = {
   outputSamples: CliOutputSample[];
   commandParameterSyntax?: "angle-v1";
 };
+export type FunctionCollectionSpec = { collectionType: "function"; language: "python"; source: string };
 export type LogCollectionSpec = { collectionType: "log"; sqlDialect: "duckdb"; queries: LogAggregationQuery[]; outputSamples: LogOutputSample[] };
-export type WorkflowCollectionSpec = CliCollectionSpec | LogCollectionSpec | ConfigCollectionSpec;
+export type WorkflowCollectionSpec = CliCollectionSpec | FunctionCollectionSpec | LogCollectionSpec | ConfigCollectionSpec;
 export type CollectionType = WorkflowCollectionSpec["collectionType"];
 
 export type WorkflowLogSchemaColumn = {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Callable
 
 import yaml
@@ -97,6 +98,8 @@ def append_calls(
             spec = definition["spec"]
             if spec["collectionType"] == "cli" and spec["commandTemplate"]:
                 lines.extend(["", "```text", spec["commandTemplate"].rstrip(), "```"])
+            elif spec["collectionType"] == "function":
+                append_function_source(lines, spec)
             elif spec["collectionType"] == "log":
                 append_log_queries(lines, spec["queries"], definition["outputs"])
             elif spec["collectionType"] == "config":
@@ -124,6 +127,16 @@ def append_calls(
                 heading = "回显示例" if spec["collectionType"] == "cli" else "日志输出示例"
                 lines.extend(["", f"{heading}: {'、'.join(samples)}"])
         lines.append("")
+
+
+def append_function_source(lines: list[str], spec: dict[str, Any], *, level: int | None = None) -> None:
+    """Render an opaque custom-function body without interpreting its contents."""
+    if level is not None:
+        lines.extend([f"{'#' * level} Python 函数", ""])
+    source = spec["source"]
+    longest_fence = max((len(match.group(0)) for match in re.finditer(r"`+", source)), default=0)
+    fence = "`" * max(3, longest_fence + 1)
+    lines.extend([f"{fence}python", source, fence, ""])
 
 
 def append_bindings(lines, bindings, parameters, *, workflow_inputs, calls, definitions, roles=None) -> None:

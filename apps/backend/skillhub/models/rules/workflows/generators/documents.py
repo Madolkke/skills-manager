@@ -5,6 +5,7 @@ from typing import Any
 
 from .rendering import (
     append_calls,
+    append_function_source,
     append_metadata,
     append_paragraph,
     append_parameters,
@@ -30,8 +31,16 @@ def collection_reference_path(definition: dict[str, Any]) -> str:
 def render_entry(*, slug: str, document: dict[str, Any], reference_path: str, split_nodes: bool) -> str:
     metadata = document["workflow"]["metadata"]
     collection_types = {item["spec"]["collectionType"] for item in document.get("collectionSnapshots", [])}
-    if "log" in collection_types and "config" in collection_types:
+    if "function" in collection_types and "log" in collection_types and "config" in collection_types:
+        collection_instruction = "2. 执行节点所列自定义函数、日志聚合和配置匹配采集，按参数绑定填充值，并保留结构化输出供后续判断。"
+    elif "function" in collection_types and "log" in collection_types:
+        collection_instruction = "2. 执行节点所列自定义函数和日志聚合采集，按参数绑定填充值，并保留结构化输出供后续判断。"
+    elif "function" in collection_types and "config" in collection_types:
+        collection_instruction = "2. 执行节点所列自定义函数和配置匹配采集，按参数绑定填充值，并保留结构化输出供后续判断。"
+    elif "log" in collection_types and "config" in collection_types:
         collection_instruction = "2. 执行节点所列日志聚合和配置匹配采集，按参数绑定填充值，并保留结构化输出供后续判断。"
+    elif "function" in collection_types:
+        collection_instruction = "2. 执行节点所列自定义函数采集，按参数绑定填充值，并保留结构化输出供后续判断。"
     elif "log" in collection_types:
         collection_instruction = "2. 执行节点所列日志聚合采集，按参数绑定填充值，并保留结构化输出供后续判断。"
     elif "config" in collection_types:
@@ -187,8 +196,10 @@ def append_collection_definition(lines: list[str], definition: dict[str, Any], *
             lines.extend([f"{'#' * (level + 1)} 采集命令", "", "```text", command.rstrip(), "```", ""])
     elif spec["collectionType"] == "log":
         _append_log_spec(lines, spec, definition["outputs"], level=level + 1)
-    else:
+    elif spec["collectionType"] == "config":
         _append_config_spec(lines, spec, level=level + 1)
+    else:
+        append_function_source(lines, spec, level=level + 1)
     append_parameters(lines, "输入参数", definition["inputs"], level=level + 1)
     if definition["outputs"]:
         lines.extend([f"{'#' * (level + 1)} 输出字段", ""])

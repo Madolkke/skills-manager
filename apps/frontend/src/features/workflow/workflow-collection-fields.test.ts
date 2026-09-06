@@ -159,4 +159,21 @@ describe("Workflow Collection 字段表格", () => {
     await outputSection.get("button").trigger("click");
     expect((wrapper.emitted("change")?.at(-1)?.[0] as CollectionDefinition).outputs[0]?.required).toBe(true);
   });
+
+  it("支持自定义函数源码和递归 Schema，且源码不做校验", async () => {
+    const definition: CollectionDefinition = {
+      id: "collection-function", revision: 1, key: "calculate",
+      metadata: { name: "计算", description: "", industry: "", device: "", versions: [], tags: [] },
+      spec: { collectionType: "function", language: "python", source: "def broken(:" },
+      inputs: [], outputs: [],
+    };
+    const wrapper = mount(WorkflowCollectionFields, { props: { definition, readonly: false } });
+
+    expect(wrapper.get('select').element).toHaveProperty("value", "function");
+    expect(wrapper.get('textarea[aria-label="Python 函数源码"]').element).toHaveProperty("value", "def broken(:");
+    await wrapper.get('textarea[aria-label="Python 函数源码"]').setValue("中文\nraise SyntaxError()\n");
+    expect((wrapper.emitted("change")?.at(-1)?.[0] as CollectionDefinition).spec).toEqual({
+      collectionType: "function", language: "python", source: "中文\nraise SyntaxError()\n",
+    });
+  });
 });

@@ -282,7 +282,7 @@ Collection 输入 Binding 还支持 `expression`：请求中使用 `{ "kind": "e
 
 日志 SQL 的完整字段、`params` 引用、查询输出契约和静态校验见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。SkillHub 不执行 SQL，不保存 DataFrame，也不提供日志上传或 SQL 运行接口。
 
-Workflow 单步调试接口均要求 `skill.edit`。启动请求在同一数据库快照内读取当前保存的 revision，并复用 executor GET 的同一纯投影入口；发送给外部执行器的 `workflow_data` 与该 revision 的 `ExecutorWorkflow` 深度相等，不包含 revision、digest、调试字段或内部 ID 映射。当前 Step 包含 Log/Config 时启动返回稳定的 `workflow_debug.unsupported_collection_type`，但案例和历史接口仍可使用。调试例、状态机、暂停恢复、分页和环境配置见[Workflow 单步调试](workflow-step-debug-api.md)。
+Workflow 单步调试接口均要求 `skill.edit`。启动请求在同一数据库快照内读取当前保存的 revision，并复用 executor GET 的同一纯投影入口；发送给外部执行器的 `workflow_data` 与该 revision 的 `ExecutorWorkflow` 深度相等，不包含 revision、digest、调试字段或内部 ID 映射。当前 Step 包含 Log/Config 时启动返回稳定的 `workflow_debug.unsupported_collection_type`，但案例和历史接口仍可使用。Function Collection 不生成调试 fixture，并在执行器投影中静默过滤；其源码和输出仍属于作者侧 Workflow。调试例、状态机、暂停恢复、分页和环境配置见[Workflow 单步调试](workflow-step-debug-api.md)。
 
 Workflow 校验问题统一包含 `id`、`code`、`severity`、`message` 和 `selection`。`selection` 使用 `type` 定位编辑区域，并按需携带 `id`、`revision`、`section`、`itemId` 和 `field`；采集调用相关问题必须提供 `section: "collections"`、调用 `itemId`，字段级问题还必须提供 `field`。
 
@@ -326,6 +326,7 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 - 参数 Key/名称、Collection 输出 Key、Collection 名称或单行 CLI 命令缺失属于领域 `error`，允许保存但阻止同步。Collection 调用 Key 可为空；为空时输出字段直接暴露，若与全局输入或其他直接暴露输出冲突则阻止同步。多次采集必须填写当前 Step 内合法 Python 标识符形式的调用 Key；不同 Step 可以复用同名 Key。
 - 日志 Collection 的输入/输出只允许 `string`、`integer`、`number`、`boolean`；每个输出必须且只能归属一条查询，SQL 顶层 alias 必须与输出 Key 一致。日志调用固定 `sampleCount = 1` 且不支持 `deviceRoleId`。SQL AST 错误属于领域 `error`，允许保存草稿但阻止同步。
 - 配置匹配 Collection 使用 `config.commands` 命令树和单行尖括号模式；命令/捕获名、捕获 Schema、同级重复及跨调用根命名冲突属于领域 `error`。配置调用固定 `sampleCount = 1`，可按设备角色隔离上下文；结果通过 `config` 表达式根访问。当前 executor 投影对 Config 返回 `executor_workflow.unsupported_collection_type`。
+- 自定义函数 Collection 使用 `function` spec、固定 `language: "python"` 和任意字符串 `source`。源码不执行、不进行语法或内容校验；输入输出沿用递归 JSON Schema，调用支持设备角色和多次采集。函数输出按普通 Collection 输出进入上下文，可被当前调用之后及图上传递前序调用绑定。当前 executor 投影静默过滤 Function Call，不为其分配执行器 ID；内置 Skill Generator 会将源码以 `python` 代码块保留。
 
 `GET /api/skills/{skill_id}/workflow/export` 返回严格的 `WorkflowImportBundle`。接口读取当前服务端已保存 revision，按 Call 首次出现顺序导出实际引用的 Collection 精确版本，并使用确定性的 `collection_1`、`collection_2` 等 `localId` 重写引用。响应不包含 Workflow/Collection 持久化 ID、revision、`forkedFrom`、权限或版本历史，也不包含未引用的全局 Catalog 定义。该文件是跨实例可移植快照，不是数据库备份。
 

@@ -164,7 +164,7 @@ DeviceRole 描述逻辑设备角色。`required` 表示未来使用 Workflow 时
 
 ### CollectionDefinition
 
-CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。`spec` 是以 `collectionType` 判别的 CLI/log/config 严格联合。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
+CollectionDefinition 包含稳定 `id + revision`、元信息、输入、输出、类型专属 spec 和可选 `forkedFrom`。`spec` 是以 `collectionType` 判别的 CLI/function/log/config 严格联合。Collection 输出包含 `id/key/required/schema`，其中 Key 承担结构引用身份。
 
 CLI spec 包含：
 
@@ -174,6 +174,8 @@ CLI spec 包含：
 - 可选 `commandParameterSyntax: "angle-v1"`，表示命令中的 `<name>` 自动关联同名 Collection 输入。新建 CLI 采集默认启用；旧采集仅在修改命令后启用。
 
 原始 `stdout` 和 `inputValues` 只用于作者预览，不写入同步生成的 SKILL.md；生成结果只列出样例名称。
+
+Function spec 包含固定的 `language: "python"` 和 `source` 字符串。`source` 仅作为作者侧文本保存，不由 SkillHub 执行或进行 Python 语法校验；输入和输出继续使用递归 JSON Schema。
 
 日志 spec 固定使用 DuckDB 方言，包含多条 `queries` 和只保存名称、原始文本的 `outputSamples`。每条查询通过 `outputIds` 认领输出，SQL 顶层 alias 必须使用对应输出 Key。日志输入和输出只允许四种标量 Schema；固定 `logs`/`params` 表、SQLGlot 静态门禁和运行责任见 [Workflow 日志 SQL 聚合](workflow-log-sql-aggregation.md)。
 

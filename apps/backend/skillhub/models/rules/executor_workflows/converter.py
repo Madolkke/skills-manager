@@ -27,6 +27,7 @@ from skillhub.models.rules.workflows.schema import (
     Conclusion,
     ConfigCollectionSpec,
     ExpressionStep,
+    FunctionCollectionSpec,
     JsonSchema,
     LogCollectionSpec,
     ScriptStep,
@@ -133,7 +134,7 @@ class _Converter:
             for parameter_id in call.input_bindings:
                 binding_value(self, step, call, parameter_id, base)
             return None
-        if isinstance(definition.spec, (LogCollectionSpec, ConfigCollectionSpec)):
+        if isinstance(definition.spec, (LogCollectionSpec, ConfigCollectionSpec, FunctionCollectionSpec)):
             return None
         if call.device_role_id not in (None, ""):
             self._error(

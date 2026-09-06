@@ -1,4 +1,4 @@
-import type { CollectionDefinition, CollectionType, ConfigCollectionSpec, DeviceRole, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
+import type { CollectionDefinition, CollectionType, ConfigCollectionSpec, DeviceRole, FunctionCollectionSpec, LogCollectionSpec, WorkflowConclusion, WorkflowMetadata, WorkflowParameter, WorkflowStep, WorkflowTransition } from "../../types";
 import { createWorkflowId } from "./domain/utils";
 import { newWorkflowSchema } from "./workflowJsonSchema";
 
@@ -30,7 +30,7 @@ export function newCollection(
   metadata?: Pick<WorkflowMetadata, "industry" | "device" | "versions">,
   collectionType: CollectionType = "cli",
 ): CollectionDefinition {
-  const label = collectionType === "cli" ? "CLI" : collectionType === "log" ? "日志" : "配置";
+  const label = collectionType === "cli" ? "CLI" : collectionType === "function" ? "函数" : collectionType === "log" ? "日志" : "配置";
   return {
     id: createWorkflowId("collection"), revision: 1, key: `collection_${index}`,
     metadata: {
@@ -43,9 +43,14 @@ export function newCollection(
     },
     spec: collectionType === "cli"
       ? { collectionType: "cli", commandTemplate: "", outputSamples: [], commandParameterSyntax: "angle-v1" }
-      : collectionType === "log" ? newLogCollectionSpec() : newConfigCollectionSpec(),
+      : collectionType === "function" ? newFunctionCollectionSpec()
+        : collectionType === "log" ? newLogCollectionSpec() : newConfigCollectionSpec(),
     inputs: [], outputs: [],
   };
+}
+
+export function newFunctionCollectionSpec(): FunctionCollectionSpec {
+  return { collectionType: "function", language: "python", source: "" };
 }
 
 export function newLogCollectionSpec(): LogCollectionSpec {

@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from skillhub.models.errors import FieldError, FieldInvariantError
 from skillhub.models.rules.executor_workflows import ExecutorWorkflowProjection
-from skillhub.models.rules.workflows.schema import BaseStep, ConfigCollectionSpec, LogCollectionSpec, WorkflowBundle
+from skillhub.models.rules.workflows.schema import BaseStep, ConfigCollectionSpec, FunctionCollectionSpec, LogCollectionSpec, WorkflowBundle
 
 TARGET_ERROR_DETAIL = "Workflow 调试例引用与当前 Workflow 不一致。"
 UNSUPPORTED_COLLECTION_DETAIL = "当前 Step 包含暂不支持单步调试的采集类型。"
@@ -59,6 +59,8 @@ def build_executor_identity(
 ) -> dict[str, Any]:
     step_id = str(case["step_id"])
     target_id = str(case["expected_target_id"])
+    bundle = WorkflowBundle.model_validate(document)
+    step = next((node for node in bundle.workflow.nodes if isinstance(node, BaseStep) and node.id == step_id), None)
     validate_debug_case_target(document, step_id=step_id, expected_target_id=target_id)
     validate_debug_step_collections(document, step_id=step_id)
     step_executor_id = projection.id_map.step_ids.get(step_id)
@@ -89,6 +91,15 @@ def build_executor_identity(
         collections[call_id] = {"executor_id": executor_id, "output_keys": output_keys}
     for call_id, fixture in case["collection_fixtures"].items():
         if call_id not in collections:
+            function_call = next((call for call in step.collection_calls if call.id == call_id), None) if step else None
+            if function_call is not None:
+                function_definitions = [
+                    definition
+                    for definition in bundle.collection_snapshots
+                    if definition.id == function_call.definition.id and definition.revision == function_call.definition.revision
+                ]
+                if len(function_definitions) == 1 and isinstance(function_definitions[0].spec, FunctionCollectionSpec):
+                    continue
             errors.append(_field_error(f"collection_fixtures.{call_id}", "CollectionCall 已不存在或不属于当前 Step。"))
             continue
         for output_id in fixture["outputs"]:

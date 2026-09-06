@@ -3,7 +3,7 @@ import { ChevronRight, Plus } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import TagInput from "../../../components/TagInput.vue";
 import UiButton from "../../../components/ui/UiButton.vue";
-import type { CollectionDefinition, CollectionOutput, ConfigCollectionSpec, LogCollectionSpec, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
+import type { CollectionDefinition, CollectionOutput, ConfigCollectionSpec, FunctionCollectionSpec, LogCollectionSpec, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { cloneWorkflow, createWorkflowId } from "../domain/utils";
 import { newWorkflowSchema } from "../workflowJsonSchema";
 import WorkflowCollectionInputRows from "./WorkflowCollectionInputRows.vue";
@@ -12,6 +12,7 @@ import WorkflowCliSpecFields from "./WorkflowCliSpecFields.vue";
 import WorkflowConfirmModal from "./WorkflowConfirmModal.vue";
 import WorkflowLogSpecFields from "./WorkflowLogSpecFields.vue";
 import WorkflowConfigSpecFields from "./WorkflowConfigSpecFields.vue";
+import WorkflowFunctionSpecFields from "./WorkflowFunctionSpecFields.vue";
 import { parseCliCommandParameters } from "../domain/cliCommandParameters";
 
 const props = withDefaults(defineProps<{
@@ -23,7 +24,7 @@ const props = withDefaults(defineProps<{
 }>(), { compact: false, inlineDraft: false, issues: () => [] });
 const emit = defineEmits<{ change: [definition: CollectionDefinition] }>();
 const metadataOpen = ref(!props.inlineDraft);
-const pendingCollectionType = ref<"cli" | "log" | "config" | null>(null);
+const pendingCollectionType = ref<"cli" | "function" | "log" | "config" | null>(null);
 const commandParameterKeys = computed(() => {
   if (props.definition.spec.collectionType !== "cli" || props.definition.spec.commandParameterSyntax !== "angle-v1") return [];
   const parsed = parseCliCommandParameters(props.definition.spec.commandTemplate);
@@ -69,7 +70,7 @@ function removeOutput(id: string): void {
   });
 }
 
-function changeCollectionType(type: "cli" | "log" | "config"): void {
+function changeCollectionType(type: "cli" | "function" | "log" | "config"): void {
   if (type === props.definition.spec.collectionType) return;
   pendingCollectionType.value = type;
 }
@@ -80,9 +81,10 @@ function confirmCollectionType(): void {
   update((draft) => {
     draft.spec = type === "cli"
       ? { collectionType: "cli", commandTemplate: "", outputSamples: [], commandParameterSyntax: "angle-v1" }
-      : type === "log"
-        ? { collectionType: "log", sqlDialect: "duckdb", queries: [], outputSamples: [] } satisfies LogCollectionSpec
-        : { collectionType: "config", config: { commands: [] } } satisfies ConfigCollectionSpec;
+      : type === "function" ? { collectionType: "function", language: "python", source: "" } satisfies FunctionCollectionSpec
+        : type === "log"
+          ? { collectionType: "log", sqlDialect: "duckdb", queries: [], outputSamples: [] } satisfies LogCollectionSpec
+          : { collectionType: "config", config: { commands: [] } } satisfies ConfigCollectionSpec;
   });
   pendingCollectionType.value = null;
 }
@@ -115,29 +117,30 @@ function confirmCollectionType(): void {
     </section>
 
     <section class="workflow-field-section workflow-collection-type">
-      <label class="field-label"><span>采集类型</span><select :value="props.definition.spec.collectionType" :disabled="props.readonly" @change="changeCollectionType(($event.target as HTMLSelectElement).value as 'cli' | 'log' | 'config')"><option value="cli">CLI 命令</option><option value="log">日志聚合</option><option value="config">配置匹配</option></select></label>
+      <label class="field-label"><span>采集类型</span><select :value="props.definition.spec.collectionType" :disabled="props.readonly" @change="changeCollectionType(($event.target as HTMLSelectElement).value as 'cli' | 'function' | 'log' | 'config')"><option value="cli">CLI 命令</option><option value="function">自定义函数</option><option value="log">日志聚合</option><option value="config">配置匹配</option></select></label>
     </section>
 
     <WorkflowCliSpecFields v-if="props.definition.spec.collectionType === 'cli'" :definition="props.definition" :readonly="props.readonly" @change="emit('change', $event)" />
+    <WorkflowFunctionSpecFields v-else-if="props.definition.spec.collectionType === 'function'" :definition="props.definition" :readonly="props.readonly" @change="emit('change', $event)" />
     <WorkflowLogSpecFields v-else-if="props.definition.spec.collectionType === 'log'" :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
     <WorkflowConfigSpecFields v-else :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>
-      <WorkflowCollectionInputRows :items="props.definition.inputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType !== 'cli'" :command-parameter-keys="commandParameterKeys" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
+      <WorkflowCollectionInputRows :items="props.definition.inputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType === 'log' || props.definition.spec.collectionType === 'config'" :command-parameter-keys="commandParameterKeys" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
       <p v-if="props.definition.inputs.length === 0" class="workflow-inline-empty">当前采集不需要输入参数</p>
     </section>
 
     <section class="workflow-field-section">
       <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addOutput"><template #icon><Plus /></template>添加</UiButton></div>
-      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType !== 'cli'" @change="updateOutput" @remove="removeOutput" />
+      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType === 'log' || props.definition.spec.collectionType === 'config'" @change="updateOutput" @remove="removeOutput" />
       <p v-if="props.definition.outputs.length === 0" class="workflow-inline-empty">尚未声明结构化输出</p>
     </section>
 
     <WorkflowConfirmModal
       v-if="pendingCollectionType"
       title="切换采集类型"
-      description="切换类型会清空当前命令、SQL、配置树和对应样例，但会保留元信息、输入和输出字段。"
+      description="切换类型会清空当前命令、Python 代码、SQL、配置树和对应样例，但会保留元信息、输入和输出字段。"
       confirm-label="切换类型"
       tone="danger"
       @close="pendingCollectionType = null"

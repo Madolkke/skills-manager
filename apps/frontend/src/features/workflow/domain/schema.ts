@@ -31,6 +31,7 @@ const configCommand: z.ZodType<ConfigCommandValue> = z.lazy(() => z.object({
 }).strict());
 const collectionSpec = z.discriminatedUnion("collectionType", [
   z.object({ collectionType: z.literal("cli"), commandTemplate: z.string(), outputSamples: z.array(sample), commandParameterSyntax: z.literal("angle-v1").optional() }).strict(),
+  z.object({ collectionType: z.literal("function"), language: z.literal("python"), source: z.string() }).strict(),
   z.object({ collectionType: z.literal("log"), sqlDialect: z.literal("duckdb"), queries: z.array(logQuery), outputSamples: z.array(logSample) }).strict(),
   z.object({ collectionType: z.literal("config"), config: z.object({ commands: z.array(configCommand) }).strict() }).strict(),
 ]);

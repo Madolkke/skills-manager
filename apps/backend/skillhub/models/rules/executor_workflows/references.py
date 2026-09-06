@@ -12,6 +12,7 @@ from skillhub.models.rules.workflows.schema import (
     Conclusion,
     ConfigCollectionSpec,
     ExpressionStep,
+    FunctionCollectionSpec,
     LogCollectionSpec,
     ScriptStep,
 )
@@ -93,7 +94,7 @@ def projected_call_indexes(
         for node_index, step in steps
         for call_index, call in enumerate(step.collection_calls)
         if len(matches := definitions.get((call.definition.id, call.definition.revision), [])) == 1
-        and not isinstance(matches[0].spec, (LogCollectionSpec, ConfigCollectionSpec))
+        and not isinstance(matches[0].spec, (LogCollectionSpec, ConfigCollectionSpec, FunctionCollectionSpec))
     }
 
 

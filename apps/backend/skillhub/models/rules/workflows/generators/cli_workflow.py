@@ -12,6 +12,7 @@ from .contracts import (
 )
 from .documents import _append_step_summary, _definitions, _finish
 from .rendering import (
+    append_function_source,
     append_metadata,
     append_paragraph,
     append_parameters,
@@ -61,7 +62,7 @@ def render_cli_entry(*, slug: str, document: dict[str, Any]) -> str:
             "## 操作协议",
             "",
             "1. 先读取工作流参考文件，确认全局输入、设备角色、起始步骤和跳转条件。",
-            "2. 执行步骤中列出的 CLI 采集命令，按参数绑定填充值，并保留输出字段供后续判断。",
+            "2. 执行步骤中列出的 CLI 命令和自定义函数采集，按参数绑定填充值，并保留输出字段供后续判断。",
             "3. 按跳转条件推进；条件说明、故障根因和修复建议中的 `{{ expression }}` 保持原文。",
             "4. 脚本步骤仍属于工作流步骤，执行前必须结合目标环境复核脚本草稿。",
             "",
@@ -74,7 +75,7 @@ def render_cli_entry(*, slug: str, document: dict[str, Any]) -> str:
             "## 参考文件",
             "",
             "- [完整工作流](references/workflow.md)",
-            "- [CLI Collection 定义与调用](references/collections.md)",
+            "- [CLI 与函数 Collection 定义与调用](references/collections.md)",
             "",
         ]
     )
@@ -112,12 +113,12 @@ def render_cli_collections_reference(document: dict[str, Any]) -> str:
     roles = {item["id"]: item for item in workflow["deviceRoles"]}
     workflow_inputs = {item["id"]: item for item in workflow["inputs"]}
     predecessor_steps = _predecessor_steps(workflow)
-    lines = ["# CLI Collection 定义与调用", "", "## Collection 定义", ""]
+    lines = ["# CLI 与函数 Collection 定义与调用", "", "## Collection 定义", ""]
     if not definitions:
-        lines.extend(["当前工作流没有 CLI Collection 定义。", ""])
+        lines.extend(["当前工作流没有 CLI 或函数 Collection 定义。", ""])
     for definition in definitions.values():
         _append_cli_definition(lines, definition, level=3)
-    lines.extend(["## 工作流中的 CLI 采集调用", ""])
+    lines.extend(["## 工作流中的 CLI 与函数采集调用", ""])
     called = False
     for step in (item for item in workflow["nodes"] if "stepType" in item):
         step_calls = [item for item in step["collectionCalls"] if calls.get(item["id"])]
@@ -194,6 +195,8 @@ def _append_cli_definition(lines: list[str], definition: dict[str, Any], *, leve
     command = definition["spec"].get("commandTemplate", "")
     if command:
         lines.extend([f"{'#' * (level + 1)} 采集命令", "", "```text", command.rstrip(), "```", ""])
+    elif definition["spec"]["collectionType"] == "function":
+        append_function_source(lines, definition["spec"], level=level + 1)
     append_parameters(lines, "输入参数", definition["inputs"], level=level + 1)
     if definition["outputs"]:
         lines.extend([f"{'#' * (level + 1)} 输出根属性", ""])
@@ -219,6 +222,9 @@ def _append_cli_call(lines: list[str], call: dict[str, Any], item: dict[str, Any
     command = definition["spec"].get("commandTemplate", "")
     if command:
         lines.extend(["", "```text", command.rstrip(), "```"])
+    elif definition["spec"]["collectionType"] == "function":
+        lines.append("")
+        append_function_source(lines, definition["spec"])
     _append_cli_bindings(lines, call, item, definition["inputs"], workflow_inputs, calls, predecessor_ids, roles)
     if definition["outputs"]:
         lines.extend(["", "输出字段:"])
@@ -272,7 +278,11 @@ def _cli_call_index(workflow: dict[str, Any], definitions: dict[tuple[str, int],
 
 
 def _cli_definitions(document: dict[str, Any]) -> dict[tuple[str, int], dict[str, Any]]:
-    return {key: value for key, value in _definitions(document).items() if value["spec"]["collectionType"] == "cli"}
+    return {
+        key: value
+        for key, value in _definitions(document).items()
+        if value["spec"]["collectionType"] in {"cli", "function"}
+    }
 
 
 def _predecessor_steps(workflow: dict[str, Any]) -> dict[str, set[str]]:

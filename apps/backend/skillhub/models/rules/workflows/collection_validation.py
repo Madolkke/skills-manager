@@ -32,6 +32,8 @@ def _validate_spec(definition: dict[str, Any], issues: list[dict[str, Any]], sel
     if spec["collectionType"] == "config":
         validate_config_spec(spec, selection, issues)
         return
+    if spec["collectionType"] == "function":
+        return
     _validate_log_spec(spec, definition, issues, selection)
 
 

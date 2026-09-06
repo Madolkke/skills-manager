@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { WorkflowBundle, WorkflowDebugCollectionFixture as DebugCollectionFixture, WorkflowDebugScalar, WorkflowStep } from "../../../../types";
 import { findCollection } from "../../domain/utils";
-import { cloneDebugValue, hasDebugValue, workflowDebugTargetName, type WorkflowDebugCaseDraft } from "../form";
+import { cloneDebugValue, hasDebugValue, workflowDebugCallVisible, workflowDebugTargetName, type WorkflowDebugCaseDraft } from "../form";
 import WorkflowDebugCollectionFixture from "./WorkflowDebugCollectionFixture.vue";
 import WorkflowDebugScalarField from "./WorkflowDebugScalarField.vue";
 
@@ -70,7 +70,7 @@ function setFixture(callId: string, fixture: DebugCollectionFixture | null): voi
       <div class="workflow-debug-section-title"><div><h3>采集信息</h3><p>按当前步骤中的采集调用提供设备回显与结构化输出。</p></div></div>
       <div v-if="props.step.collectionCalls.length" class="workflow-debug-fixtures">
         <WorkflowDebugCollectionFixture
-          v-for="call in props.step.collectionCalls"
+          v-for="call in props.step.collectionCalls.filter((item) => workflowDebugCallVisible(item, props.bundle))"
           :key="call.id"
           :call="call"
           :definition="findCollection(props.bundle.collectionSnapshots, call.definition)"

@@ -77,6 +77,13 @@ export function workflowDebugStepHasUnsupportedCollections(bundle: WorkflowBundl
   });
 }
 
+export function workflowDebugCallVisible(call: WorkflowStep["collectionCalls"][number], bundle: WorkflowBundle): boolean {
+  const definition = bundle.collectionSnapshots.find(
+    (item) => item.id === call.definition.id && item.revision === call.definition.revision,
+  );
+  return definition?.spec.collectionType !== "function";
+}
+
 export function cloneDebugValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
