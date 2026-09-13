@@ -1,6 +1,7 @@
 .admin-page {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .admin-login {
@@ -12,6 +13,18 @@
 
 .admin-nav-row {
   margin-top: -4px;
+  min-width: 0;
+}
+
+.admin-nav-row .skill-tabs {
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 22px;
+}
+
+.admin-nav-row .skill-tab {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .admin-tab-stack {

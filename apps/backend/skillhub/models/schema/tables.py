@@ -14,6 +14,7 @@ from skillhub.models.schema.access import (
     TagGroupCascade,
     TagValue,
 )
+from skillhub.models.schema.analytics import AnalyticsCollectionState, SkillCreationFact, SkillVisitEvent
 from skillhub.models.schema.artifacts import Artifact, SavedView
 from skillhub.models.schema.base import Base
 from skillhub.models.schema.commands import SystemCommandLibraryEntry, UserCommandLibraryEntry
@@ -86,3 +87,7 @@ role_assignments = RoleAssignment.__table__
 audit_events = AuditEvent.__table__
 
 from skillhub.models.schema import indexes as _indexes  # noqa: E402,F401
+
+skill_creation_facts = SkillCreationFact.__table__
+skill_visit_events = SkillVisitEvent.__table__
+analytics_collection_state = AnalyticsCollectionState.__table__

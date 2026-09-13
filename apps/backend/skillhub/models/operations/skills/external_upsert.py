@@ -140,6 +140,7 @@ class ExternalSkillUpsertCommandMixin:
                 if is_created:
                     if eval_set_id is None:
                         eval_set_id = new_id("evalset")
+                    self._record_skill_creation(connection, skill_id=skill_id, name=slug, owner_ref=owner_ref, created_at=created_at)
                     connection.execute(
                         insert(orm.Skill).values(
                             id=skill_id,

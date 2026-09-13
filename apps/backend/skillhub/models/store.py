@@ -6,6 +6,7 @@ from typing import Any, Iterator
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from skillhub.models.operations.analytics import AnalyticsStoreMixin
 from skillhub.models.operations.bundles import BundleStoreMixin
 from skillhub.models.operations.command_library import CommandLibraryStoreMixin
 from skillhub.models.operations.evaluations import EvaluationStoreMixin
@@ -33,6 +34,7 @@ from skillhub.models.operations.workflows import WorkflowStoreMixin
 
 
 class _StoreOperations(
+    AnalyticsStoreMixin,
     SkillStoreMixin,
     EvaluationStoreMixin,
     HistoryStoreMixin,

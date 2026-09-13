@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `analytics.py`：后台统计查询及 Skill 详情访问事件接口。
+
 - `__init__.py`：集中注册所有 FastAPI routes。
 - `auth.py`：解析普通 actor、后台密钥等 HTTP 身份输入。
 - `dependencies.py`：创建数据库 engine、store 和 service 依赖。

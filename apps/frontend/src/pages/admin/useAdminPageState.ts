@@ -195,6 +195,7 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   async function selectAdminTab(tabId: AdminTab): Promise<void> {
     if (activeTab.value === tabId) return;
     activeTab.value = tabId;
+    if (tabId === "analytics") return;
     await load();
   }
 
