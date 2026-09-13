@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, ValidationError, model_serializer, model_validator
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.document_migration import migrate_collection_v3, migrate_workflow_v3, workflow_uses_v3_fields
@@ -74,6 +74,14 @@ class Binding(WorkflowModel):
     reference: dict[str, str] = Field(default_factory=dict)
     expression: str | None = None
     value: Any = None
+
+    @model_serializer(mode="wrap")
+    def serialize_binding(self, handler: SerializerFunctionWrapHandler):
+        """表达式绑定导出时不携带仅供 literal 使用的 value 字段。"""
+        result = handler(self)
+        if self.kind == "expression":
+            result.pop("value", None)
+        return result
 
     @model_validator(mode="after")
     def validate_binding_shape(self) -> "Binding":

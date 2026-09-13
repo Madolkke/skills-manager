@@ -226,7 +226,6 @@ export function useAdminActions(options: AdminActionsOptions) {
   }
 
   async function deleteExpressionFunction(item: ExpressionFunction): Promise<void> {
-    if (!confirm(`将删除表达式函数“${item.name}”。已有 Workflow 调用会在后续校验中报告未知函数。是否继续？`)) return;
     await runLocalAdminAction(async () => {
       await api.adminDeleteExpressionFunction(item.id);
       const index = expressionFunctions.value.findIndex((current) => current.id === item.id);

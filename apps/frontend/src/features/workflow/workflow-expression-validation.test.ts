@@ -9,6 +9,21 @@ import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidati
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe("Workflow expression batch validation", () => {
+  it.each(["UNREGISTERED_CALL", "FUNCTION_ARGUMENT_TYPE_MISMATCH"])("函数诊断 %s 进入全局校验面板", async (code) => {
+    vi.useFakeTimers();
+    vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions) => ({
+      validations: expressions.map(item => ({ id: item.id, inferredType: { kind: "boolean" }, diagnostics: [{ code, message: "函数声明错误", start: 0, end: 4, severity: "error" }] })),
+    }));
+    const scope = effectScope();
+    const bundle = workflowBundle();
+    findStep(bundle, "step-current").topology[0]!.conditionExpression = "probe()";
+    const result = scope.run(() => useWorkflowExpressionValidation(ref(bundle)))!;
+    try {
+      await vi.advanceTimersByTimeAsync(300);
+      expect(result.issues.value).toEqual(expect.arrayContaining([expect.objectContaining({ code, severity: "error" })]));
+    } finally { scope.stop(); vi.useRealTimers(); }
+  });
+
   it.each([false, true])("取消批次后重新请求未完成条目，已发送：%s", async (started) => {
     vi.useFakeTimers();
     const validation = vi.spyOn(api, "validateWorkflowExpressions").mockImplementation(async (expressions, _environment, signal) => {

@@ -34,6 +34,20 @@ def test_export_builds_deterministic_portable_collection_references() -> None:
     validate_workflow_import_references(normalize_workflow_import_bundle(first))
 
 
+def test_expression_binding_export_can_be_imported_without_literal_value() -> None:
+    """默认 JSON 序列化也必须能回导，literal null 则仍须保留。"""
+    from skillhub.models.rules.workflows.schema import Binding
+
+    document = workflow_document()
+    call = document["workflow"]["nodes"][0]["collectionCalls"][0]
+    call["inputBindings"] = {"arg": {"kind": "expression", "expression": "1 + 2"}}
+    exported = export_workflow_import_bundle(document).model_dump(mode="json", by_alias=True)
+    binding = exported["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]["arg"]
+    assert "value" not in binding
+    assert normalize_workflow_import_bundle(exported)["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]["arg"]["expression"] == "1 + 2"
+    assert Binding(kind="literal", value=None).model_dump()["value"] is None
+
+
 def test_export_ignores_unreferenced_snapshots_and_supports_empty_workflow() -> None:
     document = workflow_document()
     unreferenced = deepcopy(document["collectionSnapshots"][0])

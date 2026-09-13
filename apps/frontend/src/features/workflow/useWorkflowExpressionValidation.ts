@@ -22,6 +22,12 @@ const sampleIndexCodes = new Set([
 const blockingExpressionCodes = new Set([
   "CONFIG_STRING_SUBSCRIPT_FORBIDDEN",
   "CONFIG_ARRAY_INDEX_INVALID",
+  "UNREGISTERED_CALL",
+  "FUNCTION_ARGUMENT_TYPE_MISMATCH",
+  "FUNCTION_REQUIRED_ARGUMENT",
+  "FUNCTION_TOO_MANY_ARGUMENTS",
+  "FUNCTION_DUPLICATE_ARGUMENT",
+  "FUNCTION_UNKNOWN_KEYWORD",
 ]);
 
 export function workflowExpressionValidationKey(stepId: string, transitionId: string): string {

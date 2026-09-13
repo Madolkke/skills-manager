@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { Plus, Save, Trash2, Undo2 } from "lucide-vue-next";
 import UiButton from "../../components/ui/UiButton.vue";
 import UiIconButton from "../../components/ui/UiIconButton.vue";
+import Modal from "../../components/Modal.vue";
 import WorkflowSchemaNodeEditor from "../../features/workflow/components/WorkflowSchemaNodeEditor.vue";
 import AdminSystemCommandSchemaDialog from "./AdminSystemCommandSchemaDialog.vue";
 import type { ExpressionFunction, ExpressionFunctionPayload, WorkflowJsonSchema } from "../../types";
@@ -16,6 +17,7 @@ const draft = ref<ExpressionFunctionPayload>(newDraft());
 const saved = ref("");
 const parameterDialogOpen = ref(false);
 const returnDialogOpen = ref(false);
+const deleteTarget = ref<ExpressionFunction | null>(null);
 const parameterSchema = ref<WorkflowJsonSchema>(newWorkflowSchema("object"));
 const returnSchema = ref<WorkflowJsonSchema>(newWorkflowSchema("string"));
 
@@ -99,12 +101,16 @@ function updateSchema(kind: "parameter" | "return", value: WorkflowJsonSchema): 
     </aside>
     <section class="admin-expression-function-editor">
       <template v-if="draft">
-        <div class="admin-expression-editor-head"><div><h2>{{ draft.name || "新建表达式函数" }}</h2><p>函数体仅作为文本保存，不会执行。</p></div><div class="admin-expression-editor-actions"><UiButton size="sm" variant="secondary" :disabled="!dirty" @click="loadDraft(selected)"><template #icon><Undo2 /></template>撤销</UiButton><UiButton size="sm" variant="primary" :disabled="!canSave" @click="save"><template #icon><Save /></template>保存</UiButton><UiIconButton v-if="selected && draft.id" label="删除函数" variant="danger" @click="emit('delete', selected!)"><Trash2 /></UiIconButton></div></div>
+        <div class="admin-expression-editor-head"><div><h2>{{ draft.name || "新建表达式函数" }}</h2><p>函数体仅作为文本保存，不会执行。</p></div><div class="admin-expression-editor-actions"><UiButton size="sm" variant="secondary" :disabled="!dirty" @click="loadDraft(selected)"><template #icon><Undo2 /></template>撤销</UiButton><UiButton size="sm" variant="primary" :disabled="!canSave" @click="save"><template #icon><Save /></template>保存</UiButton><UiIconButton v-if="selected && draft.id" label="删除函数" variant="danger" @click="deleteTarget = selected!"><Trash2 /></UiIconButton></div></div>
         <div class="admin-expression-fields"><label>函数名<input v-model="draft.name" /><small v-if="draft.name && (!isWorkflowExpressionIdentifier(draft.name) || draft.name.startsWith('_'))">必须是合法 Python 标识符，且不能以下划线开头。</small></label><label>说明<textarea v-model="draft.description" rows="2" /></label><label class="admin-expression-switch"><input v-model="draft.enabled" type="checkbox" />启用</label><label>语言<input v-model="draft.language" /></label></div>
         <div class="admin-expression-schema-grid"><section><div class="admin-expression-section-head"><h3>参数 Schema</h3><UiButton size="sm" variant="secondary" @click="parameterDialogOpen = true">编辑 JSON</UiButton></div><WorkflowSchemaNodeEditor :schema="parameterSchema" :readonly="false" :show-metadata="false" :show-required="true" :show-additional-properties="true" identifier-only @change="updateSchema('parameter', $event)" /><p v-if="schemaErrors.length" class="admin-expression-error">{{ schemaErrors[0] }}</p></section><section><div class="admin-expression-section-head"><h3>返回 Schema</h3><UiButton size="sm" variant="secondary" @click="returnDialogOpen = true">编辑 JSON</UiButton></div><WorkflowSchemaNodeEditor :schema="returnSchema" :readonly="false" :show-metadata="false" :show-required="true" :show-additional-properties="true" @change="updateSchema('return', $event)" /></section></div>
         <label class="admin-expression-body">函数体<textarea v-model="draft.body" spellcheck="false" rows="12" /><small>{{ draft.body.length }} / 50000 字符；仅保存文本，不会执行。</small></label>
       </template>
     </section>
+    <Modal :open="Boolean(deleteTarget)" title="删除表达式函数" description="已有 Workflow 调用会在后续校验中报告未注册函数。" @close="deleteTarget = null">
+      <p>确认删除“{{ deleteTarget?.name }}”？</p>
+      <div class="modal-actions"><UiButton variant="secondary" @click="deleteTarget = null">取消</UiButton><UiButton variant="danger" @click="emit('delete', deleteTarget!); deleteTarget = null">确认删除</UiButton></div>
+    </Modal>
     <AdminSystemCommandSchemaDialog :open="parameterDialogOpen" :schema="parameterSchema" :normalize="normalizeSchema" :validate="(value) => validateSchema(value, true)" title="编辑参数 JSON Schema" description="参数根节点必须是 object；属性名必须是合法标识符。" @close="parameterDialogOpen = false" @confirm="updateSchema('parameter', $event); parameterDialogOpen = false" />
     <AdminSystemCommandSchemaDialog :open="returnDialogOpen" :schema="returnSchema" :normalize="normalizeSchema" :validate="(value) => validateSchema(value, false)" title="编辑返回值 JSON Schema" description="返回 Schema 支持标量、object 和 array。" @close="returnDialogOpen = false" @confirm="updateSchema('return', $event); returnDialogOpen = false" />
   </div>

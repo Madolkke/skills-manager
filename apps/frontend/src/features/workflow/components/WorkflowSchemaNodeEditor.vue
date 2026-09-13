@@ -83,10 +83,6 @@ function removeProperty(key: string): void {
   });
 }
 
-function setRequired(required: boolean): void {
-  emit("requiredChange", required);
-}
-
 function setPropertyRequired(key: string, required: boolean): void {
   update((draft) => {
     if (draft.type !== "object") return;
@@ -118,17 +114,17 @@ function setAdditionalProperties(allowed: boolean): void {
       <article v-for="(child, key) in props.schema.properties" :key="key" class="workflow-schema-property">
         <div class="workflow-schema-property-head">
           <label><span>变量名</span><input :value="key" :disabled="props.readonly" @change="renameProperty(key, $event.target as HTMLInputElement)" /></label>
-          <label v-if="props.showRequired" class="workflow-schema-required"><input type="checkbox" :checked="props.required" :disabled="props.readonly" @change="setRequired(($event.target as HTMLInputElement).checked)" /><span>必填</span></label>
+          <label v-if="props.showRequired" class="workflow-schema-required"><input type="checkbox" :checked="props.schema.required.includes(key)" :disabled="props.readonly" @change="setPropertyRequired(key, ($event.target as HTMLInputElement).checked)" /><span>必填</span></label>
           <UiIconButton label="删除属性" size="sm" variant="danger" :disabled="props.readonly" @click="removeProperty(key)"><Trash2 /></UiIconButton>
         </div>
-        <WorkflowSchemaNodeEditor :schema="child" :readonly="props.readonly" :depth="props.depth + 1" :identifier-only="props.identifierOnly" :show-required="props.showRequired" :show-additional-properties="props.showAdditionalProperties" :required="props.schema.required.includes(key)" @change="updateProperty(key, $event)" @required-change="(value) => setPropertyRequired(key, value)" />
+        <WorkflowSchemaNodeEditor :schema="child" :readonly="props.readonly" :depth="props.depth + 1" :identifier-only="props.identifierOnly" :show-metadata="props.showMetadata" :show-required="props.showRequired" :show-additional-properties="props.showAdditionalProperties" :required="props.schema.required.includes(key)" @change="updateProperty(key, $event)" @required-change="(value) => setPropertyRequired(key, value)" />
       </article>
       <p v-if="Object.keys(props.schema.properties).length === 0" class="workflow-inline-empty">对象还没有属性。</p>
     </div>
 
     <div v-else-if="props.schema.type === 'array'" class="workflow-schema-children workflow-schema-array-items">
       <header><div><strong>数组元素</strong><small>items</small></div></header>
-      <WorkflowSchemaNodeEditor :schema="props.schema.items" :readonly="props.readonly" :depth="props.depth + 1" @change="update((draft) => { if (draft.type === 'array') draft.items = $event; })" />
+      <WorkflowSchemaNodeEditor :schema="props.schema.items" :readonly="props.readonly" :depth="props.depth + 1" :show-metadata="props.showMetadata" :show-required="props.showRequired" :show-additional-properties="props.showAdditionalProperties" @change="update((draft) => { if (draft.type === 'array') draft.items = $event; })" />
     </div>
   </section>
 </template>

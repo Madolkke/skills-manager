@@ -130,9 +130,13 @@ Workflow 字段采用 JSON Schema Draft 2020-12 的受控子集：
 
 条件表达式使用 Python `eval` 语法，根变量为 `inputs`、`outputs` 和配置匹配专用的 `config`。单次采集按对象访问，例如 `outputs.inventory.status`；`sampleCount > 1` 时调用结果为数组，字段路径必须先指定结果下标，例如 `outputs.inventory[0].status`。下标支持零基正数、Python 负数、动态整数和切片。历史多次采集表达式缺少下标时保留原文并产生 warning，不自动选择某次结果。
 
-表达式契约版本为 `contractVersion = 2`。`environment.outputs` 的命名采集使用 `{ sampleCount, fields }`，无 `callKey` 的直接输出使用 `{ sampleCount, schema }` 表示根值；旧字段 map 继续按单次采集兼容。函数与只读方法白名单由 `GET /api/workflow-expression-contract` 提供，单条 `POST /api/workflow-expression-validations` 与批量 `POST /api/workflow-expression-validations/batch` 返回类型和位置诊断。HTTP 接口只执行 AST 与类型检查，不执行 expression evaluator。采集下标诊断汇总为 Workflow warning，不阻止保存或同步。
+表达式契约版本为 `contractVersion = 1`。`environment.outputs` 的命名采集使用 `{ sampleCount, fields }`，无 `callKey` 的直接输出使用 `{ sampleCount, schema }` 表示根值；旧字段 map 继续按单次采集兼容。函数与只读方法白名单由 `GET /api/workflow-expression-contract` 提供，单条 `POST /api/workflow-expression-validations` 与批量 `POST /api/workflow-expression-validations/batch` 返回类型和位置诊断。HTTP 接口只执行 AST 与类型检查，不执行 expression evaluator。采集下标诊断汇总为 Workflow warning，不阻止保存或同步。
 
 表达式函数由全局函数库提供。函数名和参数名必须是非关键字、非私有的 Python 标识符；参数 Schema 决定位置参数顺序、关键字参数和必填参数，返回 Schema 决定静态返回类型。函数体作为纯文本保存，不在 Workflow 写作或执行阶段解析、执行；删除函数后，历史调用保留原文并在后续校验中报告 `UNREGISTERED_CALL`。
+
+参数 Schema 的 `x-parameter-order` 保存根属性顺序，内容必须恰好覆盖所有参数且不重复；数据库 JSONB 属性排序不会改变位置参数语义。显式空函数目录（包括全部停用）不回退到旧内置列表。内置函数声明保留历史合法调用形式和泛型返回类型推断，新增自定义声明按 Schema 校验参数。公开契约只包含启用声明，不包含函数体；既有内置求值实现和自定义函数 Collection 不受文本函数库影响。
+
+`expression` 输入绑定导出时省略 `value`，保证下载的 Bundle 可以直接重新导入；`literal` 的显式 `null` 值仍按原语义保留。函数未注册及参数不匹配会汇总到全局校验面板，保留调用原文供作者修正。
 
 ## 设备角色
 

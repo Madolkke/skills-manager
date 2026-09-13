@@ -17,6 +17,18 @@ function mountEditor() {
 }
 
 describe("函数管理草稿", () => {
+  it("requires an in-page confirmation before deleting", async () => {
+    const wrapper = mount(AdminExpressionFunctionsTab, { props: { functions: [item], selectedFunctionId: item.id }, global: { stubs: { Teleport: true, WorkflowSchemaNodeEditor: true, AdminSystemCommandSchemaDialog: true } } });
+    await wrapper.get('button[aria-label="删除函数"]').trigger("click");
+    expect(wrapper.emitted("delete")).toBeUndefined();
+    await wrapper.findAll("button").find(b => b.text().includes("取消"))!.trigger("click");
+    expect(wrapper.emitted("delete")).toBeUndefined();
+    await wrapper.get('button[aria-label="删除函数"]').trigger("click");
+    await wrapper.findAll("button").find(b => b.text().includes("确认删除"))!.trigger("click");
+    expect(wrapper.emitted("delete")![0]![0]).toEqual(item);
+    wrapper.unmount();
+  });
+
   it("initializes selection, retains failed-save draft, resets only after confirmed response", async () => {
     const wrapper = mountEditor();
     expect((wrapper.get('.admin-expression-fields input').element as HTMLInputElement).value).toBe("probe");
