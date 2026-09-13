@@ -3,15 +3,18 @@ import { autocompletion, closeCompletion, completionKeymap, startCompletion } fr
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, placeholder as editorPlaceholder, type ViewUpdate } from "@codemirror/view";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import type { WorkflowExpressionFunction } from "../../../types";
 import type { WorkflowExpressionVariable } from "../workflowExpressionVariables";
+import { loadWorkflowExpressionFunctions } from "../workflowExpressionFunctions";
 import { acceptWorkflowExpressionCompletion, createWorkflowTemplateCompletionSource, shouldOpenWorkflowTemplateCompletion } from "../workflowExpressionCompletion";
 import type { WorkflowTemplateDiagnostic } from "../workflowTemplate";
 
-const props = withDefaults(defineProps<{ value: string; variables: WorkflowExpressionVariable[]; diagnostics?: WorkflowTemplateDiagnostic[]; readonly?: boolean; placeholder?: string; ariaLabel?: string }>(), { diagnostics: () => [], readonly: false, placeholder: "可使用 {{ expression }} 引用流程值", ariaLabel: "结论模板" });
+const props = withDefaults(defineProps<{ value: string; variables: WorkflowExpressionVariable[]; functions?: Record<string, WorkflowExpressionFunction>; diagnostics?: WorkflowTemplateDiagnostic[]; readonly?: boolean; placeholder?: string; ariaLabel?: string }>(), { diagnostics: () => [], functions: () => ({}), readonly: false, placeholder: "可使用 {{ expression }} 引用流程值", ariaLabel: "结论模板" });
 const emit = defineEmits<{ change: [value: string] }>();
 const host = ref<HTMLDivElement | null>(null);
+const expressionFunctions = ref<Record<string, WorkflowExpressionFunction>>({});
 const readonlyCompartment = new Compartment();
-const completionSource = createWorkflowTemplateCompletionSource(() => props.variables);
+const completionSource = createWorkflowTemplateCompletionSource(() => props.variables, availableFunctions);
 let view: EditorView | null = null;
 let external = false;
 let completionTimer: number | null = null;
@@ -21,6 +24,7 @@ let pendingValue: string | null = null;
 onMounted(() => {
   if (!host.value) return;
   view = new EditorView({ parent: host.value, state: EditorState.create({ doc: props.value, extensions: [autocompletion({ override: [completionSource], activateOnTyping: false, interactionDelay: 0, defaultKeymap: false }), keymap.of([{ key: "Mod-Space", run: startCompletion }, ...completionKeymap]), EditorView.lineWrapping, readonlyCompartment.of(readonlyExtensions(props.readonly)), editorPlaceholder(props.placeholder), EditorView.contentAttributes.of({ "aria-label": props.ariaLabel, "aria-autocomplete": "list" }), EditorView.domEventHandlers({ keydown(event, currentView) { if (event.key === "Tab" || event.key === "Enter") return acceptWorkflowExpressionCompletion(currentView); return false; }, blur() { flushPendingChange(); return false; } }), EditorView.updateListener.of((update: ViewUpdate) => { if (!update.docChanged || external) return; queueChange(update.state.doc.toString()); scheduleAutomaticCompletion(update); })] }) });
+  void loadWorkflowExpressionFunctions().then((functions) => { expressionFunctions.value = functions; });
 });
 onBeforeUnmount(() => { clearAutomaticCompletionTimer(); flushPendingChange(); view?.destroy(); });
 watch(() => props.value, (value) => { if (!view || view.state.doc.toString() === value) return; flushPendingChange(); external = true; view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } }); external = false; });
@@ -33,13 +37,14 @@ function scheduleAutomaticCompletion(update: ViewUpdate): void {
     const currentView = view;
     if (!currentView || props.readonly || !currentView.hasFocus) return;
     const cursor = currentView.state.selection.main.head;
-    if (shouldOpenWorkflowTemplateCompletion(props.variables, currentView.state.doc.toString(), cursor)) startCompletion(currentView);
+    if (shouldOpenWorkflowTemplateCompletion(props.variables, currentView.state.doc.toString(), cursor, availableFunctions())) startCompletion(currentView);
     else closeCompletion(currentView);
   }, 0);
 }
 function clearAutomaticCompletionTimer(): void { if (completionTimer !== null) window.clearTimeout(completionTimer); completionTimer = null; }
 function queueChange(value: string): void { pendingValue = value; if (changeTimer !== null) window.clearTimeout(changeTimer); changeTimer = window.setTimeout(flushPendingChange, 200); }
 function flushPendingChange(): void { if (changeTimer !== null) window.clearTimeout(changeTimer); changeTimer = null; if (pendingValue === null) return; const value = pendingValue; pendingValue = null; emit("change", value); }
+function availableFunctions(): Record<string, WorkflowExpressionFunction> { return { ...expressionFunctions.value, ...props.functions }; }
 function readonlyExtensions(readonly: boolean): Extension { return [EditorState.readOnly.of(readonly), EditorView.editable.of(!readonly)]; }
 </script>
 

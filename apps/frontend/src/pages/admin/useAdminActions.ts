@@ -12,6 +12,8 @@ import type {
   TagGroup,
   TagValueOption,
   SystemCommand,
+  ExpressionFunction,
+  ExpressionFunctionPayload,
 } from "../../types";
 import type { AdminStateSync } from "./adminStateSync";
 
@@ -24,6 +26,8 @@ type AdminActionsOptions = {
   selectedOpencodeAgentId: Ref<string>;
   systemCommands: Ref<SystemCommand[]>;
   selectedSystemCommandId: Ref<string>;
+  expressionFunctions: Ref<ExpressionFunction[]>;
+  selectedExpressionFunctionId: Ref<string>;
   syncAdminState: AdminStateSync;
   load: () => Promise<void>;
   emitToast: (toast: Toast) => void;
@@ -31,7 +35,7 @@ type AdminActionsOptions = {
 };
 
 export function useAdminActions(options: AdminActionsOptions) {
-  const { tagDrafts, selectedGroupId, selectedTagGroupId, selectedOpencodeAgentId, systemCommands, selectedSystemCommandId, syncAdminState, load, emitToast, onError } = options;
+  const { tagDrafts, selectedGroupId, selectedTagGroupId, selectedOpencodeAgentId, systemCommands, selectedSystemCommandId, expressionFunctions, selectedExpressionFunctionId, syncAdminState, load, emitToast, onError } = options;
 
   async function createGroup(payload: { name: string; description?: string }): Promise<void> {
     await runLocalAdminAction(async () => {
@@ -67,7 +71,7 @@ export function useAdminActions(options: AdminActionsOptions) {
     }, "成员已移除。");
   }
 
-  async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }): Promise<void> {
+  async function createTagGroup(payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select"; initial_value?: string }): Promise<void> {
     try {
       let group = await api.adminCreateTagGroup({
         id: payload.id,
@@ -76,6 +80,7 @@ export function useAdminActions(options: AdminActionsOptions) {
         sort_order: payload.sort_order,
         required: payload.free_form ? payload.required : false,
         free_form: payload.free_form,
+        display_mode: payload.display_mode,
       });
       if (payload.initial_value) {
         group = await api.adminCreateTagValue(group.id, { value: payload.initial_value, display_name: payload.initial_value, description: "", sort_order: 0 });
@@ -87,6 +92,7 @@ export function useAdminActions(options: AdminActionsOptions) {
           sort_order: payload.sort_order,
           required: true,
           free_form: false,
+          display_mode: payload.display_mode,
         });
       }
       syncAdminState.upsertTagGroup(group);
@@ -103,7 +109,7 @@ export function useAdminActions(options: AdminActionsOptions) {
     }
   }
 
-  async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }): Promise<void> {
+  async function updateTagGroup(groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select" }): Promise<void> {
     await runLocalAdminAction(async () => {
       syncAdminState.upsertTagGroup(await api.adminUpdateTagGroup(groupId, payload));
     }, "Tag Group 已更新。");
@@ -202,6 +208,31 @@ export function useAdminActions(options: AdminActionsOptions) {
       systemCommands.value = systemCommands.value.filter((item) => item.id !== command.id);
       selectedSystemCommandId.value = systemCommands.value[Math.max(0, index - 1)]?.id ?? systemCommands.value[0]?.id ?? "";
     }, "系统命令已删除。");
+  }
+
+  async function createExpressionFunction(payload: ExpressionFunctionPayload): Promise<void> {
+    await runLocalAdminAction(async () => {
+      const item = await api.adminCreateExpressionFunction(payload);
+      expressionFunctions.value = [...expressionFunctions.value, item].sort((left, right) => left.name.localeCompare(right.name));
+      selectedExpressionFunctionId.value = item.id;
+    }, "表达式函数已创建。");
+  }
+
+  async function updateExpressionFunction(functionId: string, payload: ExpressionFunctionPayload): Promise<void> {
+    await runLocalAdminAction(async () => {
+      const item = await api.adminUpdateExpressionFunction(functionId, payload);
+      expressionFunctions.value = expressionFunctions.value.map((current) => current.id === item.id ? item : current).sort((left, right) => left.name.localeCompare(right.name));
+    }, "表达式函数已更新。");
+  }
+
+  async function deleteExpressionFunction(item: ExpressionFunction): Promise<void> {
+    if (!confirm(`将删除表达式函数“${item.name}”。已有 Workflow 调用会在后续校验中报告未知函数。是否继续？`)) return;
+    await runLocalAdminAction(async () => {
+      await api.adminDeleteExpressionFunction(item.id);
+      const index = expressionFunctions.value.findIndex((current) => current.id === item.id);
+      expressionFunctions.value = expressionFunctions.value.filter((current) => current.id !== item.id);
+      selectedExpressionFunctionId.value = expressionFunctions.value[Math.max(0, index - 1)]?.id ?? expressionFunctions.value[0]?.id ?? "";
+    }, "表达式函数已删除。");
   }
 
   async function confirmPublishRecord(record: PublishRecord): Promise<void> {
@@ -304,6 +335,9 @@ export function useAdminActions(options: AdminActionsOptions) {
     createSystemCommand,
     updateSystemCommand,
     deleteSystemCommand,
+    createExpressionFunction,
+    updateExpressionFunction,
+    deleteExpressionFunction,
     confirmPublishRecord,
     cancelPublishRecord,
     retryPublishRecord,

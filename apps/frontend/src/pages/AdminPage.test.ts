@@ -94,5 +94,6 @@ function mockAdminLoad() {
     agents: vi.spyOn(api, "adminListOpencodeAgents").mockResolvedValue([]),
     providers: vi.spyOn(api, "listOpencodeProviders").mockResolvedValue({} as never),
     systemCommands: vi.spyOn(api, "adminListSystemCommands").mockResolvedValue({ commands: [] }),
+    expressionFunctions: vi.spyOn(api, "adminListExpressionFunctions").mockResolvedValue([]),
   };
 }

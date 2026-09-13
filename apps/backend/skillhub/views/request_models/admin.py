@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -42,6 +42,20 @@ class AdminOpencodeAgentCreatePayload(AdminOpencodeAgentPayload):
     id: OpencodeAgentId
 
 
+class AdminExpressionFunctionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = None
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    description: Annotated[str, Field(max_length=2000)] = ""
+    parameter_schema: dict[str, Any] = Field(default_factory=dict, alias="parameterSchema")
+    return_schema: dict[str, Any] = Field(default_factory=dict, alias="returnSchema")
+    body: Annotated[str, Field(min_length=1, max_length=50000)]
+    language: Annotated[str, Field(min_length=1, max_length=40)] = "python"
+    is_builtin: bool = Field(default=False, alias="isBuiltin")
+    enabled: bool = True
+
+
 class SkillGroupPayload(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=120)]
     description: Annotated[str, Field(max_length=1000)] = ""
@@ -77,6 +91,7 @@ class AdminTagGroupPayload(BaseModel):
     sort_order: Annotated[int, Field(strict=True)] = 0
     required: bool = False
     free_form: bool = False
+    display_mode: Literal["checkbox", "multi_select"] = "checkbox"
 
 
 class AdminTagGroupUpdatePayload(BaseModel):
@@ -85,6 +100,7 @@ class AdminTagGroupUpdatePayload(BaseModel):
     sort_order: Annotated[int, Field(strict=True)] = 0
     required: bool = False
     free_form: bool = False
+    display_mode: Literal["checkbox", "multi_select"] | None = None
 
 
 class AdminTagValuePayload(BaseModel):
@@ -98,8 +114,9 @@ class AdminTagCascadePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parent_group_id: TagGroupId
-    parent_value: TagValue
+    parent_value: TagValue | None = None
     child_group_id: TagGroupId
+    activation_mode: Literal["parent_value", "parent_selected"] = "parent_value"
 
 
 class AdminSkillUpdatePayload(BaseModel):

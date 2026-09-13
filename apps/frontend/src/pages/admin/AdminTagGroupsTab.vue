@@ -9,8 +9,8 @@ import AdminTagValueFormModal from "./AdminTagValueFormModal.vue";
 const props = defineProps<{ tagGroups: TagGroup[]; selectedTagGroupId: string }>();
 const emit = defineEmits<{
   select: [groupId: string];
-  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }];
-  updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }];
+  createGroup: [payload: { id: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select"; initial_value?: string }];
+  updateGroup: [groupId: string, payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select" }];
   deleteGroup: [group: TagGroup];
   createValue: [groupId: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
   updateValue: [groupId: string, value: string, payload: { value: string; display_name?: string | null; description?: string; sort_order?: number }];
@@ -28,7 +28,7 @@ watch(selectedGroup, () => {
   editingValue.value = null;
 });
 
-function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }): void {
+function createGroup(payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select"; initial_value?: string }): void {
   if (!payload.id) return;
   emit("createGroup", {
     id: payload.id,
@@ -37,11 +37,12 @@ function createGroup(payload: { id?: string; display_name: string; description?:
     sort_order: payload.sort_order,
     required: payload.required,
     free_form: payload.free_form,
+    display_mode: payload.display_mode,
     initial_value: payload.initial_value,
   });
 }
 
-function updateGroup(payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean }): void {
+function updateGroup(payload: { display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select" }): void {
   if (!selectedGroup.value) return;
   emit("updateGroup", selectedGroup.value.id, payload);
 }
@@ -81,6 +82,7 @@ function openValueEdit(value: TagValueOption): void {
           <span class="tag-chip muted">{{ selectedGroup.id }}</span>
           <span :class="['tag-chip', selectedGroup.required ? 'warning' : 'muted']">{{ selectedGroup.required ? "必选" : "可选" }}</span>
           <span class="tag-chip muted">{{ selectedGroup.free_form ? "自由输入" : "枚举" }}</span>
+          <span class="tag-chip muted">{{ selectedGroup.display_mode === "multi_select" ? "多选下拉" : "复选列表" }}</span>
           <span v-if="selectedGroup.parent" class="tag-chip muted">子组</span>
         </div>
         <p>{{ selectedGroup.description || "无备注" }}</p>

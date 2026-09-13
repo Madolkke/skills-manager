@@ -71,7 +71,7 @@ def iter_template_expressions(source: str) -> Iterator[tuple[str, int, int]]:
             yield source[segment.start:segment.end], segment.start, segment.end
 
 
-def validate_template(source: str, environment: dict[str, Any]) -> list[dict[str, Any]]:
+def validate_template(source: str, environment: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Validate delimiters and each embedded expression in a template."""
     diagnostics: list[dict[str, Any]] = []
     for segment in _scan_template(source):
@@ -93,7 +93,7 @@ def validate_template(source: str, environment: dict[str, Any]) -> list[dict[str
                 "start": utf16_length(source[:start]), "end": utf16_length(source[:end]),
             })
             continue
-        result = validate_expression(expression.strip(), environment)
+        result = validate_expression(expression.strip(), environment, functions)
         leading = len(expression) - len(expression.lstrip())
         expression_start = utf16_length(source[:start + leading])
         diagnostics.extend(

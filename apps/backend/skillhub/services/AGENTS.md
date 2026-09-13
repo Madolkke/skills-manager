@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `expression_functions.py`：封装后台全局表达式函数 CRUD。
+
 - `analytics.py`：提供运营统计读取及按 actor 记录页面访问。
 
 - `__init__.py`：统一导出对 View 层开放的 service 类。

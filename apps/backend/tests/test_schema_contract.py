@@ -21,8 +21,8 @@ def test_declarative_metadata_is_the_only_schema_definition() -> None:
 
 
 def test_alembic_chain_keeps_the_declarative_baseline() -> None:
-    assert expected_revision() == "0008_operations_analytics"
-    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0008_operations_analytics"]
+    assert expected_revision() == "0010_expression_analytics_merge"
+    assert ScriptDirectory.from_config(alembic_config()).get_heads() == ["0010_expression_analytics_merge"]
     revisions = sorted((BACKEND_ROOT / "migrations" / "versions").glob("*.py"))
     assert [revision.name for revision in revisions] == [
         "0001_initial_schema.py",
@@ -34,6 +34,9 @@ def test_alembic_chain_keeps_the_declarative_baseline() -> None:
         "0006_workflow_log_debug_merge.py",
         "0007_command_library.py",
         "0008_operations_analytics.py",
+        "0008_tag_group_facets.py",
+        "0009_expression_functions.py",
+        "0010_expression_analytics_merge.py",
     ]
     source = "\n".join(revision.read_text(encoding="utf-8") for revision in revisions)
     for table_name in metadata.tables:

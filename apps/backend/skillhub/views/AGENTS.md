@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `admin.py`、`request_models/expression_functions.py`：后台函数库管理接口与响应契约。
+
 - `analytics.py`：后台统计查询及 Skill 详情访问事件接口。
 
 - `__init__.py`：集中注册所有 FastAPI routes。

@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `operations/expression_functions.py`、`schema/expression_functions.py`：全局函数声明存储与目录投影，函数体仅保存文本。
+
 - `operations/analytics.py`、`rules/analytics.py`、`schema/analytics.py`：运营事实采集、日期口径及独立历史统计存储。
 
 - `entities.py`：领域实体、读模型和跨层传递的数据对象。

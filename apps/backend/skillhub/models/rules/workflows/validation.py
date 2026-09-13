@@ -65,7 +65,7 @@ def _append_device_schema_node_issues(schema, selection, issues, path: str) -> N
         issues.append(issue("DEVICE_ROLE_SCHEMA_OBJECT_REQUIRED", "error", "设备角色 Schema 只支持标量、object 和 array 节点。", {**selection, "field": path}))
 
 
-def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]:
+def validate_workflow_document(document: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     workflow = document["workflow"]
     snapshots = document.get("collectionSnapshots", [])
     definitions = {(item["id"], item["revision"]): item for item in snapshots}
@@ -102,6 +102,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             workflow_input_keys,
             issues,
             reported_unscoped_conflicts,
+            functions,
         )
 
     for conclusion in conclusions:
@@ -112,7 +113,7 @@ def validate_workflow_document(document: dict[str, Any]) -> list[dict[str, Any]]
             workflow["deviceRoles"],
         )
         for field in ("rootCause", "repairRecommendation"):
-            for diagnostic in validate_template(conclusion.get(field, ""), environment):
+            for diagnostic in validate_template(conclusion.get(field, ""), environment, functions):
                 issues.append(
                     issue(
                         diagnostic["code"],
@@ -185,6 +186,7 @@ def _validate_step(
     workflow_input_keys,
     issues,
     reported_unscoped_conflicts,
+    functions,
 ) -> None:
     selection = {"type": "step", "id": step["id"]}
     _append_visible_unscoped_conflicts(
@@ -232,7 +234,7 @@ def _validate_step(
             if parameter["required"] and not _binding_has_value(binding):
                 issues.append(issue("MISSING_REQUIRED_BINDING", "error", f"采集“{call_label}”尚未绑定必填参数“{schema_title(parameter)}”。", binding_selection))
             if binding:
-                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"], workflow_roles, all_steps)
+                _validate_binding(binding, parameter, workflow_inputs, visible_calls, all_calls, definitions, issues, binding_selection, step["id"], workflow_roles, all_steps, functions)
     for transition in step["topology"]:
         target = node_by_id.get(transition["target"]["id"])
         if target is None:
@@ -244,7 +246,7 @@ def _validate_step(
             workflow_roles=workflow_roles,
             all_steps=all_steps,
         )
-        for diagnostic in validate_template(transition.get("conditionText", ""), environment):
+        for diagnostic in validate_template(transition.get("conditionText", ""), environment, functions):
             issues.append(
                 issue(
                     diagnostic["code"],
@@ -256,6 +258,7 @@ def _validate_step(
         expression_result = validate_expression(
             transition.get("conditionExpression", ""),
             environment,
+            functions,
         )
         for diagnostic in expression_result["diagnostics"]:
             severity = _expression_diagnostic_severity(diagnostic["code"])
@@ -361,7 +364,7 @@ def _call_label(call, definition) -> str:
     return call["name"].strip() or definition["metadata"]["name"].strip() or definition["key"]
 
 
-def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id, workflow_roles, all_steps=None) -> None:
+def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, definitions, issues, selection, current_step_id, workflow_roles, all_steps=None, functions=None) -> None:
     kind = binding["kind"]
     ref = binding["reference"]
     valid = kind in {"literal", "expression"}
@@ -379,7 +382,7 @@ def _validate_binding(binding, parameter, workflow_inputs, calls, all_calls, def
             environment = project_workflow_expression_environment([], definitions, expression_inputs, workflow_roles)
         else:
             environment = binding_expression_environment(all_steps, current_step_id, selection.get("itemId", ""), definitions, expression_inputs, workflow_roles)
-        result = validate_binding_expression(expression, environment, parameter["schema"])
+        result = validate_binding_expression(expression, environment, parameter["schema"], functions)
         for diagnostic in result["diagnostics"]:
             issues.append(issue(diagnostic["code"], "error", diagnostic["message"], selection))
         if not result["diagnostics"] and not result["assignable"]:

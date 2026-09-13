@@ -15,6 +15,7 @@ class TagGroup(CreatedAtMixin, UpdatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("id ~ '^[A-Za-z0-9_-]+$'", name="tag_groups_id_format_check"),
         CheckConstraint("length(btrim(display_name)) > 0", name="tag_groups_display_name_non_empty"),
+        CheckConstraint("display_mode in ('checkbox', 'multi_select')", name="tag_groups_display_mode_check"),
     )
 
     id: Mapped[str] = mapped_column(Text, primary_key=True)
@@ -23,6 +24,7 @@ class TagGroup(CreatedAtMixin, UpdatedAtMixin, Base):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     required: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     free_form: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    display_mode: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'checkbox'"))
     created_by: Mapped[str] = mapped_column(Text, nullable=False)
 
     values: Mapped[list["TagValue"]] = relationship(back_populates="group", lazy="raise")
@@ -51,11 +53,18 @@ class TagGroupCascade(CreatedAtMixin, Base):
             name="tag_group_cascades_parent_value_fkey",
         ),
         CheckConstraint("child_tag_group_id <> parent_tag_group_id", name="tag_group_cascades_no_self_parent_check"),
+        CheckConstraint("activation_mode in ('parent_value', 'parent_selected')", name="tag_group_cascades_activation_mode_check"),
+        CheckConstraint("(activation_mode = 'parent_value' AND parent_tag_value IS NOT NULL) OR (activation_mode = 'parent_selected' AND parent_tag_value IS NULL)", name="tag_group_cascades_activation_value_check"),
     )
 
     child_tag_group_id: Mapped[str] = mapped_column(Text, ForeignKey("tag_groups.id"), primary_key=True)
-    parent_tag_group_id: Mapped[str] = mapped_column(Text, nullable=False)
-    parent_tag_value: Mapped[str] = mapped_column(Text, nullable=False)
+    parent_tag_group_id: Mapped[str] = mapped_column(
+        Text,
+        ForeignKey("tag_groups.id", name="tag_group_cascades_parent_group_fkey"),
+        nullable=False,
+    )
+    parent_tag_value: Mapped[str | None] = mapped_column(Text)
+    activation_mode: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'parent_value'"))
     created_by: Mapped[str] = mapped_column(Text, nullable=False)
 
 
