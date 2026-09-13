@@ -175,7 +175,7 @@ describe("Workflow UI state", () => {
     Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }) });
     const bundle = workflowBundle();
     bundle.workflow.nodes = [
-      { id: "step-1", name: "检查状态", description: "", isStart: true, stepType: "expression", collectionCalls: [], topology: [{ id: "path-1", target: { id: "conclusion-1" }, conditionText: "", conditionExpression: "outputs.status == true" }] },
+      { id: "step-1", name: "检查状态", description: "", parallelBranches: false, isStart: true, stepType: "expression", collectionCalls: [], topology: [{ id: "path-1", target: { id: "conclusion-1" }, conditionText: "", conditionExpression: "outputs.status == true" }] },
       { id: "conclusion-1", name: "异常结论", severity: "error", rootCause: "outputs.status 异常", repairRecommendation: "检查 outputs.status", nodeType: "conclusion" },
     ];
     const wrapper = mount(WorkflowPreviewPanel, { props: { bundle, catalog: [], issues: [], tab: "graph", readonly: true } });
@@ -190,7 +190,7 @@ describe("Workflow UI state", () => {
   it("shows variables for the selected step and expands nested paths", async () => {
     const bundle = workflowBundle();
     bundle.workflow.inputs[0]!.schema = { type: "object", title: "接口", description: "", properties: { address: { type: "string", title: "地址", description: "" } }, required: ["address"], additionalProperties: false };
-    bundle.workflow.nodes = [{ id: "step-1", name: "检查接口", description: "", isStart: true, stepType: "expression", collectionCalls: [], topology: [] }];
+    bundle.workflow.nodes = [{ id: "step-1", name: "检查接口", description: "", parallelBranches: false, isStart: true, stepType: "expression", collectionCalls: [], topology: [] }];
     const wrapper = mount(WorkflowPreviewPanel, { props: { bundle, catalog: [], issues: [], selection: { type: "step", id: "step-1" }, tab: "variables" } });
     expect(wrapper.text()).toContain("检查接口 的表达式环境");
     expect(wrapper.text()).toContain("inputs.interface");
@@ -206,7 +206,7 @@ describe("Workflow UI state", () => {
     const first = { id: "collection-status", revision: 1, key: "status", metadata: { name: "状态 r1", description: "", industry: "", device: "", versions: [], tags: [] }, spec: { collectionType: "cli" as const, commandTemplate: "display status", outputSamples: [] }, inputs: [], outputs: [] };
     const second = { ...structuredClone(first), revision: 2, metadata: { ...first.metadata, name: "状态 r2" }, spec: { ...first.spec, commandTemplate: "display status verbose" } };
     bundle.workflow.nodes.push({
-      id: "step-1", name: "检查状态", description: "", isStart: true, stepType: "expression", topology: [], collectionCalls: [
+      id: "step-1", name: "检查状态", description: "", parallelBranches: false, isStart: true, stepType: "expression", topology: [], collectionCalls: [
       { id: "call-1", key: "", name: "", definition: { id: first.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
       { id: "call-2", key: "", name: "", definition: { id: first.id, revision: 1 }, sampleCount: 1, inputBindings: {} },
       { id: "call-3", key: "", name: "", definition: { id: second.id, revision: 2 }, sampleCount: 1, inputBindings: {} },
@@ -315,7 +315,7 @@ describe("Workflow UI state", () => {
         id: "step-1",
         name: "检查接口",
         description: "Investigate timeout alarms",
-        isStart: true,
+        parallelBranches: false, isStart: true,
         collectionCalls: [],
         topology: [],
         stepType: "script",

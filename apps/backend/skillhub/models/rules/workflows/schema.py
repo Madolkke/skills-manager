@@ -229,6 +229,7 @@ class BaseStep(WorkflowModel):
     name: str
     description: str = ""
     is_start: bool = False
+    parallel_branches: bool = False
     collection_calls: list[CollectionCall] = Field(default_factory=list)
     topology: list[Transition] = Field(default_factory=list)
 

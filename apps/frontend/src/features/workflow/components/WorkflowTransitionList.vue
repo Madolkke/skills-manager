@@ -56,7 +56,7 @@ function conditionTextDiagnostics(transitionId: string, value: string) {
 <template>
   <section ref="root" class="workflow-step-section">
     <div class="workflow-subhead">
-      <div class="workflow-section-title"><span>{{ props.sectionNumber }}</span><div><h3>跳转到节点</h3><p>按作者顺序列出可能的跳转，不表达执行优先级。</p></div></div>
+      <div class="workflow-section-title"><span>{{ props.sectionNumber }}</span><div><h3>跳转到节点</h3><p>分支执行：{{ props.step.parallelBranches ? '非互斥（执行所有满足条件的分支）' : '互斥' }}。按作者顺序列出可能的跳转，不表达执行优先级。</p></div></div>
       <WorkflowPathTargetPicker :bundle="props.bundle" :source-step-id="props.step.id" variant="add" :readonly="props.readonly" @select="add" />
     </div>
     <article v-for="(item, index) in props.step.topology" :key="item.id" :data-path-id="item.id" class="workflow-transition-card">

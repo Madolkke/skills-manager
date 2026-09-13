@@ -148,6 +148,7 @@ export type WorkflowStep = {
   name: string;
   description: string;
   isStart: boolean;
+  parallelBranches: boolean;
   collectionCalls: CollectionCall[];
   topology: WorkflowTransition[];
   stepType: "expression" | "script";

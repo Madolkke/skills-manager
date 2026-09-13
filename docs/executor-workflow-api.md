@@ -169,6 +169,8 @@ ID 使用单一、连续、无重复的整数命名空间：
 
 首版明确不映射以下写作侧信息：
 
+- Step 的 `parallelBranches` 非互斥执行标记。无论其值为 `true`、`false` 或缺失，执行器 DTO 和转换结果均相同；本期仅支持写作侧建模，后续执行器接入需单独扩展 DTO、转换契约和运行时逻辑。
+
 - Workflow revision、schema version，以及 metadata 中除 `name` 外的 `code`、`description`、`symptom`、`industry`、`device`、`versions`。
 - Workflow 和 Collection 字段的 `required` 标记、Schema `title`、完整递归 JSON Schema 结构。
 - DeviceRole 定义；被 CLI CollectionCall 使用时会因目标模型不支持设备路由而失败，被忽略的 Log/Config Call 不校验该字段。

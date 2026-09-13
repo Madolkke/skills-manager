@@ -433,7 +433,7 @@ function workflowBundle(): WorkflowBundle {
           id: "step-start",
           name: "Check interface",
           description: "Collect interface status.",
-          isStart: true,
+          parallelBranches: false, isStart: true,
           collectionCalls: [{ id: "call-interface", key: "interface", name: "Interface status", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} }],
           topology: [{ id: "path-done", target: { id: "conclusion-done" }, conditionText: "Collected", conditionExpression: "status != ''" }],
           stepType: "expression",

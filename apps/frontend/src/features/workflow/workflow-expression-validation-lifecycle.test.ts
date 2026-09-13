@@ -19,7 +19,7 @@ function deferred() {
 /** 生成独立的双路径文档，避免节点删除改变表达式环境。 */
 function fixture() {
   const step: WorkflowStep = {
-    id: "step", name: "检查", description: "", stepType: "expression", isStart: true, collectionCalls: [],
+    id: "step", name: "检查", description: "", stepType: "expression", parallelBranches: false, isStart: true, collectionCalls: [],
     topology: ["first", "second"].map((id) => ({ id, conditionExpression: "True", conditionText: "", target: { id: "end" } })),
   };
   const bundle = ref<WorkflowBundle | null>({ documentType: "workflow_bundle", collectionSnapshots: [], workflow: {

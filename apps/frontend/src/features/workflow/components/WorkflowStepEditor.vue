@@ -136,6 +136,7 @@ function sectionIssueCount(section: WorkflowEditorSection): number {
           </div>
         </div>
         <label class="workflow-check workflow-start-check"><input type="checkbox" :checked="props.step.isStart" :disabled="props.readonly" @change="emit('change', { isStart: ($event.target as HTMLInputElement).checked })" />设为起始步骤</label>
+        <label class="workflow-check"><input type="checkbox" :checked="props.step.parallelBranches" :disabled="props.readonly" @change="emit('change', { parallelBranches: ($event.target as HTMLInputElement).checked })" />非互斥执行：执行所有满足条件的分支</label>
         <label class="field-label span-2"><span>步骤说明</span><textarea rows="4" :value="props.step.description" :disabled="props.readonly" @input="emit('change', { description: ($event.target as HTMLTextAreaElement).value })" /></label>
       </div>
       <WorkflowPredecessors :bundle="props.bundle" :target-id="props.step.id" @open="emit('predecessor-open', $event)" />

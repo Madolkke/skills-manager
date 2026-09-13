@@ -312,7 +312,7 @@ function graphBundle(): WorkflowBundle {
 }
 
 function step(id: string, name: string, collectionCalls: WorkflowStep["collectionCalls"]): WorkflowStep {
-  return { id, name, description: "", isStart: false, collectionCalls, topology: [], stepType: "expression" };
+  return { id, name, description: "", parallelBranches: false, isStart: false, collectionCalls, topology: [], stepType: "expression" };
 }
 
 function path(id: string, targetId: string) {

@@ -179,7 +179,7 @@ function workflowBundle(revision: number): WorkflowBundle {
       metadata: { name: "Workflow", code: "", description: "Test", symptom: "", industry: "", device: "", versions: [] },
       inputs: [],
       deviceRoles: [],
-      nodes: [{ id: "step-1", name: "Inspect", description: "", isStart: true, collectionCalls: [], topology: [], stepType: "script" }],
+      nodes: [{ id: "step-1", name: "Inspect", description: "", parallelBranches: false, isStart: true, collectionCalls: [], topology: [], stepType: "script" }],
     },
     collectionSnapshots: [],
   };

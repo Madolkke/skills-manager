@@ -251,6 +251,8 @@ slug 变化时，后端会复制当前不可变 Skill 内容，只更新 manifes
 
 ## Workflow 接口约束
 
+步骤支持可选布尔字段 `parallelBranches`，缺失时规范化为 `false`。`false` 表示分支互斥，`true` 表示执行所有满足条件的分支；该字段不规定并发调度或分支执行优先级。保存、读取、复制和 Import Bundle 导入导出保留此标记，文档 schema version 保持 `5`。内置 Skill Generator 展示分支模式；当前执行器投影静默忽略此字段，继续发送原有 DTO，因此该设置暂不影响外部执行器行为。后续执行器接入需单独扩展 DTO、转换契约和运行时逻辑。
+
 CLI Collection 可选返回 `spec.commandParameterSyntax: "angle-v1"`。启用后，`commandTemplate` 中每个 `<name>` 必须对应唯一同名输入；无效尖括号语法和缺失输入作为 Workflow validation error 返回。字段缺失表示历史兼容模式，读取和未修改保存不会自动启用。
 
 `GET /api/skills/{skill_id}/workflow/formatted` 与普通 Workflow 获取接口使用相同的 Skill、Workflow 和 actor 校验，但响应体只包含转换后的 JSON object。当前转换函数为深拷贝透传，因此响应等于普通接口的 `document` 字段；后续自定义格式只修改该转换函数，不改变接口路径。

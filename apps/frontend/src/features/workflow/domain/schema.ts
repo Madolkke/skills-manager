@@ -52,7 +52,7 @@ const call = z.object({
 }).strict();
 const target = z.object({ id: z.string() }).strict();
 const transition = z.object({ id: z.string(), target, conditionText: z.string(), conditionExpression: z.string() }).strict();
-const baseStep = { id: z.string(), name: z.string(), description: z.string(), isStart: z.boolean(), collectionCalls: z.array(call), topology: z.array(transition) };
+const baseStep = { id: z.string(), name: z.string(), description: z.string(), isStart: z.boolean(), parallelBranches: z.boolean().default(false), collectionCalls: z.array(call), topology: z.array(transition) };
 const expressionStep = z.object({ ...baseStep, stepType: z.literal("expression") }).strict();
 const scriptStep = z.object({ ...baseStep, stepType: z.literal("script"), script: z.object({ language: z.string(), source: z.string(), options: z.record(z.string(), z.unknown()) }).strict().optional() }).strict();
 const conclusion = z.object({ id: z.string(), name: z.string(), severity: z.enum(["info", "warning", "error", "critical"]).default("info"), rootCause: z.string(), repairRecommendation: z.string(), nodeType: z.literal("conclusion") }).strict();

@@ -35,7 +35,7 @@ function replacementBundle(): WorkflowBundle {
       id: "workflow-1", revision: 1,
       metadata: { name: "Replace", code: "", description: "", symptom: "", industry: "", device: "", versions: [] },
       inputs: [], deviceRoles: [], nodes: [
-        { id: "step-1", name: "检查状态", description: "", isStart: true, stepType: "expression", collectionCalls: [], topology: [{ id: "path-1", target: { id: "conclusion-1" }, conditionText: "", conditionExpression: "outputs.status == outputs.status && outputs.status == \"up\"" }] },
+        { id: "step-1", name: "检查状态", description: "", parallelBranches: false, isStart: true, stepType: "expression", collectionCalls: [], topology: [{ id: "path-1", target: { id: "conclusion-1" }, conditionText: "", conditionExpression: "outputs.status == outputs.status && outputs.status == \"up\"" }] },
         { id: "conclusion-1", name: "异常结论", severity: "error", rootCause: "根因 {{ outputs.status }}", repairRecommendation: "检查 outputs.status" , nodeType: "conclusion" },
       ],
     },

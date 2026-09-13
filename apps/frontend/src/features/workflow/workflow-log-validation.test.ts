@@ -86,7 +86,7 @@ function logWorkflowBundle(): WorkflowBundle {
       deviceRoles: [{ id: "role-device", key: "device", name: "设备", description: "", required: true }],
       nodes: [
         {
-          id: "step-start", name: "聚合日志", description: "", isStart: true, stepType: "expression",
+          id: "step-start", name: "聚合日志", description: "", parallelBranches: false, isStart: true, stepType: "expression",
           collectionCalls: [{ id: "call-log", key: "log", name: "日志统计", definition: { id: definition.id, revision: definition.revision }, sampleCount: 1, inputBindings: { "input-module": { kind: "literal", reference: {}, value: "alarm" } } }],
           topology: [{ id: "path-done", target: { id: "conclusion-done" }, conditionText: "完成", conditionExpression: "true" }],
         },

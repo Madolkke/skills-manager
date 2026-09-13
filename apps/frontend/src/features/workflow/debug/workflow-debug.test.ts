@@ -184,8 +184,8 @@ function debugBundle(): WorkflowBundle {
       inputs: [{ id: "input-enabled", key: "enabled", required: true, schema: { type: "boolean", title: "是否启用", description: "" } }],
       deviceRoles: [],
       nodes: [
-        { id: "step-1", name: "检查状态", description: "", isStart: true, stepType: "expression", collectionCalls: [{ id: "call-status", key: "status", name: "状态采集", definition: { id: definition.id, revision: 2 }, sampleCount: 1, inputBindings: {} }], topology: [{ id: "path-next", target: { id: "step-next" }, conditionText: "", conditionExpression: "true" }, { id: "path-done", target: { id: "conclusion-done" }, conditionText: "", conditionExpression: "false" }] },
-        { id: "step-next", name: "Next", description: "", isStart: false, stepType: "expression", collectionCalls: [], topology: [] },
+        { id: "step-1", name: "检查状态", description: "", parallelBranches: false, isStart: true, stepType: "expression", collectionCalls: [{ id: "call-status", key: "status", name: "状态采集", definition: { id: definition.id, revision: 2 }, sampleCount: 1, inputBindings: {} }], topology: [{ id: "path-next", target: { id: "step-next" }, conditionText: "", conditionExpression: "true" }, { id: "path-done", target: { id: "conclusion-done" }, conditionText: "", conditionExpression: "false" }] },
+        { id: "step-next", name: "Next", description: "", parallelBranches: false, isStart: false, stepType: "expression", collectionCalls: [], topology: [] },
         { id: "conclusion-done", name: "Done", rootCause: "", repairRecommendation: "", nodeType: "conclusion" },
         { id: "conclusion-unrelated", name: "Unrelated", rootCause: "", repairRecommendation: "", nodeType: "conclusion" },
       ],

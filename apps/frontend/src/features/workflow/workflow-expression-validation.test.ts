@@ -208,7 +208,7 @@ function step(id: string, name: string, collectionCalls: WorkflowStep["collectio
     id,
     name,
     description: "",
-    isStart: id === "step-current",
+    parallelBranches: false, isStart: id === "step-current",
     collectionCalls,
     topology: id === "step-current"
       ? [{ id: "path-current", target: { id: "step-other" }, conditionText: "", conditionExpression: "" }]

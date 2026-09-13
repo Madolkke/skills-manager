@@ -254,6 +254,12 @@ def call_output_key(call: dict[str, Any], output: dict[str, Any], *, indexed: bo
     return f"{path}.{output['key']}"
 
 
+def append_branch_execution(lines: list[str], step: dict[str, Any]) -> None:
+    """Render authoring branch semantics without imposing an execution priority."""
+    mode = "非互斥（执行所有满足条件的分支）" if step.get("parallelBranches", False) else "互斥"
+    lines.append(f"- 分支执行: {mode}")
+
+
 def append_transitions(lines: list[str], transitions, node_names, *, level: int = 4) -> None:
     if not transitions:
         return

@@ -4,6 +4,7 @@ from hashlib import sha256
 from typing import Any
 
 from .rendering import (
+    append_branch_execution,
     append_calls,
     append_function_source,
     append_metadata,
@@ -257,6 +258,7 @@ def _append_config_command(lines: list[str], command: dict[str, Any], *, level: 
 
 def _append_step_summary(lines: list[str], step: dict[str, Any]) -> None:
     lines.append(f"- 起始步骤: {'是' if step['isStart'] else '否'}")
+    append_branch_execution(lines, step)
     lines.append(f"- 类型: {'脚本草稿' if step['stepType'] == 'script' else '条件表达式'}")
     lines.append("")
     append_paragraph(lines, step["description"])

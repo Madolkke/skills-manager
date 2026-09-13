@@ -49,7 +49,7 @@ function bundle(): WorkflowBundle {
       metadata: { name: "测试", code: "", description: "", symptom: "", industry: "", device: "", versions: [] },
       inputs: [],
       deviceRoles: [],
-      nodes: [{ id: "step-1", name: "检查", description: "", isStart: true, stepType: "expression", collectionCalls: [], topology: [] }],
+      nodes: [{ id: "step-1", name: "检查", description: "", parallelBranches: false, isStart: true, stepType: "expression", collectionCalls: [], topology: [] }],
     },
     collectionSnapshots: [],
   };

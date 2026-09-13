@@ -130,7 +130,7 @@ function workflowBundle(): WorkflowBundle {
       metadata: { name: "Workflow", code: "WF", description: "Description", symptom: "", industry: "", device: "", versions: [] },
       inputs: [], deviceRoles: [],
       nodes: [
-        { id: "step-start", name: "Step", description: "", isStart: true, collectionCalls: [{ id: "call-interface", key: "interface", name: "Interface status", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} }], topology: [{ id: "path-done", target: { id: "conclusion-done" }, conditionText: "Done", conditionExpression: "" }], stepType: "expression" },
+        { id: "step-start", name: "Step", description: "", parallelBranches: false, isStart: true, collectionCalls: [{ id: "call-interface", key: "interface", name: "Interface status", definition: { id: definition.id, revision: 1 }, sampleCount: 1, inputBindings: {} }], topology: [{ id: "path-done", target: { id: "conclusion-done" }, conditionText: "Done", conditionExpression: "" }], stepType: "expression" },
         { id: "conclusion-done", name: "Done", rootCause: "Cause", repairRecommendation: "Repair", nodeType: "conclusion" },
       ],
     },

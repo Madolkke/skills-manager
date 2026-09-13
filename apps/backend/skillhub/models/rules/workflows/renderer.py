@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .generators.rendering import (
+    append_branch_execution,
     append_calls,
     append_metadata,
     append_paragraph,
@@ -34,6 +35,7 @@ def render_skill_markdown(*, slug: str, document: dict[str, Any]) -> str:
     for index, step in enumerate(steps, start=1):
         lines.extend([f"### {index}. {step['name']}", ""])
         lines.append(f"- 起始步骤: {'是' if step['isStart'] else '否'}")
+        append_branch_execution(lines, step)
         lines.append(f"- 类型: {'脚本草稿' if step['stepType'] == 'script' else '条件表达式'}")
         lines.append("")
         append_paragraph(lines, step["description"])

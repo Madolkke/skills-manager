@@ -127,7 +127,7 @@ function importBundle(): WorkflowImportBundle {
       inputs: [],
       deviceRoles: [],
       nodes: [
-        { id: "step-1", name: "Inspect", description: "", isStart: true, collectionCalls: [], topology: [], stepType: "expression" },
+        { id: "step-1", name: "Inspect", description: "", parallelBranches: false, isStart: true, collectionCalls: [], topology: [], stepType: "expression" },
         { id: "end-1", name: "Done", rootCause: "", repairRecommendation: "", nodeType: "conclusion" },
       ],
     },
@@ -155,7 +155,7 @@ function importDetail(): WorkflowImportDetail {
         inputs: source.workflow.inputs,
         deviceRoles: source.workflow.deviceRoles,
         nodes: [
-          { id: "step-1", name: "Inspect", description: "", isStart: true, collectionCalls: [], topology: [], stepType: "expression" },
+          { id: "step-1", name: "Inspect", description: "", parallelBranches: false, isStart: true, collectionCalls: [], topology: [], stepType: "expression" },
           { id: "end-1", name: "Done", rootCause: "", repairRecommendation: "", nodeType: "conclusion" },
         ],
       },

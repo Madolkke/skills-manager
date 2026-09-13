@@ -13,7 +13,7 @@ export function newRole(index: number): DeviceRole {
 export function newStep(index: number): WorkflowStep {
   return {
     id: createWorkflowId("step"), name: `排查步骤 ${index}`, description: "", isStart: false,
-    collectionCalls: [], topology: [], stepType: "expression",
+    collectionCalls: [], topology: [], parallelBranches: false, stepType: "expression",
   };
 }
 
