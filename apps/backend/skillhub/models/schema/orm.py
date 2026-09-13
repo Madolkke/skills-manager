@@ -7,6 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 from sqlalchemy.sql import Select
 
 from skillhub.models.schema.access import AuditEvent, Group, GroupMembership, Notification, RoleAssignment, TagGroup, TagGroupCascade, TagValue
+from skillhub.models.schema.analytics import AnalyticsCollectionState, SkillCreationFact, SkillVisitEvent
 from skillhub.models.schema.artifacts import Artifact, SavedView
 from skillhub.models.schema.commands import (
     SystemCommand,
@@ -46,6 +47,9 @@ def select_entity(model: type[ModelT]) -> Select[Any]:
 
 
 __all__ = [
+    "AnalyticsCollectionState",
+    "SkillCreationFact",
+    "SkillVisitEvent",
     "AcceptedVerification",
     "Artifact",
     "AuditEvent",

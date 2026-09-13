@@ -2,10 +2,11 @@ import { encodeSkillTagResourceId, tagLabel } from "./skillTags";
 import { skillOptionLabel } from "./skillIdentity";
 import type { RoleAssignment, SkillSummary, TagGroup } from "../types";
 
-export type AdminTab = "overview" | "groups" | "tag-groups" | "tag-cascades" | "roles" | "skill-tags" | "workers" | "opencode-agents" | "system-commands" | "publish-targets" | "publish";
+export type AdminTab = "analytics" | "overview" | "groups" | "tag-groups" | "tag-cascades" | "roles" | "skill-tags" | "workers" | "opencode-agents" | "system-commands" | "publish-targets" | "publish";
 
 export const ADMIN_TABS: Array<{ id: AdminTab; label: string }> = [
   { id: "overview", label: "概览" },
+  { id: "analytics", label: "运营看板" },
   { id: "groups", label: "用户组" },
   { id: "tag-groups", label: "Tag Group" },
   { id: "tag-cascades", label: "Tag 级联" },

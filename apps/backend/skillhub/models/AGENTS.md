@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `operations/analytics.py`、`rules/analytics.py`、`schema/analytics.py`：运营事实采集、日期口径及独立历史统计存储。
+
 - `entities.py`：领域实体、读模型和跨层传递的数据对象。
 - `errors.py`：领域错误和服务层可识别的业务异常。
 - `rules/`：纯业务规则，不访问数据库、不依赖 FastAPI、不产生外部副作用。

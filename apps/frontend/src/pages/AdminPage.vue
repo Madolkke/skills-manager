@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from "vue";
 import { ADMIN_TABS } from "../lib/admin";
 import AdminGroupsTab from "./admin/AdminGroupsTab.vue";
 import AdminOpencodeAgentsTab from "./admin/AdminOpencodeAgentsTab.vue";
@@ -12,6 +13,8 @@ import AdminTagCascadesTab from "./admin/AdminTagCascadesTab.vue";
 import AdminWorkersTab from "./admin/AdminWorkersTab.vue";
 import AdminSystemCommandsTab from "./admin/AdminSystemCommandsTab.vue";
 import { useAdminPageState } from "./admin/useAdminPageState";
+
+const AdminAnalyticsTab = defineAsyncComponent(() => import("../features/analytics/AdminAnalyticsTab.vue"));
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
 const {
@@ -47,11 +50,12 @@ const {
             {{ tab.label }}
           </button>
         </nav>
-        <button class="secondary-button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中..." : "刷新" }}</button>
+        <button v-if="activeTab !== 'analytics'" class="secondary-button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中..." : "刷新" }}</button>
       </div>
 
       <Transition name="fade-slide" mode="out-in">
-        <AdminOverviewTab v-if="activeTab === 'overview'" key="overview" :skills="skills" :groups="groups" :tag-groups="tagGroups" :roles="roles" />
+        <AdminAnalyticsTab v-if="activeTab === 'analytics'" key="analytics" />
+        <AdminOverviewTab v-else-if="activeTab === 'overview'" key="overview" :skills="skills" :groups="groups" :tag-groups="tagGroups" :roles="roles" />
         <AdminGroupsTab
           v-else-if="activeTab === 'groups'"
           key="groups"

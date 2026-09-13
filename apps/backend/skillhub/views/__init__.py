@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from skillhub.views.admin import register_admin_routes
+from skillhub.views.analytics import register_analytics_routes
 from skillhub.views.artifacts import register_artifact_routes
 from skillhub.views.command_library import register_command_library_routes
 from skillhub.views.evaluations import register_evaluation_routes
@@ -21,6 +22,7 @@ from skillhub.views.workflows import register_workflow_routes
 
 
 def register_views(app: FastAPI) -> None:
+    register_analytics_routes(app)
     register_system_routes(app)
     register_session_routes(app)
     register_admin_routes(app)

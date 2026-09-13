@@ -11,6 +11,9 @@ class SqlAlchemyMetadataTest(unittest.TestCase):
         self.assertEqual(
             set(metadata.tables),
             {
+                "skill_creation_facts",
+                "skill_visit_events",
+                "analytics_collection_state",
                 "artifacts",
                 "skills",
                 "skill_versions",

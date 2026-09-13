@@ -98,6 +98,7 @@ class SkillCreateCommandMixin:
 
         try:
             self._require_protected_tag_creation_permission(connection, tags=tags, actor=actor)
+            self._record_skill_creation(connection, skill_id=skill_id, name=slug, owner_ref=owner_ref, created_at=created_at)
             connection.execute(
                 insert(orm.Skill).values(
                     id=skill_id,

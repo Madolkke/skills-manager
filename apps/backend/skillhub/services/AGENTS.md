@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `analytics.py`：提供运营统计读取及按 actor 记录页面访问。
+
 - `__init__.py`：统一导出对 View 层开放的 service 类。
 - `base.py`：提供 service 基类和共享 store 持有逻辑。
 - `admin.py`：后台管理兼容 facade，仅组合下列三个小型 service。

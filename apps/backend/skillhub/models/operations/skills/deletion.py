@@ -46,6 +46,9 @@ class SkillDeletionMixin:
             reject_active_skill_work(session, skill_id=skill_id, action="永久删除")
             artifact_ids = self._candidate_artifact_ids(session, owned)
 
+            session.execute(update(orm.SkillCreationFact).where(orm.SkillCreationFact.skill_id == skill_id).values(
+                name=skill["display_name"] or skill["slug"], owner_ref=skill["owner_ref"],
+            ))
             self._delete_skill_rows(session, skill_id, owned, related_job_ids)
             self._delete_unreferenced_artifacts(session, artifact_ids)
             session.execute(

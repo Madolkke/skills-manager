@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from "vue";
 import IdentitySettingsModal from "./components/IdentitySettingsModal.vue";
 import TaskCenterPanel from "./components/TaskCenterPanel.vue";
 import Toast from "./components/Toast.vue";
@@ -15,6 +15,7 @@ import HubPage from "./pages/HubPage.vue";
 import NewSkillModal from "./pages/NewSkillModal.vue";
 import MyReviewsPage from "./pages/MyReviewsPage.vue";
 import SkillBuilderPage from "./pages/SkillBuilderPage.vue";
+import { useSkillVisit } from "./features/analytics/useSkillVisit";
 import SkillPage from "./pages/SkillPage.vue";
 import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types";
 
@@ -55,6 +56,9 @@ const {
   openSkillTab: (skillId, tab) => navigate({ section: "skills", skillId, tab, selectedCaseId: null, selectedRunId: null, selectedVersionId: null }),
 });
 
+const visits = useSkillVisit(route);
+let loadSequence = 0;
+
 watch(() => [route.value.section, route.value.skillId] as const, () => void load(), { immediate: true });
 
 onMounted(() => {
@@ -66,16 +70,24 @@ onUnmounted(() => {
 });
 
 async function load(): Promise<void> {
+  const sequence = ++loadSequence;
+  const entryToken = visits.token();
+  const targetRoute = route.value;
   loading.value = true;
   try {
-    const targetRoute = route.value;
     const [, list] = await Promise.all([api.getSession(), api.listSkills()]);
+    if (sequence !== loadSequence) return;
     session.value = { actor: getActorId(), subject_type: "user" };
     skills.value = list;
     if ((targetRoute.section === "skills" || targetRoute.section === "workflows") && targetRoute.skillId) {
       try {
-        skill.value = await api.getSkill(targetRoute.skillId);
+        const detail = await api.getSkill(targetRoute.skillId);
+        if (sequence !== loadSequence) return;
+        skill.value = detail;
+        await nextTick();
+        if (sequence === loadSequence) void visits.displayed(detail.skill.id, entryToken);
       } catch (error) {
+        if (sequence !== loadSequence) return;
         if (isMissingSkillError(error)) {
           skill.value = null;
           toast.value = { tone: "info", message: "当前 Skill 已不存在，已返回列表。" };
@@ -96,9 +108,9 @@ async function load(): Promise<void> {
       skill.value = null;
     }
   } catch (error) {
-    toast.value = { tone: "danger", message: errorMessage(error) };
+    if (sequence === loadSequence) toast.value = { tone: "danger", message: errorMessage(error) };
   } finally {
-    loading.value = false;
+    if (sequence === loadSequence) loading.value = false;
   }
 }
 

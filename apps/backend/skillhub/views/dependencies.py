@@ -24,6 +24,7 @@ from skillhub.services import (
     WorkflowDebugService,
     WorkflowService,
 )
+from skillhub.services.analytics import AnalyticsService
 from skillhub.services.workflow_debug_runtime import WorkflowDebugSettings
 
 
@@ -98,3 +99,8 @@ def artifact_service_dependency(session: Session = Depends(session_dependency, s
 
 def evaluation_read_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> EvaluationReadService:
     return EvaluationReadService(SkillHubStore(session))
+
+
+def analytics_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> AnalyticsService:
+    """创建请求事务绑定的运营服务。"""
+    return AnalyticsService(SkillHubStore(session))

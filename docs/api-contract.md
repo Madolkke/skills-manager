@@ -125,6 +125,8 @@ Workflow 结论节点包含 `severity`（`info`、`warning`、`error`、`critica
 | `GET /api/skills/{skill_id}/capabilities` | 当前 actor 在该 Skill 上的 permissions。 |
 | `GET /api/skills/{skill_id}/role-assignments` | Skill role assignments。 |
 | `GET /api/skills/{skill_id}/audit-events` | Skill 审计事件。 |
+| `POST /api/skills/{skill_id}/visits` | 按服务端 actor 幂等记录 Skill 详情页面访问。 |
+| `GET /api/admin/analytics/overview` | 后台运营指标、日/月趋势和热门榜，要求后台密钥；详见[运营看板](admin-operations-dashboard.md)。 |
 | `GET /api/eval-set-versions/{version_id}` | EvalSetVersion 和 case versions。 |
 | `GET /api/skills/{skill_id}/eval-runs` | EvalRun 历史列表。 |
 | `GET /api/skills/{skill_id}/eval-run-matrix` | Run matrix read model。 |
