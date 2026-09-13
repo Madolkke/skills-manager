@@ -7,6 +7,7 @@ import {
   completionStatus,
 } from "@codemirror/autocomplete";
 import type { EditorView } from "@codemirror/view";
+import type { WorkflowExpressionFunction } from "../../types";
 import type { WorkflowExpressionVariable, WorkflowExpressionVariableKind } from "./workflowExpressionVariables";
 import { expandWorkflowExpressionVariable, filterWorkflowExpressionVariables } from "./workflowExpressionVariables";
 import { activeWorkflowTemplateExpression } from "./workflowTemplate";
@@ -18,6 +19,7 @@ const sections: Record<WorkflowExpressionVariableKind, CompletionSection> = {
   config: { name: "配置匹配", rank: 2 },
   device: { name: "设备角色", rank: 3 },
 };
+const functionSection: CompletionSection = { name: "表达式函数", rank: 4 };
 const fragmentPattern = /[^\s()[\]{}"'`,;:+*/%&|!?=<>]+$/u;
 
 export function normalizeWorkflowExpressionInput(value: string): string {
@@ -31,20 +33,22 @@ export function acceptWorkflowExpressionCompletion(view: EditorView): boolean {
 export function shouldOpenWorkflowExpressionCompletion(
   variables: WorkflowExpressionVariable[],
   valueBeforeCursor: string,
+  functions: Record<string, WorkflowExpressionFunction> = {},
 ): boolean {
   if (insideQuotedLiteral(valueBeforeCursor)) return false;
-  const query = completionQuery(variables, valueBeforeCursor);
+  const query = completionQuery(variables, valueBeforeCursor, functions);
   return Boolean(query?.fragment && query.matches.length);
 }
 
 export function createWorkflowExpressionCompletionSource(
   variables: () => WorkflowExpressionVariable[],
+  functions: () => Record<string, WorkflowExpressionFunction> = () => ({}),
 ): CompletionSource {
   return (context: CompletionContext) => {
     if (context.state.readOnly) return null;
     const beforeCursor = context.state.doc.sliceString(0, context.pos);
     if (insideQuotedLiteral(beforeCursor)) return null;
-    const query = completionQuery(variables(), beforeCursor);
+    const query = completionQuery(variables(), beforeCursor, functions());
     if (!query) return null;
     if (!context.explicit && !query.fragment) return null;
     if (!query.matches.length) return null;
@@ -59,12 +63,13 @@ export function createWorkflowExpressionCompletionSource(
 /** Creates a completion source that only replaces the active {{ expression }} fragment. */
 export function createWorkflowTemplateCompletionSource(
   variables: () => WorkflowExpressionVariable[],
+  functions: () => Record<string, WorkflowExpressionFunction> = () => ({}),
 ): CompletionSource {
   return (context: CompletionContext) => {
     if (context.state.readOnly) return null;
     const active = activeWorkflowTemplateExpression(context.state.doc.toString(), context.pos);
     if (!active || insideQuotedLiteral(active.expression)) return null;
-    const query = completionQuery(variables(), active.expression);
+    const query = completionQuery(variables(), active.expression, functions());
     if (!query || (!context.explicit && !query.fragment) || !query.matches.length) return null;
     return {
       from: active.start + query.from,
@@ -79,28 +84,40 @@ export function shouldOpenWorkflowTemplateCompletion(
   variables: WorkflowExpressionVariable[],
   source: string,
   cursor: number,
+  functions: Record<string, WorkflowExpressionFunction> = {},
 ): boolean {
   const active = activeWorkflowTemplateExpression(source, cursor);
   if (!active || insideQuotedLiteral(active.expression)) return false;
-  if (!active.expression.trim()) return variables.length > 0;
-  return shouldOpenWorkflowExpressionCompletion(variables, active.expression);
+  if (!active.expression.trim()) {
+    return variables.length > 0 || Object.values(functions).some((item) => item.enabled !== false);
+  }
+  return shouldOpenWorkflowExpressionCompletion(variables, active.expression, functions);
 }
 
-type CompletionQuery = { from: number; fragment: string; matches: WorkflowExpressionVariable[] };
+type CompletionMatch = WorkflowExpressionVariable | (WorkflowExpressionFunction & {
+  name: string;
+  kind: "function" | "function-parameter";
+});
+type CompletionQuery = { from: number; fragment: string; matches: CompletionMatch[] };
 type IndexedArrayQuery = CompletionQuery | "blocked" | null;
 type SampleIndexAnalysis = { end: number; slice: boolean; supported: boolean };
 type ArrayReferenceMatch = { start: number; end: number };
 
-function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: string): CompletionQuery | null {
+function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: string, functions: Record<string, WorkflowExpressionFunction> = {}): CompletionQuery | null {
+  const parameterQuery = functionParameterQuery(beforeCursor, functions);
+  if (parameterQuery) return parameterQuery;
   const indexed = indexedSampleQuery(variables, beforeCursor);
   if (indexed === "blocked") return null;
   if (indexed) return indexed;
   if (hasUnclosedSampleIndex(variables, beforeCursor)) return null;
   const fragment = beforeCursor.match(fragmentPattern)?.[0] ?? "";
+  const functionMatches = Object.entries(functions)
+    .filter(([name, value]) => value.enabled !== false && name.toLowerCase().startsWith(fragment.toLowerCase()))
+    .map(([name, value]) => ({ ...value, name, kind: "function" as const }));
   return {
     from: beforeCursor.length - fragment.length,
     fragment,
-    matches: filterWorkflowExpressionVariables(variables, fragment),
+    matches: [...filterWorkflowExpressionVariables(variables, fragment), ...functionMatches],
   };
 }
 
@@ -133,14 +150,31 @@ function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCurso
   return blocked ? "blocked" : null;
 }
 
+function functionParameterQuery(beforeCursor: string, functions: Record<string, WorkflowExpressionFunction>): CompletionQuery | null {
+  const call = beforeCursor.match(/([A-Za-z_][A-Za-z0-9_]*)\(([^()]*)$/u);
+  if (!call) return null;
+  const signature = functions[call[1]!];
+  if (!signature) return null;
+  const argumentText = call[2] ?? "";
+  const fragment = argumentText.match(/[A-Za-z_][A-Za-z0-9_]*$/u)?.[0] ?? "";
+  const used = new Set(Array.from(argumentText.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*=/gu), (item) => item[1]));
+  const names = signature.parameterSchema?.type === "object"
+    ? Object.keys(signature.parameterSchema.properties)
+    : signature.parameters ?? [];
+  const matches = names.filter((name) => !used.has(name) && name.toLowerCase().startsWith(fragment.toLowerCase())).map((name) => ({ name, kind: "function-parameter" as const, description: signature.description, returns: signature.returns }));
+  if (!matches.length) return null;
+  return { from: beforeCursor.length - fragment.length, fragment, matches };
+}
+
 export function workflowExpressionCompletionQuery(
   variables: WorkflowExpressionVariable[],
   beforeCursor: string,
-): { from: number; fragment: string; matches: WorkflowExpressionVariable[] } | null {
-  return completionQuery(variables, beforeCursor);
+  functions: Record<string, WorkflowExpressionFunction> = {},
+): CompletionQuery | null {
+  return completionQuery(variables, beforeCursor, functions);
 }
 
-export function workflowExpressionCompletionOption(variable: WorkflowExpressionVariable): Completion {
+export function workflowExpressionCompletionOption(variable: CompletionMatch): Completion {
   return toCompletion(variable);
 }
 
@@ -261,7 +295,12 @@ function isReferenceBoundary(source: string, start: number): boolean {
   return start === 0 || !/[A-Za-z0-9_.]/u.test(source[start - 1]!);
 }
 
-function toCompletion(variable: WorkflowExpressionVariable): Completion {
+function toCompletion(variable: CompletionMatch): Completion {
+  if (!("reference" in variable)) {
+    const parameters = variable.parameterSchema?.type === "object" ? Object.keys(variable.parameterSchema.properties).join(", ") : (variable.parameters ?? []).join(", ");
+    if (variable.kind === "function-parameter") return { label: `${variable.name}=`, apply: `${variable.name}=`, detail: "函数参数", info: variable.description, type: "keyword", section: functionSection };
+    return { label: variable.name, apply: variable.name, detail: `函数(${parameters}) -> ${variable.returns ?? variable.returnSchema?.type ?? "any"}`, info: variable.description, type: "function", section: functionSection };
+  }
   return {
     label: variable.reference,
     apply: variable.reference,

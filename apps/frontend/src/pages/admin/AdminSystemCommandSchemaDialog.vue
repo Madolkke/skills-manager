@@ -10,6 +10,8 @@ const props = defineProps<{
   schema: WorkflowJsonSchema;
   normalize: (value: unknown) => WorkflowJsonSchema;
   validate: (value: unknown) => string[];
+  title?: string;
+  description?: string;
 }>();
 const emit = defineEmits<{ close: []; confirm: [schema: WorkflowJsonSchema] }>();
 
@@ -55,11 +57,11 @@ function confirm(): void {
 </script>
 
 <template>
-  <Modal title="编辑原始 JSON Schema" description="直接编辑完整 Schema；确认前会复用系统命令库的结构校验。" size="editor" :open="props.open" @close="emit('close')">
+  <Modal :title="props.title || '编辑原始 JSON Schema'" :description="props.description || '直接编辑完整 Schema；确认前会复用系统命令库的结构校验。'" size="editor" :open="props.open" @close="emit('close')">
     <div class="admin-command-schema-dialog-body">
       <textarea :value="text" class="admin-command-json admin-command-json-dialog" spellcheck="false" aria-label="原始 JSON Schema" @input="parse(($event.target as HTMLTextAreaElement).value)" />
       <div class="admin-command-json-foot">
-        <span :class="error && 'has-error'">{{ error || "根节点必须是 object，required 决定输出字段是否必填。" }}</span>
+        <span :class="error && 'has-error'">{{ error || "Schema 将按当前字段规则校验。" }}</span>
         <UiButton size="sm" variant="secondary" :disabled="Boolean(error)" @click="format"><template #icon><Braces /></template>格式化</UiButton>
       </div>
     </div>

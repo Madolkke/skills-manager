@@ -71,7 +71,8 @@ export type TagGroup = {
   sort_order: number;
   required: boolean;
   free_form: boolean;
-  parent?: { group_id: string; value: string } | null;
+  display_mode?: "checkbox" | "multi_select";
+  parent?: { group_id: string; value: string | null; activation_mode?: "parent_value" | "parent_selected" } | null;
   values: TagValueOption[];
   created_at?: string;
   updated_at?: string;
@@ -81,7 +82,8 @@ export type TagGroup = {
 export type TagCascadeRelation = {
   child_group_id: string;
   parent_group_id: string;
-  parent_value: string;
+  parent_value: string | null;
+  activation_mode?: "parent_value" | "parent_selected";
   created_at?: string;
   created_by?: string;
 };

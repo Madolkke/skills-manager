@@ -242,6 +242,41 @@ describe("WorkflowTemplateEditor", () => {
     expect(view.state.doc.toString()).toContain(" }} 后缀");
     wrapper.unmount();
   });
+
+  it("completes dynamic functions inside a template expression", async () => {
+    const wrapper = mount(WorkflowTemplateEditor, {
+      attachTo: document.body,
+      props: {
+        value: "{{  }}",
+        variables: [],
+        functions: {
+          custom_check: {
+            description: "检查状态",
+            parameterSchema: {
+              type: "object",
+              title: "参数",
+              description: "",
+              properties: {},
+              required: [],
+              additionalProperties: false,
+            },
+            returnSchema: { type: "boolean", title: "结果", description: "" },
+            enabled: true,
+          },
+        },
+        readonly: false,
+      },
+    });
+    await nextTick();
+    const view = EditorView.findFromDOM(wrapper.get(".cm-editor").element as HTMLElement)!;
+    view.focus();
+    view.dispatch({ changes: { from: 3, insert: "custom_" }, selection: { anchor: 10 }, userEvent: "input.type" });
+
+    await expect.poll(() => completionStatus(view.state), { timeout: 1000 }).toBe("active");
+    expect(acceptWorkflowExpressionCompletion(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("{{ custom_check }}");
+    wrapper.unmount();
+  });
 });
 
 async function completion(

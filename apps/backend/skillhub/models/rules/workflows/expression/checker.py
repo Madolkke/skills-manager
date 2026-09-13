@@ -6,6 +6,7 @@ from typing import Any
 
 from .checker_ast import integer_index_type, integer_literal, is_config_expression, source_offset
 from .environment import expression_root_types
+from .function_calls import validate_call_arguments
 from .registry import FUNCTIONS, METHODS
 from .types import ANY, BOOLEAN, INTEGER, NONE, NUMBER, STRING, TypeSpec, array, object_type, type_spec_assignable_to_schema, union
 
@@ -25,22 +26,22 @@ class Diagnostic:
         return {"severity": "warning", "code": self.code, "message": self.message, "start": self.start, "end": self.end}
 
 
-def validate_expression(source: str, environment: dict[str, Any]) -> dict[str, Any]:
+def validate_expression(source: str, environment: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Expose the stable public result without internal property-presence data."""
-    inferred, diagnostics = _check_expression(source, environment)
+    inferred, diagnostics = _check_expression(source, environment, functions)
     return {"inferredType": inferred.serialize(), "diagnostics": diagnostics}
 
 
-def validate_binding_expression(source: str, environment: dict[str, Any], target_schema: dict[str, Any]) -> dict[str, Any]:
+def validate_binding_expression(source: str, environment: dict[str, Any], target_schema: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Check binding compatibility before serializing the inferred type."""
-    inferred, diagnostics = _check_expression(source, environment)
+    inferred, diagnostics = _check_expression(source, environment, functions)
     return {
         "inferredType": inferred.serialize(), "diagnostics": diagnostics,
         "assignable": not diagnostics and type_spec_assignable_to_schema(inferred, target_schema),
     }
 
 
-def _check_expression(source: str, environment: dict[str, Any]) -> tuple[TypeSpec, list[dict[str, Any]]]:
+def _check_expression(source: str, environment: dict[str, Any], functions: dict[str, dict[str, Any]] | None) -> tuple[TypeSpec, list[dict[str, Any]]]:
     """Retain complete internal types for callers that enforce assignability."""
     if not source.strip():
         return NONE, []
@@ -50,16 +51,17 @@ def _check_expression(source: str, environment: dict[str, Any]) -> tuple[TypeSpe
         start = source_offset(source, exc.lineno or 1, max((exc.offset or 1) - 1, 0), utf8_column=False)
         end = source_offset(source, exc.end_lineno or exc.lineno or 1, max((exc.end_offset or exc.offset or 1) - 1, 0), utf8_column=False)
         return ANY, [Diagnostic("PYTHON_SYNTAX", exc.msg, start, max(end, start + 1)).serialize()]
-    checker = _Checker(source, expression_root_types(environment))
+    checker = _Checker(source, expression_root_types(environment), FUNCTIONS if functions is None else functions)
     inferred = checker.infer(tree.body)
     return inferred, [item.serialize() for item in checker.diagnostics]
 
 
 class _Checker:
-    def __init__(self, source: str, roots: dict[str, TypeSpec]) -> None:
+    def __init__(self, source: str, roots: dict[str, TypeSpec], functions: dict[str, dict[str, Any]]) -> None:
         self.source = source
         self.scopes = [roots]
         self.diagnostics: list[Diagnostic] = []
+        self.functions = functions
 
     def infer(self, node: ast.AST) -> TypeSpec:
         method = getattr(self, f"infer_{type(node).__name__}", None)
@@ -85,7 +87,7 @@ class _Checker:
         for scope in reversed(self.scopes):
             if node.id in scope:
                 return scope[node.id]
-        if node.id in FUNCTIONS:
+        if node.id in self.functions:
             return TypeSpec("function")
         self.warn(node, "UNKNOWN_NAME", f"未知名称“{node.id}”。")
         return ANY
@@ -183,11 +185,12 @@ class _Checker:
         for argument in [*node.args, *(keyword.value for keyword in node.keywords)]:
             self.infer(argument)
         if isinstance(node.func, ast.Name):
-            signature = FUNCTIONS.get(node.func.id)
+            signature = self.functions.get(node.func.id)
             if not signature:
                 self.warn(node.func, "UNREGISTERED_CALL", f"函数“{node.func.id}”未注册。")
                 return ANY
-            return self._return_type(signature["returns"], node.args[0] if node.args else None)
+            validate_call_arguments(self, node, signature)
+            return self._return_type(signature.get("returns", "any"), node.args[0] if node.args else None, None if signature.get("legacyBuiltin") else signature.get("returnSchema"))
         if isinstance(node.func, ast.Attribute):
             owner = self.infer(node.func.value)
             signature = METHODS.get(owner.kind, {}).get(node.func.attr)
@@ -245,7 +248,11 @@ class _Checker:
             return NONE
         return ANY
 
-    def _return_type(self, value: str, source: ast.AST | None) -> TypeSpec:
+    def _return_type(self, value: str, source: ast.AST | None, return_schema: dict[str, Any] | None = None) -> TypeSpec:
+        if value not in {"T"} and not value.startswith("array<") and isinstance(return_schema, dict) and return_schema.get("type"):
+            from .types import from_json_schema
+
+            return from_json_schema(return_schema)
         if value == "integer":
             return INTEGER
         if value == "number":

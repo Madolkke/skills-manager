@@ -13,7 +13,7 @@ import { useTagCascadeTree } from "./useTagCascadeTree";
 
 const props = defineProps<{ tagGroups: TagGroup[]; overview: TagCascadeOverview | null }>();
 const emit = defineEmits<{
-  attach: [payload: { parent_group_id: string; parent_value: string; child_group_id: string }];
+  attach: [payload: { parent_group_id: string; parent_value?: string | null; child_group_id: string; activation_mode: "parent_value" | "parent_selected" }];
   detach: [childGroupId: string];
   inspect: [focus: TagDiagnosticFocus];
 }>();
@@ -21,6 +21,7 @@ const search = ref("");
 const childSearch = ref("");
 const selectedKind = ref<"group" | "value">("group");
 const selectedGroupId = ref("");
+const selectedGroupChildId = ref("");
 const {
   allExpanded, availableChildren, childGroupId, collapseAll, diagnostics, expandAll, expandedGroups,
   groups: cascadeGroups, issueTotals, rows, selectParent, selectedParent, selectedParentGroup, summary, toggleGroup, visibleRows,
@@ -43,10 +44,17 @@ const filteredChildren = computed(() => {
   if (!keyword) return availableChildren.value;
   return availableChildren.value.filter((group) => `${group.display_name} ${group.id} ${group.description}`.toLowerCase().includes(keyword));
 });
+const groupChildren = computed(() => selectedGroup.value
+  ? cascadeGroups.value.filter((group) => !group.parent && group.id !== selectedGroup.value?.id)
+  : []);
 const displayRows = computed(() => search.value.trim() ? searchedRows(rows.value, search.value) : visibleRows.value);
 
 watch(() => props.tagGroups, (groups) => {
   if (!groups.some((group) => group.id === selectedGroupId.value)) selectedGroupId.value = groups[0]?.id ?? "";
+}, { immediate: true });
+
+watch(groupChildren, (children) => {
+  if (!children.some((group) => group.id === selectedGroupChildId.value)) selectedGroupChildId.value = children[0]?.id ?? "";
 }, { immediate: true });
 
 function selectGroup(group: TagGroup): void {
@@ -69,6 +77,17 @@ function attach(): void {
     parent_group_id: selectedParent.value.groupId,
     parent_value: selectedParent.value.value,
     child_group_id: childGroupId.value,
+    activation_mode: "parent_value",
+  });
+}
+
+function attachToSelectedGroup(): void {
+  if (!selectedGroup.value || !selectedGroupChildId.value) return;
+  emit("attach", {
+    parent_group_id: selectedGroup.value.id,
+    parent_value: null,
+    child_group_id: selectedGroupChildId.value,
+    activation_mode: "parent_selected",
   });
 }
 
@@ -202,6 +221,13 @@ function addGroupAndAncestors(groupId: string, result: Set<string>): void {
             >
               <Unlink :size="15" />解绑
             </button>
+          </div>
+          <div v-else class="cascade-attach-editor">
+            <span>父 Group 有任意选择后显示</span>
+            <select v-if="groupChildren.length" v-model="selectedGroupChildId" aria-label="选择任意父值触发的子 Tag Group">
+              <option v-for="group in groupChildren" :key="group.id" :value="group.id">{{ group.display_name }}（{{ group.id }}）</option>
+            </select>
+            <button class="primary-button" type="button" :disabled="!selectedGroupChildId" @click="attachToSelectedGroup"><Link2 :size="16" />挂载子组</button>
           </div>
           <div class="cascade-inspector-issues">
             <button v-if="diagnostics.get(selectedGroup.id)?.orphaned_skill_ids.length" class="cascade-issue-button" type="button" @click="inspect(selectedGroup.id, 'orphaned')">

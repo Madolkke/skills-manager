@@ -6,10 +6,10 @@ import type { TagGroup } from "../../types";
 const props = defineProps<{ group?: TagGroup | null }>();
 const emit = defineEmits<{
   close: [];
-  submit: [payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; initial_value?: string }];
+  submit: [payload: { id?: string; display_name: string; description?: string; sort_order?: number; required?: boolean; free_form?: boolean; display_mode?: "checkbox" | "multi_select"; initial_value?: string }];
 }>();
 
-const form = ref({ id: "", display_name: "", description: "", sort_order: 0, required: false, free_form: false, initial_value: "" });
+const form = ref({ id: "", display_name: "", description: "", sort_order: 0, required: false, free_form: false, display_mode: "checkbox" as "checkbox" | "multi_select", initial_value: "" });
 const editing = ref(false);
 
 watch(() => props.group, (group) => {
@@ -21,6 +21,7 @@ watch(() => props.group, (group) => {
     sort_order: group?.sort_order ?? 0,
     required: group?.required ?? false,
     free_form: group?.free_form ?? false,
+    display_mode: group?.display_mode ?? "checkbox",
     initial_value: "",
   };
 }, { immediate: true });
@@ -35,6 +36,7 @@ function submit(): void {
     sort_order: Number(form.value.sort_order) || 0,
     required: form.value.required,
     free_form: form.value.free_form,
+    display_mode: form.value.display_mode,
     initial_value: editing.value ? undefined : form.value.initial_value.trim(),
   });
   emit("close");
@@ -77,6 +79,13 @@ function submit(): void {
           <button type="button" :class="{ active: form.free_form }" role="radio" :aria-checked="form.free_form" @click="form.free_form = true; form.initial_value = ''">
             自由组
           </button>
+        </div>
+      </section>
+      <section class="tag-group-requirement-field" aria-labelledby="tag-group-display-title">
+        <div><strong id="tag-group-display-title">入口页筛选样式</strong><p>{{ form.display_mode === "multi_select" ? "使用支持多选和搜索的下拉菜单。" : "使用展开式复选候选列表。" }}</p></div>
+        <div class="tag-group-requirement-toggle" role="radiogroup" aria-label="入口页筛选样式">
+          <button type="button" :class="{ active: form.display_mode === 'checkbox' }" role="radio" :aria-checked="form.display_mode === 'checkbox'" @click="form.display_mode = 'checkbox'">复选列表</button>
+          <button type="button" :class="{ active: form.display_mode === 'multi_select' }" role="radio" :aria-checked="form.display_mode === 'multi_select'" @click="form.display_mode = 'multi_select'">多选下拉</button>
         </div>
       </section>
       <section class="tag-group-requirement-field" aria-labelledby="tag-group-requirement-title">

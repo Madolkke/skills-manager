@@ -119,7 +119,10 @@ def _normalize_legacy_cli_spec(definition: dict[str, Any]) -> None:
         spec.setdefault("sqlDialect", "duckdb")
 
 
-def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
+def validate_workflow_import_references(
+    bundle: dict[str, Any],
+    functions: dict[str, dict[str, Any]] | None = None,
+) -> None:
     definitions = _definition_map(bundle["collections"])
     workflow = bundle["workflow"]
     nodes = workflow["nodes"]
@@ -177,7 +180,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
                 if not isinstance(expression, str) or not expression.strip():
                     raise InvariantError("Workflow import expression Binding cannot be empty.")
                 parameter = next(item for item in definition["inputs"] if item["id"] == input_id)
-                result = validate_binding_expression(expression, environment, parameter["schema"])
+                result = validate_binding_expression(expression, environment, parameter["schema"], functions)
                 if result["diagnostics"]:
                     raise InvariantError(
                         f"Workflow import expression Binding is invalid: {step['id']} {call['id']} {input_id}: "
@@ -193,7 +196,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             workflow.get("deviceRoles", []),
         )
         for transition in step.get("topology", []):
-            diagnostics = validate_template(transition.get("conditionText", ""), environment)
+            diagnostics = validate_template(transition.get("conditionText", ""), environment, functions)
             if diagnostics:
                 raise InvariantError(
                     f"Workflow import condition template is invalid: {step['id']} {transition['id']}: "
@@ -207,7 +210,7 @@ def validate_workflow_import_references(bundle: dict[str, Any]) -> None:
             workflow.get("deviceRoles", []),
         )
         for field in ("rootCause", "repairRecommendation"):
-            diagnostics = validate_template(conclusion.get(field, ""), environment)
+            diagnostics = validate_template(conclusion.get(field, ""), environment, functions)
             if diagnostics:
                 raise InvariantError(
                     f"Workflow import conclusion template is invalid: {conclusion['id']} {field}: "

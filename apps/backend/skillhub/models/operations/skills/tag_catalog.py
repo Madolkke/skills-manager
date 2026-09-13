@@ -31,10 +31,12 @@ class TagCatalogMixin(TagCatalogHelperMixin):
         sort_order: int,
         required: bool = False,
         free_form: bool = False,
+        display_mode: str | None = None,
         actor: str,
     ) -> dict[str, Any]:
         now = utc_now()
         clean_id = self._clean_tag_group_id(group_id)
+        clean_display_mode = self._clean_tag_display_mode(display_mode or "checkbox")
         if required and not free_form:
             logger.warning("tag group create rejected reason=required_enum_without_values group_id=%s", clean_id)
             raise InvariantError("必选 Tag Group（枚举组）至少需要先添加一个 Tag 值。")
@@ -49,6 +51,7 @@ class TagCatalogMixin(TagCatalogHelperMixin):
                     sort_order=sort_order,
                     required=required,
                     free_form=free_form,
+                    display_mode=clean_display_mode,
                     created_at=now,
                     updated_at=now,
                     created_by=actor,
@@ -65,11 +68,17 @@ class TagCatalogMixin(TagCatalogHelperMixin):
         sort_order: int,
         required: bool = False,
         free_form: bool = False,
+        display_mode: str | None = None,
         actor: str,
     ) -> dict[str, Any]:
         now = utc_now()
         with self._write_session() as connection:
             group = self._tag_group_row(connection, group_id)
+            clean_display_mode = (
+                str(group["display_mode"])
+                if display_mode is None
+                else self._clean_tag_display_mode(display_mode)
+            )
             if free_form and self._tag_group_has_children(connection, group_id=group_id):
                 logger.warning("tag group update rejected reason=free_parent_has_children group_id=%s", group_id)
                 raise InvariantError("有子 Tag Group 的枚举组不能切换为自由 Tag Group，请先解除级联。")
@@ -85,6 +94,7 @@ class TagCatalogMixin(TagCatalogHelperMixin):
                     sort_order=sort_order,
                     required=required,
                     free_form=free_form,
+                    display_mode=clean_display_mode,
                     updated_at=now,
                 )
             )

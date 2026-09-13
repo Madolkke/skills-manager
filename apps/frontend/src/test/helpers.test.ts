@@ -424,6 +424,53 @@ describe("skill evidence helpers", () => {
     expect(orphanedTags([{ group_id: "provider", value: "aws" }], groups)).toEqual([{ group_id: "provider", value: "aws" }]);
   });
 
+  it("activates parent-selected Tag Groups for any parent value and prunes their descendants", () => {
+    const groups = [
+      {
+        id: "platform",
+        display_name: "平台",
+        description: "",
+        sort_order: 0,
+        required: false,
+        free_form: false,
+        parent: null,
+        values: [
+          { tag_group_id: "platform", value: "cloud", description: "", sort_order: 0 },
+          { tag_group_id: "platform", value: "desktop", description: "", sort_order: 1 },
+        ],
+      },
+      {
+        id: "owner",
+        display_name: "维护团队",
+        description: "",
+        sort_order: 1,
+        required: false,
+        free_form: false,
+        parent: { group_id: "platform", value: null, activation_mode: "parent_selected" },
+        values: [{ tag_group_id: "owner", value: "core", description: "", sort_order: 0 }],
+      },
+      {
+        id: "region",
+        display_name: "区域",
+        description: "",
+        sort_order: 2,
+        required: false,
+        free_form: false,
+        parent: { group_id: "owner", value: "core", activation_mode: "parent_value" },
+        values: [{ tag_group_id: "region", value: "cn", description: "", sort_order: 0 }],
+      },
+    ] as TagGroup[];
+    const selected = [
+      { group_id: "platform", value: "desktop" },
+      { group_id: "owner", value: "core" },
+      { group_id: "region", value: "cn" },
+    ];
+
+    expect(activeTagGroups(groups, selected).map((item) => `${item.depth}:${item.group.id}`)).toEqual(["0:platform", "1:owner", "2:region"]);
+    expect(pruneInactiveTags(selected.filter((tag) => tag.group_id !== "platform"), groups)).toEqual([]);
+    expect(tagValuePathLabel(groups, "owner", "core")).toBe("平台 / 任意已选值 / 维护团队 / core");
+  });
+
   it("builds a cascade tree from flat relations", () => {
     const groups = [
       { id: "root", display_name: "Root", description: "", sort_order: 0, required: false, free_form: false, values: [{ tag_group_id: "root", value: "one", description: "", sort_order: 0 }] },

@@ -8,3 +8,4 @@ export type * from "./types/ui";
 export type * from "./types/workflow";
 export type * from "./types/workflowDebug";
 export type * from "./types/commandLibrary";
+export type * from "./types/expressionFunctions";

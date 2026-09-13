@@ -145,6 +145,9 @@ class ListReadModelMixin:
         rows = connection.execute(
             orm.select_entity(orm.ReviewRequest)
             .where(orm.ReviewRequest.skill_version_id.in_(version_ids))
+            # Publish flows create closed review rows as bookkeeping. They are
+            # not the current authoring review shown in the Skill list.
+            .where(~orm.ReviewRequest.publish_records.any())
             .order_by(desc(orm.ReviewRequest.created_at), desc(orm.ReviewRequest.id))
         ).mappings().all()
         result: dict[str, str] = {}

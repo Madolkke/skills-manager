@@ -159,3 +159,21 @@ def test_multiline_unicode_offsets_and_internal_template_slices() -> None:
     assert text == source[start:end] == " " + expression + " "
     diagnostic = validate_template(source, {"inputs": {}})[0]
     assert utf16_slice(source, diagnostic["start"], diagnostic["end"]) == "inputs.missing"
+
+
+def test_global_function_directory_reaches_workflow_bindings_and_imports() -> None:
+    """同一目录贯通保存与导入，禁用后不重新启用内置回退。"""
+    functions = {"probe": {"parameters": [], "parameterSchema": {"type": "object", "properties": {}}, "returns": "string", "returnSchema": {"type": "string"}}}
+    document = normalize_workflow_document(workflow_fixtures.WorkflowRulesTest()._document())
+    document["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]["opaque-parameter-id"] = {
+        "kind": "expression", "reference": {}, "expression": "probe()",
+    }
+    assert not any(row["code"] in {"UNREGISTERED_CALL", "INCOMPATIBLE_BINDING_SCHEMA"} for row in validate_workflow_document(document, functions))
+    assert any(row["code"] == "UNREGISTERED_CALL" for row in validate_workflow_document(document, {}))
+    bundle = normalize_workflow_import_bundle(workflow_fixtures.WorkflowRulesTest()._import_bundle())
+    bundle["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]["collection-input-interface"] = {
+        "kind": "expression", "reference": {}, "expression": "probe()",
+    }
+    validate_workflow_import_references(bundle, functions)
+    with pytest.raises(InvariantError, match="未注册"):
+        validate_workflow_import_references(bundle, {})

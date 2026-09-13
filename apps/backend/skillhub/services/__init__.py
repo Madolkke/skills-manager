@@ -9,6 +9,7 @@ from .command_library import CommandLibraryService
 from .evaluation_reads import EvaluationReadService
 from .evaluations import EvaluationService
 from .executor_workflows import ExecutorWorkflowService
+from .expression_functions import ExpressionFunctionService
 from .external import ExternalSkillService
 from .opencode import OpencodeService
 from .reviews import ReviewService
@@ -31,6 +32,7 @@ __all__ = [
     "EvaluationService",
     "EvaluationReadService",
     "ExecutorWorkflowService",
+    "ExpressionFunctionService",
     "ExternalSkillService",
     "OpencodeService",
     "ReviewService",
