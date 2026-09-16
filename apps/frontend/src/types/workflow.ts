@@ -81,10 +81,10 @@ export type WorkflowExpressionEnvironment = {
   config: Record<string, WorkflowExpressionSchema>;
   topo: WorkflowExpressionDeviceEnvironment;
 };
-export type WorkflowExpressionFunction = { name?: string; description?: string; parameters?: string[]; parameterSchema?: WorkflowJsonSchema; returns?: string; returnSchema?: WorkflowJsonSchema; enabled?: boolean; isBuiltin?: boolean };
+export type WorkflowExpressionFunction = { signatureDisplay?: string; name?: string; description?: string; parameters?: string[]; parameterSchema?: WorkflowJsonSchema; returns?: string; returnSchema?: WorkflowJsonSchema; enabled?: boolean; isBuiltin?: boolean };
 export type WorkflowExpressionContract = { contractVersion: number; language: string; roots: string[]; typeAlgebra: string[]; outputModel?: Record<string, string>; functions: Record<string, WorkflowExpressionFunction>; methods: Record<string, unknown> };
-export type WorkflowExpressionBatchItem = { id: string; source: string };
-export type WorkflowExpressionBatchValidation = { id: string } & WorkflowExpressionValidation;
+export type WorkflowExpressionBatchItem = { id: string; source: string; target_schema?: WorkflowJsonSchema };
+export type WorkflowExpressionBatchValidation = { id: string; assignable?: boolean } & WorkflowExpressionValidation;
 export type WorkflowExpressionBatchResponse = { validations: WorkflowExpressionBatchValidation[] };
 export type CliOutputSample = { id: string; name: string; stdout: string; inputValues: Record<string, unknown> };
 export type LogAggregationQuery = { id: string; name: string; sql: string; outputIds: string[] };

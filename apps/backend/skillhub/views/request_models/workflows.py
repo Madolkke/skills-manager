@@ -97,6 +97,7 @@ class WorkflowExpressionBatchItemPayload(BaseModel):
 
     id: Annotated[str, Field(min_length=1, max_length=200)]
     source: Annotated[str, Field(max_length=20_000)]
+    target_schema: JsonSchema | None = None
 
 
 class WorkflowExpressionBatchValidationPayload(BaseModel):

@@ -16,7 +16,7 @@ from skillhub.models.rules.workflows import (
     normalize_workflow_import_bundle,
     workflow_log_schema_catalog,
 )
-from skillhub.models.rules.workflows.expression import FUNCTIONS, expression_contract_with_functions, validate_expression
+from skillhub.models.rules.workflows.expression import FUNCTIONS, expression_contract_with_functions, validate_binding_expression, validate_expression
 from skillhub.models.store import SkillHubStore
 from skillhub.services.base import ServiceBase
 from skillhub.services.workflow_syncs import WorkflowSyncServiceMixin
@@ -44,12 +44,12 @@ class WorkflowService(WorkflowSyncServiceMixin, ServiceBase[SkillHubStore]):
         """Validate an expression without evaluating it or causing external effects."""
         return validate_expression(source, environment, self._expression_functions())
 
-    def validate_expressions(self, *, expressions: list[dict[str, str]], environment: dict[str, Any]) -> dict[str, object]:
+    def validate_expressions(self, *, expressions: list[dict[str, Any]], environment: dict[str, Any]) -> dict[str, object]:
         """Validate an ordered expression batch against one shared type environment."""
         functions = self._expression_functions()
         return {
             "validations": [
-                {"id": item["id"], **validate_expression(item["source"], environment, functions)}
+                {"id": item["id"], **(validate_binding_expression(item["source"], environment, item["target_schema"], functions) if item.get("target_schema") else validate_expression(item["source"], environment, functions))}
                 for item in expressions
             ]
         }

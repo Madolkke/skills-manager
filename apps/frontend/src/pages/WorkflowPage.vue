@@ -79,6 +79,7 @@ watch(() => props.skill.skill.id, () => {
   transfer.closeImport();
   void load();
 });
+watch(editor.selection, () => layout.showPanel("editor"));
 watch(editor.dirty, (dirty) => emit("dirty", dirty), { immediate: true });
 watch(editor.dirty, (dirty) => {
   if (dirty) saveFeedback.value = "idle";
@@ -94,19 +95,22 @@ useWorkflowShortcuts({
   undo: editor.undo,
   redo: editor.redo,
   escape: closeTransientUi,
-  openReplace: () => { previewTab.value = "replace"; layout.setGraphExpanded(false); },
+  openReplace: () => { layout.showPanel("preview"); previewTab.value = "replace"; layout.setGraphExpanded(false); },
 });
 
 function select(selection: WorkflowSelection): void {
+  layout.showPanel("editor");
   editor.selection.value = resolveSelection(selection);
 }
 
 function navigateIssue(selection: WorkflowSelection): void {
+  layout.showPanel("editor");
   editor.selection.value = resolveSelection(selection);
   void issueNavigation.navigate(editor.selection.value);
 }
 
 function selectCatalog(reference: VersionedRef): void {
+  layout.showPanel("editor");
   editor.selection.value = { type: "collection", id: reference.id, revision: reference.revision };
 }
 
@@ -121,10 +125,11 @@ function resolveSelection(selection: WorkflowSelection): WorkflowSelection {
 }
 
 function showValidation(): void {
+  layout.showPanel("preview");
   editor.flushValidation();
   layout.setGraphExpanded(false);
   previewTab.value = "validation";
-  layout.rightCollapsed.value = false;
+  if (!layout.compact.value) layout.rightCollapsed.value = false;
 }
 
 function acceptImportedWorkflow(nextDetail: WorkflowDetail, definitions: CollectionDefinition[]): void {
@@ -143,17 +148,14 @@ async function selectImportFile(event: Event): Promise<void> {
   await transfer.selectFile(input.files);
   input.value = "";
 }
-
 function requestDelete(type: "step" | "conclusion" | "call", id: string, stepId?: string): void {
   confirmAction.value = { type, id, stepId };
   confirmOpen.value = true;
 }
-
 function requestDiscard(): void {
   confirmAction.value = { type: "discard" };
   confirmOpen.value = true;
 }
-
 function confirm(): void {
   const action = confirmAction.value;
   confirmOpen.value = false;
@@ -169,7 +171,6 @@ function confirm(): void {
     editor.selection.value = { type: "step", id: action.stepId, section: "collections" };
   }
 }
-
 function finishConfirmClose(): void {
   if (!confirmOpen.value) confirmAction.value = null;
 }
@@ -192,7 +193,6 @@ function replaceExpressions(payload: { search: string; replacement: string; fiel
   const stats = editor.replaceExpressions(payload.search, payload.replacement, payload.fields);
   if (stats.expressions) emit("toast", { tone: "success", message: `已替换 ${stats.expressions} 个表达式，共 ${stats.occurrences} 处。` });
 }
-
 </script>
 
 <template>
@@ -221,6 +221,9 @@ function replaceExpressions(payload: { search: string; replacement: string; fiel
       @export="transfer.exportWorkflow"
       @import="openImportPicker"
     />
+    <nav v-if="layout.compact.value" class="workflow-panel-navigation" aria-label="工作流面板">
+      <button v-for="panel in ([['structure', '结构'], ['editor', '编辑'], ['preview', '预览']] as const)" :key="panel[0]" type="button" :aria-pressed="layout.activePanel.value === panel[0]" @click="layout.showPanel(panel[0])">{{ panel[1] }}</button>
+    </nav>
     <input ref="importFileInput" hidden type="file" accept=".json,application/json" @change="selectImportFile">
 
     <Transition name="workflow-error-strip">
@@ -229,9 +232,9 @@ function replaceExpressions(payload: { search: string; replacement: string; fiel
 
     <div v-if="loading" class="workflow-page-state"><InlineLoading label="正在加载 Workflow" /></div>
     <div v-else-if="loadError" class="workflow-page-state"><div class="form-error">{{ loadError }}</div><UiButton variant="secondary" @click="load()">重新加载</UiButton></div>
-    <div v-else-if="editor.bundle.value" :class="['workflow-workbench', layout.resizing.value && 'is-resizing', layout.graphExpanded.value && 'is-graph-expanded']" :style="layout.gridStyle.value">
+    <div v-else-if="editor.bundle.value" :class="['workflow-workbench', layout.resizing.value && 'is-resizing', !layout.compact.value && layout.graphExpanded.value && 'is-graph-expanded']" :style="layout.gridStyle.value" :data-active-panel="layout.compact.value ? layout.activePanel.value : undefined">
       <WorkflowSidebar
-        :class="['workflow-pane-structure', layout.leftCollapsed.value && 'is-collapsed']"
+        :class="['workflow-pane-structure', !layout.compact.value && layout.leftCollapsed.value && 'is-collapsed']"
         :bundle="editor.bundle.value"
         :selection="editor.selection.value"
         :issues="editor.issues.value"
@@ -242,9 +245,9 @@ function replaceExpressions(payload: { search: string; replacement: string; fiel
         @move="editor.moveWorkflowNode"
         @reorder="editor.reorderWorkflowNodes"
       />
-      <div :class="['workflow-panel-resizer', 'left', layout.leftCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整结构面板宽度" @pointerdown="layout.startResize('left', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" :aria-label="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" @pointerdown.stop @click.stop="layout.toggle('left')"><ChevronRight v-if="layout.leftCollapsed.value" :size="16" /><ChevronLeft v-else :size="16" /></button></div>
+      <div :class="['workflow-panel-resizer', 'left', !layout.compact.value && layout.leftCollapsed.value && 'is-collapsed']" role="separator" aria-label="调整结构面板宽度" @pointerdown="layout.startResize('left', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" :aria-label="layout.leftCollapsed.value ? '展开结构面板' : '折叠结构面板'" @pointerdown.stop @click.stop="layout.toggle('left')"><ChevronRight v-if="layout.leftCollapsed.value" :size="16" /><ChevronLeft v-else :size="16" /></button></div>
 
-      <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="layout.graphExpanded.value" :inert="layout.graphExpanded.value">
+      <main ref="editorPane" class="workflow-editor-pane" :aria-hidden="!layout.compact.value && layout.graphExpanded.value" :inert="!layout.compact.value && layout.graphExpanded.value">
         <WorkflowEditorContent
           v-if="detail"
           :editor="editor"
@@ -267,7 +270,7 @@ function replaceExpressions(payload: { search: string; replacement: string; fiel
       </main>
 
       <div :class="['workflow-panel-resizer', 'right', layout.rightCollapsed.value && 'is-collapsed', layout.graphExpanded.value && 'is-obscured']" role="separator" aria-label="调整预览面板宽度" :aria-hidden="layout.graphExpanded.value" @pointerdown="layout.startResize('right', $event)"><button class="workflow-panel-toggle" type="button" :title="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" :aria-label="layout.rightCollapsed.value ? '展开预览面板' : '折叠预览面板'" @pointerdown.stop @click.stop="layout.toggle('right')"><ChevronLeft v-if="layout.rightCollapsed.value" :size="16" /><ChevronRight v-else :size="16" /></button></div>
-      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" :readonly="readOnly" @select="select" @navigate="navigateIssue" @replace="replaceExpressions" @toast="(message, tone) => emit('toast', { tone: tone === 'error' ? 'danger' : tone ?? 'info', message })" />
+      <WorkflowPreviewPanel v-model:tab="previewTab" v-model:expanded="layout.graphExpanded.value" :class="['workflow-pane-preview', !layout.compact.value && layout.rightCollapsed.value && !layout.graphExpanded.value && 'is-collapsed', !layout.compact.value && layout.graphExpanded.value && 'is-expanded']" :bundle="editor.bundle.value" :catalog="editor.catalog.value" :issues="editor.issues.value" :selection="editor.selection.value" :readonly="readOnly" @select="select" @navigate="navigateIssue" @replace="replaceExpressions" @toast="(message, tone) => emit('toast', { tone: tone === 'error' ? 'danger' : tone ?? 'info', message })" />
     </div>
 
     <WorkflowSyncModal

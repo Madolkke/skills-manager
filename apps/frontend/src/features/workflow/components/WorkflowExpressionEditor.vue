@@ -89,7 +89,7 @@ onMounted(() => {
             }
             return false;
           },
-          blur() { flushPendingChange(); return false; },
+          blur(_event, currentView) { clearAutomaticCompletionTimer(); flushPendingChange(); closeCompletion(currentView); return false; },
           paste(event, currentView) {
             const text = event.clipboardData?.getData("text/plain");
             if (text === undefined) return false;

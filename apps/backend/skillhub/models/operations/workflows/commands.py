@@ -75,6 +75,9 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
             source_mappings = self.sync_system_sources(connection, document=candidate, actor=actor, created_at=saved_at)
             mappings.update(source_mappings)
             candidate = self._canonicalize_collection_snapshots(connection, candidate, mappings)
+            function_errors = [item for item in self._workflow_validation(candidate)["errors"] if item["code"].startswith("FUNCTION_") or item["code"] in {"UNREGISTERED_CALL", "INCOMPATIBLE_BINDING_SCHEMA"}]
+            if function_errors:
+                raise InvariantError("Workflow 函数调用无效：" + "; ".join(item["message"] for item in function_errors))
             for snapshot in candidate.get("collectionSnapshots", []):
                 self._sync_user_command_from_collection(
                     connection,

@@ -39,6 +39,25 @@ describe("Workflow desktop layout", () => {
     expect(layout.gridStyle.value.gridTemplateColumns).toBe(finalColumns);
   });
 
+  it("在 1179/1180 切换面板并恢复桌面状态", () => {
+    const { wrapper, layout } = mountLayout();
+    layout.toggle("left");
+    const desktop = layout.gridStyle.value.gridTemplateColumns;
+    window.innerWidth = 1179;
+    window.dispatchEvent(new Event("resize"));
+    expect(layout.compact.value).toBe(true);
+    expect(layout.activePanel.value).toBe("editor");
+    layout.showPanel("preview");
+    expect(layout.activePanel.value).toBe("preview");
+    expect(layout.gridStyle.value.gridTemplateColumns).toBe("minmax(0, 1fr)");
+    window.innerWidth = 1180;
+    window.dispatchEvent(new Event("resize"));
+    expect(layout.compact.value).toBe(false);
+    expect(layout.gridStyle.value.gridTemplateColumns).toBe(desktop);
+    expect(layout.leftCollapsed.value).toBe(true);
+    wrapper.unmount();
+  });
+
   it("gives the editor more room on compact desktop workbenches", () => {
     expect(workflowInitialRightWidth(1280)).toBe(360);
     expect(workflowInitialRightWidth(1600)).toBe(440);
@@ -48,6 +67,7 @@ describe("Workflow desktop layout", () => {
 });
 
 function mountLayout() {
+  Object.defineProperty(window, "innerWidth", { value: 1600, configurable: true, writable: true });
   let layout: ReturnType<typeof useWorkflowLayout> | undefined;
   const Host = defineComponent({
     setup() {

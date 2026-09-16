@@ -66,6 +66,7 @@ class ExpressionFunctionStoreMixin:
 
     def expression_function_contract(self) -> dict[str, dict[str, Any]]:
         """提供声明目录，内置函数沿用既有泛型推断和调用兼容语义。"""
+        from skillhub.models.rules.workflows.expression.builtin_calls import builtin_signature
         from skillhub.models.rules.workflows.expression.registry import FUNCTIONS
 
         result = {}
@@ -78,7 +79,7 @@ class ExpressionFunctionStoreMixin:
             }
             if item["isBuiltin"] and item["name"] in FUNCTIONS:
                 signature["returns"] = FUNCTIONS[item["name"]]["returns"]
-                signature["legacyBuiltin"] = True
+                signature.update(builtin_signature(item["name"]))
             result[item["name"]] = signature
         return result
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .builtin_calls import builtin_signature
+
 FUNCTIONS: dict[str, dict[str, Any]] = {
     "len": {"parameters": ["sized"], "returns": "integer"},
     "min": {"parameters": ["iterable<T>"], "returns": "T"},
@@ -18,6 +20,9 @@ FUNCTIONS: dict[str, dict[str, Any]] = {
     "bool": {"parameters": ["any"], "returns": "boolean"},
     "list": {"parameters": ["iterable<T>"], "returns": "array<T>"},
 }
+
+for _name, _signature in FUNCTIONS.items():
+    _signature.update({key: value for key, value in builtin_signature(_name).items() if key != "parameters"})
 
 METHODS: dict[str, dict[str, dict[str, Any]]] = {
     "string": {

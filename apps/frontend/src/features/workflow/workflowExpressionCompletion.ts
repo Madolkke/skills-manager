@@ -1,3 +1,4 @@
+import { analyzeSampleIndex, findArrayReferenceMatch } from "./workflowArrayReference";
 import {
   acceptCompletion,
   type Completion,
@@ -100,10 +101,12 @@ type CompletionMatch = WorkflowExpressionVariable | (WorkflowExpressionFunction 
 });
 type CompletionQuery = { from: number; fragment: string; matches: CompletionMatch[] };
 type IndexedArrayQuery = CompletionQuery | "blocked" | null;
-type SampleIndexAnalysis = { end: number; slice: boolean; supported: boolean };
-type ArrayReferenceMatch = { start: number; end: number };
 
 function completionQuery(variables: WorkflowExpressionVariable[], beforeCursor: string, functions: Record<string, WorkflowExpressionFunction> = {}): CompletionQuery | null {
+  if (Array.from(beforeCursor.matchAll(/\[(-?[A-Za-z_][A-Za-z0-9_.]*)\]/gu)).some((match) => {
+    const variable = variables.find(item => item.reference === match[1]!.replace(/^-/, ""));
+    return variable?.schema && variable.schema.type !== "integer";
+  })) return null;
   const parameterQuery = functionParameterQuery(beforeCursor, functions);
   if (parameterQuery) return parameterQuery;
   const indexed = indexedSampleQuery(variables, beforeCursor);
@@ -129,7 +132,12 @@ function indexedSampleQuery(variables: WorkflowExpressionVariable[], beforeCurso
     .sort((left, right) => right.reference.length - left.reference.length);
   for (const variable of indexable) {
     const match = findArrayReferenceMatch(beforeCursor, variable.reference);
-    if (!match || beforeCursor[match.end] !== "[") continue;
+    if (!match) continue;
+    if ((variable.sampleCount ?? 1) > 1 && beforeCursor[match.end] === ".") {
+      blocked = true;
+      continue;
+    }
+    if (beforeCursor[match.end] !== "[") continue;
     const index = analyzeSampleIndex(beforeCursor, match.end);
     if (!index) {
       blocked = true;
@@ -156,9 +164,11 @@ function functionParameterQuery(beforeCursor: string, functions: Record<string, 
   const signature = functions[call[1]!];
   if (!signature) return null;
   const argumentText = call[2] ?? "";
-  const fragment = argumentText.match(/[A-Za-z_][A-Za-z0-9_]*$/u)?.[0] ?? "";
+  const argument = argumentText.slice(argumentText.lastIndexOf(",") + 1);
+  if (!/^\s*[A-Za-z_0-9]*$/u.test(argument) || (argumentText.match(/\[/gu)?.length ?? 0) !== (argumentText.match(/\]/gu)?.length ?? 0)) return null;
+  const fragment = argument.match(/[A-Za-z_][A-Za-z0-9_]*$/u)?.[0] ?? "";
   const used = new Set(Array.from(argumentText.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*=/gu), (item) => item[1]));
-  const names = signature.parameterSchema?.type === "object"
+  const names = signature.isBuiltin ? signature.parameters ?? [] : signature.parameterSchema?.type === "object"
     ? Object.keys(signature.parameterSchema.properties)
     : signature.parameters ?? [];
   const matches = names.filter((name) => !used.has(name) && name.toLowerCase().startsWith(fragment.toLowerCase())).map((name) => ({ name, kind: "function-parameter" as const, description: signature.description, returns: signature.returns }));
@@ -221,83 +231,9 @@ function filterIndexedVariables(
   return filterWorkflowExpressionVariables(candidates, `${indexedReference}${suffix}`);
 }
 
-function findArrayReferenceMatch(source: string, template: string): ArrayReferenceMatch | null {
-  const prefix = template.split("[0]")[0] ?? template;
-  let start = source.lastIndexOf(prefix);
-  while (start >= 0) {
-    if (isReferenceBoundary(source, start)) {
-      const end = matchReferenceTemplate(source, start, template);
-      if (end !== null) return { start, end };
-    }
-    start = source.lastIndexOf(prefix, start - 1);
-  }
-  return null;
-}
-
-function matchReferenceTemplate(source: string, start: number, template: string): number | null {
-  let sourceIndex = start;
-  let templateIndex = 0;
-  while (templateIndex < template.length) {
-    if (template.startsWith("[0]", templateIndex)) {
-      if (source[sourceIndex] !== "[") return null;
-      const index = analyzeSampleIndex(source, sourceIndex);
-      if (!index || !index.supported || index.slice) return null;
-      sourceIndex = index.end + 1;
-      templateIndex += 3;
-      continue;
-    }
-    if (source[sourceIndex] !== template[templateIndex]) return null;
-    sourceIndex += 1;
-    templateIndex += 1;
-  }
-  return sourceIndex;
-}
-
-function analyzeSampleIndex(source: string, start: number): SampleIndexAnalysis | null {
-  const delimiters: string[] = [];
-  const closingDelimiter: Record<string, string> = { "]": "[", ")": "(", "}": "{" };
-  let quote = "";
-  let escaped = false;
-  let slice = false;
-  for (let index = start; index < source.length; index += 1) {
-    const character = source[index]!;
-    if (escaped) {
-      escaped = false;
-    } else if (character === "\\") {
-      escaped = true;
-    } else if (quote) {
-      if (character === quote) quote = "";
-    } else if (character === "\"" || character === "'") {
-      quote = character;
-    } else if (character === "[" || character === "(" || character === "{") {
-      delimiters.push(character);
-    } else if (character in closingDelimiter) {
-      if (delimiters.at(-1) !== closingDelimiter[character]) return null;
-      delimiters.pop();
-      if (delimiters.length === 0) {
-        if (character !== "]") return null;
-        const value = source.slice(start + 1, index).trim();
-        return { end: index, slice, supported: isSupportedSampleIndex(value) };
-      }
-    } else if (character === ":" && delimiters.length === 1) {
-      slice = true;
-    }
-  }
-  return null;
-}
-
-function isSupportedSampleIndex(value: string): boolean {
-  if (/^(?:true|false|null|none)$/iu.test(value)) return false;
-  return /^-?\d+$/u.test(value) || /^-?[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/u.test(value);
-}
-
-function isReferenceBoundary(source: string, start: number): boolean {
-  return start === 0 || !/[A-Za-z0-9_.]/u.test(source[start - 1]!);
-}
-
 function toCompletion(variable: CompletionMatch): Completion {
   if (!("reference" in variable)) {
-    const parameters = variable.parameterSchema?.type === "object" ? Object.keys(variable.parameterSchema.properties).join(", ") : (variable.parameters ?? []).join(", ");
+    const parameters = variable.signatureDisplay ?? (variable.parameterSchema?.type === "object" ? Object.keys(variable.parameterSchema.properties).join(", ") : (variable.parameters ?? []).join(", "));
     if (variable.kind === "function-parameter") return { label: `${variable.name}=`, apply: `${variable.name}=`, detail: "函数参数", info: variable.description, type: "keyword", section: functionSection };
     return { label: variable.name, apply: variable.name, detail: `函数(${parameters}) -> ${variable.returns ?? variable.returnSchema?.type ?? "any"}`, info: variable.description, type: "function", section: functionSection };
   }
