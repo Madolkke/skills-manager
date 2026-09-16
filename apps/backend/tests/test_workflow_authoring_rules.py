@@ -116,7 +116,7 @@ def test_definition_fork_changes_only_target_call_and_removes_system_source():
 
 def test_system_projection_and_removed_new_calls_leave_no_new_definitions():
     changes = [step(), {"operation": "call.from_system", "node_id": "@step", "client_ref": "newcall", "definition_ref": "def",
-                        "command_id": "system-1", "fields": {"key": "iface", "name": "接口"}}]
+                        "command_id": "system-1", "command_template": "show interfaces <interface>", "fields": {"key": "iface", "name": "接口"}}]
     result = apply(changes)
     assert result["collection_changes"][0]["definition"]["sourceSystemCommandId"] == "system-1"
     assert result["document"]["collectionSnapshots"][0]["outputs"] == definition()["outputs"]
@@ -127,7 +127,7 @@ def test_system_projection_and_removed_new_calls_leave_no_new_definitions():
 
 def test_same_batch_forks_keep_only_reachable_source_chain_in_creation_order():
     changes = [step(), {"operation": "call.from_system", "node_id": "@step", "client_ref": "call", "definition_ref": "source",
-                        "command_id": "system-1", "fields": {"key": "iface", "name": "接口"}},
+                        "command_id": "system-1", "command_template": "show interfaces <interface>", "fields": {"key": "iface", "name": "接口"}},
                {"operation": "call.fork_collection", "node_id": "@step", "call_id": "@call", "definition_ref": "fork",
                 "fields": {"metadata": {"description": "独立副本"}}}]
     result = apply(changes)

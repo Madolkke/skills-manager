@@ -56,7 +56,7 @@ def create_tools(invoke: Invoker) -> list[Tool]:
     async def search_system_commands(
         ctx: Context, query: str = "", target_version: str | None = None, details: bool = False, offset: Offset = 0, limit: Limit = 20,
     ) -> CallToolResult:
-        """搜索已启用的系统命令，支持命令、Key、名称及设备版本；详情包含完整嵌套 Schema。"""
+        """搜索已启用的系统命令，支持命令、Key、名称及设备版本；详情包含完整嵌套 Schema；ruleInputs 仅是规则捕获，实例输入来自 command_template。"""
         return await invoke(ctx, "search_system_commands", {
             "query": query, "target_version": target_version, "details": details, "offset": offset, "limit": limit,
         })

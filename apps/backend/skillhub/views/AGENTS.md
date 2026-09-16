@@ -55,3 +55,5 @@ cd apps/backend
 uv run python -m compileall -q skillhub skillhub_worker
 uv run pytest -q tests/test_architecture_layers.py
 ```
+
+- `request_models/workflow_authoring_calls.py`：系统实例要求 `command_template`，并声明 `call.set_command` 的严格参数协议。

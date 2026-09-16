@@ -14,6 +14,7 @@ from skillhub.views.request_models.workflow_authoring_calls import (
     CallFromSystem,
     CallRemove,
     CallReorder,
+    CallSetCommand,
     CallUpdate,
     ClientRef,
     ObjectRef,
@@ -150,7 +151,7 @@ AuthoringChange = Annotated[
     MetadataUpdate | InputAdd | InputUpdate | InputRemove | InputReorder
     | RoleAdd | RoleUpdate | RoleRemove | RoleReorder | NodeAdd | NodeUpdate | NodeRemove | NodeReorder
     | TransitionAdd | TransitionUpdate | TransitionRemove | TransitionReorder
-    | CallAdd | CallFromSystem | CallCreateCollection | CallForkCollection | CallUpdate | CallRemove | CallReorder
+    | CallSetCommand | CallAdd | CallFromSystem | CallCreateCollection | CallForkCollection | CallUpdate | CallRemove | CallReorder
     | BindingSet | BindingRemove,
     Field(discriminator="operation"),
 ]

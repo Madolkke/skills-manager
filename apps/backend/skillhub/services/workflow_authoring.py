@@ -94,6 +94,7 @@ class WorkflowAuthoringService:
                                             invalid_policy_message='保存校验策略无效。')
         return {'saved': False, 'can_save': not blocking,
                 'validation': prepared['validation'], 'summary': candidate['summary'], 'id_mappings': candidate['id_mappings'],
+                'collectionSnapshots': prepared['document']['collectionSnapshots'],
                 'note': '预检 ID 未预留，正式保存会重新构造并校验。'}
 
     def get_expression_context(self, skill_id: str, selection: dict, changes: list[dict] | None = None) -> dict[str, Any]:

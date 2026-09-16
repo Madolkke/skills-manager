@@ -102,3 +102,5 @@ uv run pytest -q tests/test_architecture_layers.py
 cd apps/backend
 uv run pytest -q
 ```
+
+- MCP `authoring_collections.py` 复用具体命令规则：from_system 从实际占位符生成输入，set_command 保留来源，fork_collection 同时解除来源模式与 ID。

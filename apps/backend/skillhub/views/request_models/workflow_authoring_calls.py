@@ -24,12 +24,13 @@ class CallAdd(AuthoringOperation):
 
 
 class CallFromSystem(AuthoringOperation):
-    """根据启用的系统命令创建只读来源采集并添加调用。"""
+    """根据启用系统规则和必填具体命令创建实例；输入只来自具体命令占位符。"""
     operation: Literal["call.from_system"]
     node_id: ObjectRef
     client_ref: ClientRef | None = None
     definition_ref: ClientRef | None = None
     command_id: ObjectRef
+    command_template: str = Field(min_length=1, description="实际命令，使用 angle-v1 的 <参数>；不能省略或回退为来源表达式。")
     fields: CallFields
 
 
@@ -50,6 +51,15 @@ class CallForkCollection(AuthoringOperation):
     call_id: ObjectRef
     definition_ref: ClientRef | None = None
     fields: DefinitionPatch
+
+
+class CallSetCommand(AuthoringOperation):
+    """复制当前调用定义并设置具体命令，保留系统来源；旧引用显式转换。"""
+    operation: Literal["call.set_command"]
+    node_id: ObjectRef
+    call_id: ObjectRef
+    definition_ref: ClientRef | None = None
+    command_template: str = Field(min_length=1)
 
 
 class CallUpdate(AuthoringOperation):

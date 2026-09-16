@@ -105,6 +105,7 @@ def test_stale_binding_can_be_removed_after_fork_removes_parameter():
 def test_every_operation_is_discoverable_with_closed_top_level_schema():
     schema = TypeAdapter(AuthoringChanges).json_schema(by_alias=True)
     operations = schema["items"]["discriminator"]["mapping"]
-    assert len(operations) == 26
+    assert len(operations) == 27
+    assert "call.set_command" in operations
     for ref in operations.values():
         assert schema["$defs"][ref.rsplit("/", 1)[-1]]["additionalProperties"] is False

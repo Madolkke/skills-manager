@@ -6,6 +6,7 @@ from typing import Any
 
 from skillhub.models.errors import InvariantError
 from skillhub.models.rules.workflows.authoring_helpers import allocate_id, assign_parameters, patch_fields, resolve_id
+from skillhub.models.rules.workflows.command_instances import set_instance_command
 from skillhub.models.rules.workflows.schema import normalize_collection_definition
 
 
@@ -41,9 +42,11 @@ class CandidateCollections:
             definition = deepcopy(self.resolve_system_command(change["command_id"], definition_id))
             definition["id"], definition["revision"] = definition_id, 1
             definition["sourceSystemCommandId"] = change["command_id"]
+            definition["inputs"] = []
+            definition = set_instance_command(definition, change["command_template"])
         else:
             definition = deepcopy(change["definition"])
-            if {"id", "revision", "forkedFrom", "sourceSystemCommandId"} & definition.keys():
+            if {"id", "revision", "forkedFrom", "sourceSystemCommandId", "sourceBindingMode"} & definition.keys():
                 raise InvariantError("新采集定义不能指定身份或来源。")
             assign_parameters(definition, self.mappings)
             definition.update(id=definition_id, revision=1)
@@ -58,8 +61,22 @@ class CandidateCollections:
         patch_fields(definition, fields)
         definition["forkedFrom"] = deepcopy(call["definition"])
         definition.pop("sourceSystemCommandId", None)
+        definition.pop("sourceBindingMode", None)
         definition["id"] = allocate_id("collection", change.get("definition_ref"), self.mappings)
         definition["revision"] = 1
+        return self._register("fork", definition)
+
+    def set_command(self, call: dict[str, Any], change: dict[str, Any]) -> dict[str, Any]:
+        """仅重绑定指定调用；命令编辑保留同名输入身份和有效绑定。"""
+        source = self.resolve(call["definition"])
+        if source["spec"]["collectionType"] != "cli":
+            raise InvariantError("只有 CLI 采集可以设置具体命令。")
+        definition = set_instance_command(source, change["command_template"])
+        definition["forkedFrom"] = deepcopy(call["definition"])
+        definition["id"] = allocate_id("collection", change.get("definition_ref"), self.mappings)
+        definition["revision"] = 1
+        valid_inputs = {item["id"] for item in definition["inputs"]}
+        call["inputBindings"] = {key: value for key, value in call.get("inputBindings", {}).items() if key in valid_inputs}
         return self._register("fork", definition)
 
     def _register(self, operation: str, definition: dict[str, Any]) -> dict[str, Any]:

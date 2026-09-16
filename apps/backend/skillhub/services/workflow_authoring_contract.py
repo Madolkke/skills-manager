@@ -26,7 +26,7 @@ def authoring_contract(topic: str, workflows) -> dict[str, Any]:
     if topic == 'collections':
         return {**common, 'summary': '支持 cli/function/log/config；函数体及 SQL 仅保存、静态检查。',
                 'schema': CollectionDefinition.model_json_schema(by_alias=True),
-                'sources': 'call.from_system 使用已启用系统命令；先 search_system_commands(details=true)，将 inputs[].id 用作 inputBindings 键；call.add 引用精确 Collection 版本。'}
+                'sources': 'call.from_system 必须同时提供 command_id 和 command_template（angle-v1 具体命令）。搜索 ruleInputs 仅描述规则捕获，不等于实例输入；从预检 collectionSnapshots 或已保存定义的 inputs 读取输入 ID。预检 ID 未预留。call.set_command 复制定义、保留来源并只重绑指定调用，同名输入和绑定保留；旧引用显式转换。call.fork_collection 解除来源 ID 和模式，成为独立副本。call.add 引用精确版本。'}
     if topic == 'expressions':
         return {**common, **workflows.expression_contract()}
     if topic == 'logs':

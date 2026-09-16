@@ -1,4 +1,4 @@
-"""Agent 可直接使用系统命令详情构造采集绑定，无需读取源码猜测参数 ID。"""
+"""规则捕获与实际命令参数分离，保留系统命令复杂 Schema。"""
 
 from sqlalchemy import event
 
@@ -9,7 +9,7 @@ from tests.postgres_test_case import PostgresTestCase
 
 
 class WorkflowAuthoringCommandDetailsTest(PostgresTestCase):
-    """详情投影与正式命令转 Collection 保持一致，并避免 N+1 查询。"""
+    """详情保留规则捕获，实际命令独立推导输入，避免 N+1 查询。"""
 
     def setUp(self):
         """建立包含可选、重复及必填捕获的命令和嵌套输出。"""
@@ -31,7 +31,7 @@ class WorkflowAuthoringCommandDetailsTest(PostgresTestCase):
             return getattr(WorkflowAuthoringService(store), method)(**kwargs)
 
     def test_details_supply_stable_binding_parameters_without_extra_queries(self):
-        """搜索完成态的 captures 值不会误作声明；详情和正式采集参数逐字段一致。"""
+        """搜索捕获值不误作声明；实例输入不继承可选或重复捕获。"""
         statements = []
 
         def record(_connection, _cursor, statement, _parameters, _context, _many):
@@ -49,7 +49,7 @@ class WorkflowAuthoringCommandDetailsTest(PostgresTestCase):
         assert "inputs" not in compact["items"][0]
         command = details["items"][0]
         assert command["outputSchema"] == self.output_schema
-        inputs = {item["key"]: item for item in command["inputs"]}
+        inputs = {item["key"]: item for item in command["ruleInputs"]}
         assert inputs["vrf"]["id"] == "input_vrf"
         assert inputs["vrf"]["required"] is True
         assert inputs["interface"]["required"] is False
@@ -57,18 +57,17 @@ class WorkflowAuthoringCommandDetailsTest(PostgresTestCase):
         assert inputs["peer"]["schema"]["items"]["type"] == "string"
         exact = self.call("search_system_commands", query="show routes default ethernet0 peer1 peer2", details=True)["items"][0]
         assert exact["captures"]
-        assert exact["inputs"] == command["inputs"]
+        assert exact["ruleInputs"] == command["ruleInputs"]
 
         created = self.call("create_workflow", slug="mcp-details", description="按详情创建", actor="product-operator")
-        bindings = {item["id"]: {"kind": "literal", "value": ["peer1"] if item["schema"]["type"] == "array" else "default"}
-                    for item in command["inputs"]}
+        bindings = {"input_tenant": {"kind": "literal", "value": "default"}}
         self.call("apply_workflow_changes", skill_id=created["skill_id"], actor="product-operator", changes=[
             {"operation": "node.add", "client_ref": "start", "fields": {"stepType": "expression", "name": "检查", "isStart": True}},
-            {"operation": "call.from_system", "node_id": "@start", "command_id": command["id"],
+            {"operation": "call.from_system", "node_id": "@start", "command_id": command["id"], "command_template": "show routes <tenant> peer1",
              "fields": {"key": "routes", "name": "路由", "inputBindings": bindings}},
         ])
         document = self.call("get_workflow", skill_id=created["skill_id"], view="full")["document"]
-        assert document["collectionSnapshots"][0]["inputs"] == command["inputs"]
+        assert [item["key"] for item in document["collectionSnapshots"][0]["inputs"]] == ["tenant"]
         saved_bindings = document["workflow"]["nodes"][0]["collectionCalls"][0]["inputBindings"]
         assert saved_bindings.keys() == bindings.keys()
         for input_id, binding in bindings.items():

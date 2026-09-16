@@ -5,6 +5,7 @@ from skillhub.models.errors import InvariantError, NotFoundError
 
 from .expression.environment import (
     binding_expression_environment,
+    binding_scope_calls,
     conclusion_scope_steps,
     expression_scope_steps,
     project_workflow_expression_environment,
@@ -27,20 +28,28 @@ def authoring_expression_context(document: dict, selection: dict) -> dict[str, A
         definition = definitions[(call['definition']['id'], call['definition']['revision'])]
         parameter = _find(definition['inputs'], selection.get('input_id'), '采集参数')
         target = parameter['schema']
+        visible, _ = binding_scope_calls(nodes, node['id'], call['id'])
+        scoped_calls = [entry['call'] for entry in visible.values()] + [call]
         environment = binding_expression_environment(nodes, node['id'], call['id'], definitions, inputs, roles)
     elif field in {'conditionExpression', 'conditionText'}:
         _require_step(node)
         _find(node['topology'], selection.get('transition_id'), '跳转')
-        environment = project_workflow_expression_environment(expression_scope_steps(nodes, node['id']), definitions, inputs, roles)
+        scoped_steps = expression_scope_steps(nodes, node['id'])
+        scoped_calls = [call for step in scoped_steps for call in step.get('collectionCalls', [])]
+        environment = project_workflow_expression_environment(scoped_steps, definitions, inputs, roles)
         if field == 'conditionExpression':
             target = {'type': 'boolean'}
     elif field in {'rootCause', 'repairRecommendation'}:
         if node.get('nodeType') != 'conclusion':
             raise InvariantError('结论模板必须定位到结论节点。')
-        environment = project_workflow_expression_environment(conclusion_scope_steps(nodes, node['id']), definitions, inputs, roles)
+        scoped_steps = conclusion_scope_steps(nodes, node['id'])
+        scoped_calls = [call for step in scoped_steps for call in step.get('collectionCalls', [])]
+        environment = project_workflow_expression_environment(scoped_steps, definitions, inputs, roles)
     else:
         raise InvariantError('不支持的表达式字段。')
     return {'selection': selection, 'environment': environment, 'target_schema': target,
+            'collections': [{**call, 'collection': definitions[(call['definition']['id'], call['definition']['revision'])]}
+                            for call in scoped_calls],
             'paths': _paths(environment), 'notes': ['[] 表示业务数组元素；采集次数大于 1 时另有最外层采集下标。',
                                                '业务数组长度未知；函数只做静态检查，不执行函数体。']}
 

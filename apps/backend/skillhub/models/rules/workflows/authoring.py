@@ -96,6 +96,9 @@ def _edit_call(node: dict[str, Any], action: str, change: dict[str, Any], mappin
         reference = collections.create(change)
         fields = {**change["fields"], "definition": reference}
         _edit_list(calls, "call", "add", {**change, "fields": fields}, mappings)
+    elif action == "set_command":
+        call = find_item(calls, resolve_id(change["call_id"], mappings))
+        call["definition"] = collections.set_command(call, change)
     elif action == "fork_collection":
         call = find_item(calls, resolve_id(change["call_id"], mappings))
         call["definition"] = collections.fork(call, change)

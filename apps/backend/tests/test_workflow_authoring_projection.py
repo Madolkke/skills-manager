@@ -150,7 +150,7 @@ class WorkflowAuthoringProjectionTest(ApiCommandTestCase):
         assert self.store.authoring_search_workflows(query="authoring", include_archived=True, offset=1, limit=1)["total"] == 2
         assert self.store.authoring_search_workflows(query="%_")["items"] == []
         summary = self.store.authoring_search_collections(query="接口")
-        assert summary["total"] == 1 and "inputs" not in summary["items"][0]
+        assert summary["total"] == 1 and "inputs" in summary["items"][0]
         detail = self.store.authoring_search_collections(definition_id=changes[0]["definition"]["id"], revision=1, details=True)
         assert detail["items"][0]["outputs"][0]["schema"]["type"] == "string"
         assert self.store.authoring_search_collections(revision=99)["items"] == []

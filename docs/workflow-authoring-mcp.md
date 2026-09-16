@@ -51,7 +51,7 @@ asyncio.run(main())
 | `search_workflows` | 按名称、slug、说明查询，默认排除归档项 |
 | `get_workflow` | `outline` 大纲、`full` 完整文档或 `node` 指定节点 |
 | `get_authoring_contract` | 按 `overview/changes/collections/expressions/logs` 获取规范与 Schema |
-| `search_system_commands` | 搜索启用的系统命令，`details=true` 返回完整输出 Schema 及可直接用于绑定的输入参数 ID |
+| `search_system_commands` | 搜索启用的系统命令，`details=true` 返回完整输出 Schema 及规则捕获参数 ruleInputs（并非实例输入） |
 | `search_collections` | 搜索共享采集；指定 definition_id/revision 可读取精确版本 |
 | `get_expression_context` | 依据真实字段位置提供可见变量、路径、类型和函数声明 |
 | `validate_workflow_changes` | 无写入构建候选并返回完整诊断 |
@@ -70,9 +70,22 @@ asyncio.run(main())
 
 外壳参数使用 snake_case，`fields` 和 `definition` 中的作者字段沿用 camelCase。已有对象以稳定 ID 定位；新对象可以指定请求内唯一的 `client_ref`，同批后续操作使用 `@引用名`。正式 ID 由服务端生成并返回 `id_mappings`。预检 ID 不会被预留，保存时以正式响应为准。
 
-绑定的 `reference` 是既有作者协议中的特殊结构，使用 `input_id`、`call_id`、`output_id` 等 snake_case 键，不是 `inputId`。例如绑定同批全局输入：`{"kind":"workflow_input","reference":{"input_id":"@vrf"}}`；绑定前序表达式：`{"kind":"expression","expression":"outputs.routes.routes[0].vrf"}`。`search_system_commands(details=true)` 的 `inputs` 提供转换后的 `id`、`key`、`required` 和 `schema`，可直接作为 `inputBindings` 的键或 `binding.set` 的 `input_id`，无需猜测 ID；`outputSchema` 保留完整业务数组层级，`captureSchema` 是命令匹配捕获规则。
+绑定的 `reference` 是既有作者协议中的特殊结构，使用 `input_id`、`call_id`、`output_id` 等 snake_case 键，不是 `inputId`。例如绑定同批全局输入：`{"kind":"workflow_input","reference":{"input_id":"@vrf"}}`；绑定前序表达式：`{"kind":"expression","expression":"outputs.routes.routes[0].vrf"}`。`search_system_commands(details=true)` 的 `ruleInputs` 与 `captureSchema` 仅描述检索表达式，不是工作流实例输入。`outputSchema` 保留完整业务数组层级。
 
-例如命令 `show routes <vrf>` 的详情返回 `inputs: [{"id":"input_vrf","key":"vrf","required":true,"schema":{"type":"string",...}}]`，添加采集时可传 `"inputBindings":{"input_vrf":{"kind":"workflow_input","reference":{"input_id":"@vrf"}}}`。输入 ID 投影与正式 `call.from_system` 复用相同规则；若管理员随后改变系统命令参数，应重新读取详情再构造绑定。
+`call.from_system` 必须携带 `command_id` 和 `command_template`，后者保存实际命令，例如 `show routes vrf default detail`（无输入）或 `show routes vrf <tenant>`（仅 tenant 输入）。缺失具体命令直接拒绝，不回退到库表达式。
+
+可先调用 `validate_workflow_changes`，从响应 `collectionSnapshots[].inputs` 读取候选输入 ID，再为同一批添加绑定；预检对象 ID 不是已保存身份，保存会重新生成，正式身份以保存响应为准。也可先保存草稿，再通过 `get_workflow(view="full")` 读取输入并设置绑定。
+
+```json
+{"operation":"call.from_system","node_id":"已有步骤 ID","command_id":"系统命令 ID","command_template":"show routes vrf <tenant>","fields":{"key":"routes","name":"路由"}}
+```
+
+`call.set_command` 接收 `node_id`、`call_id` 和 `command_template`。它创建副本，只重绑定当前调用；保留系统来源及 `sourceBindingMode="concrete-command"`，旧系统引用在此显式转换。同名参数保留 ID、类型和绑定，删除参数清理其绑定，改名按删旧建新。来源更新只控制名称、说明、回显 Schema 和示例，不覆盖具体命令或输入。固定命令不匹配、动态参数无法确定匹配只产生提醒，严格保存允许提醒。
+
+```json
+{"operation":"call.set_command","node_id":"已有步骤 ID","call_id":"已有调用 ID","command_template":"show routes vrf default"}
+```
+
 
 `create_workflow` 接收 `slug`、`description`、可选 `name` 与 `tags`。标签格式为 `[{"group_id":"实际标签组 ID","value":"实际标签值"}]`；未配置必选标签组时可以省略。创建沿用网页的标签约束，未填激活的必选组会返回错误，不留下部分 Skill。
 
@@ -92,7 +105,7 @@ asyncio.run(main())
 
 `get_authoring_contract(topic="changes")` 返回当前操作联合 Schema。支持元信息、输入、角色、节点、调用、绑定、跳转的局部编辑和排序。数组字段显式提供时整体替换；排序需列出目标列表全部成员。删除节点同时清除入边，其他绑定和表达式保持原文并产生诊断，不自动猜测替换文本。
 
-新增采集优先用 `call.from_system`；复用已有版本用 `call.add`。新自定义定义用 `call.create_collection`。修改定义用 `call.fork_collection`，仅重绑定指定调用，保留 `forkedFrom`，移除系统自动同步身份，原共享定义和系统命令不变。全部修改成功时才持久化，失败不会留下半成品 Collection。
+新增采集优先用 `call.from_system`；复用已有版本用 `call.add`。新自定义定义用 `call.create_collection`。修改定义用 `call.fork_collection`，仅重绑定指定调用，保留 `forkedFrom`，同时移除 sourceSystemCommandId 和 sourceBindingMode，解除系统自动同步，原共享定义和系统命令不变。全部修改成功时才持久化，失败不会留下半成品 Collection。
 
 表达式上下文例子：
 

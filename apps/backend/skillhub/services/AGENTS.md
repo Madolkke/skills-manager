@@ -78,3 +78,5 @@ uv run pytest -q tests/test_architecture_layers.py
 cd apps/backend
 uv run pytest -q
 ```
+
+- 系统命令创作：搜索仅返回规则捕获；预检提供实际输入快照，`call.set_command` 保留来源并创建当前调用副本。

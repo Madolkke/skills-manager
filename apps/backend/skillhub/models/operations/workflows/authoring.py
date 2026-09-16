@@ -70,11 +70,13 @@ class WorkflowAuthoringMixin:
                     item["sourceSystemCommandId"] = row.source_system_command_id
                 else:
                     item.pop("sourceSystemCommandId", None)
+                    item.pop("sourceBindingMode", None)
                 if not details:
                     item = {"id": item["id"], "revision": item["revision"], "key": item["key"],
                             "metadata": item["metadata"], "collectionType": item["spec"]["collectionType"],
                             "sourceSystemCommandId": row.source_system_command_id,
-                            "forkedFrom": item.get("forkedFrom")}
+                            "forkedFrom": item.get("forkedFrom"), "sourceBindingMode": item.get("sourceBindingMode"),
+                            "commandTemplate": item["spec"].get("commandTemplate"), "inputs": item["inputs"]}
                 items.append(item)
         return {"items": items, "total": total, "offset": offset, "limit": limit}
 
@@ -89,7 +91,7 @@ class WorkflowAuthoringMixin:
             return _source_to_collection(source, definition_id=definition_id, revision=1, source_id=command_id)
 
     def authoring_system_command_details(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """从已读搜索行投影真实参数 ID，无逐命令查询或新增采集身份。"""
+        """从搜索行投影规则捕获参数，不将其误作实例输入，无逐命令查询。"""
         enriched = []
         for item in items:
             source = SimpleNamespace(
@@ -98,7 +100,8 @@ class WorkflowAuthoringMixin:
                 captures=item.get("captureSchema") or {},
             )
             definition = _source_to_collection(source, definition_id="collection_command_preview", revision=1, source_id=item["id"])
-            enriched.append({**item, "inputs": definition["inputs"]})
+            enriched.append({**item, "ruleInputs": definition["inputs"],
+                             "inputNote": "规则捕获参数不是实例输入。请提供 command_template 并从预检 collectionSnapshots 或已保存定义读取 inputs。"})
         return enriched
 
     def authoring_validate_document(self, document) -> dict[str, Any]:

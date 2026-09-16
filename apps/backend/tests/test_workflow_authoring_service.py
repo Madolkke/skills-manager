@@ -67,7 +67,7 @@ class WorkflowAuthoringServiceTest(PostgresTestCase):
             'description': '对象数组', 'outputSchema': schema, 'samples': [], 'enabled': True}, actor='admin-console')
         result = self.call('apply_workflow_changes', skill_id=self.skill, changes=[
             {'operation': 'node.add', 'client_ref': 'step', 'fields': {'stepType': 'expression', 'name': '检查', 'isStart': True}},
-            {'operation': 'call.from_system', 'node_id': '@step', 'client_ref': 'call', 'command_id': command['id'],
+            {'operation': 'call.from_system', 'node_id': '@step', 'client_ref': 'call', 'command_id': command['id'], 'command_template': 'show routes <vrf>',
              'fields': {'key': 'routes', 'name': '路由', 'inputBindings': {'input_vrf': {'kind': 'literal', 'value': 'default'}}}},
         ], actor='product-operator')
         detail = self.call('get_workflow', skill_id=self.skill, view='full')
