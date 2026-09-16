@@ -5,6 +5,7 @@
 ## 目录语义
 
 - `skillhub/bootstrap/`：创建 FastAPI app、注册中间件、异常处理和启动期 Alembic revision 校验。
+- MCP 使用现有 API 进程的 `/mcp`，父应用 lifespan 管理 session manager；工具事务由 `views/dependencies.py` 在线程内管理，提交后返回结果。
 - `skillhub/views/`：HTTP View 层，只处理请求解析、依赖注入、响应组织和路由注册。
 - `skillhub/services/`：Service 层，承载业务流程、权限校验、状态流转和跨 store 编排。
 - `skillhub/models/`：Model 层，包含实体、错误、纯业务规则、数据库结构和数据访问入口。

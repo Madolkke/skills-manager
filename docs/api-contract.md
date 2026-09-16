@@ -2,6 +2,8 @@
 
 本文档描述当前正式版 API。核心模型为 `Skill -> SkillVersion -> EvalRun(context) + EvalSetVersion`。
 
+工作流创作另提供 `/mcp` Streamable HTTP 入口，与 REST 共享业务规则；读取免鉴权，写工具使用模拟 Cookie 身份，详见 [Workflow 创作 MCP](workflow-authoring-mcp.md)。该入口不修改现有 REST 身份、保存参数或并发行为。
+
 ## 核心对象
 
 | 对象 | 语义 |

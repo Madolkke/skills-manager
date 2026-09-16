@@ -9,9 +9,18 @@ from skillhub.models.schema import orm
 
 
 def sync_system_sources(store, connection, *, document, actor, created_at):
-    """先投影全部来源，再验证候选文档，最后统一写入版本。"""
+    """兼容入口：只读构造候选后，在同一事务统一写入。"""
+    plan = plan_system_sources(connection, document=document)
+    persist_system_source_plan(store, connection, plan, actor=actor, created_at=created_at)
+    document.update(plan["document"])
+    return plan["mappings"]
+
+
+def plan_system_sources(connection, *, document, pending_records=None):
+    """投影全部来源并验证兼容性；新增定义由尚未落库的记录补充。"""
     from .command_library import _comparable, _source_to_collection
 
+    pending_records = pending_records or {}
     candidate = deepcopy(document)
     snapshots = {(item["id"], int(item["revision"])): item for item in candidate.get("collectionSnapshots", [])}
     mappings = {}
@@ -28,9 +37,11 @@ def sync_system_sources(store, connection, *, document, actor, created_at):
         checked.add(identity)
         definition_id = identity[0]
         if definition_id not in revisions:
-            row = connection.execute(
-                orm.select_entity(orm.WorkflowCollectionDefinition).where(orm.WorkflowCollectionDefinition.id == definition_id)
-            ).mappings().one_or_none()
+            row = pending_records.get(definition_id)
+            if row is None:
+                row = connection.execute(
+                    orm.select_entity(orm.WorkflowCollectionDefinition).where(orm.WorkflowCollectionDefinition.id == definition_id)
+                ).mappings().one_or_none()
             source_id = row.get("source_system_command_id") if row else None
             if not source_id:
                 revisions[definition_id] = None
@@ -51,7 +62,7 @@ def sync_system_sources(store, connection, *, document, actor, created_at):
         snapshots[identity] = desired
 
     if not mappings:
-        return {}
+        return {"document": candidate, "mappings": {}, "revisions": {}}
     for call in calls:
         ref = call.get("definition", {})
         identity = (ref.get("id"), int(ref.get("revision", 0)))
@@ -77,8 +88,13 @@ def sync_system_sources(store, connection, *, document, actor, created_at):
                 raise candidate_error
     validate_source_diagnostics(document, candidate)
 
-    for definition_id in dict.fromkeys(identity[0] for identity in mappings):
-        desired = revisions[definition_id]
+    return {"document": candidate, "mappings": mappings, "revisions": revisions}
+
+
+def persist_system_source_plan(store, connection, plan, *, actor, created_at):
+    """仅写入通过全部兼容检查的来源版本。"""
+    for definition_id in dict.fromkeys(identity[0] for identity in plan["mappings"]):
+        desired = plan["revisions"][definition_id]
         connection.execute(
             update(orm.WorkflowCollectionDefinition).where(orm.WorkflowCollectionDefinition.id == definition_id)
             .values(latest_revision=desired["revision"], updated_at=created_at)
@@ -87,5 +103,3 @@ def sync_system_sources(store, connection, *, document, actor, created_at):
             definition_id=definition_id, revision=desired["revision"], document_schema_version=5,
             definition=desired, definition_digest=store._document_digest(desired), created_at=created_at, created_by=actor,
         ))
-    document.update(candidate)
-    return mappings

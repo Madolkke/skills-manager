@@ -4,6 +4,9 @@
 
 ## 目录语义
 
+- `mcp/`：官方 MCP SDK 的无状态 Streamable HTTP 适配、严格工具参数及结构化错误；通过 `dependencies.py` 创建线程内事务服务。
+- `request_models/mcp.py`、`request_models/workflow_authoring*.py`：MCP 查询定位与局部编辑的强类型操作模型。
+
 - `admin.py`、`request_models/expression_functions.py`：后台函数库管理接口与响应契约。
 
 - `analytics.py`：后台统计查询及 Skill 详情访问事件接口。

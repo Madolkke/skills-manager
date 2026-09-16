@@ -4,6 +4,10 @@
 
 ## 目录语义
 
+- `operations/workflows/authoring*.py`、`catalog_plan.py`：工作流创作分页查询、系统命令输入 ID 的无查询投影、无写入候选与采集变更计划；预检和保存复用同一规则。
+- `rules/workflows/authoring*.py`：局部编辑批次、引用分配、采集副本、字段表达式上下文与完整诊断；不访问数据库。
+- `rules/workflows/save_policy.py`：MCP 预检与正式保存共用的草稿、严格策略和阻断诊断规则。
+
 - `operations/expression_functions.py`、`schema/expression_functions.py`：全局函数声明存储与目录投影，函数体仅保存文本。
 
 - `operations/analytics.py`、`rules/analytics.py`、`schema/analytics.py`：运营事实采集、日期口径及独立历史统计存储。

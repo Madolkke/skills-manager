@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from os import environ
+from typing import Any
 
 from fastapi import Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from skillhub.models.store import SkillHubStore
 from skillhub.services import (
@@ -26,6 +27,8 @@ from skillhub.services import (
     WorkflowService,
 )
 from skillhub.services.analytics import AnalyticsService
+from skillhub.services.mcp_identity import resolve_mcp_actor
+from skillhub.services.workflow_authoring import WorkflowAuthoringService
 from skillhub.services.workflow_debug_runtime import WorkflowDebugSettings
 
 
@@ -109,3 +112,19 @@ def evaluation_read_service_dependency(session: Session = Depends(session_depend
 def analytics_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> AnalyticsService:
     """创建请求事务绑定的运营服务。"""
     return AnalyticsService(SkillHubStore(session))
+
+
+def run_mcp_service(
+    session_factory: sessionmaker[Session],
+    operation: str,
+    parameters: dict[str, Any],
+    cookie: str | None = None,
+) -> dict[str, Any]:
+    """在线程池的同一线程创建和关闭事务，提交完成后才返回 MCP 结果。"""
+    if operation in {"create_workflow", "apply_workflow_changes"}:
+        parameters = {**parameters, "actor": resolve_mcp_actor(cookie, environ)}
+    web_base_url = environ.get("SKILLHUB_WEB_BASE_URL") or f"http://127.0.0.1:{environ.get('SKILLHUB_WEB_PORT', '3030')}"
+    with session_factory.begin() as session:
+        service = WorkflowAuthoringService(SkillHubStore(session), web_base_url=web_base_url)
+        result = getattr(service, operation)(**parameters)
+    return result

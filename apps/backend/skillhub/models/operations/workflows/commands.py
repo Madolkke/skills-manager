@@ -8,7 +8,10 @@ from sqlalchemy.exc import IntegrityError
 
 from skillhub.models.entities import ContentRef, digest_text, new_id, utc_now
 from skillhub.models.errors import InvariantError
+from skillhub.models.operations.command_source_sync import persist_system_source_plan
+from skillhub.models.operations.workflows.authoring_prepare import prepare_authoring_document, require_writable_validation
 from skillhub.models.operations.workflows.catalog import WorkflowCatalogMixin
+from skillhub.models.operations.workflows.catalog_plan import persist_collection_plan
 from skillhub.models.operations.workflows.helpers import WorkflowHelperMixin
 from skillhub.models.rules.workflows import DOCUMENT_SCHEMA_VERSION, normalize_workflow_document
 from skillhub.models.schema import orm
@@ -62,7 +65,8 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
         logger.info("workflow skill created skill_id=%s workflow_id=%s actor=%s", result.skill_id, workflow_id, actor)
         return {**result.__dict__, "workflow_id": workflow_id, "workflow_revision": 1}
 
-    def save_workflow(self, *, skill_id: str, document: dict[str, Any], collection_changes: list[dict[str, Any]], actor: str) -> dict[str, Any]:
+    def save_workflow(self, *, skill_id: str, document: dict[str, Any], collection_changes: list[dict[str, Any]], actor: str, validation_policy: str = "draft", include_expression_diagnostics: bool = False) -> dict[str, Any]:
+        """在写入前构造并验证完整候选；所有变更共享当前事务。"""
         saved_at = utc_now()
         with self._write_session() as connection:
             self._skill_row(connection, skill_id)
@@ -71,13 +75,13 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
             candidate = normalize_workflow_document(document)
             if candidate["workflow"]["id"] != workflow["id"]:
                 raise InvariantError("Workflow ID cannot be changed.")
-            mappings, applied_changes = self._apply_collection_changes(connection, changes=collection_changes, actor=actor, created_at=saved_at)
-            source_mappings = self.sync_system_sources(connection, document=candidate, actor=actor, created_at=saved_at)
-            mappings.update(source_mappings)
-            candidate = self._canonicalize_collection_snapshots(connection, candidate, mappings)
-            function_errors = [item for item in self._workflow_validation(candidate)["errors"] if item["code"].startswith("FUNCTION_") or item["code"] in {"UNREGISTERED_CALL", "INCOMPATIBLE_BINDING_SCHEMA"}]
-            if function_errors:
-                raise InvariantError("Workflow 函数调用无效：" + "; ".join(item["message"] for item in function_errors))
+            plan = prepare_authoring_document(self, connection, document=candidate, collection_changes=collection_changes,
+                                              include_expression_diagnostics=include_expression_diagnostics)
+            candidate = plan["document"]
+            require_writable_validation(plan["validation"], validation_policy=validation_policy)
+            persist_collection_plan(self, connection, plan["collection_plan"], actor=actor, created_at=saved_at)
+            persist_system_source_plan(self, connection, plan["source_plan"], actor=actor, created_at=saved_at)
+            applied_changes = plan["collection_plan"]["applied"]
             for snapshot in candidate.get("collectionSnapshots", []):
                 self._sync_user_command_from_collection(
                     connection,
@@ -158,7 +162,8 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
                 item["revision"],
                 actor,
             )
-        return {"document": candidate, "revision": revision, "changed": changed, "validation": self._workflow_validation(candidate)}
+        return {"document": candidate, "revision": revision, "changed": changed,
+                "validation": self._workflow_validation(candidate, include_expression_diagnostics=include_expression_diagnostics)}
 
     def _audit_workflow(self, connection, *, skill_id: str, actor: str, action: str, payload: dict[str, Any], created_at) -> None:
         connection.execute(

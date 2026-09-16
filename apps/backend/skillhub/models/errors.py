@@ -13,6 +13,15 @@ class InvariantError(DomainError):
     """Raised when a command would violate a domain rule."""
 
 
+class WorkflowValidationError(InvariantError):
+    """工作流写入校验失败，并携带可定位的完整诊断。"""
+
+    def __init__(self, detail: str, validation: dict):
+        """保留领域诊断供各协议适配层返回。"""
+        super().__init__(detail)
+        self.validation = validation
+
+
 class ConflictError(DomainError):
     """Raised when a command conflicts with the current resource state."""
 

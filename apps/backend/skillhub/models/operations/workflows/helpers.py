@@ -42,14 +42,18 @@ class WorkflowHelperMixin:
             raise NotFoundError(f"Workflow not found for skill: {skill_id}")
         return row
 
-    def _workflow_validation(self, document: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    def _workflow_validation(self, document: dict[str, Any], *, include_expression_diagnostics: bool = False) -> dict[str, list[dict[str, Any]]]:
+        """默认保留网页规则；MCP 可附加完整静态诊断及位置。"""
         from skillhub.models.rules.workflows import validate_workflow_document
+        from skillhub.models.rules.workflows.authoring_diagnostics import supplement_expression_diagnostics
 
-        issues = validate_workflow_document(document, functions=self.expression_function_contract())
-        return {
+        functions = self.expression_function_contract()
+        issues = validate_workflow_document(document, functions=functions)
+        validation = {
             "errors": [item for item in issues if item["severity"] == "error"],
             "warnings": [item for item in issues if item["severity"] == "warning"],
         }
+        return supplement_expression_diagnostics(document, validation, functions) if include_expression_diagnostics else validation
 
     def _workflow_sync_status(self, connection, *, workflow, skill) -> dict[str, Any]:
         current_sync = None
