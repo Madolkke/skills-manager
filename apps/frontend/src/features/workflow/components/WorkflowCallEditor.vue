@@ -4,13 +4,14 @@ import { computed, ref, watch } from "vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionCall, CollectionDefinition, DeviceRole, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { collectionContentSummary, collectionTypeLabel, isConfigCollection, isLogCollection } from "../domain/collectionPresentation";
-import { findCollection } from "../domain/utils";
+import { cloneWorkflow, findCollection } from "../domain/utils";
 import type { WorkflowBindingCall } from "../workflowExpressionScope";
 import { parseScalarLiteral, workflowSchemaTitle, workflowValueMatchesSchema } from "../workflowJsonSchema";
 import { resolveWorkflowDeviceField, workflowDeviceFieldCandidates } from "../workflowDeviceRoleBindings";
 import { workflowBindingExpressionVariables } from "../workflowExpressionVariables";
 import WorkflowExpressionEditor from "./WorkflowExpressionEditor.vue";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
+import WorkflowCommandInstanceModal from "./WorkflowCommandInstanceModal.vue";
 import WorkflowJsonValueModal from "./WorkflowJsonValueModal.vue";
 
 const props = defineProps<{
@@ -38,6 +39,17 @@ const emit = defineEmits<{
   move: [direction: -1 | 1];
 }>();
 
+const converting = ref(false);
+/** 旧引用转换时保留同名输入和绑定身份。 */
+function convertCommand(candidate: CollectionDefinition): void {
+  if (!props.definition) return;
+  const definition = cloneWorkflow(candidate);
+  definition.id = props.definition.id;
+  definition.revision = props.definition.revision;
+  definition.inputs = definition.inputs.map((input) => props.definition!.inputs.find((old) => old.key === input.key) ?? input);
+  emit("definition", definition);
+  converting.value = false;
+}
 const requiredInputs = computed(() => props.definition?.inputs.filter((item) => item.required) ?? []);
 const boundCount = computed(() => requiredInputs.value.filter((item) => {
   const binding = props.call.inputBindings[item.id];
@@ -198,16 +210,22 @@ function operationLabel(): string {
           </div>
         </section>
 
+        <div v-if="props.definition?.sourceSystemCommandId">
+          <p>{{ props.definition.sourceBindingMode ? '系统命令实例：命令和输入可编辑，回显及说明跟随来源。' : '旧式系统引用' }}</p>
+          <button v-if="!props.definition.sourceBindingMode" type="button" :disabled="props.readonly" @click="converting = true">指定具体命令</button>
+          <button type="button" :disabled="props.readonly" @click="emit('definition', { ...props.definition, sourceSystemCommandId: undefined, sourceBindingMode: undefined })">转为独立副本</button>
+        </div>
         <section v-if="props.definition && props.pendingOperation === 'create'" class="workflow-inline-definition workflow-inline-draft">
           <header><div><strong>新采集定义</strong><span>保存 Workflow 后进入全局采集库</span></div></header>
-          <WorkflowCollectionFields inline-draft :definition="props.definition" :readonly="props.readonly || Boolean(props.definition.sourceSystemCommandId)" :issues="props.issues" @change="emit('definition', $event)" />
+          <WorkflowCollectionFields inline-draft :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="emit('definition', $event)" />
         </section>
         <details v-else-if="props.definition" class="workflow-inline-definition">
           <summary><GitFork :size="14" />编辑采集定义 <span>{{ props.pendingOperation === "fork" ? "当前调用使用副本" : "首次修改将自动创建副本" }}</span></summary>
-          <WorkflowCollectionFields compact :definition="props.definition" :readonly="props.readonly || Boolean(props.definition.sourceSystemCommandId)" :issues="props.issues" @change="emit('definition', $event)" />
+          <WorkflowCollectionFields compact :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="emit('definition', $event)" />
         </details>
       </div>
     </Transition>
+    <WorkflowCommandInstanceModal v-if="converting && props.definition?.sourceSystemCommandId" :command-id="props.definition.sourceSystemCommandId" @close="converting = false" @confirm="convertCommand" />
     <WorkflowJsonValueModal v-if="structuredLiteral" :open="Boolean(structuredLiteral)" :value="props.call.inputBindings[structuredLiteral.id]?.value" :schema="structuredLiteral.schema" :field-name="workflowSchemaTitle(structuredLiteral.schema, structuredLiteral.key)" :readonly="props.readonly" @close="structuredLiteralId = null" @confirm="emit('binding', structuredLiteral.id, { kind: 'literal', reference: {}, value: $event }); structuredLiteralId = null" />
   </article>
 </template>

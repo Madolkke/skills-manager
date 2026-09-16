@@ -6,7 +6,7 @@ from skillhub.services import CommandLibraryService
 from skillhub.views.auth import ActorContext, actor_dependency, admin_key_dependency
 from skillhub.views.dependencies import command_library_service_dependency
 from skillhub.views.responses import result_payload
-from skillhub.views.schemas import CommandSearchPayload, SystemCommandPayload, SystemCommandUpdatePayload
+from skillhub.views.schemas import CommandInstancePayload, CommandSearchPayload, SystemCommandPayload, SystemCommandUpdatePayload
 
 
 def register_command_library_routes(app: FastAPI) -> None:
@@ -31,6 +31,15 @@ def register_command_library_routes(app: FastAPI) -> None:
                 prefix=payload.prefix,
             )
         )
+
+    @app.post("/api/command-library/system-commands/{command_id}/instantiate-preview")
+    def instantiate_command_preview(
+        command_id: str,
+        payload: CommandInstancePayload,
+        actor: ActorContext = Depends(actor_dependency),
+        service: CommandLibraryService = Depends(command_library_service_dependency),
+    ):
+        return result_payload(service.instantiate_preview(command_id=command_id, command=payload.command_template))
 
     @app.get("/api/admin/system-commands")
     def list_system_commands(

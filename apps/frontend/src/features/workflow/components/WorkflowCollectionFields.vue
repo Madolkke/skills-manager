@@ -23,6 +23,8 @@ const props = withDefaults(defineProps<{
   issues?: WorkflowValidationIssue[];
 }>(), { compact: false, inlineDraft: false, issues: () => [] });
 const emit = defineEmits<{ change: [definition: CollectionDefinition] }>();
+const sourceReadonly = computed(() => props.readonly || Boolean(props.definition.sourceSystemCommandId));
+const commandReadonly = computed(() => props.readonly || Boolean(props.definition.sourceSystemCommandId && !props.definition.sourceBindingMode));
 const metadataOpen = ref(!props.inlineDraft);
 const pendingCollectionType = ref<"cli" | "function" | "log" | "config" | null>(null);
 const commandParameterKeys = computed(() => {
@@ -96,10 +98,10 @@ function confirmCollectionType(): void {
       <div class="workflow-form-grid">
         <label data-workflow-field="metadata.name" :class="['field-label', issue('metadata.name') && 'field-invalid']">
           <span>名称</span>
-          <input :value="props.definition.metadata.name" :disabled="props.readonly" :aria-invalid="Boolean(issue('metadata.name'))" @input="update((draft) => { draft.metadata.name = ($event.target as HTMLInputElement).value; })" />
+          <input :value="props.definition.metadata.name" :disabled="sourceReadonly" :aria-invalid="Boolean(issue('metadata.name'))" @input="update((draft) => { draft.metadata.name = ($event.target as HTMLInputElement).value; })" />
           <small v-if="issue('metadata.name')" class="field-error">{{ issue('metadata.name')?.message }}</small>
         </label>
-        <label class="field-label"><span>Key</span><input :value="props.definition.key" :disabled="props.readonly" @input="update((draft) => { draft.key = ($event.target as HTMLInputElement).value; })" /></label>
+        <label class="field-label"><span>Key</span><input :value="props.definition.key" :disabled="sourceReadonly" @input="update((draft) => { draft.key = ($event.target as HTMLInputElement).value; })" /></label>
       </div>
       <button class="workflow-section-toggle" type="button" :aria-expanded="metadataOpen" @click="metadataOpen = !metadataOpen">
         <ChevronRight :class="metadataOpen && 'open'" :size="15" />扩展元信息
@@ -107,33 +109,33 @@ function confirmCollectionType(): void {
       </button>
       <Transition name="workflow-collapse">
         <div v-if="metadataOpen" class="workflow-form-grid workflow-metadata-fields">
-          <label class="field-label span-2"><span>说明</span><textarea rows="3" :value="props.definition.metadata.description" :disabled="props.readonly" @input="update((draft) => { draft.metadata.description = ($event.target as HTMLTextAreaElement).value; })" /></label>
-          <label class="field-label"><span>产业</span><input :value="props.definition.metadata.industry" :disabled="props.readonly" @input="update((draft) => { draft.metadata.industry = ($event.target as HTMLInputElement).value; })" /></label>
-          <label class="field-label"><span>设备</span><input :value="props.definition.metadata.device" :disabled="props.readonly" @input="update((draft) => { draft.metadata.device = ($event.target as HTMLInputElement).value; })" /></label>
-          <label class="field-label span-2"><span>适用版本</span><input :value="props.definition.metadata.versions.join(', ')" :disabled="props.readonly" @change="update((draft) => { draft.metadata.versions = list(($event.target as HTMLInputElement).value); })" /></label>
-          <label class="field-label span-2"><span>Tags</span><TagInput :value="props.definition.metadata.tags" :disabled="props.readonly" placeholder="输入标签后按 Enter" @change="update((draft) => { draft.metadata.tags = $event; })" /></label>
+          <label class="field-label span-2"><span>说明</span><textarea rows="3" :value="props.definition.metadata.description" :disabled="sourceReadonly" @input="update((draft) => { draft.metadata.description = ($event.target as HTMLTextAreaElement).value; })" /></label>
+          <label class="field-label"><span>产业</span><input :value="props.definition.metadata.industry" :disabled="sourceReadonly" @input="update((draft) => { draft.metadata.industry = ($event.target as HTMLInputElement).value; })" /></label>
+          <label class="field-label"><span>设备</span><input :value="props.definition.metadata.device" :disabled="sourceReadonly" @input="update((draft) => { draft.metadata.device = ($event.target as HTMLInputElement).value; })" /></label>
+          <label class="field-label span-2"><span>适用版本</span><input :value="props.definition.metadata.versions.join(', ')" :disabled="sourceReadonly" @change="update((draft) => { draft.metadata.versions = list(($event.target as HTMLInputElement).value); })" /></label>
+          <label class="field-label span-2"><span>Tags</span><TagInput :value="props.definition.metadata.tags" :disabled="sourceReadonly" placeholder="输入标签后按 Enter" @change="update((draft) => { draft.metadata.tags = $event; })" /></label>
         </div>
       </Transition>
     </section>
 
     <section class="workflow-field-section workflow-collection-type">
-      <label class="field-label"><span>采集类型</span><select :value="props.definition.spec.collectionType" :disabled="props.readonly" @change="changeCollectionType(($event.target as HTMLSelectElement).value as 'cli' | 'function' | 'log' | 'config')"><option value="cli">CLI 命令</option><option value="function">自定义函数</option><option value="log">日志聚合</option><option value="config">配置匹配</option></select></label>
+      <label class="field-label"><span>采集类型</span><select :value="props.definition.spec.collectionType" :disabled="sourceReadonly" @change="changeCollectionType(($event.target as HTMLSelectElement).value as 'cli' | 'function' | 'log' | 'config')"><option value="cli">CLI 命令</option><option value="function">自定义函数</option><option value="log">日志聚合</option><option value="config">配置匹配</option></select></label>
     </section>
 
-    <WorkflowCliSpecFields v-if="props.definition.spec.collectionType === 'cli'" :definition="props.definition" :readonly="props.readonly" @change="emit('change', $event)" />
-    <WorkflowFunctionSpecFields v-else-if="props.definition.spec.collectionType === 'function'" :definition="props.definition" :readonly="props.readonly" @change="emit('change', $event)" />
-    <WorkflowLogSpecFields v-else-if="props.definition.spec.collectionType === 'log'" :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
-    <WorkflowConfigSpecFields v-else :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
+    <WorkflowCliSpecFields v-if="props.definition.spec.collectionType === 'cli'" :definition="props.definition" :readonly="commandReadonly" :samples-readonly="sourceReadonly" @change="emit('change', $event)" />
+    <WorkflowFunctionSpecFields v-else-if="props.definition.spec.collectionType === 'function'" :definition="props.definition" :readonly="sourceReadonly" @change="emit('change', $event)" />
+    <WorkflowLogSpecFields v-else-if="props.definition.spec.collectionType === 'log'" :definition="props.definition" :readonly="sourceReadonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
+    <WorkflowConfigSpecFields v-else :definition="props.definition" :readonly="sourceReadonly" :issues="props.issues" @change="update((draft) => { draft.spec = $event; })" />
 
     <section class="workflow-field-section">
-      <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>
-      <WorkflowCollectionInputRows :items="props.definition.inputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType === 'log' || props.definition.spec.collectionType === 'config'" :command-parameter-keys="commandParameterKeys" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
+      <div class="workflow-subhead"><div><h3>输入参数</h3><p>{{ props.definition.inputs.length }} 个参数</p></div><UiButton size="sm" variant="secondary" :disabled="sourceReadonly" @click="addInput"><template #icon><Plus /></template>添加</UiButton></div>
+      <WorkflowCollectionInputRows :identity-readonly="Boolean(props.definition.sourceBindingMode)" :items="props.definition.inputs" :readonly="commandReadonly" :scalar-only="props.definition.spec.collectionType === 'log' || props.definition.spec.collectionType === 'config'" :command-parameter-keys="commandParameterKeys" @change="updateInput" @remove="update((draft) => { draft.inputs = draft.inputs.filter((value) => value.id !== $event); })" />
       <p v-if="props.definition.inputs.length === 0" class="workflow-inline-empty">当前采集不需要输入参数</p>
     </section>
 
     <section class="workflow-field-section">
-      <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addOutput"><template #icon><Plus /></template>添加</UiButton></div>
-      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="props.readonly" :scalar-only="props.definition.spec.collectionType === 'log' || props.definition.spec.collectionType === 'config'" @change="updateOutput" @remove="removeOutput" />
+      <div class="workflow-subhead"><div><h3>输出字段</h3><p>{{ props.definition.outputs.length }} 个字段</p></div><UiButton size="sm" variant="secondary" :disabled="sourceReadonly" @click="addOutput"><template #icon><Plus /></template>添加</UiButton></div>
+      <WorkflowCollectionOutputRows :items="props.definition.outputs" :readonly="sourceReadonly" :scalar-only="props.definition.spec.collectionType === 'log' || props.definition.spec.collectionType === 'config'" @change="updateOutput" @remove="removeOutput" />
       <p v-if="props.definition.outputs.length === 0" class="workflow-inline-empty">尚未声明结构化输出</p>
     </section>
 

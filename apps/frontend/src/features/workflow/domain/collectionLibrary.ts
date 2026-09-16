@@ -39,11 +39,7 @@ export function findReusableCommandDefinition(
   currentDefinitionRefs: VersionedRef[],
 ): CollectionDefinition | undefined {
   const current = currentDefinitions(definitions, currentDefinitionRefs).filter((item) => item.spec.collectionType === "cli");
-  if (result.source === "system") {
-    return current
-      .filter((item) => item.sourceSystemCommandId === result.id)
-      .sort((left, right) => right.revision - left.revision)[0];
-  }
+  if (result.source === "system") return undefined;
   if (!result.collectionDefinitionId) return undefined;
   const candidates = current.filter((item) => item.id === result.collectionDefinitionId);
   return candidates.find((item) => item.revision === result.collectionRevision)
@@ -64,7 +60,7 @@ function commandItems(input: CollectionLibraryItemsInput): CollectionLibraryItem
   });
   current.filter((definition) => definition.sourceSystemCommandId && !usedDefinitions.has(refKey(definition)))
     .filter((definition) => matchesDefinition(definition, input.query))
-    .forEach((definition) => items.set(`system:${definition.sourceSystemCommandId}`, definitionItem(definition, "system", true)));
+    .forEach((definition) => items.set(`instance:${refKey(definition)}`, definitionItem(definition, "system", true)));
 
   if (input.includeUser) {
     input.commandResults.filter((result) => result.source === "user").forEach((result) => {

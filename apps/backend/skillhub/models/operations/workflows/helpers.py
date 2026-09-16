@@ -46,6 +46,7 @@ class WorkflowHelperMixin:
         from skillhub.models.rules.workflows import validate_workflow_document
 
         issues = validate_workflow_document(document, functions=self.expression_function_contract())
+        issues.extend(self.command_instance_warnings(document))
         return {
             "errors": [item for item in issues if item["severity"] == "error"],
             "warnings": [item for item in issues if item["severity"] == "warning"],

@@ -17,7 +17,7 @@ from skillhub.models.errors import (
 )
 from skillhub.views import register_views
 
-OPENAPI_SHA256 = "15e5ff36608e191722ddd279e9b469d6ebf384e817554dc707fa3140b228a490"
+OPENAPI_SHA256 = "9f8758ecec4a62e30e67d66473c45c343296d21ce58a6e48eb42de3bfc7c6300"
 
 
 def test_openapi_contract_snapshot() -> None:
@@ -26,7 +26,7 @@ def test_openapi_contract_snapshot() -> None:
 
     normalized = json.dumps(app.openapi(), ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
 
-    assert len(app.openapi()["paths"]) == 114
+    assert len(app.openapi()["paths"]) == 115
     assert hashlib.sha256(normalized).hexdigest() == OPENAPI_SHA256
 
 

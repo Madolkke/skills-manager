@@ -3,16 +3,18 @@ import type { CommandLibrarySearchResult } from "../../../types";
 import { commandResultToDefinition } from "./commandLibrary";
 
 describe("commandResultToDefinition", () => {
-  it("将系统命令物化为带系统来源的只读 Collection 草稿", () => {
-    const definition = commandResultToDefinition(commandResult({ source: "system", id: "system-command-1" }), 1);
-
-    expect(definition).toMatchObject({
-      key: "display_interface",
-      sourceSystemCommandId: "system-command-1",
-      spec: { collectionType: "cli", commandTemplate: "display interface <name>" },
-      inputs: [{ id: "input_name", key: "name" }],
-      outputs: [{ id: "output_status", key: "status", required: true, schema: { type: "string", title: "状态" } }],
-    });
+  it("系统命令必须先确认具体命令", () => {
+    expect(() => commandResultToDefinition(commandResult({ source: "system" }), 1)).toThrow("请先确认");
+    const candidate = commandResultToDefinition(commandResult(), 1);
+    candidate.sourceSystemCommandId = "system-command-1";
+    candidate.sourceBindingMode = "concrete-command";
+    candidate.inputs = [];
+    candidate.spec = { collectionType: "cli", commandTemplate: "display interface eth0", commandParameterSyntax: "angle-v1", outputSamples: [] };
+    const result = commandResultToDefinition(commandResult({ source: "system", instantiatedDefinition: candidate }), 1);
+    expect(result.id).not.toBe(candidate.id);
+    expect(result.inputs).toEqual([]);
+    expect(result.sourceBindingMode).toBe("concrete-command");
+    expect(result.spec).toEqual(candidate.spec);
   });
 
   it("不会为用户命令写入系统来源", () => {
@@ -77,7 +79,7 @@ describe("commandResultToDefinition", () => {
 function commandResult(overrides: Partial<CommandLibrarySearchResult> = {}): CommandLibrarySearchResult {
   return {
     id: "system-command-1",
-    source: "system",
+    source: "user",
     key: "display_interface",
     expression: "display interface <name>",
     metadata: { name: "接口状态", description: "读取接口状态", versions: ["V1"] },

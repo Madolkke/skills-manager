@@ -1,6 +1,6 @@
 import type { CollectionDefinition, CollectionOutput, WorkflowParameter } from "../../../types";
 import type { CommandLibrarySearchResult } from "../../../types";
-import { createWorkflowId } from "./utils";
+import { cloneWorkflow, createWorkflowId } from "./utils";
 
 function schema(value: Record<string, unknown>, fallbackTitle = ""): CollectionOutput["schema"] {
   const type = value.type;
@@ -23,6 +23,8 @@ function schema(value: Record<string, unknown>, fallbackTitle = ""): CollectionO
 
 /** 将搜索结果物化为当前 Workflow 的只读来源草稿。 */
 export function commandResultToDefinition(result: CommandLibrarySearchResult, index: number): CollectionDefinition {
+  if (result.instantiatedDefinition) return { ...cloneWorkflow(result.instantiatedDefinition), id: createWorkflowId("collection"), revision: 1 };
+  if (result.source === "system") throw new Error("请先确认具体采集命令。");
   const outputSchema = (result.outputSchema ?? {}) as Record<string, unknown>;
   const properties = (outputSchema.properties ?? {}) as Record<string, Record<string, unknown>>;
   const required = new Set(Array.isArray(outputSchema.required) ? outputSchema.required.map(String) : []);
@@ -67,6 +69,6 @@ export function commandResultToDefinition(result: CommandLibrarySearchResult, in
     },
     inputs,
     outputs,
-    sourceSystemCommandId: result.source === "system" ? result.id : undefined,
+    sourceSystemCommandId: undefined,
   };
 }

@@ -10,7 +10,9 @@ from skillhub.models.schema import orm
 
 def sync_system_sources(store, connection, *, document, actor, created_at):
     """先投影全部来源，再验证候选文档，最后统一写入版本。"""
-    from .command_library import _comparable, _source_to_collection
+    from skillhub.models.rules.workflows.command_instances import project_instance_source
+
+    from .command_library import _comparable
 
     candidate = deepcopy(document)
     snapshots = {(item["id"], int(item["revision"])): item for item in candidate.get("collectionSnapshots", [])}
@@ -40,7 +42,8 @@ def sync_system_sources(store, connection, *, document, actor, created_at):
             ).scalar_one_or_none()
             if source is None:
                 raise NotFoundError(f"System command does not exist: {source_id}")
-            desired = _source_to_collection(source, definition_id=definition_id, revision=int(row["latest_revision"]) + 1, source_id=source_id)
+            current = snapshots.get(identity) or store._collection_revision(connection, definition_id, identity[1])
+            desired = project_instance_source(source, current, revision=int(row["latest_revision"]) + 1)
             revisions[definition_id] = desired
         desired = revisions[definition_id]
         current = snapshots.get(identity)

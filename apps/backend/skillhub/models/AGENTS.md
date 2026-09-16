@@ -19,6 +19,7 @@
 - `operations/shared/tagging.py`：所有 Skill 写入口共用的 Tag 清洗、自由值沉淀、条件必填和权限辅助逻辑。
 - `operations/workflows/`：Workflow、WorkflowSync 和全局 Collection Catalog 的事务读写、同步状态与审计。
 - `operations/command_library.py`：CLI 系统/用户命令条目的匹配搜索、版本管理、来源引用保护和 Workflow 同步。
+- `rules/workflows/command_instances.py`、`command_projection.py`：具体命令参数同步、来源字段投影和匹配提醒，不执行命令。
 - `operations/command_source_sync.py`：系统命令来源同步的候选快照投影、全部兼容校验和事务内统一版本写入。
 - `operations/workflow_debug/`：Workflow 单步调试例与运行记录的事务内 CRUD、分页、权限和级联清理。
 - `operations/workflows/workflow_syncs.py`：在事务内复核预览证据，并创建或重激活 Generator 对应的 SkillVersion。

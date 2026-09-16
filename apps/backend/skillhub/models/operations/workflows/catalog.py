@@ -55,6 +55,12 @@ class WorkflowCatalogMixin:
                     ).scalar_one_or_none()
                     if source_row is None:
                         raise InvariantError(f"System command does not exist: {source_system_command_id}")
+                    if definition.get("sourceBindingMode") == "concrete-command":
+                        from skillhub.models.rules.workflows.command_instances import project_instance_source
+
+                        if not source_row.enabled and operation == "create":
+                            raise InvariantError("系统命令已停用，不能创建新实例。")
+                        definition = project_instance_source(source_row, definition, revision=1)
                     # The source row is authoritative.  Do not compare the
                     # client draft here: an administrator may have updated
                     # the system expression after the picker created this

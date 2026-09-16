@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CirclePlus, Trash2 } from "lucide-vue-next";
 import { ref, watch } from "vue";
+import WorkflowCommandSourceNotice from "./WorkflowCommandSourceNotice.vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionDefinition } from "../../../types";
@@ -8,7 +9,7 @@ import { parseCliCommandParameters } from "../domain/cliCommandParameters";
 import { cloneWorkflow, createWorkflowId } from "../domain/utils";
 import { newWorkflowSchema } from "../workflowJsonSchema";
 
-const props = defineProps<{ definition: CollectionDefinition; readonly: boolean }>();
+const props = defineProps<{ definition: CollectionDefinition; readonly: boolean; samplesReadonly?: boolean }>();
 const emit = defineEmits<{ change: [definition: CollectionDefinition] }>();
 const initialCommand = props.definition.spec.collectionType === "cli" ? props.definition.spec.commandTemplate : "";
 const initialParameters = parseCliCommandParameters(initialCommand);
@@ -72,14 +73,15 @@ function updateCommand(commandTemplate: string): void {
       :disabled="props.readonly"
       @input="updateCommand(($event.target as HTMLInputElement).value)"
     />
+    <WorkflowCommandSourceNotice v-if="props.definition.sourceBindingMode && props.definition.sourceSystemCommandId && props.definition.spec.collectionType === 'cli'" :source-id="props.definition.sourceSystemCommandId" :command="props.definition.spec.commandTemplate" />
   </section>
 
   <section class="workflow-field-section">
-    <div class="workflow-subhead"><div><h3>回显示例</h3><p>{{ props.definition.spec.collectionType === 'cli' ? props.definition.spec.outputSamples.length : 0 }} 个样例</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="addSample"><template #icon><CirclePlus /></template>添加</UiButton></div>
+    <div class="workflow-subhead"><div><h3>回显示例<span v-if="props.definition.sourceSystemCommandId">（来源示例）</span></h3><p>{{ props.definition.spec.collectionType === 'cli' ? props.definition.spec.outputSamples.length : 0 }} 个样例</p></div><UiButton size="sm" variant="secondary" :disabled="props.readonly || props.samplesReadonly" @click="addSample"><template #icon><CirclePlus /></template>添加</UiButton></div>
     <template v-if="props.definition.spec.collectionType === 'cli'">
       <article v-for="sample in props.definition.spec.outputSamples" :key="sample.id" class="workflow-sample">
-        <div><input :value="sample.name" aria-label="样例名称" :disabled="props.readonly" @input="update((definition) => { if (definition.spec.collectionType !== 'cli') return; const target = definition.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.name = ($event.target as HTMLInputElement).value; })" /><UiIconButton label="删除样例" size="sm" variant="danger" :disabled="props.readonly" @click="update((definition) => { if (definition.spec.collectionType === 'cli') definition.spec.outputSamples = definition.spec.outputSamples.filter((item) => item.id !== sample.id); })"><Trash2 /></UiIconButton></div>
-        <textarea class="workflow-sample-output" rows="5" spellcheck="false" :value="sample.stdout" :disabled="props.readonly" @input="update((definition) => { if (definition.spec.collectionType !== 'cli') return; const target = definition.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.stdout = ($event.target as HTMLTextAreaElement).value; })" />
+        <div><input :value="sample.name" aria-label="样例名称" :disabled="props.readonly || props.samplesReadonly" @input="update((definition) => { if (definition.spec.collectionType !== 'cli') return; const target = definition.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.name = ($event.target as HTMLInputElement).value; })" /><UiIconButton label="删除样例" size="sm" variant="danger" :disabled="props.readonly || props.samplesReadonly" @click="update((definition) => { if (definition.spec.collectionType === 'cli') definition.spec.outputSamples = definition.spec.outputSamples.filter((item) => item.id !== sample.id); })"><Trash2 /></UiIconButton></div>
+        <textarea class="workflow-sample-output" rows="5" spellcheck="false" :value="sample.stdout" :disabled="props.readonly || props.samplesReadonly" @input="update((definition) => { if (definition.spec.collectionType !== 'cli') return; const target = definition.spec.outputSamples.find((item) => item.id === sample.id); if (target) target.stdout = ($event.target as HTMLTextAreaElement).value; })" />
       </article>
     </template>
     <p v-if="props.definition.spec.collectionType !== 'cli' || props.definition.spec.outputSamples.length === 0" class="workflow-inline-empty">尚未添加回显示例</p>

@@ -7,6 +7,7 @@ import type {
   VersionedRef,
   WorkflowCollectionChange,
 } from "../../../types";
+import WorkflowCommandInstanceModal from "./WorkflowCommandInstanceModal.vue";
 import { collectionLibraryItems, type CollectionLibraryItem } from "../domain/collectionLibrary";
 import { useCommandLibrarySearch } from "../useCommandLibrarySearch";
 
@@ -20,6 +21,14 @@ const emit = defineEmits<{ select: [definition: CollectionDefinition]; "select-c
 const root = ref<HTMLElement | null>(null);
 const input = ref<HTMLInputElement | null>(null);
 const query = ref("");
+const pendingCommand = ref<{ result: CommandLibrarySearchResult; initial: string }>();
+
+/** 系统规则经具体命令确认后才创建实例。 */
+function confirmCommand(definition: CollectionDefinition): void {
+  if (!pendingCommand.value) return;
+  emit("select-command", { ...pendingCommand.value.result, instantiatedDefinition: definition });
+  pendingCommand.value = undefined;
+}
 const open = ref(false);
 const commandSearch = useCommandLibrarySearch(query);
 const includeUser = commandSearch.includeUser;
@@ -37,10 +46,13 @@ onMounted(() => document.addEventListener("pointerdown", closeOutside));
 onBeforeUnmount(() => document.removeEventListener("pointerdown", closeOutside));
 function choose(item: CollectionLibraryItem): void {
   if (item.definition) emit("select", item.definition);
+  else if (item.result?.source === "system") pendingCommand.value = {
+    result: item.result, initial: item.result.complete && item.result.consumedTokens ? query.value : "",
+  };
   else if (item.result) emit("select-command", item.result);
   query.value = "";
   open.value = false;
-  void nextTick(() => input.value?.focus());
+  if (!pendingCommand.value) void nextTick(() => input.value?.focus());
 }
 
 function pendingLabel(item: CollectionLibraryItem): string {
@@ -86,4 +98,5 @@ function closeOutside(event: PointerEvent): void {
       </div>
     </Transition>
   </div>
+  <WorkflowCommandInstanceModal v-if="pendingCommand" :command-id="pendingCommand.result.id" :expression="pendingCommand.result.expression" :initial-command="pendingCommand.initial" @close="pendingCommand = undefined" @confirm="confirmCommand" />
 </template>

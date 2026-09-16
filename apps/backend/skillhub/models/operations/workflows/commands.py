@@ -72,6 +72,7 @@ class WorkflowCommandMixin(WorkflowCatalogMixin, WorkflowHelperMixin):
             if candidate["workflow"]["id"] != workflow["id"]:
                 raise InvariantError("Workflow ID cannot be changed.")
             mappings, applied_changes = self._apply_collection_changes(connection, changes=collection_changes, actor=actor, created_at=saved_at)
+            candidate = self._canonicalize_collection_snapshots(connection, candidate, mappings)
             source_mappings = self.sync_system_sources(connection, document=candidate, actor=actor, created_at=saved_at)
             mappings.update(source_mappings)
             candidate = self._canonicalize_collection_snapshots(connection, candidate, mappings)

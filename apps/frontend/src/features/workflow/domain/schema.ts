@@ -45,7 +45,9 @@ export const collectionDefinitionSchema: z.ZodType<CollectionDefinition> = z.obj
   inputs: z.array(parameter),
   outputs: z.array(output),
   forkedFrom: ref.optional(),
-}).strict();
+  sourceSystemCommandId: z.string().nullish(),
+  sourceBindingMode: z.literal("concrete-command").nullish(),
+}).strict().refine((value) => !value.sourceBindingMode || Boolean(value.sourceSystemCommandId && value.spec.collectionType === "cli" && value.spec.commandParameterSyntax === "angle-v1"), "具体命令实例必须绑定系统 CLI 来源");
 
 const call = z.object({
   id: z.string(), key: z.string(), name: z.string(), definition: ref, deviceRoleId: z.string().optional(), sampleCount: z.number(), inputBindings: z.record(z.string(), binding),
