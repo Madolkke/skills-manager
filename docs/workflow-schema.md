@@ -441,3 +441,14 @@ GET /api/skills/{skill_id}/workflow/export
 ```
 
 导出只包含 `document.collectionSnapshots` 中被 Call 实际引用的精确版本，并将持久化引用改写为请求内 `localId`。导出文件不包含数据库身份、revision 历史、权限、Tags 或未引用的全局 Catalog 定义，因此适合跨实例迁移，不等同于数据库备份。编辑器存在未保存修改时，前端要求先保存再执行导入或导出。
+
+
+## 系统命令的具体实例
+
+系统命令表达式用于检索一类命令。选择结果后需确认具体 `commandTemplate`，例如 `show routes vrf default` 不生成输入，`show routes vrf <vrf>` 只生成 `vrf` 输入。新实例使用 `sourceBindingMode: "concrete-command"`、`sourceSystemCommandId` 和 `commandParameterSyntax: "angle-v1"`；文档仍为 version 5。
+
+来源维护名称、说明、元信息、输出 Schema 和回显示例；实例维护具体命令和输入，工作流调用维护 Key、名称和绑定。来源示例仅用于展示，不表示具体命令已经执行。保存时来源同步不会覆盖实例命令与输入；不兼容的输出更新会拒绝保存并回滚。
+
+编辑已保存实例时仅为当前调用创建保留来源的副本；转为独立副本则清除来源及模式。旧引用缺少模式字段，仍按旧规则运行，可通过“指定具体命令”按需转换。Bundle 导出保留具体命令与完整 Schema，但移除本地来源字段，回导为独立采集。
+
+不匹配来源表达式仅产生提醒；动态参数不会代入虚构值判断运行效果。系统来源的输入名称必须与实际占位符一致，同名输入保留 ID、类型与绑定，删除或改名不会猜测替代绑定。

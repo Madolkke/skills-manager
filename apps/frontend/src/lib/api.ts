@@ -80,6 +80,8 @@ function skillApi() {
       apiSend<WorkflowDetail>(`/api/skills/${encodeURIComponent(skillId)}/workflow/metadata`, "PATCH", payload),
     listWorkflowCollections: (skillId: string) =>
       apiGet<{ definitions: CollectionDefinition[] }>(`/api/skills/${encodeURIComponent(skillId)}/workflow/collections`),
+    previewCommandInstance: (commandId: string, commandTemplate: string, signal?: AbortSignal) =>
+      apiSend<{ definition: CollectionDefinition; warnings: Array<{ code: string; message: string }> }>(`/api/command-library/system-commands/${encodeURIComponent(commandId)}/instantiate-preview`, "POST", { commandTemplate }, { signal }),
     searchCommandLibrary: (command: string, includeUser = false, targetVersion?: string, signal?: AbortSignal) =>
       apiSend<{ results: CommandLibrarySearchResult[] }>("/api/command-library/search", "POST", {
         command,

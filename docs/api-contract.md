@@ -429,3 +429,10 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 - API 只接受 PostgreSQL 连接串，必须通过 `SKILLHUB_DATABASE_URL` 注入。
 - 支持 `postgresql://` 和 `postgresql+psycopg://` 两类 SQLAlchemy URL。
 - 应用启动时通过 SQLAlchemy metadata 创建当前 schema；测试使用 `SKILLHUB_TEST_DATABASE_URL` 指向隔离测试库。
+
+
+## 系统命令实例预览
+
+`POST /api/command-library/system-commands/{command_id}/instantiate-preview` 沿用普通 actor 依赖，接收严格请求 `{ "commandTemplate": "show routes vrf <vrf>" }`。返回 `{ "definition": CollectionDefinition, "warnings": [...] }`，不创建定义、版本或审计。候选 ID 不是已保存身份，客户端保存时分配独立 ID，仍通过 Workflow 的 Collection create/fork 批次入库。
+
+新实例标记 `sourceBindingMode: "concrete-command"`，必须具有 CLI 系统来源及 angle-v1 参数语法。后端重新投影权威来源字段并检查输入与占位符一致性。固定命令不匹配时返回 `COMMAND_SOURCE_MISMATCH` 提醒；动态参数返回 `COMMAND_MATCH_DYNAMIC`，均不阻止保存。系统命令搜索同时支持命令匹配以及 Key、名称子串检索，名称匹配不视为完整命令匹配。

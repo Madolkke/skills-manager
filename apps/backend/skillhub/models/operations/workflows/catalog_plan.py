@@ -43,6 +43,12 @@ def plan_collection_changes(store, connection, changes: list[dict[str, Any]]) ->
                 source = connection.execute(select(orm.SystemCommand).where(orm.SystemCommand.id == source_id)).scalar_one_or_none()
                 if source is None:
                     raise InvariantError(f"System command does not exist: {source_id}")
+                if definition.get("sourceBindingMode") == "concrete-command":
+                    from skillhub.models.rules.workflows.command_instances import project_instance_source
+
+                    if not source.enabled and operation == "create":
+                        raise InvariantError("系统命令已停用，不能创建新实例。")
+                    definition = project_instance_source(source, definition, revision=1)
             revision = 1
         elif operation == "revise":
             if existing is None:

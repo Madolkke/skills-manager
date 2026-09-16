@@ -49,6 +49,7 @@ class WorkflowHelperMixin:
 
         functions = self.expression_function_contract()
         issues = validate_workflow_document(document, functions=functions)
+        issues.extend(self.command_instance_warnings(document))
         validation = {
             "errors": [item for item in issues if item["severity"] == "error"],
             "warnings": [item for item in issues if item["severity"] == "warning"],

@@ -59,3 +59,9 @@ class SystemCommandUpdatePayload(BaseModel):
     output_schema: dict[str, Any] | None = Field(default=None, alias="outputSchema")
     ttp: Annotated[str, Field(max_length=50000)] | None = None
     enabled: bool | None = None
+
+
+class CommandInstancePayload(BaseModel):
+    """具体采集命令预览请求。"""
+    model_config = ConfigDict(extra="forbid", strict=True, populate_by_name=True)
+    command_template: str = Field(min_length=1, max_length=4000, alias="commandTemplate")

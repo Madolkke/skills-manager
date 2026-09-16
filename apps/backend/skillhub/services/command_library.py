@@ -43,6 +43,10 @@ class CommandLibraryService(ServiceBase[SkillHubStore]):
             )
         }
 
+    def instantiate_preview(self, *, command_id: str, command: str) -> dict[str, Any]:
+        """返回具体命令实例及静态提醒，不产生写入。"""
+        return self.store.preview_command_instance(command_id=command_id, command=command)
+
     def list_system(self) -> dict[str, Any]:
         return {"commands": self.store.list_system_commands()}
 

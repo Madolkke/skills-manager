@@ -18,7 +18,9 @@ def sync_system_sources(store, connection, *, document, actor, created_at):
 
 def plan_system_sources(connection, *, document, pending_records=None):
     """投影全部来源并验证兼容性；新增定义由尚未落库的记录补充。"""
-    from .command_library import _comparable, _source_to_collection
+    from skillhub.models.rules.workflows.command_instances import project_instance_source
+
+    from .command_library import _comparable
 
     pending_records = pending_records or {}
     candidate = deepcopy(document)
@@ -51,7 +53,10 @@ def plan_system_sources(connection, *, document, pending_records=None):
             ).scalar_one_or_none()
             if source is None:
                 raise NotFoundError(f"System command does not exist: {source_id}")
-            desired = _source_to_collection(source, definition_id=definition_id, revision=int(row["latest_revision"]) + 1, source_id=source_id)
+            current = snapshots.get(identity)
+            if current is None:
+                raise InvariantError(f"Collection snapshot is missing: {identity}")
+            desired = project_instance_source(source, current, revision=int(row["latest_revision"]) + 1)
             revisions[definition_id] = desired
         desired = revisions[definition_id]
         current = snapshots.get(identity)

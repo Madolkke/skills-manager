@@ -14,6 +14,7 @@ from skillhub.models.rules.command_expression import (
     next_command_tokens,
     parse_command_expression,
 )
+from skillhub.models.rules.workflows.command_projection import _source_to_collection  # noqa: F401
 from skillhub.models.rules.workflows.source_compatibility import _validate_source_compatibility as _validate_source_compatibility
 from skillhub.models.schema import orm
 
@@ -78,6 +79,9 @@ class CommandLibraryStoreMixin:
                 # an administrator repairs the source record.
                 continue
             if match is None:
+                if query.strip().casefold() in f"{item['key']} {item['name']}".casefold():
+                    ranked.append({**item, "score": 0, "match": None, "complete": False, "captures": {},
+                                   "alternatives": [], "nextTokens": [], "ambiguous": False})
                 continue
             alternatives = list(match.alternatives) or [match.captures]
             for alternative_index, captures in enumerate(alternatives):
@@ -121,6 +125,30 @@ class CommandLibraryStoreMixin:
             if item is None:
                 raise NotFoundError(f"System command does not exist: {command_id}")
             return _entry_row(item, "system")
+
+    def preview_command_instance(self, *, command_id: str, command: str) -> dict[str, Any]:
+        """只读生成具体命令候选，不创建 Collection 或审计。"""
+        from skillhub.models.rules.workflows.command_instances import command_match_warnings, instantiate_command
+
+        with self._read_session() as session:
+            source = session.get(orm.SystemCommandLibraryEntry, command_id)
+            if source is None:
+                raise NotFoundError(f"System command does not exist: {command_id}")
+            definition = instantiate_command(source, command, definition_id="command-preview")
+            return {"definition": definition, "warnings": command_match_warnings(definition, source.expression)}
+
+    def command_instance_warnings(self, document: dict[str, Any]) -> list[dict[str, Any]]:
+        """批量读取当前来源表达式，供网页和 MCP 返回相同提醒。"""
+        from skillhub.models.rules.workflows.command_instances import command_match_warnings
+
+        definitions = [item for item in document.get("collectionSnapshots", []) if item.get("sourceBindingMode")]
+        if not definitions:
+            return []
+        with self._read_session() as session:
+            sources = dict(session.execute(select(orm.SystemCommandLibraryEntry.id, orm.SystemCommandLibraryEntry.expression)
+                           .where(orm.SystemCommandLibraryEntry.id.in_({item["sourceSystemCommandId"] for item in definitions}))).all())
+        return [warning for item in definitions if item["sourceSystemCommandId"] in sources
+                for warning in command_match_warnings(item, sources[item["sourceSystemCommandId"]])]
 
     def create_system_command(
         self,
@@ -236,6 +264,8 @@ class CommandLibraryStoreMixin:
                     )
                 ).scalars():
                     definition = dict(revision.definition or {})
+                    definition.pop("sourceBindingMode", None)
+                    definition.pop("source_binding_mode", None)
                     definition.pop("sourceSystemCommandId", None)
                     definition.pop("source_system_command_id", None)
                     session.execute(
@@ -474,118 +504,11 @@ def _next_tokens(expression: str, query: str) -> list[str]:
         return []
 
 
-def _source_to_collection(source: Any, *, definition_id: str, revision: int, source_id: str) -> dict[str, Any]:
-    from skillhub.models.rules.workflows import normalize_collection_definition
-
-    document = dict(source.document or {})
-    metadata = dict(document.get("metadata") or source.metadata_json or {})
-    metadata.setdefault("name", source.name)
-    metadata.setdefault("description", source.description)
-    metadata.setdefault("industry", "")
-    metadata.setdefault("device", "")
-    metadata.setdefault("versions", [])
-    metadata.setdefault("tags", [])
-    captures = source.captures or {}
-    inputs = []
-    for name, value in sorted(captures.items()):
-        repeated = isinstance(value, Mapping) and bool(value.get("repeated"))
-        input_schema: dict[str, Any] = {
-            "type": "array",
-            "title": f"{name} 列表",
-            "description": "",
-            "items": {"type": "string", "title": str(name), "description": ""},
-        } if repeated else {"type": "string", "title": str(name), "description": ""}
-        inputs.append(
-            {
-                "id": f"input_{name}",
-                "key": name,
-                "required": not bool(value.get("optional", False)) if isinstance(value, Mapping) else True,
-                "schema": input_schema,
-            }
-        )
-    output_schema = document.get("outputSchema") or {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
-    if not isinstance(output_schema, Mapping) or output_schema.get("type") != "object":
-        raise InvariantError("System command root output schema must be an object.")
-    properties = output_schema.get("properties")
-    if not isinstance(properties, Mapping):
-        raise InvariantError("System command root output schema requires properties.")
-    raw_required = output_schema.get("required", [])
-    if not isinstance(raw_required, list) or any(not isinstance(name, str) for name in raw_required):
-        raise InvariantError("System command root output schema requires a string required list.")
-    required = set(raw_required)
-    outputs = [
-        {"id": f"output_{name}", "key": name, "required": name in required, "schema": _workflow_schema(schema, fallback_title=str(name))}
-        for name, schema in sorted(properties.items())
-    ]
-    return normalize_collection_definition(
-        {
-            "id": definition_id,
-            "revision": revision,
-            "key": source.key,
-            "metadata": metadata,
-            "spec": {
-                "collectionType": "cli",
-                "commandTemplate": source.expression,
-                "outputSamples": [
-                    {
-                        "id": item.get("id") or f"sample_{source.id}_{index}",
-                        "name": item.get("name", "示例"),
-                        "stdout": item.get("stdout", ""),
-                        "inputValues": {},
-                    }
-                    for index, item in enumerate(document.get("samples", []), start=1)
-                ],
-            },
-            "inputs": inputs,
-            "outputs": outputs,
-            "sourceSystemCommandId": source_id,
-        }
-    )
-
-
 def _comparable(value: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(value)
     result.pop("revision", None)
     return result
 
-
-def _workflow_schema(value: Any, *, fallback_title: str = "") -> dict[str, Any]:
-    """Adapt standard JSON Schema fragments to the strict Workflow schema shape."""
-    source = dict(value) if isinstance(value, Mapping) else {"x-skillhub-legacy-loose": True}
-    result = {
-        "title": str(source.get("title") or fallback_title),
-        "description": str(source.get("description", "")),
-    }
-    schema_type = source.get("type")
-    if schema_type == "object":
-        properties = source.get("properties")
-        if not isinstance(properties, Mapping):
-            raise InvariantError("Object output schema requires properties.")
-        additional_properties = bool(source.get("additionalProperties", False))
-        result.update(
-            {
-                "type": "object",
-                "properties": {
-                    str(name): _workflow_schema(child, fallback_title=str(name))
-                    for name, child in properties.items()
-                },
-                "required": [str(name) for name in source.get("required", [])],
-                "additionalProperties": additional_properties,
-            }
-        )
-        if additional_properties:
-            result["x-skillhub-legacy-loose"] = True
-        return result
-    if schema_type == "array":
-        if "items" not in source:
-            raise InvariantError("Array output schema requires items.")
-        result.update({"type": "array", "items": _workflow_schema(source["items"], fallback_title=fallback_title)})
-        return result
-    if schema_type in {"string", "integer", "number", "boolean"}:
-        result["type"] = schema_type
-        return result
-    result["x-skillhub-legacy-loose"] = True
-    return result
 
 
 def _required_text(value: str, field: str) -> str:

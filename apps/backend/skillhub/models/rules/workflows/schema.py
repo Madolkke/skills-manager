@@ -203,6 +203,17 @@ class CollectionDefinition(WorkflowModel):
     outputs: list[CollectionOutput] = Field(default_factory=list)
     forked_from: VersionedRef | None = None
     source_system_command_id: str | None = None
+    source_binding_mode: Literal["concrete-command"] | None = None
+
+    @model_validator(mode="after")
+    def validate_source_binding(self) -> "CollectionDefinition":
+        """具体命令模式必须绑定系统 CLI 来源。"""
+        if self.source_binding_mode and (
+            not self.source_system_command_id or not isinstance(self.spec, CliCollectionSpec)
+            or self.spec.command_parameter_syntax != "angle-v1"
+        ):
+            raise ValueError("具体命令实例要求系统来源、CLI 类型及 angle-v1 参数语法。")
+        return self
 
 
 class CollectionCall(WorkflowModel):

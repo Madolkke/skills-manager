@@ -125,6 +125,7 @@ export type CollectionDefinition = {
   outputs: CollectionOutput[];
   forkedFrom?: VersionedRef;
   sourceSystemCommandId?: string | null;
+  sourceBindingMode?: "concrete-command" | null;
 };
 
 export type CollectionCall = {
@@ -165,7 +166,7 @@ export type WorkflowBundle = {
   collectionSnapshots: CollectionDefinition[];
 };
 
-export type ImportCollectionDefinition = Omit<CollectionDefinition, "id" | "revision" | "forkedFrom" | "sourceSystemCommandId"> & { localId: string };
+export type ImportCollectionDefinition = Omit<CollectionDefinition, "id" | "revision" | "forkedFrom" | "sourceSystemCommandId" | "sourceBindingMode"> & { localId: string };
 export type ImportCollectionCall = Omit<CollectionCall, "definition"> & { definitionLocalId: string };
 export type ImportWorkflowStep = Omit<WorkflowStep, "collectionCalls"> & { collectionCalls: ImportCollectionCall[] };
 export type WorkflowImportBundle = {

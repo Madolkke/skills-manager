@@ -9,6 +9,7 @@ import type {
   VersionedRef,
   WorkflowCollectionChange,
 } from "../../../types";
+import WorkflowCommandInstanceModal from "./WorkflowCommandInstanceModal.vue";
 import { collectionLibraryItems, type CollectionLibraryItem } from "../domain/collectionLibrary";
 import { useCommandLibrarySearch } from "../useCommandLibrarySearch";
 import WorkflowCollectionFields from "./WorkflowCollectionFields.vue";
@@ -29,6 +30,14 @@ const emit = defineEmits<{
   "select-command": [result: CommandLibrarySearchResult];
 }>();
 const query = ref("");
+const pendingCommand = ref<{ result: CommandLibrarySearchResult; initial: string }>();
+
+/** 系统规则经具体命令确认后才创建实例。 */
+function confirmCommand(definition: CollectionDefinition): void {
+  if (!pendingCommand.value) return;
+  emit("select-command", { ...pendingCommand.value.result, instantiatedDefinition: definition });
+  pendingCommand.value = undefined;
+}
 const commandSearch = useCommandLibrarySearch(query);
 const includeUser = commandSearch.includeUser;
 const items = computed(() => collectionLibraryItems({
@@ -66,6 +75,9 @@ watch([() => props.selectedRef, () => props.definitions], () => {
 
 function selectItem(item: CollectionLibraryItem): void {
   if (item.definition) emit("select", { id: item.definition.id, revision: item.definition.revision });
+  else if (item.result?.source === "system") pendingCommand.value = {
+    result: item.result, initial: item.result.complete && item.result.consumedTokens ? query.value : "",
+  };
   else if (item.result) emit("select-command", item.result);
 }
 
@@ -112,9 +124,11 @@ function changeLabel(id: string): string {
           <div><strong>{{ selected.metadata.name || "未命名采集" }}</strong><span>revision {{ selected.revision }}</span><span v-if="selectedChange">{{ changeLabel(selected.id) }}</span><span v-if="selected.sourceSystemCommandId">系统来源</span><span v-if="selected.forkedFrom">来自副本</span></div>
           <UiIconButton v-if="removable" label="删除未保存采集" size="sm" variant="danger" @click="emit('remove', selected.id)"><Trash2 /></UiIconButton>
         </div>
-        <WorkflowCollectionFields :definition="selected" :readonly="props.readonly || Boolean(selected.sourceSystemCommandId)" @change="emit('change', { id: selected.id, revision: selected.revision }, $event)" />
+        <p v-if="selected.sourceSystemCommandId && !selectedChange">已保存的系统采集请在步骤调用内编辑；修改会仅为该调用创建副本。</p>
+        <WorkflowCollectionFields :definition="selected" :readonly="props.readonly || Boolean(selected.sourceSystemCommandId && !selectedChange)" @change="emit('change', { id: selected.id, revision: selected.revision }, $event)" />
       </div>
       <div v-else class="workflow-empty">选择一项以查看或添加到当前 Workflow。</div>
     </div>
   </section>
+  <WorkflowCommandInstanceModal v-if="pendingCommand" :command-id="pendingCommand.result.id" :expression="pendingCommand.result.expression" :initial-command="pendingCommand.initial" @close="pendingCommand = undefined" @confirm="confirmCommand" />
 </template>

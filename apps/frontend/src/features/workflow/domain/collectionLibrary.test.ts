@@ -59,7 +59,7 @@ describe("collectionLibraryItems", () => {
     }).map((item) => item.definition?.id)).toEqual(["config-1"]);
   });
 
-  it("系统来源按 sourceSystemCommandId 合并并可复用当前定义", () => {
+  it("系统规则与已有实例分别展示，不按来源自动复用", () => {
     const current = definition("current-system", "display system", "system");
     const result = command("system-1", "display system", "system");
     current.sourceSystemCommandId = result.id;
@@ -73,9 +73,9 @@ describe("collectionLibraryItems", () => {
       query: "",
     });
 
-    expect(items).toHaveLength(1);
-    expect(findReusableCommandDefinition(result, [current], [ref(current)])).toBe(current);
-    expect(items[0]?.definition).toBe(current);
+    expect(items).toHaveLength(2);
+    expect(findReusableCommandDefinition(result, [current], [ref(current)])).toBeUndefined();
+    expect(items.some((item) => item.definition === current)).toBe(true);
   });
 });
 

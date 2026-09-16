@@ -295,7 +295,8 @@ export function useWorkflowEditor(readonly: () => boolean) {
     const source = call && findCollection(catalog.value, call.definition);
     if (!call || !source) return false;
     const existingChange = changes.value.find((item) => item.definition.id === source.id);
-    if (existingChange && existingChange.operation !== "revise") {
+    const referenceCount = workflowSteps(bundle.value!).flatMap((step) => step.collectionCalls).filter((item) => item.definition.id === source.id && item.definition.revision === source.revision).length;
+    if (existingChange && existingChange.operation !== "revise" && referenceCount === 1) {
       editDefinition({ id: source.id, revision: source.revision }, mutate);
       return false;
     }
@@ -307,7 +308,10 @@ export function useWorkflowEditor(readonly: () => boolean) {
     fork.revision = 1;
     fork.key = defaultForkKey;
     fork.forkedFrom = { id: source.id, revision: source.revision };
-    delete fork.sourceSystemCommandId;
+    if (source.sourceBindingMode !== "concrete-command") {
+      delete fork.sourceSystemCommandId;
+      delete fork.sourceBindingMode;
+    }
     mutate(fork);
     const removedInputIds = [...previousInputIds].filter((id) => !fork.inputs.some((input) => input.id === id));
     fork.id = forkId;

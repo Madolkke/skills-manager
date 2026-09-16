@@ -1,3 +1,5 @@
+import type { CollectionDefinition } from "./workflow";
+
 export type CommandLibrarySample = {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ export type CommandLibrarySearchResult = {
   name?: string;
   description?: string;
   expression: string;
+  instantiatedDefinition?: CollectionDefinition;
   normalizedExpression?: string;
   metadata: Record<string, unknown>;
   versions?: string[];

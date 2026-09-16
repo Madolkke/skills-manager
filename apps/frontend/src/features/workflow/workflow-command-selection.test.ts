@@ -36,6 +36,11 @@ function command(): CommandLibrarySearchResult {
     expression: "show status",
     metadata: { name: "状态", description: "", industry: "", device: "", versions: [], tags: [] },
     samples: [],
+    instantiatedDefinition: {
+      id: "preview", revision: 1, key: "show_status", sourceSystemCommandId: "system-status", sourceBindingMode: "concrete-command",
+      metadata: { name: "状态", description: "", industry: "", device: "", versions: [], tags: [] },
+      spec: { collectionType: "cli", commandTemplate: "show status", commandParameterSyntax: "angle-v1", outputSamples: [] }, inputs: [], outputs: [],
+    },
     outputSchema: { type: "object", properties: { status: { type: "string" } }, required: ["status"], additionalProperties: false },
   };
 }
