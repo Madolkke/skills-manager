@@ -2,12 +2,14 @@
 import ast
 from typing import Any
 
+from .builtin_calls import validate_builtin_call
 from .types import TypeSpec, type_spec_assignable_to_schema
 
 
 def validate_call_arguments(checker, node: ast.Call, signature: dict[str, Any]) -> None:
     """按持久化顺序检查自定义声明，内置调用保留历史兼容行为。"""
     if signature.get("legacyBuiltin"):
+        validate_builtin_call(checker, node, node.func.id)
         return
     schema = signature.get("parameterSchema", {})
     # Legacy in-process signatures only describe abstract types.  They do

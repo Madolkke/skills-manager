@@ -161,7 +161,7 @@ def validate_workflow_import_references(
         for item in workflow["inputs"]
         if item["key"].strip()
     }
-    from skillhub.models.rules.workflows.expression import validate_binding_expression
+    from skillhub.models.rules.workflows.expression import validate_binding_expression, validate_expression
     for step in (node for node in nodes if "stepType" in node):
         for call in step.get("collectionCalls", []):
             definition = definitions[call["definitionLocalId"]]
@@ -196,7 +196,8 @@ def validate_workflow_import_references(
             workflow.get("deviceRoles", []),
         )
         for transition in step.get("topology", []):
-            diagnostics = validate_template(transition.get("conditionText", ""), environment, functions)
+            diagnostics = [item for item in validate_expression(transition.get("conditionExpression", ""), environment, functions)["diagnostics"] if item["code"].startswith("FUNCTION_") or item["code"] == "UNREGISTERED_CALL"]
+            diagnostics += validate_template(transition.get("conditionText", ""), environment, functions)
             if diagnostics:
                 raise InvariantError(
                     f"Workflow import condition template is invalid: {step['id']} {transition['id']}: "

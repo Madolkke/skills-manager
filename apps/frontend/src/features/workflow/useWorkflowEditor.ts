@@ -4,6 +4,7 @@ import { cloneWorkflow, createWorkflowId, findCall, findCollection, mergeCatalog
 import { validateWorkflow } from "./domain/validation";
 import { newCollection, newConclusion, newParameter, newRole, newStep } from "./editorDefaults";
 import { useWorkflowHistory } from "./useWorkflowHistory";
+import { useWorkflowFieldValidation } from "./useWorkflowFieldValidation";
 import { useWorkflowExpressionValidation } from "./useWorkflowExpressionValidation";
 import { createWorkflowOrdering } from "./workflowOrdering";
 import { createWorkflowPathEditing } from "./workflowPathEditing";
@@ -22,9 +23,10 @@ export function useWorkflowEditor(readonly: () => boolean) {
   const linkedCallFields = new Map<string, { name: boolean; key: boolean }>();
   const history = useWorkflowHistory(currentSnapshot, restore);
   const expressionValidation = useWorkflowExpressionValidation(bundle);
+  const fieldValidation = useWorkflowFieldValidation(bundle);
   const localIssues = shallowRef<ReturnType<typeof validateWorkflow>>([]);
   let validationTimer: number | null = null;
-  const issues = computed(() => [...localIssues.value, ...expressionValidation.issues.value]);
+  const issues = computed(() => [...localIssues.value, ...expressionValidation.issues.value, ...fieldValidation.issues.value]);
   const ordering = createWorkflowOrdering(bundle, commit);
   const paths = createWorkflowPathEditing(bundle, commit);
 

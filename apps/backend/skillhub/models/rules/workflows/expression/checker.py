@@ -23,7 +23,7 @@ class Diagnostic:
     end: int
 
     def serialize(self) -> dict[str, Any]:
-        return {"severity": "warning", "code": self.code, "message": self.message, "start": self.start, "end": self.end}
+        return {"severity": "error" if (self.code.startswith("FUNCTION_") or self.code == "UNREGISTERED_CALL") else "warning", "code": self.code, "message": self.message, "start": self.start, "end": self.end}
 
 
 def validate_expression(source: str, environment: dict[str, Any], functions: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -190,6 +190,12 @@ class _Checker:
                 self.warn(node.func, "UNREGISTERED_CALL", f"函数“{node.func.id}”未注册。")
                 return ANY
             validate_call_arguments(self, node, signature)
+            if signature.get("legacyBuiltin"):
+                from .builtin_calls import builtin_return_type
+
+                inferred = builtin_return_type(self, node, node.func.id)
+                if inferred is not None:
+                    return inferred
             return self._return_type(signature.get("returns", "any"), node.args[0] if node.args else None, None if signature.get("legacyBuiltin") else signature.get("returnSchema"))
         if isinstance(node.func, ast.Attribute):
             owner = self.infer(node.func.value)

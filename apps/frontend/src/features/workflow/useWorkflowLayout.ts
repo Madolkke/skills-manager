@@ -7,19 +7,22 @@ const RIGHT_MAX = 780;
 const COMPACT_WORKBENCH_MAX = 1439;
 
 export function useWorkflowLayout() {
-  const viewportWidth = typeof window === "undefined" ? 1600 : window.innerWidth;
-  const leftWidth = ref(workflowInitialLeftWidth(viewportWidth));
-  const rightWidth = ref(workflowInitialRightWidth(viewportWidth));
+  const viewportWidth = ref(typeof window === "undefined" ? 1600 : window.innerWidth);
+  const compact = computed(() => viewportWidth.value < 1180);
+  const activePanel = ref<"structure" | "editor" | "preview">("editor");
+  const leftWidth = ref(workflowInitialLeftWidth(viewportWidth.value));
+  const rightWidth = ref(workflowInitialRightWidth(viewportWidth.value));
   const leftCollapsed = ref(false);
   const rightCollapsed = ref(false);
   const graphExpanded = ref(false);
   const resizing = ref(false);
   let stopResize: (() => void) | null = null;
   const gridStyle = computed(() => ({
-    gridTemplateColumns: `${leftCollapsed.value ? 0 : leftWidth.value}px ${leftCollapsed.value ? 20 : 6}px minmax(560px, 1fr) ${rightCollapsed.value ? 20 : 6}px ${rightCollapsed.value ? 0 : rightWidth.value}px`,
+    gridTemplateColumns: compact.value ? "minmax(0, 1fr)" : `${leftCollapsed.value ? 0 : leftWidth.value}px ${leftCollapsed.value ? 20 : 6}px minmax(560px, 1fr) ${rightCollapsed.value ? 20 : 6}px ${rightCollapsed.value ? 0 : rightWidth.value}px`,
   }));
 
   function startResize(side: "left" | "right", event: PointerEvent): void {
+    if (compact.value) return;
     if ((side === "left" && leftCollapsed.value) || (side === "right" && rightCollapsed.value)) return;
     stopResize?.();
     const startX = event.clientX;
@@ -52,9 +55,22 @@ export function useWorkflowLayout() {
     graphExpanded.value = expanded;
   }
 
-  onBeforeUnmount(() => stopResize?.());
+  /** 在隐藏编辑器前提交待处理输入，保持桌面布局状态独立。 */
+  function showPanel(panel: "structure" | "editor" | "preview"): void {
+    if (compact.value && activePanel.value !== panel) flushFocusedInput();
+    activePanel.value = panel;
+  }
 
-  return { leftCollapsed, rightCollapsed, graphExpanded, resizing, gridStyle, startResize, toggle, setGraphExpanded };
+  /** 断点变化只改变可见面板，不覆盖桌面栏宽和折叠状态。 */
+  function resizeViewport(): void {
+    flushFocusedInput();
+    viewportWidth.value = window.innerWidth;
+    if (compact.value) stopResize?.();
+  }
+  window.addEventListener("resize", resizeViewport);
+  onBeforeUnmount(() => { stopResize?.(); window.removeEventListener("resize", resizeViewport); });
+
+  return { compact, activePanel, showPanel, leftCollapsed, rightCollapsed, graphExpanded, resizing, gridStyle, startResize, toggle, setGraphExpanded };
 }
 
 export function workflowInitialRightWidth(viewportWidth: number): number {
@@ -67,4 +83,9 @@ export function workflowInitialLeftWidth(viewportWidth: number): number {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+/** blur 由各编辑器负责同步草稿并关闭补全。 */
+function flushFocusedInput(): void {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 }

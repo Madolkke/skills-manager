@@ -298,7 +298,7 @@ def _step_expression_environment(
 
 
 def _expression_diagnostic_severity(code: str) -> str | None:
-    if code in {"CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "CONFIG_ARRAY_INDEX_INVALID"}:
+    if code.startswith("FUNCTION_") or code in {"UNREGISTERED_CALL", "CONFIG_STRING_SUBSCRIPT_FORBIDDEN", "CONFIG_ARRAY_INDEX_INVALID"}:
         return "error"
     if code in SAMPLE_INDEX_DIAGNOSTIC_CODES:
         return "warning"

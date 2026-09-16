@@ -1,0 +1,657 @@
+{
+  "workflow": {
+    "id": "workflow_57015ae833614ce2b8d5ce5913c40353",
+    "revision": 12,
+    "metadata": {
+      "name": "qa_schema_20260916_复杂 Schema 补全验收",
+      "code": "qa_schema_20260916_workflow",
+      "description": "复杂 Schema 补全验收：接口、路由、BGP 和 Fabric 多层对象数组。仅写作验证，不执行设备命令。",
+      "symptom": "",
+      "industry": "",
+      "device": "",
+      "versions": []
+    },
+    "inputs": [
+      {
+        "id": "input_506f902a-c6cc-4287-adf4-1bf2a421972c",
+        "key": "interface",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "title": "接口",
+          "description": "接口验收参数",
+          "x-skillhub-legacy-loose": false
+        }
+      },
+      {
+        "id": "input_76491b18-d118-48d7-8791-870e88d631ee",
+        "key": "vrf",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "title": "路由实例",
+          "description": "路由实例验收参数",
+          "x-skillhub-legacy-loose": false
+        }
+      },
+      {
+        "id": "input_1454e82b-ddc8-4279-8558-3b1f1f6f5d14",
+        "key": "index",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "title": "数组下标",
+          "description": "数组下标验收参数",
+          "x-skillhub-legacy-loose": false
+        }
+      }
+    ],
+    "deviceRoles": [],
+    "nodes": [
+      {
+        "id": "step_5edce127-a777-43e1-a7b3-71e629dc05a8",
+        "name": "qa_schema_20260916_复杂数组采集",
+        "description": "四条系统命令复杂 Schema 演示；outputs 表达式补全验收遇到页面无响应，详见本地验收报告。",
+        "isStart": true,
+        "parallelBranches": false,
+        "collectionCalls": [
+          {
+            "id": "call_a04d33d8-30a2-43d4-838b-4bc10666e73f",
+            "key": "interfaces",
+            "name": "接口统计",
+            "definition": {
+              "id": "collection_03f88226-cf20-4ce7-a3e5-2e480138bb81",
+              "revision": 2
+            },
+            "sampleCount": 1,
+            "inputBindings": {
+              "input_interface": {
+                "kind": "workflow_input",
+                "reference": {
+                  "input_id": "input_506f902a-c6cc-4287-adf4-1bf2a421972c"
+                }
+              }
+            }
+          },
+          {
+            "id": "call_16b5c051-f6a8-4d6d-a67a-617ee58966eb",
+            "key": "routes",
+            "name": "路由统计",
+            "definition": {
+              "id": "collection_ea27707d-b63c-4e12-9828-1787e12f87d7",
+              "revision": 2
+            },
+            "sampleCount": 1,
+            "inputBindings": {
+              "input_vrf": {
+                "kind": "workflow_input",
+                "reference": {
+                  "input_id": "input_76491b18-d118-48d7-8791-870e88d631ee"
+                }
+              }
+            }
+          },
+          {
+            "id": "call_969e8699-e32a-4fe2-82a4-fe502cd9e896",
+            "key": "bgp",
+            "name": "BGP 邻居",
+            "definition": {
+              "id": "collection_651aeb78-4ea2-405f-873b-a7d8ff18a17c",
+              "revision": 2
+            },
+            "sampleCount": 1,
+            "inputBindings": {
+              "input_vrf": {
+                "kind": "workflow_input",
+                "reference": {
+                  "input_id": "input_76491b18-d118-48d7-8791-870e88d631ee"
+                }
+              }
+            }
+          },
+          {
+            "id": "call_ad139769-5274-4cbb-bfd1-6010e639f9aa",
+            "key": "fabric",
+            "name": "Fabric 健康",
+            "definition": {
+              "id": "collection_637ef6f0-7673-4895-9d5a-f76f5aff8923",
+              "revision": 2
+            },
+            "sampleCount": 3,
+            "inputBindings": {}
+          }
+        ],
+        "topology": [
+          {
+            "id": "transition_79c413c4-3b8a-4a8c-96c4-b47e729ed054",
+            "target": {
+              "id": "step_bc1a65f1-2de5-4d47-b622-7c382568a783"
+            },
+            "conditionText": "输入实例 {{ inputs.vrf }}，使用现有函数 {{ len(inputs.vrf) }} 验证模板。",
+            "conditionExpression": "len(inputs.vrf) > 0 and sum([1, 2, 3]) > 0"
+          }
+        ],
+        "stepType": "expression"
+      },
+      {
+        "id": "step_bc1a65f1-2de5-4d47-b622-7c382568a783",
+        "name": "qa_schema_20260916_结果确认",
+        "description": "",
+        "isStart": false,
+        "parallelBranches": false,
+        "collectionCalls": [],
+        "topology": [
+          {
+            "id": "transition_6dd5a3af-0ac3-41ec-bd82-4a90c23a937e",
+            "target": {
+              "id": "conclusion_9af51d1e-d31e-411d-a9f2-13220470fe31"
+            },
+            "conditionText": "",
+            "conditionExpression": ""
+          }
+        ],
+        "stepType": "expression"
+      },
+      {
+        "id": "conclusion_9af51d1e-d31e-411d-a9f2-13220470fe31",
+        "name": "qa_schema_20260916_验收结论",
+        "severity": "info",
+        "rootCause": "验收输入 {{ inputs.vrf }}；仅验证写作补全，不代表真实设备执行。",
+        "repairRecommendation": "确认 Schema、输入绑定和数组层级后再进行真实环境验证。",
+        "nodeType": "conclusion"
+      }
+    ]
+  },
+  "collectionSnapshots": [
+    {
+      "id": "collection_03f88226-cf20-4ce7-a3e5-2e480138bb81",
+      "revision": 2,
+      "key": "qa_schema_20260916_interfaces",
+      "metadata": {
+        "name": "qa_schema_20260916_接口统计",
+        "description": "接口计数器与地址对象数组验收。仅展示模拟回显。",
+        "industry": "",
+        "device": "",
+        "versions": [],
+        "tags": []
+      },
+      "spec": {
+        "commandTemplate": "show interfaces <interface>",
+        "outputSamples": [
+          {
+            "id": "sample_b4f13ab8-5c45-4a34-9ed0-7ee2f5b8763e",
+            "name": "qa_schema_20260916_接口回显",
+            "stdout": "{\n  \"interfaces\": [\n    {\n      \"name\": \"Ethernet1\",\n      \"up\": true,\n      \"counters\": {\n        \"rx\": 1200,\n        \"tx\": 950,\n        \"errors\": 0\n      },\n      \"addresses\": [\n        {\n          \"address\": \"192.0.2.1\",\n          \"prefix_length\": 24\n        }\n      ]\n    }\n  ]\n}",
+            "inputValues": {}
+          }
+        ],
+        "collectionType": "cli"
+      },
+      "inputs": [
+        {
+          "id": "input_interface",
+          "key": "interface",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "interface",
+            "description": "",
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_interfaces",
+          "key": "interfaces",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "接口",
+            "description": "接口列表",
+            "items": {
+              "type": "object",
+              "title": "接口信息",
+              "description": "接口信息结构",
+              "properties": {
+                "addresses": {
+                  "type": "array",
+                  "title": "地址",
+                  "description": "地址列表",
+                  "items": {
+                    "type": "object",
+                    "title": "地址信息",
+                    "description": "地址信息结构",
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "title": "地址",
+                        "description": "IP 地址",
+                        "x-skillhub-legacy-loose": false
+                      },
+                      "prefix_length": {
+                        "type": "integer",
+                        "title": "前缀长度",
+                        "description": "网络前缀长度",
+                        "x-skillhub-legacy-loose": false
+                      }
+                    },
+                    "required": [
+                      "address",
+                      "prefix_length"
+                    ],
+                    "additionalProperties": false,
+                    "x-skillhub-legacy-loose": false
+                  },
+                  "x-skillhub-legacy-loose": false
+                },
+                "counters": {
+                  "type": "object",
+                  "title": "计数器",
+                  "description": "计数器结构",
+                  "properties": {
+                    "errors": {
+                      "type": "integer",
+                      "title": "错误数",
+                      "description": "错误包数",
+                      "x-skillhub-legacy-loose": false
+                    },
+                    "rx": {
+                      "type": "integer",
+                      "title": "接收数",
+                      "description": "接收包数",
+                      "x-skillhub-legacy-loose": false
+                    },
+                    "tx": {
+                      "type": "integer",
+                      "title": "发送数",
+                      "description": "发送包数",
+                      "x-skillhub-legacy-loose": false
+                    }
+                  },
+                  "required": [
+                    "errors",
+                    "rx",
+                    "tx"
+                  ],
+                  "additionalProperties": false,
+                  "x-skillhub-legacy-loose": false
+                },
+                "name": {
+                  "type": "string",
+                  "title": "接口名称",
+                  "description": "接口标识",
+                  "x-skillhub-legacy-loose": false
+                },
+                "up": {
+                  "type": "boolean",
+                  "title": "链路状态",
+                  "description": "是否已连接",
+                  "x-skillhub-legacy-loose": false
+                }
+              },
+              "required": [
+                "addresses",
+                "counters",
+                "name",
+                "up"
+              ],
+              "additionalProperties": false,
+              "x-skillhub-legacy-loose": false
+            },
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "sourceSystemCommandId": "system-command_519f6a3b95db4bfbbc48598a4ceb27e3"
+    },
+    {
+      "id": "collection_ea27707d-b63c-4e12-9828-1787e12f87d7",
+      "revision": 2,
+      "key": "qa_schema_20260916_routes",
+      "metadata": {
+        "name": "qa_schema_20260916_路由统计",
+        "description": "路由与下一跳对象数组验收。仅展示模拟回显。",
+        "industry": "",
+        "device": "",
+        "versions": [],
+        "tags": []
+      },
+      "spec": {
+        "commandTemplate": "show routes <vrf>",
+        "outputSamples": [
+          {
+            "id": "sample_e531a372-d169-4cb1-a08b-6f2b7d3607ba",
+            "name": "qa_schema_20260916_路由回显",
+            "stdout": "{\n  \"routes\": [\n    {\n      \"prefix\": \"198.51.100.0/24\",\n      \"vrf\": \"default\",\n      \"next_hops\": [\n        {\n          \"address\": \"192.0.2.2\",\n          \"metric\": 10.5\n        }\n      ]\n    }\n  ],\n  \"summary\": {\n    \"total\": 1\n  }\n}",
+            "inputValues": {}
+          }
+        ],
+        "collectionType": "cli"
+      },
+      "inputs": [
+        {
+          "id": "input_vrf",
+          "key": "vrf",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "vrf",
+            "description": "",
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_routes",
+          "key": "routes",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "路由",
+            "description": "路由列表",
+            "items": {
+              "type": "object",
+              "title": "路由信息",
+              "description": "路由信息结构",
+              "properties": {
+                "next_hops": {
+                  "type": "array",
+                  "title": "下一跳",
+                  "description": "下一跳列表",
+                  "items": {
+                    "type": "object",
+                    "title": "下一跳信息",
+                    "description": "下一跳信息结构",
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "title": "地址",
+                        "description": "下一跳 IP 地址",
+                        "x-skillhub-legacy-loose": false
+                      },
+                      "metric": {
+                        "type": "number",
+                        "title": "度量",
+                        "description": "路由度量值",
+                        "x-skillhub-legacy-loose": false
+                      }
+                    },
+                    "required": [
+                      "address",
+                      "metric"
+                    ],
+                    "additionalProperties": false,
+                    "x-skillhub-legacy-loose": false
+                  },
+                  "x-skillhub-legacy-loose": false
+                },
+                "prefix": {
+                  "type": "string",
+                  "title": "目标前缀",
+                  "description": "路由目标地址",
+                  "x-skillhub-legacy-loose": false
+                },
+                "vrf": {
+                  "type": "string",
+                  "title": "路由实例",
+                  "description": "所属 VRF",
+                  "x-skillhub-legacy-loose": false
+                }
+              },
+              "required": [
+                "next_hops",
+                "prefix",
+                "vrf"
+              ],
+              "additionalProperties": false,
+              "x-skillhub-legacy-loose": false
+            },
+            "x-skillhub-legacy-loose": false
+          }
+        },
+        {
+          "id": "output_summary",
+          "key": "summary",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "title": "汇总",
+            "description": "汇总结构",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "title": "路由总数",
+                "description": "路由记录数量",
+                "x-skillhub-legacy-loose": false
+              }
+            },
+            "required": [
+              "total"
+            ],
+            "additionalProperties": false,
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "sourceSystemCommandId": "system-command_b682a0e050fb42af875de321a0b7ef56"
+    },
+    {
+      "id": "collection_651aeb78-4ea2-405f-873b-a7d8ff18a17c",
+      "revision": 2,
+      "key": "qa_schema_20260916_bgp",
+      "metadata": {
+        "name": "qa_schema_20260916_BGP 邻居",
+        "description": "深层地址族与前缀统计验收。仅展示模拟回显。",
+        "industry": "",
+        "device": "",
+        "versions": [],
+        "tags": []
+      },
+      "spec": {
+        "commandTemplate": "show bgp peers <vrf>",
+        "outputSamples": [
+          {
+            "id": "sample_070f865e-1e52-497b-89f5-754ac805dc51",
+            "name": "qa_schema_20260916_bgp_回显",
+            "stdout": "{\n  \"peers\": [\n    {\n      \"address\": \"192.0.2.2\",\n      \"state\": \"Established\",\n      \"families\": [\n        {\n          \"name\": \"ipv4\",\n          \"prefixes\": {\n            \"received\": 20,\n            \"accepted\": 18\n          }\n        }\n      ]\n    }\n  ]\n}",
+            "inputValues": {}
+          }
+        ],
+        "collectionType": "cli"
+      },
+      "inputs": [
+        {
+          "id": "input_vrf",
+          "key": "vrf",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "title": "vrf",
+            "description": "",
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "id": "output_peers",
+          "key": "peers",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "邻居",
+            "description": "邻居列表",
+            "items": {
+              "type": "object",
+              "title": "邻居信息",
+              "description": "邻居信息结构",
+              "properties": {
+                "address": {
+                  "type": "string",
+                  "title": "地址",
+                  "description": "邻居 IP 地址",
+                  "x-skillhub-legacy-loose": false
+                },
+                "families": {
+                  "type": "array",
+                  "title": "地址族",
+                  "description": "地址族列表",
+                  "items": {
+                    "type": "object",
+                    "title": "地址族信息",
+                    "description": "地址族信息结构",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "title": "地址族名称",
+                        "description": "IPv4 或 IPv6",
+                        "x-skillhub-legacy-loose": false
+                      },
+                      "prefixes": {
+                        "type": "object",
+                        "title": "前缀统计",
+                        "description": "前缀统计结构",
+                        "properties": {
+                          "accepted": {
+                            "type": "integer",
+                            "title": "接受数",
+                            "description": "接受的前缀数量",
+                            "x-skillhub-legacy-loose": false
+                          },
+                          "received": {
+                            "type": "integer",
+                            "title": "接收数",
+                            "description": "收到的前缀数量",
+                            "x-skillhub-legacy-loose": false
+                          }
+                        },
+                        "required": [
+                          "accepted",
+                          "received"
+                        ],
+                        "additionalProperties": false,
+                        "x-skillhub-legacy-loose": false
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "prefixes"
+                    ],
+                    "additionalProperties": false,
+                    "x-skillhub-legacy-loose": false
+                  },
+                  "x-skillhub-legacy-loose": false
+                },
+                "state": {
+                  "type": "string",
+                  "title": "会话状态",
+                  "description": "BGP 会话状态",
+                  "x-skillhub-legacy-loose": false
+                }
+              },
+              "required": [
+                "address",
+                "families",
+                "state"
+              ],
+              "additionalProperties": false,
+              "x-skillhub-legacy-loose": false
+            },
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "sourceSystemCommandId": "system-command_d1223e9da95e4c74b011d8b450a8782b"
+    },
+    {
+      "id": "collection_637ef6f0-7673-4895-9d5a-f76f5aff8923",
+      "revision": 2,
+      "key": "qa_schema_20260916_fabric",
+      "metadata": {
+        "name": "qa_schema_20260916_Fabric 健康",
+        "description": "二维对象数组与字符串数组验收。仅展示模拟回显。",
+        "industry": "",
+        "device": "",
+        "versions": [],
+        "tags": []
+      },
+      "spec": {
+        "commandTemplate": "show fabric health",
+        "outputSamples": [
+          {
+            "id": "sample_823d9d01-3440-4515-975c-d14402ada579",
+            "name": "qa_schema_20260916_fabric_回显",
+            "stdout": "{\n  \"matrix\": [\n    [\n      {\n        \"value\": 98.5,\n        \"healthy\": true\n      },\n      {\n        \"value\": 55,\n        \"healthy\": false\n      }\n    ],\n    [\n      {\n        \"value\": 95,\n        \"healthy\": true\n      },\n      {\n        \"value\": 99,\n        \"healthy\": true\n      }\n    ]\n  ],\n  \"labels\": [\n    \"leaf1\",\n    \"leaf2\"\n  ]\n}",
+            "inputValues": {}
+          }
+        ],
+        "collectionType": "cli"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output_labels",
+          "key": "labels",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "标签",
+            "description": "标签列表",
+            "items": {
+              "type": "string",
+              "title": "标签名称",
+              "description": "节点名称",
+              "x-skillhub-legacy-loose": false
+            },
+            "x-skillhub-legacy-loose": false
+          }
+        },
+        {
+          "id": "output_matrix",
+          "key": "matrix",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "健康矩阵",
+            "description": "健康矩阵列表",
+            "items": {
+              "type": "array",
+              "title": "矩阵行",
+              "description": "矩阵行列表",
+              "items": {
+                "type": "object",
+                "title": "矩阵单元",
+                "description": "矩阵单元结构",
+                "properties": {
+                  "healthy": {
+                    "type": "boolean",
+                    "title": "健康状态",
+                    "description": "单元是否健康",
+                    "x-skillhub-legacy-loose": false
+                  },
+                  "value": {
+                    "type": "number",
+                    "title": "健康评分",
+                    "description": "单元健康评分",
+                    "x-skillhub-legacy-loose": false
+                  }
+                },
+                "required": [
+                  "healthy"
+                ],
+                "additionalProperties": false,
+                "x-skillhub-legacy-loose": false
+              },
+              "x-skillhub-legacy-loose": false
+            },
+            "x-skillhub-legacy-loose": false
+          }
+        }
+      ],
+      "sourceSystemCommandId": "system-command_531059fe922941afa1c159362c7e9441"
+    }
+  ],
+  "documentType": "workflow_bundle"
+}
