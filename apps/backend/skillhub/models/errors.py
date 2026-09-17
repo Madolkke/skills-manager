@@ -5,6 +5,17 @@ class DomainError(Exception):
     """Base class for domain invariant failures."""
 
 
+class CommandParseError(DomainError):
+    """回显解析失败，保留稳定错误码和可公开候选。"""
+
+    def __init__(self, code: str, detail: str, status: int, candidates: list[dict[str, str]] | None = None):
+        """保存协议适配需要的信息，不携带模板、回显或底层异常文本。"""
+        super().__init__(detail)
+        self.code = code
+        self.status = status
+        self.candidates = candidates or []
+
+
 class NotFoundError(DomainError):
     """Raised when a referenced domain object does not exist."""
 

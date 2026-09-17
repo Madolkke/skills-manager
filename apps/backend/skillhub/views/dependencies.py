@@ -27,6 +27,7 @@ from skillhub.services import (
     WorkflowService,
 )
 from skillhub.services.analytics import AnalyticsService
+from skillhub.services.command_parsing import CommandParsingService
 from skillhub.services.mcp_identity import resolve_mcp_actor
 from skillhub.services.workflow_authoring import WorkflowAuthoringService
 from skillhub.services.workflow_debug_runtime import WorkflowDebugSettings
@@ -83,6 +84,11 @@ def admin_service_dependency(session: Session = Depends(session_dependency, scop
 
 def command_library_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> CommandLibraryService:
     return CommandLibraryService(SkillHubStore(session))
+
+
+def command_parsing_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> CommandParsingService:
+    """创建只读命令回显解析服务。"""
+    return CommandParsingService(SkillHubStore(session))
 
 
 def external_skill_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> ExternalSkillService:

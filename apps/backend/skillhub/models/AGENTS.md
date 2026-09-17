@@ -7,6 +7,7 @@
 - `operations/workflows/authoring*.py`、`catalog_plan.py`：工作流创作分页查询、系统命令输入 ID 的无查询投影、无写入候选与采集变更计划；预检和保存复用同一规则。
 - `rules/workflows/authoring*.py`：局部编辑批次、引用分配、采集副本、字段表达式上下文与完整诊断；不访问数据库。
 - `rules/workflows/save_policy.py`：MCP 预检与正式保存共用的草稿、严格策略和阻断诊断规则。
+- `rules/command_parsing.py`、`rules/ttp_template.py`：完整候选选择、JSON Pointer 结果诊断及纯文本 TTP 允许范围。
 
 - `operations/expression_functions.py`、`schema/expression_functions.py`：全局函数声明存储与目录投影，函数体仅保存文本。
 

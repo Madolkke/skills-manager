@@ -17,6 +17,7 @@ dependencies = [
   "sqlglot>=27.0",
   "uvicorn[standard]>=0.30",
   "mcp>=1.26,<2",
+  "ttp==0.10.1",
 ]
 
 [dependency-groups]

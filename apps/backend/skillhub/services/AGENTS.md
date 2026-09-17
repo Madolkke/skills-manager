@@ -6,6 +6,7 @@
 
 - `workflow_authoring.py`、`workflow_authoring_contract.py`：MCP 工作流分页查询、字段上下文、局部编辑批次与只读预检，通过 `models.rules.workflows.save_policy` 与正式保存共用策略及阻断诊断规则；读取、预检及保存通过 Store 返回完整表达式诊断和 UTF-16 字段位置。
 - `mcp_identity.py`：仅 MCP 写工具使用的 Cookie 非空检查和模拟用户解析；身份接口 URL 为预留配置，本期不发 HTTP。
+- `command_parsing.py`、`ttp_worker.py`：系统命令只读选择、TTP 独立子进程解析、超时回收与结果校验；不执行设备命令。
 
 - `expression_functions.py`：封装后台全局表达式函数 CRUD。
 

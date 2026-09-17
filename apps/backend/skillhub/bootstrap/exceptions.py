@@ -6,13 +6,19 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from skillhub.models.errors import ConflictError, InvariantError, NotFoundError, PermissionDeniedError, ServiceUnavailableError
-from skillhub.views.responses import error_payload, request_validation_field_errors
+from skillhub.models.errors import CommandParseError, ConflictError, InvariantError, NotFoundError, PermissionDeniedError, ServiceUnavailableError
+from skillhub.views.responses import command_parse_error_payload, error_payload, request_validation_field_errors
 
 logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(CommandParseError)
+    def command_parse_handler(request, exc: CommandParseError):
+        """仅记录公开诊断，保持全局异常边界一致。"""
+        _log_warning(request, exc, exc.status)
+        return JSONResponse(status_code=exc.status, content=command_parse_error_payload(exc))
+
     @app.exception_handler(NotFoundError)
     def not_found_handler(request, exc: NotFoundError):
         _log_warning(request, exc, 404)
@@ -43,9 +49,12 @@ def register_exception_handlers(app: FastAPI) -> None:
             422,
             len(exc.errors()),
         )
+        content = {"detail": "请求字段不完整或格式不正确。", "field_errors": request_validation_field_errors(exc.errors())}
+        if request.url.path == "/api/command-library/parse":
+            content["code"] = "INVALID_REQUEST"
         return JSONResponse(
             status_code=422,
-            content={"detail": "请求字段不完整或格式不正确。", "field_errors": request_validation_field_errors(exc.errors())},
+            content=content,
         )
 
     @app.exception_handler(PermissionDeniedError)
