@@ -15,8 +15,11 @@ let observer: ResizeObserver | undefined;
 
 /** 同步聚合序列，null 保留为未采集的折线空段。 */
 function render(): void {
+  const styles = host.value ? getComputedStyle(host.value) : undefined;
+  const color = (name: string, fallback: string) => styles?.getPropertyValue(name).trim() || fallback;
   chart?.setOption({
-    color: ["#3b82f6", "#10b981"],
+    color: [color("--blue", "#2563eb"), color("--green", "#12805c")],
+    textStyle: { color: color("--muted", "#64748b"), fontFamily: styles?.fontFamily || "sans-serif" },
     tooltip: { trigger: "axis", confine: true },
     legend: { show: props.kind === "visits", top: 0 },
     grid: { top: 42, left: 52, right: 24, bottom: 44 },

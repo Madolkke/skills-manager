@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 import type { CollectionDefinition } from "../../types";
 import WorkflowCommandInstanceModal from "./components/WorkflowCommandInstanceModal.vue";
 import WorkflowCollectionFields from "./components/WorkflowCollectionFields.vue";
+import WorkflowCommandSourceNotice from "./components/WorkflowCommandSourceNotice.vue";
 
 const definition: CollectionDefinition = {
   id: "preview", revision: 1, key: "routes", sourceSystemCommandId: "system", sourceBindingMode: "concrete-command",
@@ -15,6 +16,25 @@ const definition: CollectionDefinition = {
 
 describe("具体命令确认", () => {
   afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
+
+  it("区分动态提示、不匹配提醒和请求失败，更新命令后清除旧提示", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(api, "previewCommandInstance")
+      .mockResolvedValueOnce({ definition, warnings: [{ code: "COMMAND_MATCH_DYNAMIC", message: "无法确认运行时匹配" }] })
+      .mockResolvedValueOnce({ definition, warnings: [{ code: "COMMAND_SOURCE_MISMATCH", message: "与来源不匹配" }] })
+      .mockRejectedValueOnce(new Error("网络不可用"));
+    const wrapper = mount(WorkflowCommandSourceNotice, { props: { sourceId: "system", command: "show <vrf>" } });
+    await vi.advanceTimersByTimeAsync(310);
+    expect(wrapper.get('[role="status"]').text()).toContain("动态参数");
+    await wrapper.setProps({ command: "other" });
+    expect(wrapper.find('[role="status"]').exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(310);
+    expect(wrapper.get('[role="status"]').text()).toContain("匹配提醒");
+    await wrapper.setProps({ command: "show routes" });
+    await vi.advanceTimersByTimeAsync(310);
+    expect(wrapper.get('[role="alert"]').text()).toContain("检查失败网络不可用");
+    wrapper.unmount();
+  });
 
   it("只接受当前预览，非法命令保留文本且禁止添加", async () => {
     vi.useFakeTimers();

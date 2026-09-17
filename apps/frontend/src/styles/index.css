@@ -70,3 +70,8 @@
 @import "./features/evaluation/assertion-template-picker.css";
 @import "./core/responsive.css";
 @import "./core/small-screen.css";
+
+@import "./features/workflow/command-instances.css";
+@import "./features/skill/admin-expression-functions.css";
+@import "./features/skill/admin-analytics.css";
+@import "./features/skill/admin-ui-polish.css";

@@ -1,0 +1,29 @@
+/* 命令实例弹窗通过 motion-workflow 获得 Teleport 后的工作流变量。 */
+.command-instance-form { display: grid; align-content: start; gap: 16px; min-height: 0; overflow: auto; padding: 24px; }
+.command-instance-form .field-label { gap: 8px; font-size: 13px; }
+.command-instance-form input { font-family: var(--mono-font); }
+.command-instance-source { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--wf-border-subtle); border-radius: 8px; background: var(--wf-surface-subtle); }
+.command-instance-source > span { color: var(--wf-text-muted); font-size: 11px; font-weight: 700; }
+.command-instance-source code { overflow-wrap: anywhere; color: var(--wf-text-secondary); line-height: 1.65; }
+.command-instance-help { color: var(--wf-text-muted); font-size: 12px; line-height: 1.7; }
+.command-instance-parameters { display: grid; gap: 10px; }
+.command-instance-parameters > strong { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.command-instance-parameters strong span { border-radius: 4px; padding: 2px 6px; background: var(--wf-surface-muted); color: var(--wf-text-muted); font-size: 11px; }
+.command-instance-parameters > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.command-instance-parameters code { padding: 4px 8px; border: 1px solid var(--wf-accent-border); border-radius: 5px; background: var(--wf-accent-soft); color: var(--wf-accent-strong); overflow-wrap: anywhere; }
+.command-instance-parameters p { color: var(--wf-text-muted); font-size: 12px; }
+.command-instance-schema { min-width: 0; border: 1px solid var(--wf-border); border-radius: 8px; overflow: hidden; }
+.command-instance-schema summary { padding: 12px 14px; cursor: pointer; font-weight: 700; background: var(--wf-surface-subtle); }
+.command-instance-schema summary span { margin-left: 8px; color: var(--wf-text-muted); font-size: 11px; font-weight: 400; }
+.command-instance-schema pre { max-height: 280px; overflow: auto; padding: 16px; font: 12px/1.65 var(--mono-font); white-space: pre; background: var(--wf-code-surface); }
+.workflow-command-notice { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--wf-warning-border); border-radius: 6px; background: var(--wf-warning-soft); color: var(--wf-warning); overflow-wrap: anywhere; font-size: 12px; line-height: 1.65; }
+.workflow-command-notice.is-info { background: var(--wf-info-soft); border-color: var(--wf-accent-border); color: var(--wf-info); }
+.workflow-command-notice.is-error { background: var(--wf-danger-soft); border-color: var(--wf-danger-border); color: var(--wf-danger); }
+.workflow-source-card { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--wf-border); border-radius: 8px; background: var(--wf-surface-subtle); }
+.workflow-source-card p { flex-basis: 100%; color: var(--wf-text-secondary); font-size: 12px; line-height: 1.6; }
+.workflow-source-card > span { color: var(--wf-text-muted); font-size: 12px; }
+.workflow-source-badge { padding: 3px 7px; background: var(--wf-accent-soft); color: var(--wf-accent-strong); border-radius: 4px; font-size: 11px; }
+@media (max-width: 560px) {
+  .command-instance-form { padding: 16px; gap: 14px; }
+  .workflow-source-card .ui-button { flex: 1 1 auto; }
+}

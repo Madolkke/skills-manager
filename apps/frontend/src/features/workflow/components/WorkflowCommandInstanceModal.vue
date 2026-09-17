@@ -42,27 +42,19 @@ onBeforeUnmount(() => { controller?.abort(); clearTimeout(timer); });
 </script>
 
 <template>
-  <Modal title="确认采集命令" :open="true" @close="emit('close')">
+  <Modal title="确认采集命令" description="系统规则提供回显结构；本次采集保存你填写的具体命令。" size="editor" motion="workflow" :open="true" @close="emit('close')">
     <div class="command-instance-form">
-      <p v-if="props.expression">来源表达式：<code>{{ props.expression }}</code></p>
-      <label class="field-label"><span>具体采集命令</span><input v-model="command" aria-label="具体采集命令" placeholder="例如 show routes vrf <vrf> detail" /></label>
-      <p>只有本条命令的 &lt;参数&gt; 会生成输入；请确定实际使用的可选分支。</p>
-      <p>输入参数：{{ parsed.names.join('、') || '无' }}</p>
-      <p v-if="parsed.error || error" role="alert">{{ parsed.error || error }}</p>
-      <p v-if="busy" role="status">正在预览…</p>
+      <section v-if="props.expression" class="command-instance-source"><span>来源规则 · 只读</span><code>{{ props.expression }}</code></section>
+      <label class="field-label"><span>具体采集命令</span><input v-model="command" aria-label="具体采集命令" :aria-invalid="Boolean(parsed.error || error)" aria-describedby="command-instance-help" placeholder="例如 show routes vrf &lt;vrf&gt; detail" /></label>
+      <p id="command-instance-help" class="command-instance-help">只有本条命令的 &lt;参数&gt; 会生成输入；请确定实际使用的可选分支。</p>
+      <section class="command-instance-parameters" aria-label="实例输入参数"><strong>实例参数 <span>{{ parsed.names.length }}</span></strong><div v-if="parsed.names.length"><code v-for="name in parsed.names" :key="name">{{ name }}</code></div><p v-else>无输入参数，将使用固定命令。</p></section>
+      <p v-if="parsed.error || error" class="workflow-command-notice is-error" role="alert"><strong>无法预览</strong>{{ parsed.error || error }}</p>
+      <p v-if="busy" class="workflow-command-notice is-info" role="status">正在检查命令并加载输出 Schema…</p>
       <template v-if="preview">
-        <p v-for="warning in preview.warnings" :key="warning.code" role="status">{{ warning.message }}</p>
-        <details><summary>回显 Schema（来源只读）</summary><pre>{{ JSON.stringify(preview.definition.outputs, null, 2) }}</pre></details>
+        <p v-for="warning in preview.warnings" :key="warning.code" class="workflow-command-notice" :class="warning.code === 'COMMAND_MATCH_DYNAMIC' ? 'is-info' : 'is-warning'" role="status"><strong>{{ warning.code === 'COMMAND_MATCH_DYNAMIC' ? '动态参数' : '匹配提醒' }}</strong>{{ warning.message }}</p>
+        <details class="command-instance-schema"><summary>输出 Schema <span>来源只读</span></summary><pre>{{ JSON.stringify(preview.definition.outputs, null, 2) }}</pre></details>
       </template>
-      <div class="modal-actions"><UiButton variant="secondary" @click="emit('close')">取消</UiButton><UiButton :disabled="!preview || busy" @click="preview && emit('confirm', preview.definition)">确认命令并添加</UiButton></div>
     </div>
+    <footer class="modal-actions"><UiButton variant="secondary" @click="emit('close')">取消</UiButton><UiButton variant="primary" :disabled="!preview || busy" @click="preview && emit('confirm', preview.definition)">确认命令并添加</UiButton></footer>
   </Modal>
 </template>
-
-<style scoped>
-.command-instance-form { display: grid; gap: 12px; min-width: 0; }
-.command-instance-form input { width: 100%; min-width: 0; }
-.command-instance-form p { overflow-wrap: anywhere; }
-.command-instance-form pre { max-height: 280px; overflow: auto; }
-.modal-actions { flex-wrap: wrap; }
-</style>

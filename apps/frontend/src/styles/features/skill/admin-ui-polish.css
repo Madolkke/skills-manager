@@ -1,0 +1,46 @@
+/* 近期后台页面统一：仅限定到对应功能容器。 */
+.admin-nav-row .skill-tabs { gap: 8px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); scrollbar-width: thin; }
+.admin-nav-row .skill-tab { min-height: 38px; padding: 9px 12px; border-radius: 6px; border-bottom: 0; font-size: 13px; }
+.admin-nav-row .skill-tab.active, .admin-nav-row .skill-tab[aria-selected="true"] { background: var(--blue-soft); color: var(--blue); box-shadow: inset 0 -2px var(--blue); }
+.admin-command-editor-head > div, .admin-command-section-head > div { min-width: 0; }
+.admin-command-editor-head h2 { flex-wrap: wrap; overflow-wrap: anywhere; }
+.admin-command-editor-head p { white-space: normal; overflow-wrap: anywhere; }
+.admin-command-list .admin-directory-item.active { background: var(--blue-soft); border-color: color-mix(in srgb, var(--blue) 30%, var(--line)); box-shadow: inset 3px 0 var(--blue); }
+.admin-command-search:focus-within { border-color: var(--blue); box-shadow: var(--focus-ring); }
+.admin-command-section-head, .admin-command-section-actions, .admin-command-editor-foot { flex-wrap: wrap; }
+.admin-command-section-head .ui-button, .admin-command-list-head .ui-button { flex-shrink: 0; }
+.admin-command-schema-dialog-body { overflow: auto; padding-bottom: 20px; }
+.admin-command-json-dialog { border: 1px solid var(--line); border-radius: 6px; padding: 14px; font-family: var(--mono-font); background: var(--page); color: var(--ink); line-height: 1.65; }
+.admin-command-json-dialog:focus-visible { border-color: var(--blue); background: var(--surface); }
+.admin-command-json-foot { flex-wrap: wrap; }
+.admin-command-json-foot .field-error { flex-basis: 100%; padding: 10px; color: var(--red); background: var(--red-soft); border-radius: 6px; }
+.tag-group-requirement-field { min-width: 0; gap: 14px; }
+.tag-group-requirement-toggle { flex-wrap: wrap; }
+.tag-group-requirement-toggle button { min-height: 36px; }
+.cascade-tree-row { overflow-wrap: anywhere; padding-left: min(calc(8px + var(--cascade-depth, 0) * 18px), 80px); }
+.cascade-tree-row.selected { box-shadow: inset 3px 0 var(--blue); }
+.cascade-tree-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.cascade-inspector-title h3, .cascade-inspector-title p, .cascade-child-list button { overflow-wrap: anywhere; }
+.cascade-attach-editor select { min-width: 0; }
+@media (max-width: 1000px) {
+  .admin-command-library { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .admin-command-list { position: static; height: auto; }
+  .admin-command-list-scroll { max-height: 240px; }
+  .admin-command-editor { height: auto; }
+  .admin-command-editor-scroll { overflow: visible; }
+  .admin-command-schema-split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .admin-command-field-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-command-editor, .admin-command-list { padding: 14px; }
+  .admin-command-editor-foot { margin: 0 -14px -14px; padding: 12px 14px; }
+  .admin-command-editor-foot .ui-button { flex: 1; }
+  .admin-command-section { padding: 12px; }
+  .admin-command-schema-dialog-body { padding: 16px; }
+  .admin-command-json-dialog { min-height: 240px; }
+  .tag-group-requirement-field { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .tag-group-requirement-toggle { width: 100%; }
+  .tag-group-requirement-toggle button { flex: 1; }
+  .cascade-tree { max-height: 300px; }
+  .cascade-tree-row { padding-left: min(calc(8px + var(--cascade-depth, 0) * 12px), 44px); }
+}
