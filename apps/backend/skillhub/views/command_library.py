@@ -3,14 +3,26 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI
 
 from skillhub.services import CommandLibraryService
+from skillhub.services.command_parsing import CommandParsingService
 from skillhub.views.auth import ActorContext, actor_dependency, admin_key_dependency
-from skillhub.views.dependencies import command_library_service_dependency
+from skillhub.views.dependencies import command_library_service_dependency, command_parsing_service_dependency
+from skillhub.views.request_models.command_parsing import CommandParseErrorResponse, CommandParsePayload, CommandParseResponse
 from skillhub.views.responses import result_payload
 from skillhub.views.schemas import CommandInstancePayload, CommandSearchPayload, SystemCommandPayload, SystemCommandUpdatePayload
 
 
 def register_command_library_routes(app: FastAPI) -> None:
     admin_auth = Depends(admin_key_dependency)
+
+    @app.post("/api/command-library/parse", response_model=CommandParseResponse,
+              responses={status: {"model": CommandParseErrorResponse} for status in (400, 404, 409, 413, 422, 504)})
+    def parse_command_echo(
+        payload: CommandParsePayload,
+        actor: ActorContext = Depends(actor_dependency),
+        service: CommandParsingService = Depends(command_parsing_service_dependency),
+    ):
+        """匹配已启用系统命令，并使用其受限 TTP 模板解析回显。"""
+        return result_payload(service.parse(command=payload.input, echo=payload.echo, actor=actor.id))
 
     @app.post("/api/command-library/search")
     def search_command_library(

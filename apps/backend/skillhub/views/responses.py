@@ -4,7 +4,7 @@ import re
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
-from skillhub.models.errors import FieldError, FieldInvariantError, InvariantError
+from skillhub.models.errors import CommandParseError, FieldError, FieldInvariantError, InvariantError
 from skillhub.models.rules.skill_imports import parse_skill_import_source
 from skillhub.views.schemas import (
     ACCEPTED_VERIFICATION_NOTE_MAX_LENGTH,
@@ -20,6 +20,14 @@ def result_payload(result: Any) -> Any:
     if is_dataclass(result):
         return asdict(result)
     return result
+
+
+def command_parse_error_payload(exc: CommandParseError) -> dict[str, Any]:
+    """返回可公开解析错误；候选不包含模板或回显。"""
+    payload: dict[str, Any] = {"detail": str(exc), "code": exc.code}
+    if exc.candidates:
+        payload["candidates"] = exc.candidates
+    return payload
 
 
 def parse_skill_import_payload(source: dict[str, Any]):

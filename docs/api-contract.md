@@ -434,3 +434,9 @@ Workflow 保存和导入统一写入 `document_schema_version = 5`。Parameter �
 `POST /api/command-library/system-commands/{command_id}/instantiate-preview` 沿用普通 actor 依赖，接收严格请求 `{ "commandTemplate": "show routes vrf <vrf>" }`。返回 `{ "definition": CollectionDefinition, "warnings": [...] }`，不创建定义、版本或审计。候选 ID 不是已保存身份，客户端保存时分配独立 ID，仍通过 Workflow 的 Collection create/fork 批次入库。
 
 新实例标记 `sourceBindingMode: "concrete-command"`，必须具有 CLI 系统来源及 angle-v1 参数语法。后端重新投影权威来源字段并检查输入与占位符一致性。固定命令不匹配时返回 `COMMAND_SOURCE_MISMATCH` 提醒；动态参数返回 `COMMAND_MATCH_DYNAMIC`，均不阻止保存。系统命令搜索同时支持命令匹配以及 Key、名称子串检索，名称匹配不视为完整命令匹配。
+
+## 系统命令回显解析
+
+`POST /api/command-library/parse` 接收严格的 `input`（不含提示符的单条命令）和 `echo`（原始回显）字符串，按最佳完整匹配选择已启用且具备 TTP 的系统规则；最佳分并列返回 409。响应包含 `command`、原样 `result` 和 `validation`；输出 Schema 不符只返回提醒。沿用普通 REST actor，不要求后台密钥，无业务写入。
+
+模板仅开放纯文本解析能力，独立进程预算 5 秒，回显 UTF-8 上限 1 MiB。请求、结果、错误码、模板允许范围和可运行示例见 [系统命令回显解析使用指导](system-command-parsing-api.md)。

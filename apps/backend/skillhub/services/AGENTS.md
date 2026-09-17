@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `command_parsing.py`、`ttp_worker.py`：系统命令只读选择、TTP 独立子进程解析、超时回收与结果校验；不执行设备命令。
+
 - `expression_functions.py`：封装后台全局表达式函数 CRUD。
 
 - `analytics.py`：提供运营统计读取及按 actor 记录页面访问。

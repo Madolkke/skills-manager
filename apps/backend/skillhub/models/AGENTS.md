@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `rules/command_parsing.py`、`rules/ttp_template.py`：完整候选选择、JSON Pointer 结果诊断及纯文本 TTP 允许范围。
+
 - `operations/expression_functions.py`、`schema/expression_functions.py`：全局函数声明存储与目录投影，函数体仅保存文本。
 
 - `operations/analytics.py`、`rules/analytics.py`、`schema/analytics.py`：运营事实采集、日期口径及独立历史统计存储。

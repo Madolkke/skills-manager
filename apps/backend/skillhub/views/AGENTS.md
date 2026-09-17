@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `request_models/command_parsing.py`、`command_library.py`：严格 input/echo 回显解析协议及结构化诊断，沿用普通 actor。
+
 - `admin.py`、`request_models/expression_functions.py`：后台函数库管理接口与响应契约。
 
 - `analytics.py`：后台统计查询及 Skill 详情访问事件接口。
