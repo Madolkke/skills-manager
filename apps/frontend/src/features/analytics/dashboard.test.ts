@@ -25,7 +25,7 @@ describe("运营看板界面", () => {
     expect(wrapper.text()).toContain("未采集");
     expect(wrapper.text()).toContain("访问采集尚未覆盖此期间");
     expect(wrapper.text()).not.toContain("包含模拟数据");
-    await wrapper.findAll("button").find((button) => button.text() === "上月")!.trigger("click");
+    await wrapper.get('button[aria-label="上月"]').trigger("click");
     await flushPromises();
     expect(vi.mocked(getAnalytics).mock.calls.at(-1)![0].granularity).toBe("day");
     wrapper.unmount();

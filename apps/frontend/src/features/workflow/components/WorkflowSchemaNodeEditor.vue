@@ -101,7 +101,7 @@ function setAdditionalProperties(allowed: boolean): void {
 </script>
 
 <template>
-  <section class="workflow-schema-node" :style="{ '--schema-depth': props.depth }">
+  <section class="workflow-schema-node" :class="{ 'is-deep': props.depth >= 2, 'is-readonly': props.readonly }" :style="{ '--schema-depth': props.depth }">
     <div :class="['workflow-schema-basics', !props.showMetadata && 'type-only']">
       <label><span>类型</span><select :value="selectedType()" :disabled="props.readonly" @change="setType(($event.target as HTMLSelectElement).value as NodeSchemaType)"><option v-if="!props.schema.type" value="">any（旧版）</option><option v-for="type in props.allowedTypes" :key="type" :value="type">{{ typeLabels[type] }}</option></select></label>
       <label v-if="props.showMetadata"><span>显示名称</span><input :value="props.schema.title ?? ''" :disabled="props.readonly" placeholder="字段名称" @input="update((draft) => { draft.title = ($event.target as HTMLInputElement).value; })" /></label>

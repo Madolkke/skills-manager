@@ -94,46 +94,31 @@ function updateSchema(kind: "parameter" | "return", value: WorkflowJsonSchema): 
 
 <template>
   <div class="admin-expression-functions">
-    <aside class="admin-expression-function-list">
+    <aside class="admin-card admin-expression-function-list">
+      <header class="admin-expression-list-title"><small>FUNCTION CATALOG</small><h2>表达式函数库</h2><p>{{ props.functions.length }} 个函数 · 静态声明</p></header>
       <div class="admin-expression-list-head"><input v-model="search" aria-label="搜索表达式函数" placeholder="搜索函数..." /><UiButton size="sm" variant="secondary" @click="create"><template #icon><Plus /></template>新建</UiButton></div>
-      <button v-for="item in filtered" :key="item.id" type="button" :class="['admin-expression-function-item', { active: item.id === props.selectedFunctionId }]" @click="emit('select', item.id)"><strong>{{ item.name }}</strong><span>{{ item.isBuiltin ? "内置" : "自定义" }} · {{ item.enabled ? "启用" : "停用" }}</span></button>
-      <p v-if="!filtered.length" class="empty-state">暂无表达式函数。</p>
+      <div class="admin-expression-list-scroll">
+        <button v-for="item in filtered" :key="item.id" type="button" :class="['admin-expression-function-item', { active: item.id === props.selectedFunctionId }]" :aria-pressed="item.id === props.selectedFunctionId" @click="emit('select', item.id)"><strong>{{ item.name }}</strong><span>{{ item.isBuiltin ? "内置" : "自定义" }} · {{ item.enabled ? "启用" : "停用" }}</span></button>
+        <p v-if="!filtered.length" class="empty-state">{{ search.trim() ? "没有匹配的函数，请调整搜索条件。" : "暂无表达式函数，点击新建添加。" }}</p>
+      </div>
     </aside>
-    <section class="admin-expression-function-editor">
+    <section class="admin-card admin-expression-function-editor">
       <template v-if="draft">
-        <div class="admin-expression-editor-head"><div><h2>{{ draft.name || "新建表达式函数" }}</h2><p>函数体仅作为文本保存，不会执行。</p></div><div class="admin-expression-editor-actions"><UiButton size="sm" variant="secondary" :disabled="!dirty" @click="loadDraft(selected)"><template #icon><Undo2 /></template>撤销</UiButton><UiButton size="sm" variant="primary" :disabled="!canSave" @click="save"><template #icon><Save /></template>保存</UiButton><UiIconButton v-if="selected && draft.id" label="删除函数" variant="danger" @click="deleteTarget = selected!"><Trash2 /></UiIconButton></div></div>
-        <div class="admin-expression-fields"><label>函数名<input v-model="draft.name" /><small v-if="draft.name && (!isWorkflowExpressionIdentifier(draft.name) || draft.name.startsWith('_'))">必须是合法 Python 标识符，且不能以下划线开头。</small></label><label>说明<textarea v-model="draft.description" rows="2" /></label><label class="admin-expression-switch"><input v-model="draft.enabled" type="checkbox" />启用</label><label>语言<input v-model="draft.language" /></label></div>
-        <div class="admin-expression-schema-grid"><section><div class="admin-expression-section-head"><h3>参数 Schema</h3><UiButton size="sm" variant="secondary" @click="parameterDialogOpen = true">编辑 JSON</UiButton></div><WorkflowSchemaNodeEditor :schema="parameterSchema" :readonly="false" :show-metadata="false" :show-required="true" :show-additional-properties="true" identifier-only @change="updateSchema('parameter', $event)" /><p v-if="schemaErrors.length" class="admin-expression-error">{{ schemaErrors[0] }}</p></section><section><div class="admin-expression-section-head"><h3>返回 Schema</h3><UiButton size="sm" variant="secondary" @click="returnDialogOpen = true">编辑 JSON</UiButton></div><WorkflowSchemaNodeEditor :schema="returnSchema" :readonly="false" :show-metadata="false" :show-required="true" :show-additional-properties="true" @change="updateSchema('return', $event)" /></section></div>
-        <label class="admin-expression-body">函数体<textarea v-model="draft.body" spellcheck="false" rows="12" /><small>{{ draft.body.length }} / 50000 字符；仅保存文本，不会执行。</small></label>
+        <div class="admin-expression-editor-head"><div><h2>{{ draft.name || "新建表达式函数" }}</h2><p>函数体仅作为文本保存，不会执行。</p><span class="admin-expression-save-state" role="status">{{ !draft.id ? "新建草稿" : dirty ? "有未保存修改" : "内容已保存" }}</span></div><div class="admin-expression-editor-actions"><UiButton size="sm" variant="secondary" :disabled="!dirty" @click="loadDraft(selected)"><template #icon><Undo2 /></template>撤销</UiButton><UiButton size="sm" variant="primary" :disabled="!canSave" @click="save"><template #icon><Save /></template>保存</UiButton><UiIconButton v-if="selected && draft.id" label="删除函数" variant="danger" @click="deleteTarget = selected!"><Trash2 /></UiIconButton></div></div>
+        <div class="admin-expression-editor-scroll">
+          <div class="admin-expression-fields"><label>函数名<input v-model="draft.name" /><small v-if="draft.name && (!isWorkflowExpressionIdentifier(draft.name) || draft.name.startsWith('_'))">必须是合法 Python 标识符，且不能以下划线开头。</small></label><label>说明<textarea v-model="draft.description" rows="2" /></label><label class="admin-expression-switch"><input v-model="draft.enabled" type="checkbox" />启用</label><label>语言<input v-model="draft.language" /></label></div>
+          <div class="admin-expression-schema-grid"><section><div class="admin-expression-section-head"><h3>参数 Schema</h3><UiButton size="sm" variant="secondary" @click="parameterDialogOpen = true">编辑 JSON</UiButton></div><WorkflowSchemaNodeEditor :schema="parameterSchema" :readonly="false" :show-metadata="false" :show-required="true" :show-additional-properties="true" identifier-only @change="updateSchema('parameter', $event)" /><p v-if="schemaErrors.length" class="admin-expression-error" role="alert">{{ schemaErrors[0] }}</p></section><section><div class="admin-expression-section-head"><h3>返回 Schema</h3><UiButton size="sm" variant="secondary" @click="returnDialogOpen = true">编辑 JSON</UiButton></div><WorkflowSchemaNodeEditor :schema="returnSchema" :readonly="false" :show-metadata="false" :show-required="true" :show-additional-properties="true" @change="updateSchema('return', $event)" /></section></div>
+          <label class="admin-expression-body">函数体<textarea v-model="draft.body" spellcheck="false" rows="12" /><small>{{ draft.body.length }} / 50000 字符；仅保存文本，不会执行。</small></label>
+        </div>
       </template>
     </section>
     <Modal :open="Boolean(deleteTarget)" title="删除表达式函数" description="已有 Workflow 调用会在后续校验中报告未注册函数。" @close="deleteTarget = null">
-      <p>确认删除“{{ deleteTarget?.name }}”？</p>
-      <div class="modal-actions"><UiButton variant="secondary" @click="deleteTarget = null">取消</UiButton><UiButton variant="danger" @click="emit('delete', deleteTarget!); deleteTarget = null">确认删除</UiButton></div>
+      <div class="form-stack">
+        <p>确认删除“{{ deleteTarget?.name }}”？</p>
+        <div class="modal-actions"><UiButton variant="secondary" @click="deleteTarget = null">取消</UiButton><UiButton variant="danger" @click="emit('delete', deleteTarget!); deleteTarget = null">确认删除</UiButton></div>
+      </div>
     </Modal>
     <AdminSystemCommandSchemaDialog :open="parameterDialogOpen" :schema="parameterSchema" :normalize="normalizeSchema" :validate="(value) => validateSchema(value, true)" title="编辑参数 JSON Schema" description="参数根节点必须是 object；属性名必须是合法标识符。" @close="parameterDialogOpen = false" @confirm="updateSchema('parameter', $event); parameterDialogOpen = false" />
     <AdminSystemCommandSchemaDialog :open="returnDialogOpen" :schema="returnSchema" :normalize="normalizeSchema" :validate="(value) => validateSchema(value, false)" title="编辑返回值 JSON Schema" description="返回 Schema 支持标量、object 和 array。" @close="returnDialogOpen = false" @confirm="updateSchema('return', $event); returnDialogOpen = false" />
   </div>
 </template>
-
-<style scoped>
-.admin-expression-functions { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; min-height: 620px; }
-.admin-expression-function-list { border-right: 1px solid var(--border-subtle); padding-right: 14px; }
-.admin-expression-list-head, .admin-expression-editor-head, .admin-expression-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.admin-expression-list-head input, .admin-expression-fields input, .admin-expression-fields textarea, .admin-expression-body textarea { width: 100%; border: 1px solid var(--border-subtle); background: var(--surface); padding: 8px; }
-.admin-expression-function-item { display: grid; width: 100%; text-align: left; gap: 3px; border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; padding: 11px 8px; cursor: pointer; }
-.admin-expression-function-item.active { background: var(--surface-muted); }
-.admin-expression-function-item span, small { color: var(--text-muted); font-size: 12px; }
-.admin-expression-fields { display: grid; grid-template-columns: 1fr 2fr 100px 120px; gap: 12px; align-items: start; }
-.admin-expression-fields label, .admin-expression-body { display: grid; gap: 6px; font-weight: 600; }
-.admin-expression-switch { display: flex !important; align-items: center; margin-top: 30px; }
-.admin-expression-switch input { width: auto; }
-.admin-expression-schema-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
-.admin-expression-section-head { margin-bottom: 8px; }
-.admin-expression-section-head h3 { margin: 0; font-size: 14px; }
-.admin-expression-body { margin-top: 16px; }
-.admin-expression-body textarea { font-family: var(--mono-font); resize: vertical; }
-.admin-expression-error { color: var(--danger); }
-.admin-expression-editor-actions { display: flex; align-items: center; gap: 8px; }
-@media (max-width: 900px) { .admin-expression-functions, .admin-expression-schema-grid, .admin-expression-fields { grid-template-columns: 1fr; } .admin-expression-function-list { border-right: 0; border-bottom: 1px solid var(--border-subtle); padding: 0 0 14px; } .admin-expression-switch { margin-top: 0; } }
-</style>

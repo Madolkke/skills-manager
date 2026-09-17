@@ -160,7 +160,7 @@ function addGroupAndAncestors(groupId: string, result: Set<string>): void {
                 ? selectedGroupId === row.group.id
                 : selectedParent?.groupId === row.group.id && selectedParent.value === row.value.value),
             }]"
-            :style="{ paddingLeft: `${8 + row.depth * 18}px` }"
+            :style="{ '--cascade-depth': row.depth }"
             type="button"
             role="treeitem"
             :aria-level="row.depth + 1"

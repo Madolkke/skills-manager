@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { AlertTriangle, ChevronDown, ChevronUp, GitFork, GripVertical, Pencil, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import UiButton from "../../../components/ui/UiButton.vue";
 import UiIconButton from "../../../components/ui/UiIconButton.vue";
 import type { CollectionCall, CollectionDefinition, DeviceRole, WorkflowBinding, WorkflowBundle, WorkflowCollectionChange, WorkflowParameter, WorkflowValidationIssue } from "../../../types";
 import { collectionContentSummary, collectionTypeLabel, isConfigCollection, isLogCollection } from "../domain/collectionPresentation";
@@ -154,7 +155,7 @@ function expressionDiagnostics(inputId: string) {
 
 function operationLabel(): string {
   if (props.pendingOperation === "create") return "待入库";
-  if (props.pendingOperation === "fork") return "独立副本";
+  if (props.pendingOperation === "fork") return props.definition?.sourceSystemCommandId ? "实例副本" : "独立副本";
   if (props.pendingOperation === "revise") return "待修订";
   return `r${props.definition?.revision ?? props.call.definition.revision}`;
 }
@@ -210,11 +211,13 @@ function operationLabel(): string {
           </div>
         </section>
 
-        <div v-if="props.definition?.sourceSystemCommandId">
+        <div v-if="props.definition?.sourceSystemCommandId" class="workflow-source-card">
+          <strong class="workflow-source-badge">{{ props.definition.sourceBindingMode ? '系统命令实例' : '旧式系统引用' }}</strong>
           <p>{{ props.definition.sourceBindingMode ? '系统命令实例：命令和输入可编辑，回显及说明跟随来源。' : '旧式系统引用' }}</p>
-          <button v-if="!props.definition.sourceBindingMode" type="button" :disabled="props.readonly" @click="converting = true">指定具体命令</button>
-          <button type="button" :disabled="props.readonly" @click="emit('definition', { ...props.definition, sourceSystemCommandId: undefined, sourceBindingMode: undefined })">转为独立副本</button>
+          <UiButton v-if="!props.definition.sourceBindingMode" size="sm" variant="secondary" :disabled="props.readonly" @click="converting = true">指定具体命令</UiButton>
+          <UiButton size="sm" variant="secondary" :disabled="props.readonly" @click="emit('definition', { ...props.definition, sourceSystemCommandId: undefined, sourceBindingMode: undefined })">转为独立副本</UiButton>
         </div>
+        <p v-else-if="props.definition?.forkedFrom" class="workflow-source-card"><strong class="workflow-source-badge">独立副本</strong><span>此定义独立维护，不随系统来源更新。</span></p>
         <section v-if="props.definition && props.pendingOperation === 'create'" class="workflow-inline-definition workflow-inline-draft">
           <header><div><strong>新采集定义</strong><span>保存 Workflow 后进入全局采集库</span></div></header>
           <WorkflowCollectionFields inline-draft :definition="props.definition" :readonly="props.readonly" :issues="props.issues" @change="emit('definition', $event)" />
