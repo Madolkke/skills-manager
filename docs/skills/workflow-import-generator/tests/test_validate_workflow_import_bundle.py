@@ -60,4 +60,4 @@ def test_persistent_workflow_id_is_rejected(tmp_path: Path) -> None:
     result = validate_with_script(skill_dir / "scripts" / "validate_workflow_import_bundle.py", invalid_bundle)
 
     assert result.returncode == 1
-    assert "workflow 不允许包含持久化字段: id" in result.stderr
+    assert "workflow 不允许包含持久化字段: id" in result.stdout

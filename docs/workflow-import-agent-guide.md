@@ -4,6 +4,8 @@
 
 持久化 Workflow 的完整字段语义见 [workflow-schema.md](workflow-schema.md)。本指南描述 schema v5 的转换和导入专用格式；v3/v4 文档可由服务端兼容读取，v2 的步骤输入、`step_input` Binding 和 Collection 输出 `name` 均不能导入。
 
+离线从流程说明生成 CLI 工作流时，可使用 [workflow-import-generator Skill](skills/workflow-import-generator/SKILL.md)。该 Skill 只交付文件，复用当前后端纯规则进行 draft/strict 静态校验，不访问本指南的在线接口；缺失契约可保留占位草稿。
+
 ## 手动导出
 
 当前已保存的 Workflow 可以直接导出为本指南定义的 Import Bundle：
@@ -31,7 +33,7 @@ X-SkillHub-Actor: <actor>
 - 不修改 Skill slug、owner、Tags、权限或已有 SkillVersion。
 - 每个导入 Collection 都获得新的永久 ID，revision 固定为 1。
 - 每次请求都会创建新 Collection，接口不幂等，禁止无条件自动重试。
-- 结构和引用错误会回滚全部写入；领域 error/warning 可以作为草稿导入。
+- 结构、引用及硬性表达式/模板校验失败会回滚全部写入；其余允许的领域 error/warning 可以作为草稿导入。函数未注册、参数错误及表达式绑定不兼容不能以草稿模式绕过。
 
 ## 2. Import Bundle 字段
 
@@ -65,7 +67,7 @@ X-SkillHub-Actor: <actor>
 | `inputs` | `Parameter[]` | 否 | 命令模板输入参数。 |
 | `outputs` | `CollectionOutput[]` | 否 | 采集输出字段。 |
 
-不要填写持久化 `id`、`revision` 或 `forkedFrom`。
+不要填写持久化 `id`、`revision`、`forkedFrom`，或本地来源关联 `sourceSystemCommandId`、`sourceBindingMode`。CLI 的具体命令和完整 Schema 保留，导入为独立用户采集。
 
 ### Import Collection Call
 
@@ -79,7 +81,7 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 | `definitionLocalId` | `string` | 是 | 指向 `collections[].localId`。 |
 | `deviceRoleId` | `string` | 否 | 使用的设备角色 ID。 |
 | `sampleCount` | `integer` | 否，默认 `1` | 采集次数。 |
-| `inputBindings` | `Record<inputId, Binding>` | 否 | Collection 输入参数的来源；支持全局输入、前序采集输出、设备角色 object 字段和固定值。 |
+| `inputBindings` | `Record<inputId, Binding>` | 否 | Collection 输入参数的来源；支持全局输入、前序采集输出、设备角色 object 字段、expression 表达式和固定值。 |
 
 不要提交标准持久化字段 `definition: { id, revision }`。
 
@@ -90,7 +92,7 @@ Import Step 的 `collectionCalls` 与标准 Call 基本一致，但使用 `defin
 - `WorkflowMetadata`
 - `Parameter` 和 `Binding`
 - `DeviceRole`
-- Step 的 `id/name/description/isStart/collectionCalls/topology/stepType/script`
+- Step 的 `id/name/description/isStart/parallelBranches/collectionCalls/topology/stepType/script`
 - `Transition`、`NodeRef` 和 `Conclusion`
 - `CollectionMetadata`、`CliCollectionSpec`、`LogCollectionSpec`、`ConfigCollectionSpec`、`ConfigCommand`、`CollectionOutput` 和回显示例
 
@@ -108,7 +110,7 @@ Agent 必须按以下顺序转换：
 4. 将可复用的命令采集能力抽取到 `collections`，为每个定义分配唯一 `localId`。
 5. 将步骤调用改为 `definitionLocalId`，不要生成 Catalog ID 或 revision。
 6. 重建 Collection 输入 Binding、Transition target 和脚本返回的 Transition ID。设备角色字段 Binding 使用稳定的 `role_id` 与 object-only 相对 `path`，展示路径为 `topo.devices.<roleKey>.<path>`；数组字段首版不支持。
-7. 运行本地结构检查，输出 JSON 文件供人工检查。
+7. 运行本地结构、引用和静态领域检查，区分导入硬限制、草稿错误和提醒，输出 JSON 文件供人工检查。
 8. 只有操作者显式要求时才调用导入接口。
 9. 保存响应中的 Collection ID 映射，并再次 GET Workflow 核对 revision 和文档。
 

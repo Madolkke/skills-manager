@@ -19,7 +19,9 @@
 ## 本地校验
 
 ```powershell
-uv run --project apps/backend python docs/skills/workflow-import-generator/scripts/validate_workflow_import_bundle.py docs/skills/workflow-import-generator/tests/fixtures/system-status-process.workflow-import.json
+apps/backend/.venv/Scripts/python.exe docs/skills/workflow-import-generator/scripts/validate_workflow_import_bundle.py docs/skills/workflow-import-generator/tests/fixtures/system-status-process.workflow-import.json
 ```
 
-预期：结构和引用校验通过，并报告一个 CLI 执行占位项。
+预期：draft 模式退出 0，status=draft；报告一个 CLI 占位项及 MISSING_COLLECTION_COMMAND 领域错误。strict 模式退出 1。
+
+函数契约使用 repository-builtins，目标平台的启停状态未知。此文件是可补全草稿，未执行、未解析或导入，不代表静态校验无错误。

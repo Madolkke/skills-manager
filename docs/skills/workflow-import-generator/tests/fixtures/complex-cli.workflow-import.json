@@ -1,0 +1,292 @@
+{
+  "documentType": "workflow_import_bundle",
+  "workflow": {
+    "metadata": {"name": "网络巡检 CLI 离线示例", "description": "按明确契约生成复杂 CLI 采集，检查输入绑定与输出模板。", "code": "OFFLINE_CLI_CHECK"},
+    "inputs": [
+      {"id": "input-interface", "key": "interface", "required": true, "schema": {"type": "string", "title": "接口名称", "description": "接口名称，由本示例契约明确声明。"}},
+      {"id": "input-vrf", "key": "vrf", "required": true, "schema": {"type": "string", "title": "路由实例", "description": "路由实例，由本示例契约明确声明。"}},
+      {"id": "input-index", "key": "index", "required": true, "schema": {"type": "integer", "title": "查询下标", "description": "查询下标，由本示例契约明确声明。"}}
+    ],
+    "deviceRoles": [
+      {
+        "id": "role-device",
+        "key": "device",
+        "name": "巡检设备",
+        "description": "所有命令在该逻辑设备采集",
+        "required": true,
+        "schema": {
+          "type": "object",
+          "title": "设备参数",
+          "description": "设备参数，由本示例契约明确声明。",
+          "properties": {"address": {"type": "string", "title": "管理地址", "description": "管理地址，由本示例契约明确声明。"}},
+          "required": ["address"],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "step-routing",
+        "name": "采集接口与路由",
+        "description": "后续采集引用前序路由输出。",
+        "isStart": true,
+        "parallelBranches": true,
+        "stepType": "expression",
+        "collectionCalls": [
+          {
+            "id": "call-interfaces",
+            "key": "interfaces",
+            "name": "interfaces 采集",
+            "definitionLocalId": "interfaces",
+            "deviceRoleId": "role-device",
+            "sampleCount": 1,
+            "inputBindings": {"input-interface": {"kind": "workflow_input", "reference": {"input_id": "input-interface"}}}
+          },
+          {
+            "id": "call-routes",
+            "key": "routes",
+            "name": "routes 采集",
+            "definitionLocalId": "routes",
+            "deviceRoleId": "role-device",
+            "sampleCount": 1,
+            "inputBindings": {"input-vrf": {"kind": "workflow_input", "reference": {"input_id": "input-vrf"}}}
+          },
+          {
+            "id": "call-bgp",
+            "key": "bgp",
+            "name": "bgp 采集",
+            "definitionLocalId": "bgp",
+            "deviceRoleId": "role-device",
+            "sampleCount": 1,
+            "inputBindings": {"input-vrf": {"kind": "expression", "expression": "outputs.routes.routes[0].vrf"}}
+          }
+        ],
+        "topology": [
+          {
+            "id": "to-fabric",
+            "target": {"id": "step-fabric"},
+            "conditionExpression": "len(outputs.interfaces.interfaces) > 0",
+            "conditionText": "设备 {{ topo.devices.device.address }} 的接口 {{ outputs.interfaces.interfaces[0].name }} 已采集"
+          },
+          {"id": "to-empty", "target": {"id": "conclusion"}, "conditionExpression": "len(outputs.interfaces.interfaces) == 0", "conditionText": "接口为空时直接生成结论"}
+        ]
+      },
+      {
+        "id": "step-fabric",
+        "name": "重复采集健康信息",
+        "description": "三次采集的外层下标与业务矩阵的两个下标分别保留。",
+        "isStart": false,
+        "parallelBranches": false,
+        "stepType": "expression",
+        "collectionCalls": [
+          {"id": "call-fabric", "key": "fabric", "name": "fabric 采集", "definitionLocalId": "fabric", "deviceRoleId": "role-device", "sampleCount": 3, "inputBindings": {}},
+          {
+            "id": "call-routes_repeat",
+            "key": "routes_repeat",
+            "name": "routes_repeat 采集",
+            "definitionLocalId": "routes",
+            "deviceRoleId": "role-device",
+            "sampleCount": 1,
+            "inputBindings": {"input-vrf": {"kind": "expression", "expression": "outputs.routes.routes[0].vrf"}}
+          }
+        ],
+        "topology": [
+          {
+            "id": "to-conclusion",
+            "target": {"id": "conclusion"},
+            "conditionExpression": "outputs.fabric[0].matrix[0][0].healthy",
+            "conditionText": "矩阵读数 {{ outputs.fabric[0].matrix[0][0].value }}，标签数 {{ len(outputs.fabric[-1].labels) }}"
+          }
+        ]
+      },
+      {"id": "conclusion", "nodeType": "conclusion", "name": "汇总巡检结果", "rootCause": "已采集 {{ len(outputs.routes.routes) }} 条路由。", "repairRecommendation": "依据采集结果人工判断；本文不执行命令或修复操作。"}
+    ]
+  },
+  "collections": [
+    {
+      "localId": "interfaces",
+      "key": "interfaces",
+      "metadata": {"name": "interfaces 命令采集", "description": "离线验收契约，非真实设备执行结果。"},
+      "spec": {"collectionType": "cli", "commandParameterSyntax": "angle-v1", "commandTemplate": "show interfaces <interface>", "outputSamples": []},
+      "inputs": [{"id": "input-interface", "key": "interface", "required": true, "schema": {"type": "string", "title": "接口名称", "description": "接口名称，由本示例契约明确声明。"}}],
+      "outputs": [
+        {
+          "id": "output-interfaces",
+          "key": "interfaces",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "接口列表",
+            "description": "接口列表，由本示例契约明确声明。",
+            "items": {
+              "type": "object",
+              "title": "接口",
+              "description": "接口，由本示例契约明确声明。",
+              "properties": {
+                "name": {"type": "string", "title": "接口名称", "description": "接口名称，由本示例契约明确声明。"},
+                "up": {"type": "boolean", "title": "链路状态", "description": "链路状态，由本示例契约明确声明。"},
+                "counters": {
+                  "type": "object",
+                  "title": "报文统计",
+                  "description": "报文统计，由本示例契约明确声明。",
+                  "properties": {"rx": {"type": "integer", "title": "接收数", "description": "接收数，由本示例契约明确声明。"}, "tx": {"type": "integer", "title": "发送数", "description": "发送数，由本示例契约明确声明。"}},
+                  "required": ["rx", "tx"],
+                  "additionalProperties": false
+                },
+                "addresses": {
+                  "type": "array",
+                  "title": "地址列表",
+                  "description": "地址列表，由本示例契约明确声明。",
+                  "items": {
+                    "type": "object",
+                    "title": "地址",
+                    "description": "地址，由本示例契约明确声明。",
+                    "properties": {"address": {"type": "string", "title": "IP 地址", "description": "IP 地址，由本示例契约明确声明。"}, "prefix_length": {"type": "integer", "title": "掩码位数", "description": "掩码位数，由本示例契约明确声明。"}},
+                    "required": ["address", "prefix_length"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["name", "up", "counters", "addresses"],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "localId": "routes",
+      "key": "routes",
+      "metadata": {"name": "routes 命令采集", "description": "离线验收契约，非真实设备执行结果。"},
+      "spec": {"collectionType": "cli", "commandParameterSyntax": "angle-v1", "commandTemplate": "show routes vrf <vrf>", "outputSamples": []},
+      "inputs": [{"id": "input-vrf", "key": "vrf", "required": true, "schema": {"type": "string", "title": "路由实例", "description": "路由实例，由本示例契约明确声明。"}}],
+      "outputs": [
+        {
+          "id": "output-routes",
+          "key": "routes",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "路由列表",
+            "description": "路由列表，由本示例契约明确声明。",
+            "items": {
+              "type": "object",
+              "title": "路由",
+              "description": "路由，由本示例契约明确声明。",
+              "properties": {
+                "prefix": {"type": "string", "title": "目的前缀", "description": "目的前缀，由本示例契约明确声明。"},
+                "vrf": {"type": "string", "title": "路由实例", "description": "路由实例，由本示例契约明确声明。"},
+                "next_hops": {
+                  "type": "array",
+                  "title": "下一跳列表",
+                  "description": "下一跳列表，由本示例契约明确声明。",
+                  "items": {
+                    "type": "object",
+                    "title": "下一跳",
+                    "description": "下一跳，由本示例契约明确声明。",
+                    "properties": {"address": {"type": "string", "title": "下一跳地址", "description": "下一跳地址，由本示例契约明确声明。"}, "weight": {"type": "number", "title": "权重", "description": "权重，由本示例契约明确声明。"}},
+                    "required": ["address", "weight"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["prefix", "vrf", "next_hops"],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "localId": "bgp",
+      "key": "bgp",
+      "metadata": {"name": "bgp 命令采集", "description": "离线验收契约，非真实设备执行结果。"},
+      "spec": {"collectionType": "cli", "commandParameterSyntax": "angle-v1", "commandTemplate": "show bgp peers <vrf>", "outputSamples": []},
+      "inputs": [{"id": "input-vrf", "key": "vrf", "required": true, "schema": {"type": "string", "title": "路由实例", "description": "路由实例，由本示例契约明确声明。"}}],
+      "outputs": [
+        {
+          "id": "output-peers",
+          "key": "peers",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "邻居列表",
+            "description": "邻居列表，由本示例契约明确声明。",
+            "items": {
+              "type": "object",
+              "title": "邻居",
+              "description": "邻居，由本示例契约明确声明。",
+              "properties": {
+                "address": {"type": "string", "title": "邻居地址", "description": "邻居地址，由本示例契约明确声明。"},
+                "state": {"type": "string", "title": "会话状态", "description": "会话状态，由本示例契约明确声明。"},
+                "families": {
+                  "type": "array",
+                  "title": "地址族列表",
+                  "description": "地址族列表，由本示例契约明确声明。",
+                  "items": {
+                    "type": "object",
+                    "title": "地址族",
+                    "description": "地址族，由本示例契约明确声明。",
+                    "properties": {
+                      "name": {"type": "string", "title": "地址族名称", "description": "地址族名称，由本示例契约明确声明。"},
+                      "prefixes": {
+                        "type": "object",
+                        "title": "前缀统计",
+                        "description": "前缀统计，由本示例契约明确声明。",
+                        "properties": {"received": {"type": "integer", "title": "接收前缀数", "description": "接收前缀数，由本示例契约明确声明。"}},
+                        "required": ["received"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["name", "prefixes"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["address", "state", "families"],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "localId": "fabric",
+      "key": "fabric",
+      "metadata": {"name": "fabric 命令采集", "description": "离线验收契约，非真实设备执行结果。"},
+      "spec": {"collectionType": "cli", "commandParameterSyntax": "angle-v1", "commandTemplate": "show fabric health", "outputSamples": []},
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "output-matrix",
+          "key": "matrix",
+          "required": true,
+          "schema": {
+            "type": "array",
+            "title": "健康矩阵",
+            "description": "健康矩阵，由本示例契约明确声明。",
+            "items": {
+              "type": "array",
+              "title": "矩阵行",
+              "description": "矩阵行，由本示例契约明确声明。",
+              "items": {
+                "type": "object",
+                "title": "单元格",
+                "description": "单元格，由本示例契约明确声明。",
+                "properties": {"value": {"type": "number", "title": "测量值", "description": "测量值，由本示例契约明确声明。"}, "healthy": {"type": "boolean", "title": "是否健康", "description": "是否健康，由本示例契约明确声明。"}},
+                "required": ["value", "healthy"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "id": "output-labels",
+          "key": "labels",
+          "required": true,
+          "schema": {"type": "array", "title": "标签列表", "description": "标签列表，由本示例契约明确声明。", "items": {"type": "string", "title": "标签", "description": "标签，由本示例契约明确声明。"}}
+        }
+      ]
+    }
+  ]
+}
