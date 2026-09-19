@@ -1,15 +1,7 @@
 <script setup lang="ts">
 import { humanDate } from "../../lib/format";
-import { recentTagGroups, roleResourceLabel } from "../../lib/admin";
-import type { AdminGroup } from "../../lib/api";
-import type { RoleAssignment, SkillSummary, TagGroup } from "../../types";
-
-const props = defineProps<{
-  skills: SkillSummary[];
-  groups: AdminGroup[];
-  tagGroups: TagGroup[];
-  roles: RoleAssignment[];
-}>();
+import type { AdminOverview } from "../../lib/api/paginationApi";
+defineProps<{ overview: AdminOverview | null }>();
 </script>
 
 <template>
@@ -17,19 +9,19 @@ const props = defineProps<{
     <section class="admin-metric-grid">
       <div class="admin-metric-card">
         <span>Skill</span>
-        <strong>{{ skills.length }}</strong>
+        <strong>{{ overview?.counts.skills ?? 0 }}</strong>
       </div>
       <div class="admin-metric-card">
         <span>用户组</span>
-        <strong>{{ groups.length }}</strong>
+        <strong>{{ overview?.counts.groups ?? 0 }}</strong>
       </div>
       <div class="admin-metric-card">
         <span>Tag Group</span>
-        <strong>{{ tagGroups.length }}</strong>
+        <strong>{{ overview?.counts.tag_groups ?? 0 }}</strong>
       </div>
       <div class="admin-metric-card">
         <span>授权</span>
-        <strong>{{ roles.length }}</strong>
+        <strong>{{ overview?.counts.roles ?? 0 }}</strong>
       </div>
     </section>
 
@@ -37,23 +29,23 @@ const props = defineProps<{
       <section class="primary-panel admin-card">
         <h2>最近 Tag Group</h2>
         <div class="admin-list">
-          <div v-for="group in recentTagGroups(tagGroups)" :key="group.id" class="admin-summary-row">
+          <div v-for="group in overview?.recent_tag_groups ?? []" :key="group.id" class="admin-summary-row">
             <strong>{{ group.display_name }}</strong>
-            <span>{{ group.id }} · {{ group.values.length }} 个 Tag · {{ humanDate(group.updated_at || group.created_at) }}</span>
+            <span>{{ group.id }} · {{ group.value_count }} 个 Tag · {{ humanDate(group.updated_at || group.created_at) }}</span>
           </div>
-          <p v-if="!tagGroups.length" class="field-help">还没有 Tag Group。</p>
+          <p v-if="!overview?.counts.tag_groups" class="field-help">还没有 Tag Group。</p>
         </div>
       </section>
 
       <section class="primary-panel admin-card">
         <h2>权限摘要</h2>
         <div class="admin-list">
-          <div v-for="role in roles.slice(0, 8)" :key="role.id" class="admin-role-row">
+          <div v-for="role in overview?.recent_roles ?? []" :key="role.id" class="admin-role-row">
             <span>{{ role.subject_type }}:{{ role.subject_id }}</span>
             <strong>{{ role.role }}</strong>
-            <span>{{ roleResourceLabel(role, tagGroups, skills) }}</span>
+            <span>{{ role.resource_label }}</span>
           </div>
-          <p v-if="!roles.length" class="field-help">还没有授权记录。</p>
+          <p v-if="!overview?.counts.roles" class="field-help">还没有授权记录。</p>
         </div>
       </section>
     </div>

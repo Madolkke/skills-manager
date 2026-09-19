@@ -1,12 +1,13 @@
+import type { SkillCore } from "../../../lib/api/paginationApi";
 import { computed, ref, watch, type ComputedRef } from "vue";
 import { api, ApiError } from "../../../lib/api";
 import type { RouteState } from "../../../lib/navigation";
 import { buildCopiedEvalCasePayload, cleanCaseForm, filterCases, sortCases, workspaceFileName, type CaseSortKey } from "../lib/evalCaseManagement";
 import type { EvalCaseFormData } from "../lib/evalCaseForm";
-import type { EvalCaseLibraryItem, EvalSetCase, EvalSetDetail, EvalSetSummary, SkillDetail, ToastState } from "../../../types";
+import type { EvalCaseLibraryItem, EvalSetCase, EvalSetDetail, EvalSetSummary, ToastState } from "../../../types";
 
 type UseEvalSetManagementInput = {
-  skill: ComputedRef<SkillDetail>;
+  skill: ComputedRef<SkillCore>;
   selectedCaseId: ComputedRef<string | null>;
   selectedEvalSetId: ComputedRef<string | null>;
   navigate: (next: Partial<RouteState>) => void;

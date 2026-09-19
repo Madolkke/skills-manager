@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import Modal from "../components/Modal.vue";
-import type { SkillDetail } from "../types";
+import type { } from "../types";
 import VersionUploadForm from "./VersionUploadForm.vue";
 
-defineProps<{ skill: SkillDetail }>();
+defineProps<{ skill: SkillCore }>();
 const emit = defineEmits<{ close: []; uploaded: [] }>();
 </script>
 

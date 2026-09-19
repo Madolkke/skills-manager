@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, Copy, Download, Link2, Plus, Search, Trash2 } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
@@ -15,9 +17,9 @@ import { api, ApiError } from "../lib/api";
 import { evalManageReason } from "../lib/disabledReasons";
 import { compactText, humanDate } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
-import type { SkillDetail, ToastState } from "../types";
+import type { ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail; selectedCaseId: string | null; selectedEvalSetId: string | null }>();
+const props = defineProps<{ skill: SkillCore; selectedCaseId: string | null; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ navigate: [next: Partial<RouteState>]; refresh: []; toast: [toast: ToastState] }>();
 
 const skillRef = computed(() => props.skill);

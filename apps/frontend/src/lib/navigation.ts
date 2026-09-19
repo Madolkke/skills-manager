@@ -151,7 +151,9 @@ function updateBrowserRoute(route: RouteState, mode: "push" | "replace"): RouteS
     return route;
   }
   url.pathname = withAppBase("/skills");
+  const listParams = [...url.searchParams].filter(([key]) => /_(page|size|filters)$/.test(key));
   url.search = "";
+  for (const [key, value] of listParams) url.searchParams.set(key, value);
   if (route.section !== "hub") url.searchParams.set("section", route.section);
   if (route.skillId) url.searchParams.set("skill", route.skillId);
   if (route.skillId && route.tab !== "overview") url.searchParams.set("tab", route.tab);

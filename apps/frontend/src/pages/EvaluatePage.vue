@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import RemoteVersionSelect from "../components/RemoteVersionSelect.vue";
 import DropdownSelect from "../components/DropdownSelect.vue";
 import EmptyState from "../components/EmptyState.vue";
 import RunnerActionBar from "../features/evaluation/components/RunnerActionBar.vue";
@@ -10,21 +13,20 @@ import { useOpencodeEvaluation } from "../features/evaluation/composables/useOpe
 import { api, ApiError } from "../lib/api";
 import { evalRunReason, formalEvalReason } from "../lib/disabledReasons";
 import { runnerState } from "../features/evaluation/lib/evalRunner";
-import { versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
-import type { EvalSetDetail, OpencodeAgentCatalog, OpencodeProviderCatalog, OpencodeRunSelection, SkillDetail, ToastState } from "../types";
+import type { EvalSetDetail, OpencodeAgentCatalog, OpencodeProviderCatalog, OpencodeRunSelection, ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail; selectedEvalSetId: string | null }>();
+const props = defineProps<{ skill: SkillCore; selectedEvalSetId: string | null }>();
 const emit = defineEmits<{ refresh: []; navigate: [next: Partial<RouteState>]; toast: [toast: ToastState] }>();
 
-const versions = computed(() => props.skill.versions);
+
 const evalSets = computed(() => props.skill.eval_sets);
 const fallbackEvalSetId = computed(() => props.skill.summary.primary_eval_set?.id ?? evalSets.value[0]?.id ?? "");
 const evalSetId = computed(() => {
   const requested = props.selectedEvalSetId;
   return evalSets.value.some((item) => item.id === requested) ? requested ?? "" : fallbackEvalSetId.value;
 });
-const skillVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
+const skillVersionId = ref(props.skill.skill.current_version_id ?? props.skill.highest_version?.id ?? "");
 const detail = ref<EvalSetDetail | null>(null);
 const activeCaseId = ref<string | null>(null);
 const modelCatalog = ref<OpencodeProviderCatalog | null>(null);
@@ -35,9 +37,8 @@ const agentError = ref("");
 const runSelection = ref<OpencodeRunSelection | null>(null);
 const cases = computed(() => detail.value?.cases ?? []);
 const active = computed(() => cases.value.find((item) => item.case_version.id === activeCaseId.value) ?? null);
-const selectedVersion = computed(() => versions.value.find((version) => version.id === skillVersionId.value));
+const selectedVersion = ref(props.skill.summary.current_version);
 const selectedVersionSummary = computed(() => cleanVersionSummary(selectedVersion.value?.change_summary));
-const versionOptions = computed(() => versions.value.map((version) => ({ value: version.id, label: versionName(version) })));
 const evalSetOptions = computed(() => evalSets.value.map((item) => ({ value: item.id, label: item.name, description: `${item.description || "暂无描述"} · ${item.id === fallbackEvalSetId.value ? "默认" : "自定义"}` })));
 const evalSetLoaded = computed(() => Boolean(detail.value));
 const canRunEvaluation = computed(() => Boolean(props.skill.capabilities?.permissions["eval.run"]));
@@ -194,7 +195,7 @@ function cleanVersionSummary(value?: string | null): string {
       <div class="evaluation-selector-card">
         <label class="field-label">
           <span>Skill 版本</span>
-          <DropdownSelect v-model="skillVersionId" :options="versionOptions" aria-label="选择 Skill 版本" />
+          <RemoteVersionSelect v-model="skillVersionId" :skill-id="skill.skill.id" @selected="selectedVersion = $event" />
         </label>
         <p v-if="selectedVersionSummary">{{ selectedVersionSummary }}</p>
       </div>

@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `pagination.py`、`request_models/pagination*.py`：独立服务端分页、轻量详情和结构化读模型契约。
+
 - `request_models/command_parsing.py`、`command_library.py`：严格 input/echo 回显解析协议及结构化诊断，沿用普通 actor。
 
 - `admin.py`、`request_models/expression_functions.py`：后台函数库管理接口与响应契约。

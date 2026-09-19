@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { AlertTriangle, CheckCircle2, GitBranch, RotateCcw, Save } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import InlineLoading from "../components/InlineLoading.vue";
@@ -7,9 +9,9 @@ import { cloneWorkflow } from "../features/workflow/domain/utils";
 import { api, ApiError } from "../lib/api";
 import { skillOptionLabel } from "../lib/skillIdentity";
 import { humanDate } from "../lib/format";
-import type { SkillDetail, ToastState, WorkflowDetail, WorkflowMetadata } from "../types";
+import type { ToastState, WorkflowDetail, WorkflowMetadata } from "../types";
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = defineProps<{ skill: SkillCore }>();
 const emit = defineEmits<{ open: []; refresh: []; dirty: [dirty: boolean]; toast: [toast: ToastState] }>();
 
 const detail = ref<WorkflowDetail | null>(null);

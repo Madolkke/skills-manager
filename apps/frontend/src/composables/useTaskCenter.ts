@@ -1,11 +1,12 @@
+import type { SkillCore } from "../lib/api/paginationApi";
 import { computed, ref, watch, type ComputedRef } from "vue";
 import { api } from "../lib/api";
 import { buildTaskCenterGroups, taskCenterBadgeCount, type TaskCenterGroup, type TaskCenterItem } from "../lib/taskCenter";
-import type { SkillDetail } from "../types";
+import type { } from "../types";
 
 type TaskCenterInput = {
   actor: ComputedRef<string>;
-  currentSkill: ComputedRef<SkillDetail | null>;
+  currentSkill: ComputedRef<SkillCore | null>;
   evaluationsVisible: boolean;
   errorMessage: (error: unknown) => string;
   openReviews: () => void;

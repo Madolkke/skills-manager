@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `pagination.py`：独立分页与轻量详情用例，保留旧列表 API 及身份规则。
+
 - `command_parsing.py`、`ttp_worker.py`：系统命令只读选择、TTP 独立子进程解析、超时回收与结果校验；不执行设备命令。
 
 - `expression_functions.py`：封装后台全局表达式函数 CRUD。

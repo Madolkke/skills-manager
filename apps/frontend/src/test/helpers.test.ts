@@ -749,6 +749,7 @@ describe("skill evidence helpers", () => {
 
   it("builds readonly version flow and skill suggestions", () => {
     const skillFixture = {
+      version_count: 1,
       skill: { id: "skill-1", current_version_id: "version-1" },
       versions: [{ id: "version-1", version: "0.0.1", change_summary: "init" }],
       eval_sets: [{ id: "evalset-1" }],
@@ -757,20 +758,20 @@ describe("skill evidence helpers", () => {
     const skill = skillFixture as never;
     const reviews = [{ id: "review-1", skill_version_id: "version-1", status: "closed", responses: [{ reviewer_actor: "u" }], reviewers: [{ reviewer_actor: "u" }] }] as never;
     const publishRecords = [{ id: "publish-1", skill_version_id: "version-1", status: "pending_confirmation" }] as never;
-    const flow = buildVersionFlowItems({ skill, reviews, publishRecords });
+    const flow = buildVersionFlowItems({ skill, versions: skillFixture.versions as never, reviews, publishRecords });
 
     expect(flow[0].stages.map((stage) => `${stage.id}:${stage.status}`)).toEqual(["version:done", "evaluation:done", "review:done", "publish:active"]);
     expect(buildSkillSuggestions({ skill, reviews, publishRecords })).toEqual([]);
-    expect(buildSkillSuggestions({ skill: { ...skillFixture, eval_sets: [], latest_eval_runs: [] } as never })).toEqual([
+    expect(buildSkillSuggestions({ skill: { ...skillFixture, version_count: skillFixture.versions.length, eval_sets: [], latest_eval_runs: [] } as never })).toEqual([
       expect.objectContaining({ id: "create-eval-set" }),
       expect.objectContaining({ id: "run-evaluation" }),
       expect.objectContaining({ id: "start-review" }),
     ]);
 
-    const hiddenFlow = buildVersionFlowItems({ skill, reviews, publishRecords, evaluationsVisible: false });
+    const hiddenFlow = buildVersionFlowItems({ skill, versions: skillFixture.versions as never, reviews, publishRecords, evaluationsVisible: false });
     expect(hiddenFlow[0].stages.map((stage) => stage.id)).toEqual(["version", "review", "publish"]);
     expect(buildSkillSuggestions({
-      skill: { ...skillFixture, eval_sets: [], latest_eval_runs: [] } as never,
+      skill: { ...skillFixture, version_count: skillFixture.versions.length, eval_sets: [], latest_eval_runs: [] } as never,
       evaluationsVisible: false,
     }).map((item) => item.id)).toEqual(["start-review"]);
   });

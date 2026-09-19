@@ -1,37 +1,53 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { ExternalLink, GitCompareArrows, Workflow } from "lucide-vue-next";
 import { computed, onMounted, ref, watch } from "vue";
 import BundleBrowser from "../components/BundleBrowser.vue";
 import InlineLoading from "../components/InlineLoading.vue";
-import { api } from "../lib/api";
+import { paginationApi, type GuidanceReview, type GuidancePublish } from "../lib/api/paginationApi";
+import type { SkillVersion, EvalRunRecord } from "../types";
 import { compactText, humanDate, scoreKind, scoreLabel, versionName } from "../lib/format";
 import type { RouteState } from "../lib/navigation";
 import { buildSkillSuggestions, buildVersionFlowItems } from "../lib/skillGuidance";
 import { skillSecondaryName } from "../lib/skillIdentity";
 import { tagLabel } from "../lib/skillTags";
-import type { ReviewRequest, SkillDetail, SkillPublishOverview } from "../types";
 
-const props = withDefaults(defineProps<{ skill: SkillDetail; evaluationsVisible?: boolean }>(), { evaluationsVisible: true });
+const props = withDefaults(defineProps<{ skill: SkillCore; evaluationsVisible?: boolean }>(), { evaluationsVisible: true });
 const emit = defineEmits<{ navigate: [next: Partial<RouteState>] }>();
-const reviews = ref<ReviewRequest[]>([]);
-const publishOverview = ref<SkillPublishOverview | null>(null);
+const reviews = ref<GuidanceReview[]>([]);
+const publishRecords = ref<GuidancePublish[]>([]);
 const guidanceLoading = ref(false);
 
-const version = computed(() => props.skill.summary.current_version);
+const version = ref<SkillVersion | null>(null);
+const versionError = ref("");
+const versionLoading = ref(false);
+const versionRetry = ref(0);
+const guidanceError = ref("");
+const flowVersions = ref<SkillVersion[]>([]);
+const flowRuns = ref<EvalRunRecord[]>([]);
+watch([() => props.skill.summary.current_version?.id, versionRetry], async ([id], _, cleanup) => {
+  const controller = new AbortController(); cleanup(() => controller.abort()); version.value = null;
+  versionError.value = ""; versionLoading.value = Boolean(id);
+  if (id) try { const detail = await paginationApi.version(id, controller.signal); if (!controller.signal.aborted) version.value = detail.version; }
+  catch (error) { if (!controller.signal.aborted) versionError.value = error instanceof Error ? error.message : "内容加载失败"; }
+  finally { if (!controller.signal.aborted) versionLoading.value = false; }
+}, { immediate: true });
 const evalSet = computed(() => props.skill.summary.primary_eval_set);
 const run = computed(() => props.skill.summary.latest_accepted_eval_run);
 const files = computed(() => version.value?.bundle_files ?? []);
 const lifecycleLabel = computed(() => skillLifecycleLabel(props.skill.skill.lifecycle_status));
 const versionFlowItems = computed(() => buildVersionFlowItems({
-  skill: props.skill,
+  skill: { ...props.skill, latest_eval_runs: flowRuns.value },
+  versions: flowVersions.value,
   reviews: reviews.value,
-  publishRecords: publishOverview.value?.publish_records ?? [],
+  publishRecords: publishRecords.value,
   evaluationsVisible: props.evaluationsVisible,
 }).slice(0, 4));
 const suggestions = computed(() => buildSkillSuggestions({
   skill: props.skill,
   reviews: reviews.value,
-  publishRecords: publishOverview.value?.publish_records ?? [],
+  publishRecords: publishRecords.value,
   evaluationsVisible: props.evaluationsVisible,
 }));
 const secondaryName = computed(() => skillSecondaryName(props.skill.skill));
@@ -40,17 +56,17 @@ onMounted(() => void loadGuidance());
 watch(() => props.skill.skill.id, () => void loadGuidance());
 
 async function loadGuidance(): Promise<void> {
-  guidanceLoading.value = true;
+  guidanceLoading.value = true; guidanceError.value = "";
   try {
-    const [nextReviews, nextPublish] = await Promise.all([
-      api.listSkillReviews(props.skill.skill.id),
-      api.getSkillPublishOverview(props.skill.skill.id),
-    ]);
-    reviews.value = nextReviews;
-    publishOverview.value = nextPublish;
-  } catch {
+    const detail = await paginationApi.guidance(props.skill.skill.id);
+    flowVersions.value = detail.versions;
+    flowRuns.value = detail.eval_runs;
+    reviews.value = detail.reviews;
+    publishRecords.value = detail.publish_records;
+  } catch (error) {
+    guidanceError.value = error instanceof Error ? error.message : "版本流程加载失败";
     reviews.value = [];
-    publishOverview.value = null;
+    publishRecords.value = [];
   } finally {
     guidanceLoading.value = false;
   }
@@ -109,6 +125,9 @@ function skillLifecycleLabel(status: string): string {
       </div>
     </section>
     <section class="primary-panel bundle-panel">
+      <p v-if="versionLoading" role="status">正在加载当前版本内容…</p>
+      <p v-if="versionError" role="alert">{{ versionError }} <button class="secondary-button" type="button" @click="versionRetry++">重试内容</button></p>
+      <p v-if="guidanceError" role="alert">{{ guidanceError }} <button class="secondary-button" type="button" @click="loadGuidance">重试版本流程</button></p>
       <div class="panel-title-row">
         <h2>Skill内容</h2>
         <div class="button-row">

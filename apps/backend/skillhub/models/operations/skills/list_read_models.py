@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from sqlalchemy import desc, select
+from sqlalchemy import cast, desc, select
+from sqlalchemy.dialects.postgresql import JSONB
 
 from skillhub.models.schema import orm
 
@@ -14,32 +15,35 @@ class ListReadModelMixin:
             rows = connection.execute(
                 orm.select_entity(orm.Skill).where(orm.Skill.lifecycle_status == "active").order_by(orm.Skill.slug)
             ).mappings().all()
-            if not rows:
-                return []
-            skill_ids = [str(row["id"]) for row in rows]
-            tags = self._list_skill_tags(connection, skill_ids)
-            versions = self._list_current_versions(connection, rows)
-            current_version_ids = [str(row["current_version_id"]) for row in rows if row["current_version_id"]]
-            review_statuses = self._list_review_statuses(connection, current_version_ids)
-            publish_statuses = self._list_publish_statuses(connection, current_version_ids)
-            eval_sets = self._list_primary_eval_sets(connection, skill_ids)
-            latest_runs = self._list_latest_eval_runs(connection, versions, eval_sets)
-            workflows = self._list_workflow_summaries(connection, rows)
-            return [
-                {
+            return self._skill_list_items(connection, rows)
+
+    def _skill_list_items(self, connection, rows, *, include_files=True):
+        if not rows:
+            return []
+        skill_ids = [str(row["id"]) for row in rows]
+        tags = self._list_skill_tags(connection, skill_ids)
+        versions = self._list_current_versions(connection, rows, include_files=include_files)
+        current_version_ids = [str(row["current_version_id"]) for row in rows if row["current_version_id"]]
+        review_statuses = self._list_review_statuses(connection, current_version_ids)
+        publish_statuses = self._list_publish_statuses(connection, current_version_ids)
+        eval_sets = self._list_primary_eval_sets(connection, skill_ids)
+        latest_runs = self._list_latest_eval_runs(connection, versions, eval_sets)
+        workflows = self._list_workflow_summaries(connection, rows)
+        return [
+            {
+                "skill": self._list_skill_record(row, tags),
+                "summary": {
                     "skill": self._list_skill_record(row, tags),
-                    "summary": {
-                        "skill": self._list_skill_record(row, tags),
-                        "current_version": versions.get(str(row["current_version_id"])),
-                        "primary_eval_set": eval_sets.get(str(row["id"])),
-                        "latest_accepted_eval_run": latest_runs.get(str(row["id"])),
-                        "review_status": review_statuses.get(str(row["current_version_id"]), "unreviewed"),
-                        "publish_status": publish_statuses.get(str(row["current_version_id"]), "unpublished"),
-                    },
-                    "workflow": workflows.get(str(row["id"])),
-                }
-                for row in rows
-            ]
+                    "current_version": versions.get(str(row["current_version_id"])),
+                    "primary_eval_set": eval_sets.get(str(row["id"])),
+                    "latest_accepted_eval_run": latest_runs.get(str(row["id"])),
+                    "review_status": review_statuses.get(str(row["current_version_id"]), "unreviewed"),
+                    "publish_status": publish_statuses.get(str(row["current_version_id"]), "unpublished"),
+                },
+                "workflow": workflows.get(str(row["id"])),
+            }
+            for row in rows
+        ]
 
     def _list_skill_tags(self, connection, skill_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
         rows = connection.execute(
@@ -90,7 +94,7 @@ class ListReadModelMixin:
             )
         return dict(result)
 
-    def _list_current_versions(self, connection, skills) -> dict[str, dict[str, Any]]:
+    def _list_current_versions(self, connection, skills, *, include_files=True) -> dict[str, dict[str, Any]]:
         version_ids = [str(row["current_version_id"]) for row in skills if row["current_version_id"]]
         if not version_ids:
             return {}
@@ -120,10 +124,15 @@ class ListReadModelMixin:
         }
         artifact_rows = (
             connection.execute(orm.select_entity(orm.Artifact).where(orm.Artifact.id.in_(artifact_ids))).mappings().all()
-            if artifact_ids
+            if artifact_ids and include_files
             else []
         )
         artifacts = {str(row["id"]): self._row_dict(row) for row in artifact_rows}
+        descriptions = {}
+        if artifact_ids and not include_files:
+            descriptions = dict(connection.execute(select(orm.Artifact.id,
+                cast(orm.Artifact.content_text, JSONB)["metadata"]["description"].astext
+            ).where(orm.Artifact.id.in_(artifact_ids), orm.Artifact.kind == "skill_bundle")).all())
         result: dict[str, dict[str, Any]] = {}
         for row in version_rows:
             detail = self._row_dict(row)
@@ -131,7 +140,10 @@ class ListReadModelMixin:
             detail["workflow_sync"] = syncs.get(str(row["id"]))
             content_ref = detail.get("content_ref")
             if isinstance(content_ref, dict) and str(content_ref.get("locator", "")).startswith("artifact:"):
-                artifact = artifacts.get(str(content_ref["locator"]).split(":", 1)[1])
+                artifact_id = str(content_ref["locator"]).split(":", 1)[1]
+                artifact = artifacts.get(artifact_id)
+                if not include_files:
+                    detail["description"] = descriptions.get(artifact_id)
                 if artifact is not None:
                     detail["description"] = self._bundle_description_from_artifact(artifact)
                     detail["bundle_artifact"] = artifact
@@ -143,12 +155,13 @@ class ListReadModelMixin:
         if not version_ids:
             return {}
         rows = connection.execute(
-            orm.select_entity(orm.ReviewRequest)
+            select(orm.ReviewRequest.skill_version_id, orm.ReviewRequest.status)
             .where(orm.ReviewRequest.skill_version_id.in_(version_ids))
             # Publish flows create closed review rows as bookkeeping. They are
             # not the current authoring review shown in the Skill list.
             .where(~orm.ReviewRequest.publish_records.any())
-            .order_by(desc(orm.ReviewRequest.created_at), desc(orm.ReviewRequest.id))
+            .distinct(orm.ReviewRequest.skill_version_id)
+            .order_by(orm.ReviewRequest.skill_version_id, desc(orm.ReviewRequest.created_at), desc(orm.ReviewRequest.id))
         ).mappings().all()
         result: dict[str, str] = {}
         for row in rows:
@@ -160,7 +173,8 @@ class ListReadModelMixin:
         if not version_ids:
             return {}
         rows = connection.execute(
-            orm.select_entity(orm.PublishRecord).where(orm.PublishRecord.skill_version_id.in_(version_ids))
+            select(orm.PublishRecord.skill_version_id, orm.PublishRecord.status)
+            .where(orm.PublishRecord.skill_version_id.in_(version_ids)).distinct()
         ).mappings().all()
         statuses_by_version: dict[str, set[str]] = defaultdict(set)
         for row in rows:
@@ -198,7 +212,8 @@ class ListReadModelMixin:
             .where(orm.EvalRun.skill_version_id.in_(versions))
             .where(orm.EvalRun.eval_set_id.in_(str(item["id"]) for item in eval_sets.values()))
             .where(orm.EvalRun.status == "finished")
-            .order_by(desc(orm.EvalRun.created_at), desc(orm.EvalRun.id))
+            .distinct(orm.EvalRun.skill_id, orm.EvalRun.eval_set_id)
+            .order_by(orm.EvalRun.skill_id, orm.EvalRun.eval_set_id, desc(orm.EvalRun.created_at), desc(orm.EvalRun.id))
         ).mappings().all()
         latest: dict[str, dict[str, Any]] = {}
         for row in rows:
@@ -210,16 +225,20 @@ class ListReadModelMixin:
     def _list_workflow_summaries(self, connection, skills) -> dict[str, dict[str, Any]]:
         skill_ids = [str(row["id"]) for row in skills]
         workflow_rows = connection.execute(
-            orm.select_entity(orm.Workflow).where(orm.Workflow.skill_id.in_(skill_ids))
+            select(orm.Workflow.id, orm.Workflow.skill_id, orm.Workflow.revision,
+                   orm.Workflow.document_schema_version, orm.Workflow.updated_at)
+            .where(orm.Workflow.skill_id.in_(skill_ids))
         ).mappings().all()
         if not workflow_rows:
             return {}
         workflow_ids = [str(row["id"]) for row in workflow_rows]
-        sync_rows = connection.execute(
-            orm.select_entity(orm.WorkflowSync)
-            .where(orm.WorkflowSync.workflow_id.in_(workflow_ids))
-            .order_by(orm.WorkflowSync.created_at.desc(), orm.WorkflowSync.id.desc())
-        ).mappings().all()
+        latest = select(orm.WorkflowSync.id).where(orm.WorkflowSync.workflow_id.in_(workflow_ids)).distinct(
+            orm.WorkflowSync.workflow_id).order_by(orm.WorkflowSync.workflow_id,
+                orm.WorkflowSync.created_at.desc(), orm.WorkflowSync.id.desc())
+        sync_rows = connection.execute(orm.select_entity(orm.WorkflowSync).where(
+            orm.WorkflowSync.id.in_(latest) | orm.WorkflowSync.skill_version_id.in_(
+                [skill["current_version_id"] for skill in skills if skill["current_version_id"]]))
+            .order_by(orm.WorkflowSync.created_at.desc(), orm.WorkflowSync.id.desc())).mappings().all()
         latest_syncs: dict[str, Any] = {}
         current_syncs = {
             str(row["skill_version_id"]): row

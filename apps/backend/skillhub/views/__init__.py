@@ -10,6 +10,7 @@ from skillhub.views.evaluations import register_evaluation_routes
 from skillhub.views.executor_workflows import register_executor_workflow_routes
 from skillhub.views.external import register_external_routes
 from skillhub.views.opencode import register_opencode_routes
+from skillhub.views.pagination import register_pagination_routes
 from skillhub.views.reviews import register_review_routes
 from skillhub.views.saved_views import register_saved_view_routes
 from skillhub.views.session import register_session_routes
@@ -22,6 +23,7 @@ from skillhub.views.workflows import register_workflow_routes
 
 
 def register_views(app: FastAPI) -> None:
+    register_pagination_routes(app)
     register_analytics_routes(app)
     register_system_routes(app)
     register_session_routes(app)

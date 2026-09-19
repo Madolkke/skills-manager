@@ -10,10 +10,10 @@ from skillhub.models.schema import orm
 
 
 class ReadModelMixin(ListReadModelMixin):
-    def skill_detail(self, skill_id: str, actor: str | None = None) -> dict[str, Any]:
+    def skill_detail(self, skill_id: str, actor: str | None = None, *, lightweight: bool = False) -> dict[str, Any]:
         with self._read_session() as connection:
             skill = self._skill_row(connection, skill_id)
-            version_rows = (
+            version_rows = [] if lightweight else (
                 connection.execute(
                     orm.select_entity(orm.SkillVersion)
                     .where(orm.SkillVersion.skill_id == skill_id)
@@ -42,7 +42,8 @@ class ReadModelMixin(ListReadModelMixin):
                 .mappings()
                 .all()
             ]
-            summary = self._skill_summary(connection, skill)
+            summary = (self._skill_list_items(connection, [skill], include_files=False)[0]["summary"]
+                       if lightweight else self._skill_summary(connection, skill))
             role_assignments = self._skill_role_assignments(connection, skill_id)
             audit_events = self._skill_audit_events(connection, skill_id, limit=10)
             capabilities = self._skill_capabilities(connection, skill_id=skill_id, actor=actor or "", subject_type="user") if actor else None

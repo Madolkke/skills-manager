@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import type { SkillDetail, ToastState } from "../types";
+import type { SkillCore } from "../lib/api/paginationApi";
+
+import type { ToastState } from "../types";
 import SkillAccessPanel from "./SkillAccessPanel.vue";
 
-defineProps<{ skill: SkillDetail }>();
+defineProps<{ skill: SkillCore }>();
 const emit = defineEmits<{ refresh: []; toast: [toast: ToastState]; deleted: [] }>();
 </script>
 

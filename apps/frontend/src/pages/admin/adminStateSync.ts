@@ -77,14 +77,10 @@ export type AdminStateSync = ReturnType<typeof createAdminStateSync>;
 
 function clearSkillTagsForGroup(state: AdminStateSyncCollections, groupId: string): void {
   state.skills.value = state.skills.value.map((item) => withoutSkillTags(item, (tag) => tag.group_id === groupId));
-  state.tagDrafts.value = Object.fromEntries(Object.entries(state.tagDrafts.value).map(([skillId, tags]) => [skillId, tags.filter((tag) => tag.group_id !== groupId)]));
 }
 
 function clearSkillTagsForValue(state: AdminStateSyncCollections, groupId: string, value: string): void {
   state.skills.value = state.skills.value.map((item) => withoutSkillTags(item, (tag) => tag.group_id === groupId && tag.value === value));
-  state.tagDrafts.value = Object.fromEntries(
-    Object.entries(state.tagDrafts.value).map(([skillId, tags]) => [skillId, tags.filter((tag) => tag.group_id !== groupId || tag.value !== value)]),
-  );
 }
 
 function withoutSkillTags(item: SkillSummary, predicate: (tag: SkillSummary["skill"]["tags"][number]) => boolean): SkillSummary {

@@ -1,39 +1,40 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import BundleDiffView from "./BundleDiffView.vue";
-import DropdownSelect from "./DropdownSelect.vue";
+import RemoteVersionSelect from "./RemoteVersionSelect.vue";
 import { api, ApiError } from "../lib/api";
 import { versionName } from "../lib/format";
 import type { BundleDiff, SkillVersion } from "../types";
 
-const props = defineProps<{ current: SkillVersion; previous?: SkillVersion | null; versions: SkillVersion[] }>();
+const props = defineProps<{ current: SkillVersion; previous?: SkillVersion | null; versionCount: number }>();
 
 const baseVersionId = ref(props.previous?.id ?? "");
 const diff = ref<BundleDiff | null>(null);
 const error = ref<string | null>(null);
 const loading = ref(false);
-const compareOptions = computed(() => props.versions.filter((version) => version.id !== props.current.id));
-const compareSelectOptions = computed(() => compareOptions.value.map((version) => ({
-  value: version.id,
-  label: `${versionName(version)}${version.id === props.previous?.id ? "（前一个）" : ""}`,
-})));
-const baseVersion = computed(() => compareOptions.value.find((version) => version.id === baseVersionId.value) ?? null);
+
+const baseVersion = ref(props.previous ?? null);
 
 watch(() => [props.current.id, props.previous?.id] as const, () => {
   baseVersionId.value = props.previous?.id ?? "";
+  baseVersion.value = props.previous ?? null;
 });
 
-watch([baseVersion, () => props.current.id], async () => {
+watch([() => baseVersion.value?.id, () => props.current.id], async (_, __, cleanup) => {
+  let expired = false;
+  cleanup(() => { expired = true; });
   diff.value = null;
   error.value = null;
+  loading.value = false;
   if (!baseVersion.value) return;
   loading.value = true;
   try {
-    diff.value = await api.getBundleDiff(baseVersion.value.id, props.current.id);
+    const result = await api.getBundleDiff(baseVersion.value.id, props.current.id);
+    if (!expired) diff.value = result;
   } catch (caught) {
-    error.value = errorMessage(caught);
+    if (!expired) error.value = errorMessage(caught);
   } finally {
-    loading.value = false;
+    if (!expired) loading.value = false;
   }
 }, { immediate: true });
 
@@ -47,12 +48,12 @@ function errorMessage(caught: unknown): string {
   <BundleDiffView
     :diff="diff"
     :title="baseVersion ? `${versionName(current)} 对比 ${versionName(baseVersion)}` : '初始版本'"
-    :state-message="loading ? '正在读取 Skill 内容差异...' : error ? `Skill 内容差异读取失败：${error}` : compareOptions.length === 0 ? '这是第一个 Skill 版本，没有可比较的版本。' : undefined"
+    :state-message="loading ? '正在读取 Skill 内容差异...' : error ? `Skill 内容差异读取失败：${error}` : versionCount < 2 ? '这是第一个 Skill 版本，没有可比较的版本。' : undefined"
   >
     <template #tools>
-      <label v-if="compareOptions.length > 0" class="diff-version-select">
+      <label class="diff-version-select">
         <span>对比版本</span>
-        <DropdownSelect v-model="baseVersionId" :options="compareSelectOptions" aria-label="选择对比版本" compact />
+        <RemoteVersionSelect v-model="baseVersionId" :skill-id="current.skill_id" :exclude-id="current.id" @selected="baseVersion = $event" />
       </label>
     </template>
   </BundleDiffView>

@@ -13,6 +13,7 @@ from skillhub.models.operations.evaluations import EvaluationStoreMixin
 from skillhub.models.operations.expression_functions import ExpressionFunctionStoreMixin
 from skillhub.models.operations.history import HistoryStoreMixin
 from skillhub.models.operations.opencode import OpencodeStoreMixin
+from skillhub.models.operations.pagination import PaginationMixin
 from skillhub.models.operations.reviews import ReviewStoreMixin
 from skillhub.models.operations.saved_views import SavedViewStoreMixin
 from skillhub.models.operations.shared import SharedStoreMixin
@@ -35,6 +36,7 @@ from skillhub.models.operations.workflows import WorkflowStoreMixin
 
 
 class _StoreOperations(
+    PaginationMixin,
     AnalyticsStoreMixin,
     SkillStoreMixin,
     EvaluationStoreMixin,

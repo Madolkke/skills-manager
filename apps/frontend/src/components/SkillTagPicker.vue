@@ -14,7 +14,7 @@ const props = withDefaults(
   }>(),
   { disabled: false, mode: "staged" },
 );
-const emit = defineEmits<{ change: [tags: SkillTagPayload[]]; done: [tags: SkillTagPayload[]] }>();
+const emit = defineEmits<{ change: [tags: SkillTagPayload[]]; done: [tags: SkillTagPayload[]]; draftChange: [tags: SkillTagPayload[]]; cancel: [] }>();
 const editing = ref(props.mode === "inline");
 const draft = ref<SkillTagPayload[]>(props.value.map((tag) => ({ ...tag })));
 const validationError = ref("");
@@ -115,7 +115,10 @@ function removeTag(tag: SkillTagPayload): void {
 function applyTags(tags: SkillTagPayload[]): void {
   const next = tags.map((tag) => ({ ...tag }));
   if (props.mode === "inline") emit("change", next);
-  else draft.value = next;
+  else {
+    draft.value = next;
+    emit("draftChange", next);
+  }
 }
 </script>
 
@@ -140,7 +143,7 @@ function applyTags(tags: SkillTagPayload[]): void {
         <button v-if="!editing" class="secondary-button" type="button" :disabled="!roots.length" @click="startEdit">编辑 Tags</button>
         <template v-else>
           <button class="primary-button" type="button" @click="finishEdit">完成</button>
-          <button class="secondary-button" type="button" @click="cancelEdit">取消</button>
+          <button class="secondary-button" type="button" @click="cancelEdit(); emit('cancel')">取消</button>
         </template>
       </div>
     </div>

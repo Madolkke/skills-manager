@@ -4,6 +4,8 @@
 
 ## 目录语义
 
+- `operations/pagination/`：广场筛选与计数、授权、版本和历史摘要的 SQL 分页；先确定当前页，再批量读取关联数据。
+
 - `rules/command_parsing.py`、`rules/ttp_template.py`：完整候选选择、JSON Pointer 结果诊断及纯文本 TTP 允许范围。
 
 - `operations/expression_functions.py`、`schema/expression_functions.py`：全局函数声明存储与目录投影，函数体仅保存文本。
