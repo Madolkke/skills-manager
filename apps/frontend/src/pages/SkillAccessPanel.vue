@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { computed, onMounted, ref, watch } from "vue";
 import { api, ApiError, type AdminGroup } from "../lib/api";
 import { skillOptionLabel } from "../lib/skillIdentity";
@@ -10,9 +12,9 @@ import SkillDangerSettingsSection from "./settings/SkillDangerSettingsSection.vu
 import SkillGeneralSettingsSection from "./settings/SkillGeneralSettingsSection.vue";
 import SkillRolesSettingsSection from "./settings/SkillRolesSettingsSection.vue";
 import SkillTagsSettingsSection from "./settings/SkillTagsSettingsSection.vue";
-import type { SkillDetail, SkillTagPayload, TagGroup, ToastState } from "../types";
+import type { SkillTagPayload, TagGroup, ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = defineProps<{ skill: SkillCore }>();
 const emit = defineEmits<{ refresh: []; toast: [toast: ToastState]; deleted: [] }>();
 
 const tags = ref<SkillTagPayload[]>(toTagPayloads(props.skill.skill.tags ?? []));

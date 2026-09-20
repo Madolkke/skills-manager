@@ -1,4 +1,4 @@
 interface:
-  display_name: "文档工作流导入"
-  short_description: "将流程说明转换为可导入工作流并生成审阅报告和结构校验结果"
-  default_prompt: "使用 $workflow-import-generator 根据此流程说明生成并校验可导入工作流。"
+  display_name: "离线 CLI 工作流生成"
+  short_description: "将流程说明离线转换为 CLI 工作流，提供复杂 Schema 静态校验和中文审阅报告"
+  default_prompt: "使用 $workflow-import-generator 根据此流程说明离线生成 CLI 工作流，并交付静态校验及待补全报告。"

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import DropdownSelect from "../components/DropdownSelect.vue";
 import TaskCenterPanel from "../components/TaskCenterPanel.vue";
 import Tabs from "../components/Tabs.vue";
+import { paginationApi } from "../lib/api/paginationApi";
 import { api } from "../lib/api";
 import { readRoute, replaceRoute, reviewShareUrl } from "../lib/navigation";
 import type { SkillDetail, SkillRecord, SkillSummary, SkillVersion } from "../types";
@@ -22,6 +23,8 @@ describe("Skill display copy", () => {
   it("shows the current Skill description instead of the version change summary", async () => {
     const detail = skillDetail("Review authorization boundaries.");
     mockOverviewApi(detail.skill);
+    vi.spyOn(paginationApi, "version").mockResolvedValue({ version: detail.summary.current_version!, previous: null });
+    vi.spyOn(paginationApi, "guidance").mockResolvedValue({ versions: detail.versions, reviews: [], publish_records: [], eval_runs: [] });
 
     const card = mount(HubSkillCard, { props: { item: skillSummary(detail) } });
     const overview = mount(OverviewPage, { props: { skill: detail } });
@@ -37,6 +40,8 @@ describe("Skill display copy", () => {
   it("shows an explicit fallback when the current version has no description", async () => {
     const detail = skillDetail(null);
     mockOverviewApi(detail.skill);
+    vi.spyOn(paginationApi, "version").mockResolvedValue({ version: detail.summary.current_version!, previous: null });
+    vi.spyOn(paginationApi, "guidance").mockResolvedValue({ versions: detail.versions, reviews: [], publish_records: [], eval_runs: [] });
     const card = mount(HubSkillCard, { props: { item: skillSummary(detail) } });
     const overview = mount(OverviewPage, { props: { skill: detail } });
     await flushPromises();
@@ -53,6 +58,8 @@ describe("Skill display copy", () => {
     const detail = skillDetail("Review authorization boundaries.");
     detail.skill.display_name = "访问权限评审";
     mockOverviewApi(detail.skill);
+    vi.spyOn(paginationApi, "version").mockResolvedValue({ version: detail.summary.current_version!, previous: null });
+    vi.spyOn(paginationApi, "guidance").mockResolvedValue({ versions: detail.versions, reviews: [], publish_records: [], eval_runs: [] });
 
     const card = mount(HubSkillCard, { props: { item: skillSummary(detail) } });
     const overview = mount(OverviewPage, { props: { skill: detail } });
@@ -148,6 +155,8 @@ describe("Skill display copy", () => {
   it("hides evaluation-only content while preserving the rest of the Skill UI", async () => {
     const detail = skillDetail("Review authorization boundaries.");
     mockOverviewApi(detail.skill);
+    vi.spyOn(paginationApi, "version").mockResolvedValue({ version: detail.summary.current_version!, previous: null });
+    vi.spyOn(paginationApi, "guidance").mockResolvedValue({ versions: detail.versions, reviews: [], publish_records: [], eval_runs: [] });
     vi.spyOn(api, "listTagGroups").mockResolvedValue([]);
     const tabs = mount(Tabs, { props: { active: "overview", evaluationsVisible: false } });
     const card = mount(HubSkillCard, { props: { item: skillSummary(detail) } });
@@ -195,7 +204,7 @@ describe("Skill display copy", () => {
   });
 });
 
-function skillDetail(description: string | null): SkillDetail {
+function skillDetail(description: string | null): SkillDetail & { version_count: number; highest_version: SkillDetail["summary"]["current_version"] } {
   const skill: SkillRecord = {
     id: "skill-1",
     slug: "access-reviewer",
@@ -218,6 +227,7 @@ function skillDetail(description: string | null): SkillDetail {
     bundle_files: [],
   };
   return {
+    version_count: 1, highest_version: version,
     skill,
     summary: { skill, current_version: version, primary_eval_set: null, latest_accepted_eval_run: null },
     versions: [version],

@@ -1,41 +1,62 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import type { SkillCore } from "../lib/api/paginationApi";
+
+import { computed, nextTick, onMounted, ref, watch, toRefs } from "vue";
 import { Copy } from "lucide-vue-next";
 import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
 import { reviewManageReason } from "../lib/disabledReasons";
 import { humanDate } from "../lib/format";
 import { reviewShareUrl } from "../lib/navigation";
-import { buildReviewerSources, reviewerSourceText, selectedReviewerCount } from "../lib/reviewerSelection";
-import type { PublishTarget, ReviewerCandidateOverview, ReviewRequest, SkillDetail, ToastState } from "../types";
+import { buildReviewerSources, selectedReviewerCount } from "../lib/reviewerSelection";
+import type { PublishTarget, ReviewerCandidateOverview, ReviewRequest, ToastState } from "../types";
+import { useListFilters } from "../composables/useListFilters";
+import PaginationBar from "../components/PaginationBar.vue";
+import { usePagedQuery } from "../composables/usePagedQuery";
+import { paginationApi, type ReviewSummary } from "../lib/api/paginationApi";
+import { responseCount, autoTargetText, reviewerText, reviewStatusText, scoreLabel, scoreTone } from "./review/reviewLabels";
 import ReviewLaunchPanel from "./review/ReviewLaunchPanel.vue";
 
-const props = defineProps<{ skill: SkillDetail; selectedReviewId: string | null }>();
+const props = defineProps<{ skill: SkillCore; selectedReviewId: string | null }>();
 const emit = defineEmits<{ toast: [toast: ToastState]; refresh: [] }>();
 
 const loading = ref(false);
 const busy = ref(false);
-const reviews = ref<ReviewRequest[]>([]);
+const details = ref<Record<string, ReviewRequest>>({});
+const { status } = toRefs(useListFilters("reviews", { status: "" }));
 const targets = ref<PublishTarget[]>([]);
 const reviewerCandidates = ref<ReviewerCandidateOverview | null>(null);
-const selectedVersionId = ref(props.skill.skill.current_version_id ?? props.skill.versions[0]?.id ?? "");
+const selectedVersionId = ref(props.skill.skill.current_version_id ?? props.skill.highest_version?.id ?? "");
 const selectedTargets = ref<string[]>([]);
 const selectedReviewerGroupIds = ref<string[]>([]);
 const directReviewerInput = ref("");
 
 const canManage = computed(() => Boolean(props.skill.capabilities?.permissions["review.manage"]));
 const manageReason = computed(() => reviewManageReason(canManage.value));
-const versionOptions = computed(() =>
-  props.skill.versions.map((version) => ({
-    value: version.id,
-    label: version.version,
-    description: version.display_name || version.change_summary,
-  })),
-);
-const orderedReviews = computed(() => [...reviews.value].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")));
-const openReviews = computed(() => orderedReviews.value.filter((review) => review.status === "open"));
-const closedReviews = computed(() => orderedReviews.value.filter((review) => review.status === "closed"));
-const selectedVersion = computed(() => props.skill.versions.find((version) => version.id === selectedVersionId.value) ?? null);
+const { page, pageSize, items: summaries, total, loading: listLoading, error: listError, reload, result } = usePagedQuery("reviews",
+  () => ({ status: status.value, skill: props.skill.skill.id }),
+  (params, signal) => paginationApi.reviews(props.skill.skill.id, { page: params.page, page_size: params.page_size, status: params.status }, signal));
+const selectedVersion = ref(props.skill.summary.current_version);
+const orderedReviews = computed(() => summaries.value);
+const counts = computed(() => result.value?.counts ?? {});
+const focusedDetail = ref<ReviewRequest | null>(null);
+const focusedError = ref("");
+const focusedRetry = ref(0);
+async function expandReview(review: ReviewSummary) {
+  try { details.value[review.id] = await paginationApi.review(review.id); }
+  catch (caught) { showError(caught); }
+}
+watch([() => props.selectedReviewId, focusedRetry], async ([id], _, cleanup) => {
+  const controller = new AbortController(); cleanup(() => controller.abort()); focusedDetail.value = null;
+  focusedError.value = "";
+  if (!id) return;
+  try { const detail = await paginationApi.review(id, controller.signal); if (!controller.signal.aborted) { focusedDetail.value = detail; details.value[id] = detail; } }
+  catch (caught) { if (!controller.signal.aborted) focusedError.value = caught instanceof Error ? caught.message : "评审详情加载失败"; }
+}, { immediate: true });
+const visibleReviews = computed(() => {
+  const rows = orderedReviews.value.map(item => details.value[item.id] ?? item);
+  return focusedDetail.value && !rows.some(row => row.id === focusedDetail.value?.id) ? [focusedDetail.value, ...rows] : rows;
+});
 const reviewerGroups = computed(() => reviewerCandidates.value?.groups ?? []);
 const explicitReviewerCount = computed(() => selectedReviewerCount(selectedReviewerGroupIds.value, directReviewerInput.value, reviewerCandidates.value));
 
@@ -45,19 +66,20 @@ watch(() => props.selectedReviewId, () => void focusSelectedReview());
 async function load(): Promise<void> {
   loading.value = true;
   try {
-    const [nextReviews, publish, candidates] = await Promise.all([
-      api.listSkillReviews(props.skill.skill.id),
-      api.getSkillPublishOverview(props.skill.skill.id),
+    const [publishTargets, candidates] = await Promise.all([
+      paginationApi.targets(),
       canManage.value ? api.listReviewerCandidates(props.skill.skill.id) : Promise.resolve({ skill_id: props.skill.skill.id, groups: [] }),
     ]);
-    reviews.value = nextReviews;
-    targets.value = publish.publish_targets.filter((target) => target.enabled);
+    targets.value = publishTargets;
+    await reload();
+    const visibleIds = new Set([...summaries.value.map(item => item.id), ...(props.selectedReviewId ? [props.selectedReviewId] : [])]);
+    await Promise.all(Object.keys(details.value).filter(id => visibleIds.has(id)).map(async id => {
+      details.value[id] = await paginationApi.review(id);
+      if (focusedDetail.value?.id === id) focusedDetail.value = details.value[id];
+    }));
     reviewerCandidates.value = candidates;
     await nextTick();
     await focusSelectedReview();
-    if (props.selectedReviewId && !nextReviews.some((review) => review.id === props.selectedReviewId)) {
-      emit("toast", { tone: "info", message: "评审链接对应的记录不存在或当前不可访问。" });
-    }
   } catch (error) {
     showError(error);
   } finally {
@@ -71,7 +93,7 @@ async function focusSelectedReview(): Promise<void> {
   document.getElementById(`review-${props.selectedReviewId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-async function copyReviewLink(review: ReviewRequest): Promise<void> {
+async function copyReviewLink(review: ReviewSummary): Promise<void> {
   try {
     await navigator.clipboard.writeText(reviewShareUrl(props.skill.skill.id, review.id));
     emit("toast", { tone: "success", message: "评审链接已复制。" });
@@ -106,7 +128,7 @@ async function closeReview(review: ReviewRequest): Promise<void> {
   if (!confirm("关闭评审后将锁定评分，并按门禁检查自动提交待确认发布单。是否继续？")) return;
   busy.value = true;
   try {
-    await api.closeReview(review.id);
+    details.value[review.id] = await api.closeReview(review.id);
     emit("toast", { tone: "success", message: "评审已关闭。" });
     emit("refresh");
     await load();
@@ -129,37 +151,6 @@ function toggleReviewerGroup(groupId: string): void {
     : [...selectedReviewerGroupIds.value, groupId];
 }
 
-function responseCount(review: ReviewRequest): string {
-  return `${review.responses.length} / ${review.reviewers.length}`;
-}
-
-function autoTargetText(review: ReviewRequest): string {
-  const names = review.publish_targets.filter((item) => item.auto_submit_on_pass).map((item) => `${item.name}${item.auto_publish_enabled ? "（自动发布）" : "（后台确认）"}`);
-  return names.length ? names.join("、") : "未设置";
-}
-
-function reviewerText(review: ReviewRequest): string {
-  return review.reviewers.map((item) => reviewerSourceText(item, reviewerCandidates.value)).join("、") || "无";
-}
-
-function reviewStatusText(review: ReviewRequest): string {
-  if (review.status === "open") return "进行中";
-  if (review.status === "closed") return "已关闭";
-  return "已取消";
-}
-
-function scoreLabel(score: -1 | 0 | 1): string {
-  if (score === 1) return "+1 通过";
-  if (score === 0) return "0 保留";
-  return "-1 不通过";
-}
-
-function scoreTone(score: -1 | 0 | 1): string {
-  if (score === 1) return "positive";
-  if (score === 0) return "neutral";
-  return "negative";
-}
-
 function showError(error: unknown): void {
   emit("toast", { tone: "danger", message: error instanceof ApiError || error instanceof Error ? error.message : "操作失败。" });
 }
@@ -174,7 +165,7 @@ function showError(error: unknown): void {
         <p>针对特定 Skill 版本发起评审，评审人来自 reviewer 角色授权快照。</p>
       </div>
       <div class="review-manager-hero-actions">
-        <span class="tag-chip">{{ orderedReviews.length }} 条评审记录</span>
+        <span class="tag-chip">{{ total }} 条评审记录</span>
         <button class="secondary-button" type="button" :disabled="loading" @click="load">{{ loading ? "刷新中..." : "刷新" }}</button>
       </div>
     </section>
@@ -182,11 +173,11 @@ function showError(error: unknown): void {
     <section class="review-manager-summary" aria-label="评审概览">
       <div class="primary-panel review-manager-stat">
         <span>进行中</span>
-        <strong>{{ openReviews.length }}</strong>
+        <strong>{{ counts.open ?? 0 }}</strong>
       </div>
       <div class="primary-panel review-manager-stat">
         <span>已关闭</span>
-        <strong>{{ closedReviews.length }}</strong>
+        <strong>{{ counts.closed ?? 0 }}</strong>
       </div>
       <div class="primary-panel review-manager-stat">
         <span>启用发布源</span>
@@ -205,13 +196,14 @@ function showError(error: unknown): void {
         :can-manage="canManage"
         :busy="busy"
         :manage-reason="manageReason"
-        :version-options="versionOptions"
+        :skill-id="skill.skill.id"
         :selected-version="selectedVersion"
         :targets="targets"
         :selected-targets="selectedTargets"
         :reviewer-groups="reviewerGroups"
         :selected-reviewer-group-ids="selectedReviewerGroupIds"
         :explicit-reviewer-count="explicitReviewerCount"
+        @version-selected="selectedVersion = $event"
         @toggle-reviewer-group="toggleReviewerGroup"
         @toggle-target="toggleTarget"
         @create="createReview"
@@ -223,12 +215,15 @@ function showError(error: unknown): void {
             <h2>评审记录</h2>
             <p>查看每次评审的评审人、回复和关闭后的门禁结果。</p>
           </div>
-          <span class="tag-chip muted">{{ orderedReviews.length }} 条</span>
+          <span class="tag-chip muted">{{ total }} 条</span>
         </div>
 
+        <select v-model="status" aria-label="筛选评审状态"><option value="">全部</option><option value="open">进行中</option><option value="closed">已关闭</option></select>
+        <PaginationBar v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="listLoading" :error="listError" @retry="reload" />
+        <p v-if="focusedError" role="alert">{{ focusedError }} <button class="secondary-button" type="button" @click="focusedRetry++">重试评审详情</button></p>
         <div class="review-record-list">
           <article
-            v-for="review in orderedReviews"
+            v-for="review in visibleReviews"
             :id="`review-${review.id}`"
             :key="review.id"
             :class="['review-record-card', { 'review-record-card-target': review.id === selectedReviewId }]"
@@ -245,43 +240,46 @@ function showError(error: unknown): void {
               </div>
             </div>
 
-            <div class="review-record-metrics">
-              <div>
-                <span>回复进度</span>
-                <strong>{{ responseCount(review) }}</strong>
+            <button v-if="!('responses' in review)" type="button" class="secondary-button" @click="expandReview(review)">查看详情</button>
+            <template v-if="'responses' in review">
+              <div class="review-record-metrics">
+                <div>
+                  <span>回复进度</span>
+                  <strong>{{ responseCount(review) }}</strong>
+                </div>
+                <div>
+                  <span>评审人</span>
+                  <strong>{{ reviewerText(review, reviewerCandidates) }}</strong>
+                </div>
+                <div>
+                  <span>自动发布源</span>
+                  <strong>{{ autoTargetText(review) }}</strong>
+                </div>
               </div>
-              <div>
-                <span>评审人</span>
-                <strong>{{ reviewerText(review) }}</strong>
-              </div>
-              <div>
-                <span>自动发布源</span>
-                <strong>{{ autoTargetText(review) }}</strong>
-              </div>
-            </div>
 
-            <div v-if="review.check_results.length" class="review-check-grid">
-              <span v-for="check in review.check_results" :key="check.check_id" :class="['review-check-chip', { passed: check.passed, failed: !check.passed }]">
-                {{ check.label || check.check_id }} · {{ check.passed ? "通过" : "未通过" }}
-              </span>
-            </div>
-
-            <div class="review-response-list review-record-response-list">
-              <div v-for="response in review.responses" :key="response.reviewer_actor" class="review-response-row review-record-response-row">
-                <strong>{{ response.reviewer_actor }}</strong>
-                <span :class="['my-review-score-pill', scoreTone(response.score)]">{{ scoreLabel(response.score) }}</span>
-                <p>{{ response.comment || "未填写意见" }}</p>
+              <div v-if="review.check_results.length" class="review-check-grid">
+                <span v-for="check in review.check_results" :key="check.check_id" :class="['review-check-chip', { passed: check.passed, failed: !check.passed }]">
+                  {{ check.label || check.check_id }} · {{ check.passed ? "通过" : "未通过" }}
+                </span>
               </div>
-              <div v-if="!review.responses.length" class="review-record-empty">还没有评审人提交反馈。</div>
-            </div>
 
-            <div v-if="review.status === 'open' && canManage" class="button-row review-record-actions">
-              <button class="primary-button" type="button" :disabled="busy" :title="busy ? '正在处理上一项操作，请稍候。' : ''" @click="closeReview(review)">结束评审</button>
-            </div>
+              <div class="review-response-list review-record-response-list">
+                <div v-for="response in review.responses" :key="response.reviewer_actor" class="review-response-row review-record-response-row">
+                  <strong>{{ response.reviewer_actor }}</strong>
+                  <span :class="['my-review-score-pill', scoreTone(response.score)]">{{ scoreLabel(response.score) }}</span>
+                  <p>{{ response.comment || "未填写意见" }}</p>
+                </div>
+                <div v-if="!review.responses.length" class="review-record-empty">还没有评审人提交反馈。</div>
+              </div>
+
+              <div v-if="review.status === 'open' && canManage" class="button-row review-record-actions">
+                <button class="primary-button" type="button" :disabled="busy" :title="busy ? '正在处理上一项操作，请稍候。' : ''" @click="closeReview(review)">结束评审</button>
+              </div>
+            </template>
           </article>
 
           <EmptyState
-            v-if="!orderedReviews.length"
+            v-if="!listLoading && !listError && !focusedError && !visibleReviews.length"
             title="还没有评审记录"
             description="发起一次版本评审后，评审进度、反馈和门禁结果会出现在这里。"
             :action-label="canManage ? '发起评审' : undefined"

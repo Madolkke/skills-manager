@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import EmptyState from "../components/EmptyState.vue";
 import { api, ApiError } from "../lib/api";
 import { publishRequestReason } from "../lib/disabledReasons";
 import { humanDate } from "../lib/format";
-import type { PublishRecord, PublishTarget, ReviewRequest, SkillDetail, SkillPublishOverview, ToastState } from "../types";
+import type { PublishRecord, PublishTarget, ReviewRequest, SkillPublishOverview, ToastState } from "../types";
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = defineProps<{ skill: SkillCore }>();
 const emit = defineEmits<{ toast: [toast: ToastState] }>();
 
 const loading = ref(false);

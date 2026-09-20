@@ -1,6 +1,5 @@
 import type { Ref } from "vue";
 import { api, ApiError, type AdminGroup } from "../../lib/api";
-import { toTagPayloads } from "../../lib/skillTags";
 import type {
   OpencodeAgent,
   OpencodeAgentPayload,
@@ -146,6 +145,7 @@ export function useAdminActions(options: AdminActionsOptions) {
   async function assignRole(payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag" | "global"; resource_id: string; role: string }): Promise<void> {
     await runLocalAdminAction(async () => {
       syncAdminState.upsertRole(await api.adminAssignRole(payload));
+      await load();
     }, "角色已授权。");
   }
 
@@ -154,6 +154,7 @@ export function useAdminActions(options: AdminActionsOptions) {
     await runLocalAdminAction(async () => {
       await api.adminDeleteRoleAssignment(role.id);
       syncAdminState.removeRole(role.id);
+      await load();
     }, "授权已撤销。");
   }
 
@@ -273,7 +274,8 @@ export function useAdminActions(options: AdminActionsOptions) {
     await runLocalAdminAction(async () => {
       const updated = await api.adminUpdateSkill(skill.skill.id, { tags: nextTags });
       syncAdminState.updateSkillTags(updated.id, updated.tags ?? []);
-      tagDrafts.value[updated.id] = toTagPayloads(updated.tags ?? []);
+      delete tagDrafts.value[updated.id];
+      await load();
     }, "Skill Tag 已更新。");
   }
 

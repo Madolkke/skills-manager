@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { computed, ref } from "vue";
 import BundleEditor from "../components/BundleEditor.vue";
 import VersionSelector from "../components/VersionSelector.vue";
@@ -11,16 +13,16 @@ import {
   SKILL_ENTRY_PATH,
   validateBundleDraftFiles,
 } from "../lib/skillBundleDraft";
-import type { SkillDetail, SkillVersion } from "../types";
+import type { SkillVersion } from "../types";
 
-const props = withDefaults(defineProps<{ skill: SkillDetail; version: SkillVersion; actionsClassName?: string }>(), { actionsClassName: "modal-actions" });
+const props = withDefaults(defineProps<{ skill: SkillCore; version: SkillVersion; actionsClassName?: string }>(), { actionsClassName: "modal-actions" });
 const emit = defineEmits<{ cancel: []; saved: [] }>();
 
 const files = computed(() => props.version.bundle_files ?? []);
 const draftFiles = ref(bundleFilesToDraftFiles(files.value));
 const validation = computed(() => validateBundleDraftFiles(draftFiles.value));
 const entryFile = computed(() => draftFiles.value.find((file) => file.path.trim() === SKILL_ENTRY_PATH) ?? null);
-const version = ref(nextPatchVersion(props.skill.versions));
+const version = ref(nextPatchVersion((props.skill.highest_version ? [props.skill.highest_version] : [])));
 const displayName = ref("");
 const changeSummary = ref(`基于 ${versionLabel(props.version)} 编辑 Skill 内容。`);
 const busy = ref(false);
@@ -90,7 +92,7 @@ function updateContent(id: string, content: string): void {
     <div v-if="!entryFile" class="form-error">当前 Skill内容找不到根目录 SKILL.md，无法使用页面编辑。</div>
     <div v-if="entryFile?.binary" class="form-error">SKILL.md 不是可编辑文本文件。</div>
     <div v-for="globalError in validation.globalErrors" :key="globalError" class="form-error">{{ globalError }}</div>
-    <VersionSelector v-model="version" :versions="skill.versions" />
+    <VersionSelector v-model="version" :versions="skill.highest_version ? [skill.highest_version] : []" />
     <label class="field-label">
       <span>版本名称</span>
       <input v-model="displayName" maxlength="80" :placeholder="`例如 ${skill.skill.slug} edited`" />

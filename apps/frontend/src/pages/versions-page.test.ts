@@ -4,6 +4,7 @@ import { flushPromises, shallowMount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../lib/api";
 import type { SkillDetail } from "../types";
+import { paginationApi } from "../lib/api/paginationApi";
 import VersionsPage from "./VersionsPage.vue";
 
 const wrappers: VueWrapper[] = [];
@@ -26,6 +27,7 @@ describe("VersionsPage bundle actions", () => {
       downloadedFilename = this.download;
     });
     const wrapper = mountPage();
+    await flushPromises();
 
     await button(wrapper, "下载 Skill").trigger("click");
     await flushPromises();
@@ -40,6 +42,7 @@ describe("VersionsPage bundle actions", () => {
   it("显示下载错误并恢复按钮", async () => {
     vi.spyOn(api, "downloadSkillBundle").mockRejectedValue(new Error("下载连接已断开。"));
     const wrapper = mountPage();
+    await flushPromises();
 
     await button(wrapper, "下载 Skill").trigger("click");
     await flushPromises();
@@ -51,6 +54,7 @@ describe("VersionsPage bundle actions", () => {
   it("快速发布当前版本并显示目标目录", async () => {
     vi.spyOn(api, "quickPublishSkillBundle").mockResolvedValue({ destination: "D:\\published\\router-check", file_count: 3 });
     const wrapper = mountPage();
+    await flushPromises();
 
     await button(wrapper, "快速发布").trigger("click");
     await flushPromises();
@@ -62,6 +66,7 @@ describe("VersionsPage bundle actions", () => {
   it("显示快速发布错误并恢复按钮", async () => {
     vi.spyOn(api, "quickPublishSkillBundle").mockRejectedValue(new Error("目标目录不可写。"));
     const wrapper = mountPage();
+    await flushPromises();
 
     await button(wrapper, "快速发布").trigger("click");
     await flushPromises();
@@ -72,6 +77,8 @@ describe("VersionsPage bundle actions", () => {
 });
 
 function mountPage(): VueWrapper {
+  vi.spyOn(paginationApi, "versions").mockResolvedValue({ items: skillDetail().versions, total: 2, page: 1, page_size: 20 });
+  vi.spyOn(paginationApi, "version").mockResolvedValue({ version: skillDetail().versions[1], previous: skillDetail().versions[0] });
   const wrapper = shallowMount(VersionsPage, {
     props: { skill: skillDetail(), selectedVersionId: "version-2", uploadOpen: false },
   });
@@ -89,7 +96,7 @@ function lastToast(wrapper: VueWrapper): unknown {
   return wrapper.emitted("toast")?.at(-1)?.[0];
 }
 
-function skillDetail(): SkillDetail {
+function skillDetail(): SkillDetail & { version_count: number; highest_version: SkillDetail["summary"]["current_version"] } {
   const versions = [
     {
       id: "version-1",
@@ -126,6 +133,7 @@ function skillDetail(): SkillDetail {
     tags: [],
   };
   return {
+    version_count: versions.length, highest_version: versions[1],
     skill,
     summary: { skill, current_version: versions[1]!, primary_eval_set: null, latest_accepted_eval_run: null },
     versions,

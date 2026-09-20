@@ -1,32 +1,38 @@
 ---
 name: workflow-import-generator
-description: "从流程说明文档、Markdown、文本或可提取的 Word/PDF 内容生成并校验 SkillHub WorkflowImportBundle。用于将排障、运维或业务流程转为可导入工作流，并输出待补全执行契约的审阅报告。"
+description: "离线将流程说明、Markdown、文本或可提取的 Word/PDF 内容转换为 SkillHub WorkflowImportBundle。仅生成 CLI 采集，支持复杂 Schema、表达式绑定与模板，交付工作流文件、静态校验和中文审阅报告。"
 ---
 
-# 文档工作流导入
+# 离线生成 CLI 工作流
 
-将用户提供的流程说明转换为可审阅的 `WorkflowImportBundle`，默认只生成和校验文件。不要调用导入 API，除非用户在当前请求中明确要求导入。
+根据源文档生成可审阅的工作流文件。此 Skill 完全离线，不访问命令库、MCP、解析接口或数据库，不自动导入；不执行命令、脚本、表达式函数或 TTP。
 
-## 执行流程
+## 工作方式
 
-1. 读取源文档并提取文本。优先使用用户提供的内容或本地 Markdown/文本；对可访问的 `.docx` 或 PDF 使用适用的文档读取工具。无法可靠读取时，请用户提供文本，不要猜测内容。
-2. 阅读 [导入协议](../../workflow-import-agent-guide.md) 和 [Schema](../../workflow-schema.md)。首次处理新的工作流形态时，参考 [现有 Bundle](../../examples/executor-integration-workflow-import.json)。
-3. 先建立文档到节点、输入、设备角色、采集、条件、跳转和结论的映射。采用 [映射规则](references/document-mapping.md)，并记录无法确认的信息。
-4. 生成 `<源文件名>.workflow-import.json` 和 `<源文件名>.workflow-import.review.md`；不要改写源文档。没有可用文件名时，先征求输出路径。
-5. 运行 `scripts/validate_workflow_import_bundle.py <bundle-path>`。修复所有结构或引用错误；保留脚本报告的 CLI 占位项，并在审阅报告中说明。
-6. 交付两个文件、校验结果和待补全事项。只有用户明确要求、提供 `skill_id` 与操作者身份后，才执行 `POST /api/skills/{skill_id}/workflow/import`；该请求不可自动重试。
+1. 提取源文档事实。优先读本地 Markdown/文本；Word/PDF 使用当前环境适用的读取工具。不能可靠提取时说明缺失内容，不推测。
+2. 阅读 [映射规则](references/document-mapping.md)。首次遇到新的作者结构，再按需查阅仓库的 [Schema](../../workflow-schema.md) 与 [导入协议](../../workflow-import-agent-guide.md)。这些通用协议还描述其他采集类型与在线导入，本 Skill 仅采用其中 CLI 文件格式。
+3. 整理元信息、全局输入、设备角色、步骤、命令、输出契约和结论。仅生成明确的 CLI 命令；缺失契约时保留草稿。复杂数组与跨采集绑定参考 [完整示例](tests/fixtures/complex-cli.workflow-import.json) 及其 [源说明](tests/fixtures/complex-cli.md)。
+4. 在用户指定目录生成 `<源名>.workflow-import.json` 与 `<源名>.workflow-import.review.md`，不改写源文档。无源名时使用 `workflow`，无指定目录时使用当前工作目录；遇到现有同名文件先选择未占用后缀。
+5. 按 [校验说明](references/offline-validation.md) 执行脚本。两种模式都检查完整静态规则；先修复结构、引用和导入硬限制，再处理领域错误。仅对源文档确实缺失的内容保留占位，不为追求“通过”编造命令或类型。
+6. 完整结果使用 `--mode strict` 校验；含待补全项使用默认 `draft` 并明确标记。交付文件、使用的函数契约、诊断和待确认事项。导入或运行属于后续独立任务。
 
-## 输出约束
+## 必须遵守
 
-- 始终生成 `documentType: "workflow_import_bundle"`，并在 Call 中使用 `definitionLocalId`。
-- 不生成 `workflow.id`、`workflow.revision`、Collection 的 `id`/`revision`/`forkedFrom`、权限、Owner、Tag 历史或版本历史。
-- 为节点、输入、角色、Call、输出和跳转生成稳定且请求内唯一的 ID；`localId` 必须唯一，且每个 Call 必须引用存在的 Collection。
-- 仅将文档明确给出的命令、输入、输出和 JSON Schema 写入 CollectionDefinition。缺少执行契约时生成 CLI 占位定义，使用空 `commandTemplate`，并把待补全项写入审阅报告。
-- 仅在输出字段与类型都已确认时生成 `conditionExpression`。否则保留文档原意至 `conditionText`，令 `conditionExpression` 为空。
-- 避免将生产回显、账号、Cookie、Token、私钥或其他敏感数据写入 Bundle、样例或审阅报告。
+- 只生成 `documentType: "workflow_import_bundle"`；Call 使用 `definitionLocalId`。不手写数据库 ID/revision 或系统来源关联，不添加不存在的 schemaVersion 字段。
+- Collection 仅为 `cli`；新定义使用 `commandParameterSyntax: "angle-v1"`。`commandTemplate` 是实际具体命令，仅 `<参数>` 生成输入；固定命令无额外输入。
+- 默认参数为必填 string；有明确类型时使用原类型。回显示例不等于已确认的输出 Schema，不凭示例推断事实。
+- 一个完整生成结果恰有一个起始步骤。`parallelBranches` 默认 false，仅在源文档明确要求执行所有满足条件的分支时设为 true；当前外部执行器仍忽略此字段。
+- 只在字段、类型和作用域均明确时生成表达式与模板。缺失输出契约时保留自然语言条件，不用未知字段拼出表达式。
+- Script Step 仅承接文档明确提供的源码，不生成函数 Collection，不执行源码。
+- 不把生产回显、账号、Cookie、Token、私钥等敏感内容复制进 Bundle 或报告；命令中的凭据使用待绑定输入，不保留明文。
+- 离线校验无错误不等于实际命令可执行、输出可解析或流程经过运行验证。
 
-## 校验和导入
+## 本地验证入口
 
-校验脚本仅验证 Bundle 的结构、持久化字段禁令和引用完整性。空 `commandTemplate` 表示“可导入草稿但尚不可同步执行”，不是结构错误。补全命令和 Schema 后，再按仓库的完整 Workflow 校验规则检查领域错误。
+在仓库根目录使用已安装后端依赖的 Python，例如：
 
-导入属于有副作用操作。导入前再次展示 Bundle 路径与目标 Skill；导入失败时返回服务端响应，不要重试或重建 ID。
+```powershell
+apps/backend/.venv/Scripts/python.exe docs/skills/workflow-import-generator/scripts/validate_workflow_import_bundle.py workflow.workflow-import.json --mode strict --report-json workflow.validation.json
+```
+
+可选本地 `--expression-contract contract.json` 完全替代默认内置声明，包括空函数目录。不要为补齐契约而联网；请用户提供文件，或在报告中声明使用仓库内置规则的局限。

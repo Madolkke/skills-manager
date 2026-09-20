@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { AlertTriangle, ChevronLeft, ChevronRight, X } from "lucide-vue-next";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import InlineLoading from "../components/InlineLoading.vue";
@@ -21,11 +23,11 @@ import { useWorkflowSkillTags } from "../features/workflow/useWorkflowSkillTags"
 import { useWorkflowShortcuts } from "../features/workflow/useWorkflowShortcuts";
 import { useWorkflowTransfer } from "../features/workflow/useWorkflowTransfer";
 import { useWorkflowIssueNavigation } from "../features/workflow/useWorkflowIssueNavigation";
-import type { CollectionDefinition, SkillDetail, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
+import type { CollectionDefinition, ToastState, VersionedRef, WorkflowDetail, WorkflowSelection } from "../types";
 
 type ConfirmAction = { type: "discard" } | { type: "step" | "conclusion" | "call"; id: string; stepId?: string };
 
-const props = defineProps<{ skill: SkillDetail }>();
+const props = defineProps<{ skill: SkillCore }>();
 const emit = defineEmits<{ back: []; refresh: []; dirty: [dirty: boolean]; toast: [toast: ToastState] }>();
 const detail = ref<WorkflowDetail | null>(null);
 const syncOpen = ref(false);

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { Bell, Boxes, ClipboardCheck, Plus, Settings, Sparkles } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { skillSecondaryName } from "../lib/skillIdentity";
-import type { SkillDetail } from "../types";
+import type { } from "../types";
 
-const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillDetail | null; taskCount?: number }>(), {
+const props = withDefaults(defineProps<{ actor?: string; currentSkill?: SkillCore | null; taskCount?: number }>(), {
   actor: "product-operator",
   currentSkill: null,
   taskCount: 0,

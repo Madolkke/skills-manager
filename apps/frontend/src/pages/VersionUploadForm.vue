@@ -1,18 +1,20 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { computed, ref } from "vue";
 import BundlePicker from "../components/BundlePicker.vue";
 import VersionSelector from "../components/VersionSelector.vue";
 import { api, ApiError } from "../lib/api";
 import { sourceFromFiles } from "../lib/bundle";
 import { nextPatchVersion, validSemver } from "../lib/semver";
-import type { SkillDetail } from "../types";
+import type { } from "../types";
 
-const props = withDefaults(defineProps<{ skill: SkillDetail; actionsClassName?: string }>(), { actionsClassName: "modal-actions" });
+const props = withDefaults(defineProps<{ skill: SkillCore; actionsClassName?: string }>(), { actionsClassName: "modal-actions" });
 const emit = defineEmits<{ cancel: []; uploaded: [] }>();
 
 const folderFiles = ref<File[]>([]);
 const zipFile = ref<File | null>(null);
-const version = ref(nextPatchVersion(props.skill.versions));
+const version = ref(nextPatchVersion((props.skill.highest_version ? [props.skill.highest_version] : [])));
 const displayName = ref("");
 const busy = ref(false);
 const error = ref<string | null>(null);
@@ -42,7 +44,7 @@ function cleanName(value: string): string | undefined {
   <div class="form-stack">
     <div v-if="error" class="form-error">{{ error }}</div>
     <div class="hint-strip">将追加新的 Skill 版本，并设置为当前版本。</div>
-    <VersionSelector v-model="version" :versions="skill.versions" />
+    <VersionSelector v-model="version" :versions="skill.highest_version ? [skill.highest_version] : []" />
     <label class="field-label">
       <span>版本名称</span>
       <input v-model="displayName" maxlength="80" :placeholder="`例如 ${skill.skill.slug} stable`" />

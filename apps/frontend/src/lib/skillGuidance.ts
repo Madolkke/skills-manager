@@ -1,4 +1,5 @@
-import type { EvalRunRecord, PublishRecord, ReviewRequest, SkillDetail, SkillVersion } from "../types";
+import type { SkillCore, GuidanceReview, GuidancePublish } from "./api/paginationApi";
+import type { EvalRunRecord, PublishRecord, ReviewRequest, SkillVersion } from "../types";
 import type { SkillTab } from "./navigation";
 
 export type VersionFlowStage = {
@@ -25,12 +26,13 @@ export type SkillSuggestion = {
 };
 
 export function buildVersionFlowItems(input: {
-  skill: SkillDetail;
-  reviews?: ReviewRequest[];
-  publishRecords?: PublishRecord[];
+  skill: SkillCore;
+  versions?: SkillVersion[];
+  reviews?: Array<ReviewRequest | GuidanceReview>;
+  publishRecords?: Array<PublishRecord | GuidancePublish>;
   evaluationsVisible?: boolean;
 }): VersionFlowItem[] {
-  return input.skill.versions.map((version) => {
+  return (input.versions ?? []).map((version) => {
     const review = input.reviews?.find((item) => item.skill_version_id === version.id) ?? null;
     const publishRecords = (input.publishRecords ?? []).filter((item) => item.skill_version_id === version.id);
     const evalRun = latestRunForVersion(input.skill.latest_eval_runs, version.id);
@@ -47,16 +49,17 @@ export function buildVersionFlowItems(input: {
 }
 
 export function buildSkillSuggestions(input: {
-  skill: SkillDetail;
-  reviews?: ReviewRequest[];
-  publishRecords?: PublishRecord[];
+  skill: SkillCore;
+  versions?: SkillVersion[];
+  reviews?: Array<ReviewRequest | GuidanceReview>;
+  publishRecords?: Array<PublishRecord | GuidancePublish>;
   evaluationsVisible?: boolean;
 }): SkillSuggestion[] {
   const suggestions: SkillSuggestion[] = [];
   const currentVersionId = input.skill.skill.current_version_id;
   const currentReview = currentVersionId ? input.reviews?.find((item) => item.skill_version_id === currentVersionId) : null;
   const currentPublish = currentVersionId ? input.publishRecords?.filter((item) => item.skill_version_id === currentVersionId) ?? [] : [];
-  if (!input.skill.versions.length) {
+  if (!input.skill.version_count) {
     suggestions.push({
       id: "upload-version",
       title: "上传第一个版本",
@@ -74,7 +77,7 @@ export function buildSkillSuggestions(input: {
       tab: "evalsets",
     });
   }
-  if (input.evaluationsVisible !== false && input.skill.versions.length && !input.skill.latest_eval_runs.length) {
+  if (input.evaluationsVisible !== false && input.skill.version_count && !input.skill.latest_eval_runs.length) {
     suggestions.push({
       id: "run-evaluation",
       title: "运行一次测评",
@@ -127,20 +130,20 @@ function evaluationStage(run: EvalRunRecord | null): VersionFlowStage {
   };
 }
 
-function reviewStage(review: ReviewRequest | null): VersionFlowStage {
+function reviewStage(review: ReviewRequest | GuidanceReview | null): VersionFlowStage {
   if (!review) return { id: "review", label: "评审", status: "pending", description: "未发起评审。", tab: "reviews" };
-  if (review.status === "closed") return { id: "review", label: "评审", status: "done", description: `已关闭，${review.responses.length}/${review.reviewers.length} 已回复。`, tab: "reviews" };
-  if (review.status === "open") return { id: "review", label: "评审", status: "active", description: `进行中，${review.responses.length}/${review.reviewers.length} 已回复。`, tab: "reviews" };
+  if (review.status === "closed") return { id: "review", label: "评审", status: "done", description: `已关闭，${"response_count" in review ? review.response_count : review.responses.length}/${"reviewer_count" in review ? review.reviewer_count : review.reviewers.length} 已回复。`, tab: "reviews" };
+  if (review.status === "open") return { id: "review", label: "评审", status: "active", description: `进行中，${"response_count" in review ? review.response_count : review.responses.length}/${"reviewer_count" in review ? review.reviewer_count : review.reviewers.length} 已回复。`, tab: "reviews" };
   return { id: "review", label: "评审", status: "blocked", description: "评审已取消。", tab: "reviews" };
 }
 
-function publishStage(records: PublishRecord[]): VersionFlowStage {
+function publishStage(records: Array<PublishRecord | GuidancePublish>): VersionFlowStage {
   if (!records.length) return { id: "publish", label: "发布", status: "pending", description: "暂无发布记录。", tab: "publish" };
   if (records.some((record) => ["pending_confirmation", "queued", "releasing"].includes(record.status))) {
     return { id: "publish", label: "发布", status: "active", description: "存在正在确认或执行的发布单。", tab: "publish" };
   }
   if (records.some((record) => record.status === "released")) {
-    return { id: "publish", label: "发布", status: "done", description: `${records.filter((record) => record.status === "released").length} 条已发布。`, tab: "publish" };
+    return { id: "publish", label: "发布", status: "done", description: `${records.filter((record) => record.status === "released").reduce((sum, record) => sum + ("count" in record ? record.count : 1), 0)} 条已发布。`, tab: "publish" };
   }
   return { id: "publish", label: "发布", status: "blocked", description: "发布记录未完成。", tab: "publish" };
 }

@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import DropdownSelect from "../../components/DropdownSelect.vue";
-import type { DropdownSelectOption } from "../../components/dropdown";
+import RemoteVersionSelect from "../../components/RemoteVersionSelect.vue";
 import type { PublishTarget, ReviewerCandidateGroup, SkillVersion } from "../../types";
 
 defineProps<{
   canManage: boolean;
   busy: boolean;
   manageReason: string;
-  versionOptions: DropdownSelectOption[];
+  skillId: string;
   selectedVersionId: string;
   selectedVersion: SkillVersion | null;
   targets: PublishTarget[];
@@ -24,6 +23,7 @@ const emit = defineEmits<{
   toggleReviewerGroup: [groupId: string];
   toggleTarget: [targetId: string];
   create: [];
+  versionSelected: [version: SkillVersion];
 }>();
 </script>
 
@@ -39,7 +39,7 @@ const emit = defineEmits<{
     <div v-if="canManage" class="review-launch-form">
       <label class="field-label">
         <span>Skill 版本</span>
-        <DropdownSelect :model-value="selectedVersionId" :options="versionOptions" compact @update:model-value="emit('update:selectedVersionId', $event)" />
+        <RemoteVersionSelect :model-value="selectedVersionId" :skill-id="skillId" @selected="emit('versionSelected', $event)" @update:model-value="emit('update:selectedVersionId', $event)" />
       </label>
 
       <div v-if="selectedVersion" class="review-selected-version">

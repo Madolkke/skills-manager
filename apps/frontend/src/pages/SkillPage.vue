@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { SkillCore } from "../lib/api/paginationApi";
+
 import { Upload } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import SkillTabs from "../components/Tabs.vue";
 import type { RouteState, SkillTab } from "../lib/navigation";
-import type { SkillDetail, ToastState } from "../types";
+import type { ToastState } from "../types";
 import EvalSetsPage from "./EvalSetsPage.vue";
 import EvaluatePage from "./EvaluatePage.vue";
 import HistoryPage from "./HistoryPage.vue";
@@ -15,7 +17,7 @@ import UploadVersionModal from "./UploadVersionModal.vue";
 import VersionsPage from "./VersionsPage.vue";
 import WorkflowTab from "./WorkflowTab.vue";
 
-const props = defineProps<{ skill: SkillDetail; tab: SkillTab; route: RouteState; evaluationsVisible: boolean }>();
+const props = defineProps<{ skill: SkillCore; tab: SkillTab; route: RouteState; evaluationsVisible: boolean }>();
 const emit = defineEmits<{
   tab: [tab: SkillTab];
   refresh: [];

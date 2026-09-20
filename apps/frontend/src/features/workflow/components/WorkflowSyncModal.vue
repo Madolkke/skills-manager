@@ -1,18 +1,20 @@
 <script setup lang="ts">
+import type { SkillCore } from "../../../lib/api/paginationApi";
+
 import { RefreshCw } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
 import Modal from "../../../components/Modal.vue";
 import UiButton from "../../../components/ui/UiButton.vue";
 import { api, ApiError } from "../../../lib/api";
 import { nextPatchVersion, validSemver } from "../../../lib/semver";
-import type { SkillDetail, WorkflowSkillGenerator, WorkflowSyncPayload, WorkflowSyncPreview } from "../../../types";
+import type { WorkflowSkillGenerator, WorkflowSyncPayload, WorkflowSyncPreview } from "../../../types";
 import WorkflowGeneratorSelector from "./WorkflowGeneratorSelector.vue";
 import WorkflowSkillPreview from "./WorkflowSkillPreview.vue";
 import WorkflowSyncConfirmation from "./WorkflowSyncConfirmation.vue";
 import WorkflowSyncVersionFields from "./WorkflowSyncVersionFields.vue";
 
 const props = withDefaults(defineProps<{
-  skill: SkillDetail;
+  skill: SkillCore;
   open?: boolean;
   revision: number;
   recoveryKey?: number;
@@ -127,7 +129,7 @@ function invalidatePreview(cancelRequest = true): void {
 
 function resetVersionFields(result: WorkflowSyncPreview): void {
   const existing = result.action.mode !== "create";
-  version.value = existing ? result.action.version || nextPatchVersion(props.skill.versions) : result.action.next_version || nextPatchVersion(props.skill.versions);
+  version.value = existing ? result.action.version || nextPatchVersion((props.skill.highest_version ? [props.skill.highest_version] : [])) : result.action.next_version || nextPatchVersion((props.skill.highest_version ? [props.skill.highest_version] : []));
   displayName.value = existing ? result.action.display_name ?? "" : "";
   changeSummary.value = existing
     ? `重新激活 Workflow revision ${result.workflow_revision} 的既有版本。`
@@ -200,7 +202,7 @@ function errorMessage(caught: unknown, fallback: string): string {
           <WorkflowSyncVersionFields
             v-if="preview"
             :action="preview.action"
-            :versions="props.skill.versions"
+            :versions="(props.skill.highest_version ? [props.skill.highest_version] : [])"
             :version="version"
             :display-name="displayName"
             :change-summary="changeSummary"

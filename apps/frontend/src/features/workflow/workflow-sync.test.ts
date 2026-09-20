@@ -200,8 +200,9 @@ function preview(input: {
   };
 }
 
-function skillDetail(): SkillDetail {
+function skillDetail(): SkillDetail & { version_count: number; highest_version: SkillDetail["summary"]["current_version"] } {
   return {
+    version_count: 1, highest_version: null,
     skill: { id: "skill-1", slug: "router-check", display_name: null, owner_ref: "owner", current_version_id: "version-1", lifecycle_status: "active", tags: [] },
     summary: { skill: {} as never, current_version: null, primary_eval_set: null, latest_accepted_eval_run: null },
     versions: [{ id: "version-1", skill_id: "skill-1", version_number: 1, version: "0.1.0", content_ref: { kind: "artifact", locator: "artifact-1", digest: "old" }, content_digest: "old", change_summary: "Initial", created_by: "owner" }],

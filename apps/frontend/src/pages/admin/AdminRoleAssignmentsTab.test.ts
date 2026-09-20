@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { flushPromises, mount } from "@vue/test-utils";
+import { beforeEach, afterEach, vi, describe, expect, it } from "vitest";
 import { encodeSkillTagResourceId } from "../../lib/skillTags";
 import type { SkillSummary, TagGroup } from "../../types";
+import { paginationApi } from "../../lib/api/paginationApi";
 import AdminRoleAssignmentsTab from "./AdminRoleAssignmentsTab.vue";
 
 const skill = {
@@ -21,8 +22,14 @@ const skill = {
 } as unknown as SkillSummary;
 
 describe("AdminRoleAssignmentsTab", () => {
+  beforeEach(() => {
+    vi.spyOn(paginationApi, "skills").mockResolvedValue({ items: [skill], total: 1, page: 1, page_size: 20, counts: {}, tag_counts: {} });
+    vi.spyOn(paginationApi, "roles").mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20 });
+  });
+  afterEach(() => vi.restoreAllMocks());
   it("locks global Skill grants to the only valid user admin combination", async () => {
     const wrapper = mount(AdminRoleAssignmentsTab, { props: { roles: [], tagGroups: [], skills: [skill] } });
+    await flushPromises();
     const selects = wrapper.findAll(".admin-role-form select");
 
     expect(wrapper.text()).toContain("example-skill（示例技能）");
@@ -46,7 +53,8 @@ describe("AdminRoleAssignmentsTab", () => {
     }]);
   });
 
-  it("labels existing global grants as all Skills", () => {
+  it("labels existing global grants as all Skills", async () => {
+    vi.mocked(paginationApi.roles).mockResolvedValue({ items: [{ id: "r", subject_type: "user", subject_id: "alice", resource_type: "global", resource_id: "skills", role: "admin", created_by: "admin-console", resource_label: "全部 Skill", resource_missing: false }], total: 1, page: 1, page_size: 20 });
     const wrapper = mount(AdminRoleAssignmentsTab, {
       props: {
         skills: [skill],
@@ -63,6 +71,7 @@ describe("AdminRoleAssignmentsTab", () => {
       },
     });
 
+    await flushPromises();
     expect(wrapper.get(".admin-role-table-row").text()).toContain("全部 Skill");
   });
 

@@ -4,6 +4,10 @@
 
 工作流创作另提供 `/mcp` Streamable HTTP 入口，与 REST 共享业务规则；读取免鉴权，写工具使用模拟 Cookie 身份，详见 [Workflow 创作 MCP](workflow-authoring-mcp.md)。该入口不修改现有 REST 身份、保存参数或并发行为。
 
+## 分页与轻量读取
+
+广场、后台 Skill Tags、版本、单 Skill 评审、测评历史和授权列表使用独立分页接口。完整契约和兼容边界见 [分页接口与按需加载](pagination-api.md)。旧列表接口返回结构保持不变。
+
 ## 核心对象
 
 | 对象 | 语义 |

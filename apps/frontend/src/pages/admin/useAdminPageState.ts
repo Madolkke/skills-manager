@@ -1,7 +1,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { type AdminTab } from "../../lib/admin";
+import { ADMIN_TABS, type AdminTab } from "../../lib/admin";
 import { api, ApiError, type AdminGroup } from "../../lib/api";
-import { toTagPayloads } from "../../lib/skillTags";
+import { paginationApi, type AdminOverview } from "../../lib/api/paginationApi";
 import type {
   OpencodeAgent,
   OpencodeProviderCatalog,
@@ -27,8 +27,13 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   const key = ref(sessionStorage.getItem("skillhub.admin.key") || "");
   const unlocked = ref(false);
   const loading = ref(false);
-  const activeTab = ref<AdminTab>("overview");
+  const requestedTab = new URLSearchParams(location.search).get("admin_tab");
+  const activeTab = ref<AdminTab>(ADMIN_TABS.find(tab => tab.id === requestedTab)?.id ?? "overview");
+  function restoreTab() { const requested = new URLSearchParams(location.search).get("admin_tab"); activeTab.value = ADMIN_TABS.find(tab => tab.id === requested)?.id ?? "overview"; }
+  window.addEventListener("popstate", restoreTab);
   const skills = ref<SkillSummary[]>([]);
+  const overview = ref<AdminOverview | null>(null);
+  const refreshToken = ref(0);
   const groups = ref<AdminGroup[]>([]);
   const tagGroups = ref<TagGroup[]>([]);
   const roles = ref<RoleAssignment[]>([]);
@@ -46,6 +51,9 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   const selectedTagGroupId = ref("");
   const selectedOpencodeAgentId = ref("");
   const tagDrafts = ref<Record<string, SkillTagPayload[]>>({});
+  let authEpoch = 0;
+  let requestEpoch = 0;
+  const stale = Symbol("stale admin request");
   let workerRefreshTimer: number | undefined;
   let publishRefreshTimer: number | undefined;
 
@@ -79,6 +87,8 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   });
 
   watch(activeTab, (tab) => {
+    const url = new URL(location.href); url.searchParams.set("admin_tab", tab); if (url.href !== location.href) history.pushState(history.state, "", url);
+    if (unlocked.value && tab !== "analytics") void load();
     if (tab === "workers") startWorkerRefresh();
     else stopWorkerRefresh();
   });
@@ -90,8 +100,10 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
     if (key.value) void unlock();
   });
   onBeforeUnmount(() => {
+    authEpoch++; requestEpoch++;
     stopWorkerRefresh();
     stopPublishRefresh();
+    window.removeEventListener("popstate", restoreTab);
   });
 
   async function unlock(): Promise<void> {
@@ -103,6 +115,11 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
     }
     key.value = candidate;
     sessionStorage.setItem("skillhub.admin.key", candidate);
+    if (activeTab.value === "analytics") {
+      const epoch = authEpoch;
+      try { await paginationApi.overview(); if (epoch === authEpoch) unlocked.value = true; } catch (error) { if (epoch === authEpoch) handleError(error); }
+      return;
+    }
     if (await loadState()) {
       unlocked.value = true;
       return;
@@ -115,99 +132,84 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   }
 
   async function loadState(): Promise<boolean> {
+    const epoch = ++requestEpoch;
+    /** 在赋值前拒绝过期响应，退出后台后不恢复缓存。 */
+    async function current<T>(request: Promise<T>): Promise<T> {
+      const result = await request;
+      if (epoch !== requestEpoch) throw stale;
+      return result;
+    }
     loading.value = true;
     try {
-      const [
-        nextSkills,
-        nextGroups,
-        nextTagGroups,
-        nextTagCascades,
-        nextRoles,
-        nextPublishTargets,
-        nextPublishGateChecks,
-        nextPublishRecords,
-        nextWorkerStatus,
-        nextOpencodeAgents,
-        nextProviderCatalog,
-        nextSystemCommands,
-        nextExpressionFunctions,
-      ] = await Promise.all([
-        api.adminListSkills(),
-        api.adminListGroups(),
-        api.adminListTagGroups(),
-        api.adminListTagCascades(),
-        api.adminListRoleAssignments(),
-        api.adminListPublishTargets(),
-        api.adminListPublishGateChecks(),
-        api.adminListPublishRecords(),
-        api.adminListWorkers(),
-        api.adminListOpencodeAgents(),
-        api.listOpencodeProviders().catch(() => null),
-        api.adminListSystemCommands().then((response) => response.commands),
-        api.adminListExpressionFunctions(),
-      ]);
-      skills.value = nextSkills;
-      groups.value = nextGroups;
-      tagGroups.value = nextTagGroups;
-      tagCascadeActions.overview.value = nextTagCascades;
-      roles.value = nextRoles;
-      publishTargets.value = nextPublishTargets;
-      publishGateChecks.value = nextPublishGateChecks;
-      publishRecords.value = nextPublishRecords;
-      workerStatus.value = nextWorkerStatus;
-      opencodeAgents.value = nextOpencodeAgents;
-      opencodeProviderCatalog.value = nextProviderCatalog;
-      systemCommands.value = nextSystemCommands;
-      expressionFunctions.value = nextExpressionFunctions;
-      tagDrafts.value = Object.fromEntries(nextSkills.map((item) => [item.skill.id, toTagPayloads(item.skill.tags ?? [])]));
-      if (!selectedGroupId.value && nextGroups.length) selectedGroupId.value = nextGroups[0].id;
-      if (!selectedTagGroupId.value && nextTagGroups.length) selectedTagGroupId.value = nextTagGroups[0].id;
-      if (!selectedOpencodeAgentId.value && nextOpencodeAgents.length) selectedOpencodeAgentId.value = nextOpencodeAgents[0].id;
-      if (!nextSystemCommands.some((item) => item.id === selectedSystemCommandId.value)) {
-        selectedSystemCommandId.value = nextSystemCommands[0]?.id ?? "";
+      const tab = activeTab.value;
+      if (tab === "overview") overview.value = await current(paginationApi.overview());
+      if (["tag-groups", "tag-cascades", "skill-tags", "roles"].includes(tab)) tagGroups.value = await current(api.adminListTagGroups());
+      if (tab === "groups") groups.value = await current(api.adminListGroups());
+      if (tab === "tag-cascades") tagCascadeActions.overview.value = await current(api.adminListTagCascades());
+      if (tab === "publish") publishRecords.value = await current(api.adminListPublishRecords());
+      if (tab === "publish-targets") [publishTargets.value, publishGateChecks.value] = await current(Promise.all([api.adminListPublishTargets(), api.adminListPublishGateChecks()]));
+      if (tab === "workers") workerStatus.value = await current(api.adminListWorkers());
+      if (tab === "opencode-agents") {
+        [opencodeAgents.value, opencodeProviderCatalog.value] = await current(Promise.all([api.adminListOpencodeAgents(), api.listOpencodeProviders().catch(() => null)]));
+        if (!selectedOpencodeAgentId.value) selectedOpencodeAgentId.value = opencodeAgents.value[0]?.id ?? "";
       }
-      if (!nextExpressionFunctions.some((item) => item.id === selectedExpressionFunctionId.value)) {
-        selectedExpressionFunctionId.value = nextExpressionFunctions[0]?.id ?? "";
+      if (tab === "system-commands") {
+        systemCommands.value = (await current(api.adminListSystemCommands())).commands;
+        if (!systemCommands.value.some(item => item.id === selectedSystemCommandId.value)) selectedSystemCommandId.value = systemCommands.value[0]?.id ?? "";
       }
+      if (tab === "expression-functions") {
+        expressionFunctions.value = await current(api.adminListExpressionFunctions());
+        if (!expressionFunctions.value.some(item => item.id === selectedExpressionFunctionId.value)) selectedExpressionFunctionId.value = expressionFunctions.value[0]?.id ?? "";
+      }
+      if (!selectedGroupId.value) selectedGroupId.value = groups.value[0]?.id ?? "";
+      if (!selectedTagGroupId.value) selectedTagGroupId.value = tagGroups.value[0]?.id ?? "";
+      refreshToken.value++;
       return true;
     } catch (error) {
-      handleError(error);
+      if (epoch === requestEpoch && error !== stale) handleError(error);
       return false;
     } finally {
-      loading.value = false;
+      if (epoch === requestEpoch) loading.value = false;
     }
   }
 
   async function refreshWorkers(): Promise<void> {
+    const epoch = authEpoch;
     try {
-      workerStatus.value = await api.adminListWorkers();
+      const result = await api.adminListWorkers();
+      if (epoch !== authEpoch || !unlocked.value) return;
+      workerStatus.value = result;
     } catch (error) {
-      handleError(error);
+      if (epoch === authEpoch && unlocked.value) handleError(error);
     }
   }
 
   async function refreshPublishRecords(): Promise<void> {
+    const epoch = authEpoch;
     try {
-      publishRecords.value = await api.adminListPublishRecords();
+      const result = await api.adminListPublishRecords();
+      if (epoch !== authEpoch || !unlocked.value) return;
+      publishRecords.value = result;
     } catch (error) {
-      handleError(error);
+      if (epoch === authEpoch && unlocked.value) handleError(error);
     }
   }
 
   async function refreshOpencodeProviders(): Promise<void> {
+    const epoch = authEpoch;
     try {
-      opencodeProviderCatalog.value = await api.listOpencodeProviders();
+      const result = await api.listOpencodeProviders();
+      if (epoch !== authEpoch || !unlocked.value) return;
+      opencodeProviderCatalog.value = result;
       emitToast({ tone: "success", message: "Provider/Model 列表已刷新。" });
     } catch (error) {
-      handleError(error);
+      if (epoch === authEpoch && unlocked.value) handleError(error);
     }
   }
 
   async function selectAdminTab(tabId: AdminTab): Promise<void> {
     if (activeTab.value === tabId) return;
     activeTab.value = tabId;
-    if (tabId === "analytics") return;
-    await load();
   }
 
   function handleError(error: unknown): void {
@@ -222,7 +224,14 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
 
   function lock(): void {
     sessionStorage.removeItem("skillhub.admin.key");
+    authEpoch++; requestEpoch++; loading.value = false;
     unlocked.value = false;
+    tagDrafts.value = {}; skills.value = []; roles.value = []; overview.value = null;
+    groups.value = []; tagGroups.value = []; publishTargets.value = []; publishGateChecks.value = []; publishRecords.value = [];
+    workerStatus.value = null; opencodeAgents.value = []; opencodeProviderCatalog.value = null;
+    systemCommands.value = []; expressionFunctions.value = []; tagCascadeActions.overview.value = null; tagCascadeActions.focus.value = null;
+    selectedGroupId.value = ""; selectedTagGroupId.value = ""; selectedOpencodeAgentId.value = "";
+    selectedSystemCommandId.value = ""; selectedExpressionFunctionId.value = "";
     stopWorkerRefresh();
     stopPublishRefresh();
   }
@@ -250,7 +259,7 @@ export function useAdminPageState(emitToast: (toast: Toast) => void) {
   }
 
   return {
-    key, unlocked, loading, activeTab, skills, groups, tagGroups, roles, publishTargets, publishGateChecks,
+    overview, refreshToken, key, unlocked, loading, activeTab, skills, groups, tagGroups, roles, publishTargets, publishGateChecks,
     publishRecords, workerStatus, opencodeAgents, opencodeProviderCatalog, selectedGroupId, selectedTagGroupId,
     selectedOpencodeAgentId, tagDrafts, tagCascadeActions, adminActions, unlock, load, refreshWorkers,
     refreshPublishRecords, refreshOpencodeProviders, selectAdminTab, systemCommands, selectedSystemCommandId,

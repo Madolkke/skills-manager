@@ -19,7 +19,7 @@ const AdminAnalyticsTab = defineAsyncComponent(() => import("../features/analyti
 
 const emit = defineEmits<{ toast: [toast: { tone: "success" | "danger" | "info"; message: string } | null] }>();
 const {
-  key, unlocked, loading, activeTab, skills, groups, tagGroups, roles, publishTargets, publishGateChecks,
+  overview, refreshToken, key, unlocked, loading, activeTab, groups, tagGroups, publishTargets, publishGateChecks,
   publishRecords, workerStatus, opencodeAgents, opencodeProviderCatalog, selectedGroupId, selectedTagGroupId,
   selectedOpencodeAgentId, tagDrafts, tagCascadeActions, adminActions, unlock, load, refreshWorkers,
   refreshOpencodeProviders, selectAdminTab, systemCommands, selectedSystemCommandId, expressionFunctions, selectedExpressionFunctionId,
@@ -56,7 +56,7 @@ const {
 
       <Transition name="fade-slide" mode="out-in">
         <AdminAnalyticsTab v-if="activeTab === 'analytics'" key="analytics" />
-        <AdminOverviewTab v-else-if="activeTab === 'overview'" key="overview" :skills="skills" :groups="groups" :tag-groups="tagGroups" :roles="roles" />
+        <AdminOverviewTab v-else-if="activeTab === 'overview'" key="overview" :overview="overview" />
         <AdminGroupsTab
           v-else-if="activeTab === 'groups'"
           key="groups"
@@ -85,9 +85,8 @@ const {
         <AdminRoleAssignmentsTab
           v-else-if="activeTab === 'roles'"
           key="roles"
-          :roles="roles"
+          :refresh-token="refreshToken"
           :tag-groups="tagGroups"
-          :skills="skills"
           @assign="adminActions.assignRole"
           @revoke="adminActions.revokeRole"
           @toast="emit('toast', { tone: 'danger', message: $event })"
@@ -104,13 +103,14 @@ const {
         <AdminSkillTagsTab
           v-else-if="activeTab === 'skill-tags'"
           key="skill-tags"
-          :skills="skills"
           :tag-groups="tagGroups"
+          :refresh-token="refreshToken"
           :tag-drafts="tagDrafts"
           :focus="tagCascadeActions.focus.value"
           @update-draft="(skillId, tags) => { tagDrafts[skillId] = tags; }"
           @save="adminActions.saveSkillTags"
           @clear-focus="tagCascadeActions.focus.value = null"
+          @discard="tagDrafts = {}"
         />
         <AdminWorkersTab
           v-else-if="activeTab === 'workers'"

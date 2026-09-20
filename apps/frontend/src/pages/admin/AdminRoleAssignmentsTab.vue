@@ -3,10 +3,13 @@ import { computed, ref, watch } from "vue";
 import TagPathSelect from "../../components/TagPathSelect.vue";
 import { skillOptionLabel } from "../../lib/skillIdentity";
 import { encodeSkillTagResourceId } from "../../lib/skillTags";
-import { filterRoleAssignments, roleResourceLabel } from "../../lib/admin";
-import type { RoleAssignment, SkillRole, SkillSummary, SkillTagPayload, TagGroup } from "../../types";
+import { useListFilters } from "../../composables/useListFilters";
+import PaginationBar from "../../components/PaginationBar.vue";
+import { usePagedQuery } from "../../composables/usePagedQuery";
+import { paginationApi } from "../../lib/api/paginationApi";
+import type { RoleAssignment, SkillRole, SkillTagPayload, TagGroup } from "../../types";
 
-const props = defineProps<{ roles: RoleAssignment[]; tagGroups: TagGroup[]; skills: SkillSummary[] }>();
+const props = defineProps<{ refreshToken?: number; tagGroups: TagGroup[] }>();
 const emit = defineEmits<{
   assign: [payload: { subject_type: "user" | "group"; subject_id: string; resource_type: "skill" | "skill_tag" | "global"; resource_id: string; role: string }];
   revoke: [role: RoleAssignment];
@@ -14,8 +17,16 @@ const emit = defineEmits<{
 }>();
 
 const form = ref({ subject_type: "group" as "user" | "group", subject_id: "", resource_type: "skill" as "skill" | "skill_tag" | "global", resource_id: "", tag_group_id: "", tag_value: "", role: "evaluator" as SkillRole });
-const filters = ref({ subject: "", resource: "", resourceType: "", role: "" });
-const filteredRoles = computed(() => filterRoleAssignments(props.roles, filters.value, props.tagGroups, props.skills));
+const filters = ref(useListFilters("roles", { subject: "", resource: "", resourceType: "", role: "" }));
+const { page, pageSize, items: filteredRoles, total, loading, error, reload } = usePagedQuery("roles",
+  () => ({ subject: filters.value.subject, resource: filters.value.resource, resource_type: filters.value.resourceType, role: filters.value.role }),
+  paginationApi.roles);
+watch(() => props.refreshToken, () => void reload());
+const skillQuery = ref("");
+const selectedSkillLabel = ref("");
+const { page: skillPage, pageSize: skillPageSize, items: skills, total: skillTotal, loading: skillLoading, error: skillError, reload: reloadSkills } = usePagedQuery("role-skills",
+  () => ({ query: skillQuery.value }), (params, signal) => paginationApi.skills(params, signal, true), { route: false });
+watch(() => form.value.resource_id, (id) => { const item = skills.value.find(item => item.skill.id === id); if (item) selectedSkillLabel.value = skillOptionLabel(item.skill); });
 const selectedTagResource = computed<SkillTagPayload | null>(() => form.value.tag_group_id && form.value.tag_value
   ? { group_id: form.value.tag_group_id, value: form.value.tag_value }
   : null);
@@ -87,10 +98,15 @@ function selectTagResource(tag: SkillTagPayload): void {
           />
         </template>
         <input v-else-if="form.resource_type === 'global'" value="全部当前及未来 Skill" disabled aria-label="授权资源" />
-        <select v-else v-model="form.resource_id">
-          <option disabled value="">选择 Skill</option>
-          <option v-for="item in skills" :key="item.skill.id" :value="item.skill.id">{{ skillOptionLabel(item.skill) }}</option>
-        </select>
+        <div v-else>
+          <input v-model="skillQuery" type="search" placeholder="搜索授权 Skill" aria-label="搜索授权 Skill" />
+          <select v-model="form.resource_id">
+            <option v-if="form.resource_id && !skills.some(item => item.skill.id === form.resource_id)" :value="form.resource_id">{{ selectedSkillLabel || form.resource_id }}</option>
+            <option disabled value="">选择 Skill</option>
+            <option v-for="item in skills" :key="item.skill.id" :value="item.skill.id">{{ skillOptionLabel(item.skill) }}</option>
+          </select>
+          <PaginationBar v-model:page="skillPage" v-model:page-size="skillPageSize" :total="skillTotal" :loading="skillLoading" :error="skillError" @retry="reloadSkills" />
+        </div>
         <select v-model="form.role" :disabled="form.resource_type === 'global'">
           <option value="viewer">viewer</option>
           <option value="evaluator">evaluator</option>
@@ -106,7 +122,7 @@ function selectTagResource(tag: SkillTagPayload): void {
     <section class="primary-panel admin-card">
       <div class="panel-title-row">
         <h2>权限列表</h2>
-        <span class="tag-chip muted">{{ filteredRoles.length }} / {{ roles.length }}</span>
+        <span class="tag-chip muted">{{ total }}</span>
       </div>
       <div class="admin-role-form">
         <input v-model="filters.subject" placeholder="筛选主体" />
@@ -127,6 +143,7 @@ function selectTagResource(tag: SkillTagPayload): void {
           <option value="admin">admin</option>
         </select>
       </div>
+      <PaginationBar v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="loading" :error="error" @retry="reload" />
       <div class="admin-role-table">
         <div class="admin-role-table-head">
           <span>主体</span>
@@ -137,10 +154,10 @@ function selectTagResource(tag: SkillTagPayload): void {
         <div v-for="role in filteredRoles" :key="role.id" class="admin-role-table-row">
           <span>{{ role.subject_type }}:{{ role.subject_id }}</span>
           <strong>{{ role.role }}</strong>
-          <span>{{ roleResourceLabel(role, tagGroups, skills) }}</span>
+          <span>{{ role.resource_label + (role.resource_missing ? '（资源不存在）' : '') }}</span>
           <button class="icon-button mini" type="button" @click="emit('revoke', role)">×</button>
         </div>
-        <p v-if="!filteredRoles.length" class="field-help">没有匹配的授权记录。</p>
+        <p v-if="!loading && !error && !filteredRoles.length" class="field-help">没有匹配的授权记录。</p>
       </div>
     </section>
   </div>

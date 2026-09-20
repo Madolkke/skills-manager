@@ -1,4 +1,5 @@
-import type { NotificationItem, PublishRecord, ReviewRequest, SkillDetail, SkillPublishOverview } from "../types";
+import type { SkillCore } from "./api/paginationApi";
+import type { NotificationItem, PublishRecord, ReviewRequest, SkillPublishOverview } from "../types";
 
 export type TaskCenterItem = {
   id: string;
@@ -19,7 +20,7 @@ export type TaskCenterGroup = {
 export function buildTaskCenterGroups(input: {
   reviews: ReviewRequest[];
   notifications: NotificationItem[];
-  skill: SkillDetail | null;
+  skill: SkillCore | null;
   publishOverview: SkillPublishOverview | null;
 }, options: { evaluationsVisible?: boolean } = {}): TaskCenterGroup[] {
   const reviewItems = input.reviews.filter((review) => review.status === "open").map(reviewTask);
@@ -61,7 +62,7 @@ function notificationTask(item: NotificationItem): TaskCenterItem {
 }
 
 function buildSkillContextTasks(
-  skill: SkillDetail | null,
+  skill: SkillCore | null,
   publishOverview: SkillPublishOverview | null,
   evaluationsVisible: boolean,
 ): TaskCenterItem[] {

@@ -6,6 +6,7 @@ import Toast from "./components/Toast.vue";
 import TopBar from "./components/TopBar.vue";
 import { useTaskCenter } from "./composables/useTaskCenter";
 import WorkflowConfirmModal from "./features/workflow/components/WorkflowConfirmModal.vue";
+import { paginationApi, type SkillCore } from "./lib/api/paginationApi";
 import { api, ApiError } from "./lib/api";
 import { appFeatures } from "./lib/appFeatures";
 import { getActorId } from "./lib/identity";
@@ -17,14 +18,14 @@ import MyReviewsPage from "./pages/MyReviewsPage.vue";
 import SkillBuilderPage from "./pages/SkillBuilderPage.vue";
 import { useSkillVisit } from "./features/analytics/useSkillVisit";
 import SkillPage from "./pages/SkillPage.vue";
-import type { SessionInfo, SkillDetail, SkillSummary, ToastState } from "./types";
+import type { SessionInfo, ToastState } from "./types";
 
 const WorkflowPage = defineAsyncComponent(() => import("./pages/WorkflowPage.vue"));
 
 const evaluationsVisible = appFeatures.evaluationsVisible;
 const route = ref<RouteState>(routeFromLocation());
-const skills = ref<SkillSummary[]>([]);
-const skill = ref<SkillDetail | null>(null);
+
+const skill = ref<SkillCore | null>(null);
 const session = ref<SessionInfo | null>(null);
 const loading = ref(true);
 const toast = ref<ToastState>(null);
@@ -74,14 +75,14 @@ async function load(): Promise<void> {
   const entryToken = visits.token();
   const targetRoute = route.value;
   loading.value = true;
+  if (skill.value?.skill.id !== targetRoute.skillId) skill.value = null;
   try {
-    const [, list] = await Promise.all([api.getSession(), api.listSkills()]);
+    await api.getSession();
     if (sequence !== loadSequence) return;
     session.value = { actor: getActorId(), subject_type: "user" };
-    skills.value = list;
     if ((targetRoute.section === "skills" || targetRoute.section === "workflows") && targetRoute.skillId) {
       try {
-        const detail = await api.getSkill(targetRoute.skillId);
+        const detail = await paginationApi.core(targetRoute.skillId);
         if (sequence !== loadSequence) return;
         skill.value = detail;
         await nextTick();
@@ -194,9 +195,8 @@ function handleSkillCreated(skillId: string): void {
 }
 
 function handleSkillDeleted(): void {
-  const deletedSkillId = skill.value?.skill.id;
   skill.value = null;
-  if (deletedSkillId) skills.value = skills.value.filter((item) => item.skill.id !== deletedSkillId);
+
   taskCenterOpen.value = false;
   taskCenterGroups.value = [];
   workflowDirty.value = false;
@@ -230,9 +230,10 @@ function isMissingSkillError(error: unknown): boolean {
         @tasks="openTaskCenter"
       />
       <main :class="mainClass">
-        <AdminPage v-if="route.section === 'admin'" @toast="toast = $event" />
+        <AdminPage v-if="route.section === 'admin'" :key="actor" @toast="toast = $event" />
         <SkillPage
           v-else-if="route.section === 'skills' && route.skillId && skill"
+          :key="skill.skill.id"
           :skill="skill"
           :tab="route.tab"
           :route="route"
@@ -245,6 +246,7 @@ function isMissingSkillError(error: unknown): boolean {
         />
         <WorkflowPage
           v-else-if="route.section === 'workflows' && route.skillId && skill"
+          :key="skill.skill.id"
           :skill="skill"
           @back="navigate({ section: 'skills', skillId: skill.skill.id, tab: 'workflow' })"
           @refresh="load"
@@ -263,9 +265,12 @@ function isMissingSkillError(error: unknown): boolean {
           @open-skill="openSkill"
           @toast="toast = $event"
         />
+        <section v-else-if="route.skillId && (route.section === 'skills' || route.section === 'workflows')" class="primary-panel" aria-live="polite">
+          <p>{{ loading ? '正在加载 Skill…' : 'Skill 加载失败，请重试。' }}</p>
+          <button v-if="!loading" class="secondary-button" type="button" @click="load">重试</button>
+        </section>
         <HubPage
           v-else
-          :skills="skills"
           :actor="actor"
           :loading="loading"
           :evaluations-visible="evaluationsVisible"

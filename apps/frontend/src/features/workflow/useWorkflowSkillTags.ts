@@ -1,10 +1,11 @@
+import type { SkillCore } from "../../lib/api/paginationApi";
 import { onMounted, ref, watch } from "vue";
 import { api, ApiError } from "../../lib/api";
 import { toTagPayloads } from "../../lib/skillTags";
-import type { SkillDetail, SkillTagPayload, TagGroup, ToastState } from "../../types";
+import type { SkillTagPayload, TagGroup, ToastState } from "../../types";
 
 type WorkflowSkillTagOptions = {
-  skill: () => SkillDetail;
+  skill: () => SkillCore;
   refresh: () => void;
   toast: (toast: ToastState) => void;
 };

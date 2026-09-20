@@ -29,6 +29,7 @@ from skillhub.services import (
 from skillhub.services.analytics import AnalyticsService
 from skillhub.services.command_parsing import CommandParsingService
 from skillhub.services.mcp_identity import resolve_mcp_actor
+from skillhub.services.pagination import PaginationService
 from skillhub.services.workflow_authoring import WorkflowAuthoringService
 from skillhub.services.workflow_debug_runtime import WorkflowDebugSettings
 
@@ -134,3 +135,8 @@ def run_mcp_service(
         service = WorkflowAuthoringService(SkillHubStore(session), web_base_url=web_base_url)
         result = getattr(service, operation)(**parameters)
     return result
+
+
+def pagination_service_dependency(session: Session = Depends(session_dependency, scope="function")) -> PaginationService:
+    """创建请求级分页读取服务。"""
+    return PaginationService(SkillHubStore(session))

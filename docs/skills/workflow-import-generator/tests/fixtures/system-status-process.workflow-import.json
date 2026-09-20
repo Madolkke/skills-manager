@@ -34,7 +34,9 @@
             "inputBindings": {
               "input-inspect-system-hostname": {
                 "kind": "workflow_input",
-                "reference": {"input_id": "input-hostname"}
+                "reference": {
+                  "input_id": "input-hostname"
+                }
               }
             }
           }
@@ -42,12 +44,15 @@
         "topology": [
           {
             "id": "transition-inspect-to-review",
-            "target": {"id": "conclusion-review-result"},
+            "target": {
+              "id": "conclusion-review-result"
+            },
             "conditionText": "采集完成后人工查看结果",
             "conditionExpression": ""
           }
         ],
-        "stepType": "expression"
+        "stepType": "expression",
+        "parallelBranches": false
       },
       {
         "id": "conclusion-review-result",
@@ -65,12 +70,16 @@
       "metadata": {
         "name": "检查系统状态",
         "description": "待补充执行命令和输出契约。",
-        "tags": ["placeholder", "system-status"]
+        "tags": [
+          "placeholder",
+          "system-status"
+        ]
       },
       "spec": {
         "collectionType": "cli",
         "commandTemplate": "",
-        "outputSamples": []
+        "outputSamples": [],
+        "commandParameterSyntax": "angle-v1"
       },
       "inputs": [
         {

@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import clsx from "clsx";
 import { Grid2X2, List } from "lucide-vue-next";
-import { computed, defineComponent, h, onMounted, ref } from "vue";
+import { computed, defineComponent, h, onMounted, ref, toRefs, watch } from "vue";
+import { useListFilters } from "../composables/useListFilters";
+import PaginationBar from "../components/PaginationBar.vue";
+import { usePagedQuery } from "../composables/usePagedQuery";
+import { paginationApi } from "../lib/api/paginationApi";
 import DropdownSelect from "../components/DropdownSelect.vue";
 import EmptyState from "../components/EmptyState.vue";
 import type { DropdownSelectOption } from "../components/dropdown";
@@ -10,18 +14,19 @@ import { pruneInactiveTags } from "../lib/tagCascades";
 import { tagKey } from "../lib/skillTags";
 import HubFilterPanel from "./hub/HubFilterPanel.vue";
 import HubSkillCard from "./hub/HubSkillCard.vue";
-import { contextualTagCounts, filterSkills, skillCounts, sortSkills, type FilterKey, type SortKey, type ViewMode } from "./hub/hubFilters";
-import type { SkillSummary, SkillTagPayload, TagGroup } from "../types";
+import { type FilterKey, type SortKey, type ViewMode } from "./hub/hubFilters";
+import type { SkillTagPayload, TagGroup } from "../types";
 
-const props = defineProps<{ skills: SkillSummary[]; actor: string; loading: boolean; evaluationsVisible: boolean }>();
+const props = defineProps<{ actor: string; evaluationsVisible: boolean }>();
 const emit = defineEmits<{ "open-skill": [skillId: string]; "open-workflow": [skillId: string]; create: [] }>();
 
-const query = ref("");
-const filter = ref<FilterKey>("all");
-const sortKey = ref<SortKey>("updated");
+const { query, filter, sortKey, selectedTags } = toRefs(useListFilters("hub", { query: "", filter: "all" as FilterKey, sortKey: "updated" as SortKey, selectedTags: [] as SkillTagPayload[] }, {
+  filter: value => ["all", "workflow", "verified", "untested", "mine"].includes(String(value)),
+  sortKey: value => ["updated", "score", "name"].includes(String(value)),
+  selectedTags: value => Array.isArray(value) && value.every(tag => tag && typeof tag.group_id === "string" && typeof tag.value === "string"),
+}));
 const viewMode = ref<ViewMode>("list");
 const tagGroups = ref<TagGroup[]>([]);
-const selectedTags = ref<SkillTagPayload[]>([]);
 const loadingTags = ref(false);
 const tagError = ref("");
 
@@ -31,24 +36,14 @@ const sortOptions = computed<DropdownSelectOption[]>(() => [
   { value: "name", label: "名称" },
 ]);
 
-const filtered = computed(() =>
-  filterSkills(props.skills, {
-    query: query.value,
-    filter: filter.value,
-    actor: props.actor,
-    selectedTags: selectedTags.value,
-    tagGroups: tagGroups.value,
-  }),
+const { page, pageSize, items: sorted, total, loading, error, reload, result } = usePagedQuery(
+  "hub", () => ({ query: query.value, category: filter.value, sort: sortKey.value,
+    tags: selectedTags.value, evaluations_visible: props.evaluationsVisible }),
+  (params, signal) => paginationApi.skills(params, signal),
 );
-const sorted = computed(() => sortSkills(filtered.value, sortKey.value, props.evaluationsVisible));
-const counts = computed(() => skillCounts(props.skills, props.actor));
-const tagCounts = computed(() => contextualTagCounts(props.skills, {
-  query: query.value,
-  filter: filter.value,
-  actor: props.actor,
-  selectedTags: selectedTags.value,
-  tagGroups: tagGroups.value,
-}));
+watch(() => props.actor, () => { page.value = 1; void reload(); });
+const counts = computed(() => ({ all: 0, workflow: 0, verified: 0, untested: 0, mine: 0, ...result.value?.counts }));
+const tagCounts = computed(() => result.value?.tag_counts ?? {});
 
 const FilterButton = defineComponent({
   props: {
@@ -148,14 +143,14 @@ function clearFilters(): void {
 
       <div v-if="loading" class="quiet-panel">正在加载 Skill...</div>
       <EmptyState
-        v-else-if="props.skills.length === 0"
+        v-else-if="!error && counts.all === 0"
         title="还没有 Skill"
         :description="evaluationsVisible ? '新建一个 Skill 后，可以上传版本、配置测评集、发起评审并提交发布。' : '新建一个 Skill 后，可以上传版本、发起评审并提交发布。'"
         action-label="新建 Skill"
         @action="emit('create')"
       />
       <EmptyState
-        v-else-if="sorted.length === 0"
+        v-else-if="!error && sorted.length === 0"
         title="没有匹配的 Skill"
         description="当前关键词、状态或 Tag 筛选没有命中结果，可以清除筛选后重新查看。"
         action-label="清除筛选"
@@ -172,6 +167,7 @@ function clearFilters(): void {
           @workflow="emit('open-workflow', item.skill.id)"
         />
       </TransitionGroup>
+      <PaginationBar v-model:page="page" v-model:page-size="pageSize" :total="total" :loading="loading" :error="error" @retry="reload" />
     </section>
   </div>
 </template>
