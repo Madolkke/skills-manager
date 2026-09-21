@@ -44,6 +44,48 @@ async def main():
 asyncio.run(main())
 ```
 
+## 搭配工作流创作 Skill
+
+在线创建、查询与局部编辑使用 [workflow-mcp-author](skills/workflow-mcp-author/SKILL.md)；只生成可导入文件、不能联网时使用 [workflow-import-generator](skills/workflow-import-generator/SKILL.md)。两者均只创作 CLI 采集，在线版通过 MCP 获取实时来源与函数契约，不要求安装后端 Python。
+
+在 OpenCode 的独立工作目录中，将在线 Skill 的 `SKILL.md`、`references/`、`agents/` 复制到 `.opencode/skills/workflow-mcp-author/`。使用项目级 `opencode.json` 配置 MCP，不把 Cookie 写进提示词或 Skill：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "skillhub": {
+      "type": "remote",
+      "url": "http://127.0.0.1:8003/mcp",
+      "oauth": false,
+      "headers": {"Cookie": "{env:SKILLHUB_MCP_COOKIE}"}
+    }
+  }
+}
+```
+
+地址和模型按本机实际配置填写。Cookie 通过当前进程环境提供；这里只是现有模拟身份链路，不验证 SSO。当前版本 OpenCode 可用以下命令检查发现与连接，然后发起真实 Agent 任务：
+
+```powershell
+opencode --pure debug skill
+opencode --pure mcp list
+opencode --pure run --model deepseek/deepseek-v4-pro --format json "使用 workflow-mcp-author Skill，读取 network-inspection.md，通过 SkillHub MCP 创建并校验工作流，交付网页入口和中文报告。"
+```
+
+若 CLI 不在 PATH，可使用 OpenCode 安装目录中的 `opencode-cli.exe`。`--pure` 禁用外部插件，不会自动限制工具或其他 MCP；隔离验收应额外配置专用 Agent，仅允许本 Skill、本次 MCP、工作目录内读取及 artifacts 写入，禁用其他 MCP、命令执行和外部目录访问。不使用跳过权限参数；复用现有模型认证，不输出配置或凭据全文。
+
+可使用 [模拟流程文档](skills/workflow-mcp-author/tests/fixtures/network-inspection.md) 和 [创建、编辑、草稿提示词](skills/workflow-mcp-author/tests/fixtures/prompts.md) 测试。测试者使用 [独立验收清单](skills/workflow-mcp-author/tests/acceptance.md) 核对服务端和网页；不要把清单交给被测 Agent。用唯一后缀标识测试工作流，模型调用会产生实际费用。
+
+OpenCode 1.14.33 在 Git 工作区内按 worktree 根目录的相对路径匹配文件编辑权限，不能假定以 `--dir` 为根。例如验收目录为 `.tmp/qa/artifacts/` 时，应为该路径配置写权限，并在运行前验证报告可写；不要为解决路径问题开放全局写权限。
+
+默认交付 `.workflow-mcp.review.md`、`.workflow-mcp.snapshot.json`、`.workflow-mcp.validation.json`。快照是服务器读回数据，不是 Import Bundle。完整工具调用成功也不等于设备命令执行或真实回显解析通过。
+
+仓库维护者可在后端 Python 环境中运行以下回归；这些测试验证示例契约与独立复制，不能替代真实 Agent 验收：
+
+```powershell
+apps/backend/.venv/Scripts/python.exe -m pytest -q docs/skills/workflow-mcp-author/tests docs/skills/workflow-import-generator/tests
+```
+
 ## 工具
 
 | 工具 | 用途 |

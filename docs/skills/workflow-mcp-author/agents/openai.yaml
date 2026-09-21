@@ -1,0 +1,4 @@
+interface:
+  display_name: "MCP 工作流创作"
+  short_description: "通过 SkillHub MCP 新建和局部编辑 CLI 工作流，完成预检、保存与中文审阅"
+  default_prompt: "使用 $workflow-mcp-author，根据流程说明通过已连接的 SkillHub MCP 创建或修改 CLI 工作流，校验并交付网页入口及中文审阅报告。"
